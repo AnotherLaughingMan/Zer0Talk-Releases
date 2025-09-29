@@ -54,3 +54,12 @@ Users are solely responsible for the content they transmit or receive using ZTal
 
 Any legal disputes arising from the use of ZTalk shall be governed by the laws of the jurisdiction specified in the license. The author reserves the right to enforce restrictions and pursue remedies for violations.
 
+---
+
+## 9. User Responsibility and Legal Liability
+The author of ZTalk shall not be held responsible for any unlawful, unethical, or unauthorized use of the software by third parties. Users are solely and fully liable for any actions they take using ZTalk, including but not limited to the transmission of illegal content, violation of applicable laws, or misuse of the software in prohibited contexts.
+
+The author has no access to user data, cannot monitor usage, and cannot comply with any request to produce or disclose user communications. As such, the author cannot be held accountable for the conduct of users or the consequences of their actions.
+
+---
+
