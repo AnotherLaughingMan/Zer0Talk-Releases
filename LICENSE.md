@@ -1,7 +1,7 @@
 
 ## 🛡️ ZTalk Sovereign Software License v1.0
 
-**Effective Date:** [Insert Date]  
+**Effective Date:** [9/28/2025]  
 **Author:** AnotherLaughingMan  
 **Project:** ZTalk
 
