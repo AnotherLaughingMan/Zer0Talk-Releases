@@ -83,6 +83,10 @@ tmp_*
 secret*/
 *.p2e
 
+# Sensitive encryption source
+Services/EncryptionService.cs
+Services/EncryptionService.*
+
 # OS-generated files
 .DS_Store
 Thumbs.db
@@ -96,6 +100,10 @@ Icon?
 *.nupkg
 *.snupkg
 *.symbols.nupkg
+
+# Image assets
+*.png
+*.ico
 
 # Tooling state
 **/node_modules/
