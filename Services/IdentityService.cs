@@ -78,7 +78,7 @@ namespace P2PTalk.Services
             var hash = SHA256.HashData(pub);
             var base32 = Base32Encode(hash); // uppercase A-Z2-7
             // Deterministic case-mix: use next hash bytes as a case mask for letters
-            var mask = SHA256.HashData(hash.Reverse().ToArray());
+            var mask = SHA256.HashData(hash.AsEnumerable().Reverse().ToArray());
             var chars = base32.ToCharArray();
             int maskBit = 0, maskIdx = 0;
             for (int i = 0; i < chars.Length; i++)
