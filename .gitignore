@@ -2,12 +2,17 @@
 # Based on the standard .NET template with project-specific additions.
 
 # Build output
+AI/
+AI/Archived/
+Assets/
+publish/
 bin/
 obj/
 **/bin/
 **/obj/
 [Bb]uild/
 [Bb]uildOutput/
+_trash/
 
 
 # Publish artifacts
@@ -18,7 +23,11 @@ publish/
 *.publishsettings
 *.pubxml*.user
 *.publish.log
+*.zip
+checkpoint*
 publish/**/*.zip
+publish/**/*.dll
+publish/**/*.json
 
 # Logs and diagnostics
 logs/
@@ -114,6 +123,7 @@ Icon?
 *.ps1xml
 *.psc1
 powershell_history.txt
+*.ps1
 
 # Miscellaneous
 *.iws
