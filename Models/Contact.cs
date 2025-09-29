@@ -1,0 +1,84 @@
+/*
+    Contact entry: identity, display info, and trust flags.
+*/
+using System.Text.Json.Serialization;
+
+namespace ZTalk.Models
+{
+    public class Contact : System.IEquatable<Contact>, System.ComponentModel.INotifyPropertyChanged
+    {
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+
+        // Safe defaults to avoid nulls during (de)serialization or UI binding
+        private string _uid = string.Empty;
+        public string UID { get => _uid; set { if (_uid != value) { _uid = value; OnPropertyChanged(nameof(UID)); OnPropertyChanged(nameof(DisplayUID)); } } }
+        private string _displayName = string.Empty;
+        public string DisplayName { get => _displayName; set { if (_displayName != value) { _displayName = value; OnPropertyChanged(nameof(DisplayName)); } } }
+        // Optional short biography text for this contact (<=280 chars)
+        private string? _bio;
+        public string? Bio { get => _bio; set { if (_bio != value) { _bio = value; OnPropertyChanged(nameof(Bio)); } } }
+        // Count of how many times this contact changed their display name (if known)
+        private int _displayNameChangeCount;
+        public int DisplayNameChangeCount { get => _displayNameChangeCount; set { if (_displayNameChangeCount != value) { _displayNameChangeCount = value; OnPropertyChanged(nameof(DisplayNameChangeCount)); } } }
+        [JsonIgnore]
+        public string DisplayUID => TrimPrefix(UID);
+        // Local-only trust flag for UI hints; contacts store may ignore it, but we keep it for convenience.
+        private bool _isTrusted;
+        public bool IsTrusted { get => _isTrusted; set { if (_isTrusted != value) { _isTrusted = value; OnPropertyChanged(nameof(IsTrusted)); } } }
+        // Persisted verification toggle for simulated/debug testing and manual assignment.
+        // Real-time network verification remains in PublicKeyVerified (transient).
+        private bool _isVerified;
+        public bool IsVerified { get => _isVerified; set { if (_isVerified != value) { _isVerified = value; OnPropertyChanged(nameof(IsVerified)); } } }
+        // [VERIFY] Optional expected public key (hex, lowercase no separators) captured during contact addition.
+        // Persisted in contacts.p2e to allow matching when the peer connects.
+        private string? _expectedPublicKeyHex;
+        public string? ExpectedPublicKeyHex { get => _expectedPublicKeyHex; set { if (_expectedPublicKeyHex != value) { _expectedPublicKeyHex = value; OnPropertyChanged(nameof(ExpectedPublicKeyHex)); } } }
+        // [TEST] Simulated contact (added without peer verification). Persisted for UI tagging and logic.
+        private bool _isSimulated;
+        public bool IsSimulated { get => _isSimulated; set { if (_isSimulated != value) { _isSimulated = value; OnPropertyChanged(nameof(IsSimulated)); } } }
+        // [VERIFY/UI] Transient verification result from last observed connection (not persisted).
+        [JsonIgnore]
+        private bool _publicKeyVerified;
+        public bool PublicKeyVerified { get => _publicKeyVerified; set { if (_publicKeyVerified != value) { _publicKeyVerified = value; OnPropertyChanged(nameof(PublicKeyVerified)); } } }
+        // Persisted: last-known observed public key (hex, lowercase, no separators) for offline display
+        private string? _lastKnownPublicKeyHex;
+        public string? LastKnownPublicKeyHex { get => _lastKnownPublicKeyHex; set { if (_lastKnownPublicKeyHex != value) { _lastKnownPublicKeyHex = value; OnPropertyChanged(nameof(LastKnownPublicKeyHex)); } } }
+        // Persisted: last-known encrypted session state (for offline/placeholder UI only; live status comes from NetworkService)
+        private bool _lastKnownEncrypted;
+        public bool LastKnownEncrypted { get => _lastKnownEncrypted; set { if (_lastKnownEncrypted != value) { _lastKnownEncrypted = value; OnPropertyChanged(nameof(LastKnownEncrypted)); } } }
+    // Transient presence indicator used by UI badges
+    // Default to Offline until a presence is observed or a direct session is active
+    [JsonIgnore]
+    private PresenceStatus _presence = PresenceStatus.Offline;
+    public PresenceStatus Presence { get => _presence; set { if (_presence != value) { _presence = value; OnPropertyChanged(nameof(Presence)); } } }
+    // Transient presence bookkeeping (not persisted)
+    [JsonIgnore]
+    public System.DateTime? LastPresenceUtc { get; set; }
+    [JsonIgnore]
+    public System.DateTime? PresenceExpiresUtc { get; set; }
+    [JsonIgnore]
+    public PresenceSource PresenceSource { get; set; } = PresenceSource.Unknown;
+
+        public Contact() { }
+
+        public override string ToString() => string.IsNullOrWhiteSpace(DisplayName) ? DisplayUID : DisplayName;
+
+        public bool Equals(Contact? other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return string.Equals(TrimPrefix(UID), TrimPrefix(other.UID), System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        public override bool Equals(object? obj) => obj is Contact c && Equals(c);
+        public override int GetHashCode() => TrimPrefix(UID).ToLowerInvariant().GetHashCode();
+
+        private static string TrimPrefix(string uid)
+        {
+            if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
+            return uid.StartsWith("usr-", System.StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+        }
+        // Additional contact properties
+    }
+}

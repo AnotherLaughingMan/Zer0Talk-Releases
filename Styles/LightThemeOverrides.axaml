@@ -1,0 +1,485 @@
+<!--
+  Light theme overrides (Win98 SE-inspired): medium grey surfaces with black text and soft blue accents.
+  - Replaces white backgrounds with #C0C0C0 to reduce glare.
+  - Uses #000000 for primary text for strong contrast.
+  - Soft accent blues for selection and focus to maintain readability.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <!-- App color palette: Win98-like greys with soft blue accents -->
+    <SolidColorBrush x:Key="App.Background" Color="#C0C0C0"/>
+    <!-- Lightly brightened surface for nav differentiation -->
+    <SolidColorBrush x:Key="App.Surface" Color="#C8C8C8"/>
+  <!-- Card background slightly above new surface -->
+  <SolidColorBrush x:Key="App.CardBackground" Color="#D0D0D0"/>
+  <SolidColorBrush x:Key="App.Border" Color="#808080"/>
+  <LinearGradientBrush x:Key="App.TitleBarBackground" StartPoint="0,0" EndPoint="1,0" SpreadMethod="Pad">
+    <GradientStop Offset="0" Color="#0A246A"/>
+    <GradientStop Offset="0.45" Color="#2F5DAD"/>
+    <GradientStop Offset="1" Color="#A6CAF0"/>
+  </LinearGradientBrush>
+  <!-- Input-specific border; decoupled in case inputs require a softer tone later -->
+  <SolidColorBrush x:Key="App.InputBorder" Color="#808080"/>
+    <SolidColorBrush x:Key="App.BorderDark" Color="#404040"/>
+    <SolidColorBrush x:Key="App.BorderHighlight" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="App.ForegroundPrimary" Color="#000000"/>
+    <SolidColorBrush x:Key="App.ForegroundSecondary" Color="#202020"/>
+  <!-- Success/verified color (green) used for trusted+verified shield icon -->
+  <SolidColorBrush x:Key="App.Success" Color="#2E7D32"/>
+  <!-- Text color on success surfaces -->
+  <SolidColorBrush x:Key="App.OnSuccess" Color="#FFFFFF"/>
+
+    <!-- Accents / selection -->
+  <SolidColorBrush x:Key="App.Accent" Color="#3A76D5"/>
+  <SolidColorBrush x:Key="App.AccentLight" Color="#5C90E0"/>
+  <SolidColorBrush x:Key="App.ChatSenderName" Color="#1F4EA3"/>
+  <SolidColorBrush x:Key="App.ChatReceiverName" Color="#8C4B0F"/>
+    <SolidColorBrush x:Key="App.SelectionBackground" Color="#99CCFF"/>
+    <SolidColorBrush x:Key="App.SelectionForeground" Color="#000000"/>
+  <!-- Contact list specific (light) -->
+  <SolidColorBrush x:Key="App.ContactName" Color="#303030"/>
+  <SolidColorBrush x:Key="App.ContactNameActive" Color="#000000"/>
+  <!-- Accent Color primitives (Color resources required) -->
+  <!-- Provide fallback system accent Colors so DynamicResource resolves at compile time -->
+  <Color x:Key="SystemAccentColor">#3A76D5</Color>
+  <Color x:Key="SystemAccentColor2">#5C90E0</Color>
+  <Color x:Key="SystemAccentColor3">#80AAEA</Color>
+  <Color x:Key="SystemAccentColor4">#A7C3F1</Color>
+  <!-- Accent Color alias for BoxShadow use (literal Color required) -->
+  <Color x:Key="App.AccentColor">#3A76D5</Color>
+  <!-- Semantic state colors -->
+  <SolidColorBrush x:Key="App.Error" Color="#C42B1C"/>
+  <SolidColorBrush x:Key="App.OnError" Color="#FFFFFF"/>
+  <SolidColorBrush x:Key="App.Warning" Color="#F7630C"/>
+  <SolidColorBrush x:Key="App.Info" Color="#2B88D8"/>
+  <SolidColorBrush x:Key="App.OnAccent" Color="#FFFFFF"/>
+
+    <!-- Control state fills -->
+    <SolidColorBrush x:Key="App.ButtonHover" Color="#D0D0D0"/>
+    <SolidColorBrush x:Key="App.ButtonPressed" Color="#AFAFAF"/>
+  <!-- Slightly darker than App.Surface for button contrast -->
+  <SolidColorBrush x:Key="App.ButtonBackground" Color="#B8B8B8"/>
+  <!-- Danger button colors -->
+  <SolidColorBrush x:Key="DangerButtonBackgroundColor" Color="#C0392B"/>
+  <SolidColorBrush x:Key="DangerButtonBorderColor" Color="#922B21"/>
+  <SolidColorBrush x:Key="DangerButtonForegroundColor" Color="#FFFFFF"/>
+  <!-- Logout specific (improved visibility) -->
+  <SolidColorBrush x:Key="App.LogoutForeground" Color="#5C0000"/>
+  <SolidColorBrush x:Key="App.LogoutForegroundHover" Color="#400000"/>
+  <SolidColorBrush x:Key="App.LogoutBackgroundHover" Color="#E7A5AA"/>
+  <SolidColorBrush x:Key="App.LogoutBackgroundPressed" Color="#D89297"/>
+  <SolidColorBrush x:Key="App.LogoutBackgroundSelected" Color="#E19BA0"/>
+  </Styles.Resources>
+
+  <!-- Metrics handled by NeutralMetrics; theme focuses on colors only -->
+
+  <!-- Window base styling -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+  </Style>
+
+  <Style Selector="TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+  </Style>
+
+  <Style Selector="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+
+  <!-- Inputs: rely on NeutralMetrics for metrics; keep brushes -->
+  <Style Selector="TextBox">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="CaretBrush" Value="{DynamicResource App.ForegroundPrimary}"/>
+    <Setter Property="SelectionBrush" Value="{DynamicResource App.SelectionBackground}"/>
+  </Style>
+
+  <Style Selector="TextBox /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.InputBorder}"/>
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+  <Style Selector="TextBox:pointerover /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.InputBorder}"/>
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+  <Style Selector="TextBox:focus /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.InputBorder}"/>
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+  <Style Selector="TextBox:focus-within /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.InputBorder}"/>
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+  <Style Selector="TextBox:focus-visible /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+
+  <Style Selector="TextBox.chat-input"/>
+
+  <!-- Chat input interaction states: ensure neutral fill; remove App.Surface in all states -->
+  <Style Selector="TextBox.chat-input /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+  <Style Selector="TextBox.chat-input:pointerover /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+    <!-- [INPUT-STYLING] PointerOver keeps neutral background; no surface highlight. -->
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+  <Style Selector="TextBox.chat-input:focus /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+    <!-- [INPUT-STYLING] Focus keeps neutral fill; no surface effect. -->
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+  <Style Selector="TextBox.chat-input:focus-within /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+    <!-- [INPUT-STYLING] FocusWithin neutral background. -->
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+  <Style Selector="TextBox.chat-input:focus-visible /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+    <!-- [INPUT-STYLING] FocusVisible neutral background; no App.Surface. -->
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+
+  <Style Selector="Button">
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+    <Setter Property="Background" Value="{DynamicResource App.ButtonBackground}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+
+  
+
+  <Style Selector="Button:pointerover">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonHover}"/>
+  </Style>
+
+  <Style Selector="Button:pressed">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonPressed}"/>
+  </Style>
+
+  <Style Selector="Button:focus">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+
+  <!-- Icon button helpers: consistent centering across states (light theme) -->
+  <Style Selector="Button.icon-button">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonBackground}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+  </Style>
+  <!-- Button focus-visible outline without layout shift -->
+  <Style Selector="Button:focus-visible /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  
+  <!-- Message hover action bar: fade in when the message container is hovered -->
+  <Style Selector="Border:pointerover > Grid > Border > StackPanel.hover-bar">
+    <Setter Property="Opacity" Value="1"/>
+  </Style>
+  
+
+  <!-- Vector icon (Segoe MDL2 Assets) for theme-adaptive monochrome icons -->
+  <Style Selector="TextBlock.icon-mdl2">
+    <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="TextAlignment" Value="Center"/>
+  <Setter Property="Margin" Value="1"/>
+  <!-- Explicitly apply theme foreground to avoid invisible icons if inheritance breaks -->
+  <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+  </Style>
+
+  <!-- Lists -->
+  <Style Selector="ListBox">
+    <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+
+  <Style Selector="ListBoxItem">
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+  </Style>
+  <!-- Subtle highlight colors for list items (light theme) -->
+  <Styles.Resources>
+    <SolidColorBrush x:Key="App.ItemHover" Color="#D6D6D6"/>
+    <SolidColorBrush x:Key="App.ItemSelected" Color="#D0D0D0"/>
+  </Styles.Resources>
+
+  <Style Selector="ListBoxItem:selected">
+    <Setter Property="Background" Value="{DynamicResource App.SelectionBackground}"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.SelectionForeground}"/>
+  </Style>
+
+  <!-- Contact card visuals: thin 1px outline; prevent double borders from ListBoxItem container -->
+  <Style Selector="#ContactsList ListBoxItem /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:pointerover /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:selected /template/ Border" x:SetterTargetType="Border">
+  <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <!-- Card itself: 1px outline; lighten border on hover, accent on selection -->
+  <Style Selector="#ContactsList ListBoxItem" x:SetterTargetType="ListBoxItem">
+    <Setter Property="FocusAdorner" Value="{x:Null}"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem .contact-card" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:pointerover .contact-card" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
+    <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:selected .contact-card" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+    <Setter Property="Background" Value="{DynamicResource App.ItemSelected}"/>
+  </Style>
+
+  <!-- Explicitly clear any selected/focus backgrounds for ContactsList to avoid OS accent bleed -->
+  <Style Selector="#ContactsList ListBoxItem:selected" x:SetterTargetType="ListBoxItem">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:focus" x:SetterTargetType="ListBoxItem">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:selected:focus" x:SetterTargetType="ListBoxItem">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:focus-within" x:SetterTargetType="ListBoxItem">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+
+  <!-- ScrollViewer backgrounds -->
+  <Style Selector="ScrollViewer">
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+
+  <!-- Selectors: ComboBox -->
+  <Style Selector="ComboBox">
+    <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+
+  <Style Selector="ComboBoxItem:selected">
+    <Setter Property="Background" Value="{DynamicResource App.SelectionBackground}"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.SelectionForeground}"/>
+  </Style>
+
+  <!-- Tabs -->
+  <Style Selector="TabControl">
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+  </Style>
+
+  <Style Selector="TabItem">
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+
+  <Style Selector="TabItem:selected">
+  <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.BorderDark}"/>
+  </Style>
+
+  <Style Selector="TabItem:pointerover">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonHover}"/>
+  </Style>
+  <!-- Selected indicator: 2px bottom bar accent -->
+  <Style Selector="TabItem:selected /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+
+  <!-- Boolean controls -->
+  <Style Selector="CheckBox">
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+    <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+
+  <!-- Menus: hover/pressed/selected via app resources -->
+  <Style Selector="Menu">
+    <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+  <Style Selector="MenuItem">
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="MenuItem:pointerover">
+    <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+  </Style>
+  <Style Selector="MenuItem:pressed">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonPressed}"/>
+  </Style>
+  <Style Selector="MenuItem:selected">
+    <Setter Property="Background" Value="{DynamicResource App.SelectionBackground}"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.SelectionForeground}"/>
+  </Style>
+
+  <!-- ComboBox hover/pressed (popup items already styled) -->
+  <Style Selector="ComboBox:pointerover">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonHover}"/>
+  </Style>
+  <Style Selector="ComboBox:pressed">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonPressed}"/>
+  </Style>
+
+  <Style Selector="CheckBox:focus">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+
+  <Style Selector="RadioButton">
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+    <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+
+  <Style Selector="RadioButton:focus">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  
+  <!-- ToggleSwitch (slider replacement) -->
+  <Style Selector="ToggleSwitch">
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+  </Style>
+  <!-- Track (off) -->
+  <Style Selector="ToggleSwitch /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonBackground}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+  <!-- Track (checked) -->
+  <Style Selector="ToggleSwitch:checked /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.Accent}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  <!-- Thumb (off) -->
+  <Style Selector="ToggleSwitch /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+  <!-- Thumb (checked) -->
+  <Style Selector="ToggleSwitch:checked /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.SelectionForeground}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  <!-- ToggleSwitch interaction states (explicit hover/pressed) -->
+  <!-- Track OFF -->
+  <Style Selector="ToggleSwitch:pointerover /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonHover}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pressed /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonPressed}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+  <!-- Track ON -->
+  <Style Selector="ToggleSwitch:pointerover:checked /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.AccentLight}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pressed:checked /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.Accent}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  <!-- Thumb OFF -->
+  <Style Selector="ToggleSwitch:pointerover /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonHover}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pressed /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonPressed}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+  <!-- Thumb ON -->
+  <Style Selector="ToggleSwitch:pointerover:checked /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.SelectionForeground}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pressed:checked /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.SelectionForeground}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  <Style Selector="ToggleSwitch:checked /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.Accent}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  <Style Selector="ToggleSwitch:checked /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="#FFFFFF"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pointerover /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="#D0D0D0"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pointerover:checked /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.AccentLight}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pointerover /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="#D0D0D0"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pointerover:checked /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="#FFFFFF"/>
+    <Setter Property="Canvas.Left" Value="25"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pressed /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="#AFAFAF"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pressed:checked /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pressed /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="#AFAFAF"/>
+  </Style>
+  <Style Selector="ToggleSwitch:pressed:checked /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="#FFFFFF"/>
+    <Setter Property="Canvas.Left" Value="25"/>
+  </Style>
+  <Style Selector="ToggleSwitch:disabled">
+    <Setter Property="Opacity" Value="0.45"/>
+  </Style>
+  <!-- Explicitly clear any selected/focus backgrounds for ContactsList to avoid OS accent bleed -->
+  <Style Selector="#ContactsList ListBoxItem:selected" x:SetterTargetType="ListBoxItem">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:focus" x:SetterTargetType="ListBoxItem">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:selected:focus" x:SetterTargetType="ListBoxItem">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:focus-within" x:SetterTargetType="ListBoxItem">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <!-- Logout menu item styling for contrast (uses dedicated brushes) -->
+  <Style Selector="ListBox#MenuList > ListBoxItem[Tag=logout]">
+    <Setter Property="Foreground" Value="{DynamicResource App.LogoutForeground}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="ListBox#MenuList > ListBoxItem[Tag=logout]:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource App.LogoutForegroundHover}"/>
+    <Setter Property="Background" Value="{DynamicResource App.LogoutBackgroundHover}"/>
+  </Style>
+  <Style Selector="ListBox#MenuList > ListBoxItem[Tag=logout]:pressed">
+    <Setter Property="Foreground" Value="{DynamicResource App.LogoutForegroundHover}"/>
+    <Setter Property="Background" Value="{DynamicResource App.LogoutBackgroundPressed}"/>
+  </Style>
+  <Style Selector="ListBox#MenuList > ListBoxItem[Tag=logout]:selected">
+    <Setter Property="Foreground" Value="{DynamicResource App.LogoutForegroundHover}"/>
+    <Setter Property="Background" Value="{DynamicResource App.LogoutBackgroundSelected}"/>
+  </Style>
+</Styles>

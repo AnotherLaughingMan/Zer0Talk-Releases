@@ -1,0 +1,2214 @@
+/*
+    Networking core: ECDH P-256 handshake, HKDF key derivation, AEAD transport frames.
+    - Integrates NAT traversal and peer management.
+*/
+/*
+    Core networking: sockets, handshake (ECDH P-256 + HKDF-SHA256), and encrypted transport frames (AEAD).
+    - Integrates with NatTraversalService and PeerManager.
+*/
+using System;
+using System.Buffers.Binary;
+using System.Collections.Concurrent;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+using P2PTalk.Utilities;
+using ZTalk.Models;
+using Models = ZTalk.Models;
+
+namespace P2PTalk.Services
+{
+    public class NetworkService : IDisposable
+    {
+        private TcpListener? _listener;
+        private CancellationTokenSource? _cts;
+        private readonly IdentityService _identity;
+        private readonly NatTraversalService _nat;
+        private readonly ConcurrentDictionary<string, TcpClient> _peers = new();
+        private readonly ConcurrentDictionary<int, PortTraffic> _traffic = new();
+        private UdpClient? _udp;
+        private Task? _udpTask;
+    private readonly ConcurrentDictionary<string, Utilities.AeadTransport> _sessions = new(StringComparer.OrdinalIgnoreCase);
+    // Track peer's ephemeral ECDH public key (DER SPKI) per transport to verify identity binding
+    private readonly ConcurrentDictionary<Utilities.AeadTransport, byte[]> _handshakePeerKeys = new();
+    // Tracks expected peer UID for outbound connections until handshake completes (keyed by remote endpoint string)
+    private readonly ConcurrentDictionary<string, string> _pendingOutboundExpectations = new(StringComparer.OrdinalIgnoreCase);
+    // Track remote endpoint string for a given transport so we can attribute identity binding/rotation correctly.
+    private readonly ConcurrentDictionary<Utilities.AeadTransport, string> _transportEndpoints = new();
+        private readonly NetworkDiagnostics _diag = new();
+        public NetworkDiagnostics.Snapshot GetDiagnosticsSnapshot() => _diag.GetSnapshot();
+    // Track last derived UID per remote endpoint to detect rotating identities
+    private readonly ConcurrentDictionary<string, string> _endpointLastUid = new(StringComparer.OrdinalIgnoreCase);
+    // Presence liveness tracking
+    private readonly ConcurrentDictionary<string, DateTime> _presenceLastSeenUtc = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTime> _presenceLastSentUtc = new(StringComparer.OrdinalIgnoreCase);
+    private System.Threading.Timer? _presenceTimeoutTimer;
+    private static readonly TimeSpan PresenceTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan PresenceSweepInterval = TimeSpan.FromSeconds(5);
+
+    // [AUTO-CONNECT] Throttled sweep to proactively establish sessions without user action
+    private readonly ConcurrentDictionary<string, DateTime> _autoConnLastAttempt = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan AutoConnectBackoff = TimeSpan.FromSeconds(15);
+    private volatile int _autoConnSweepRunning;
+
+    // Avatar receive throttling (avoid network/disk churn)
+    private readonly ConcurrentDictionary<string, DateTime> _avatarLastAcceptedUtc = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, string> _avatarLastSignature = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentQueue<DateTime> _avatarGlobalAccepts = new();
+    private static readonly TimeSpan AvatarMinIntervalPerPeer = TimeSpan.FromSeconds(30);
+    private static readonly int AvatarMaxBytes = 256 * 1024; // 256 KB
+    private static readonly TimeSpan AvatarGlobalWindow = TimeSpan.FromSeconds(10);
+    private static readonly int AvatarGlobalMaxPerWindow = 5; // max avatars accepted across all peers per window
+    // Inbound payload caps (defensive limits)
+    private const int MaxChatBytes = 16 * 1024; // 16 KB per message
+    private const int MaxDisplayNameBytes = 128; // reasonable UI cap for display names
+    private const int MaxPresenceToken = 8; // 'on','idle','dnd','inv'
+    private const int MaxBioBytes = 512; // max UTF-8 bytes for bio payload
+
+        // Discovery behavior toggle for regression guard
+        public enum DiscoveryMode { Normal, BroadcastOnly }
+        public DiscoveryMode DiscoveryBehavior { get; set; } = DiscoveryMode.Normal;
+        // Apply discovery behavior changes in-place without restarting TCP listener
+        public void ApplyDiscoveryBehavior(DiscoveryMode mode)
+        {
+            try
+            {
+                if (DiscoveryBehavior == mode) return;
+                DiscoveryBehavior = mode;
+                // Toggle multicast membership in-place if UDP discovery is active
+                var udp = _udp;
+                if (udp != null)
+                {
+                    try
+                    {
+                        if (mode == DiscoveryMode.Normal)
+                        {
+                            try { udp.JoinMulticastGroup(MulticastGroup); Logger.Log($"UDP multicast joined {MulticastGroup}"); } catch (Exception ex) { Logger.Log($"UDP multicast join failed: {ex.Message}"); }
+                        }
+                        else
+                        {
+                            try { udp.DropMulticastGroup(MulticastGroup); Logger.Log($"UDP multicast dropped {MulticastGroup}"); } catch (Exception ex) { Logger.Log($"UDP multicast drop failed: {ex.Message}"); }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+
+        // [DISCOVERY] LAN discovery constants (fixed UDP port + multicast group)
+        // Using a well-known local multicast group and a fixed UDP discovery port ensures
+        // all peers can hear each other regardless of their individual TCP listening ports.
+        private const int DiscoveryPort = 38384; // LAN discovery UDP port (does not expose chat port)
+        private static readonly IPAddress MulticastGroup = IPAddress.Parse("239.255.42.42"); // Organization-local multicast
+
+        public bool IsListening { get; private set; }
+        public int? ListeningPort { get; private set; }
+        public int? LastAutoClientPort { get; private set; }
+        public IPAddress PreferredBindAddress { get; private set; } = IPAddress.Any;
+        // For UI/monitor only
+        public IPAddress UdpBoundAddress { get; private set; } = IPAddress.Any;
+        public int? UdpBoundPort { get; private set; }
+
+        public event Action<string>? WarningRaised;
+        public event Action<bool, int?>? ListeningChanged; // (isListening, port)
+                                                           // (success, peerOrEndpoint, reason) — peerOrEndpoint is UID on success, remote endpoint string on failure
+        public event Action<bool, string, string?>? HandshakeCompleted;
+    // Raised when a signed chat message is received: (peerUid, messageId, content)
+    public event Action<string, Guid, string>? ChatMessageReceived;
+    public event Action<string, Guid, string>? ChatMessageEdited; // (peerUid, messageId, newContent)
+    public event Action<string, Guid>? ChatMessageDeleted; // (peerUid, messageId)
+    public event Action<string, Guid>? ChatMessageReceivedAcked; // (peerUid, messageId)
+    public event Action<string, Guid>? ChatMessageEditAcked; // (peerUid, messageId)
+    public event Action<string, Guid>? ChatMessageDeleteAcked; // (peerUid, messageId)
+    public event Action<string, Guid>? ChatMessageReadAcked; // (peerUid, messageId)
+    // Raised when presence is received from a peer (uid, status)
+    public event Action<string, string>? PresenceReceived;
+
+        public NetworkService(IdentityService identity, NatTraversalService nat)
+        {
+            _identity = identity;
+            _nat = nat;
+        }
+
+        // Port readiness / firewall warmup gating
+        private DateTime _portReadyAfterUtc = DateTime.MinValue;
+        private volatile bool _portReady;
+        private readonly object _readyGate = new();
+        public bool IsPortReady => _portReady;
+        private const int FirewallWarmupSeconds = 6; // allow time for firewall prompt/allow & UPnP verification
+
+        private async Task WaitForPortReadyAsync(CancellationToken ct)
+        {
+            // If already ready or not listening just return
+            if (_portReady || !IsListening) return;
+            try
+            {
+                var start = DateTime.UtcNow;
+                while (!_portReady && !ct.IsCancellationRequested)
+                {
+                    if (DateTime.UtcNow >= _portReadyAfterUtc) _portReady = true; // time based readiness
+                    // Early readiness if mapping succeeded (major node) or we are a peer (no mapping needed)
+                    if (!_majorNodeActive) _portReady = true;
+                    else if (_nat.MappedTcpPort == ListeningPort && _nat.ExternalIPAddress != null) _portReady = true;
+                    if (_portReady) break;
+                    if ((DateTime.UtcNow - start) > TimeSpan.FromSeconds(20)) { _portReady = true; break; } // hard ceiling
+                    await Task.Delay(250, ct);
+                }
+            }
+            catch { }
+        }
+
+    // Delay outbound/handshake attempts slightly after readiness (firewall UX) to reduce early failures.
+    private static readonly TimeSpan OutboundConnectDelay = TimeSpan.FromSeconds(3);
+    private DateTime _readyMarkedUtc;
+
+        private bool _majorNodeActive;
+        // [DISCOVERY] Major Node now only influences WAN reachability (UPnP/NAT) and logging; LAN discovery works regardless.
+        public void StartIfMajorNode(int port, bool majorNode)
+        {
+            // Global kill-switch for diagnostics mode: no binds, no UDP, no UPnP.
+            if (P2PTalk.Utilities.RuntimeFlags.SafeMode)
+            {
+                try { Logger.Log("NetworkService.StartIfMajorNode suppressed due to SafeMode"); } catch { }
+                return;
+            }
+            // Idempotent and delta-based behavior:
+            // - If already listening on the desired port and only MajorNode changed, adjust NAT without restart.
+            // - If already listening on matching config, no-op.
+            // - If port must change or not listening, (re)start and map if needed.
+
+            var desiredPort = port;
+            var currentlyListening = IsListening;
+            var currentPort = ListeningPort;
+
+            // Case 1: Already listening and port matches desired (or desired <= 0 meaning auto-any), only MajorNode state differs
+            if (currentlyListening && ((desiredPort <= 0 && currentPort.HasValue) || (desiredPort > 0 && currentPort == desiredPort)))
+            {
+                if (_majorNodeActive != majorNode)
+                {
+                    _majorNodeActive = majorNode;
+                    if (majorNode)
+                    {
+                        // Enable mapping without restarting listener
+                        _ = Task.Run(async () => { try { await _nat.TryMapPortsAsync(currentPort ?? 0, currentPort ?? 0); } catch { } });
+                        Logger.Log("Major Node enabled: attempting UPnP mapping without restart");
+                    }
+                    else
+                    {
+                        // Disable mapping without stopping listener
+                        try { _ = _nat.UnmapAsync(); } catch { }
+                        Logger.Log("Major Node disabled: UPnP unmapped without restart");
+                    }
+                }
+                return; // No restart necessary
+            }
+
+            // Case 2: Already listening and config is effectively identical
+            if (currentlyListening && _majorNodeActive == majorNode && ((desiredPort <= 0 && currentPort.HasValue) || currentPort == desiredPort))
+            {
+                return; // No changes needed
+            }
+
+            // Otherwise: (re)start listener
+            Stop();
+            _cts = new CancellationTokenSource();
+            var when = DateTime.UtcNow.ToString("o");
+            var uid = _identity.UID;
+            int boundPort = 0;
+            // [PORT] Prefer a stable default for non-major peers to avoid random port churn.
+            // If MajorNode is off and no explicit port is set, prefer 26264; fall back to requested or ephemeral.
+            const int PreferredPeerPort = 26264;
+            var requestedPort = port;
+            if (!majorNode && requestedPort <= 0) requestedPort = PreferredPeerPort;
+            if (requestedPort > 0)
+            {
+                try
+                {
+                    var bindIp = SelectPreferredBindAddress();
+                    PreferredBindAddress = bindIp;
+                    Logger.Log($"[{when}] Attempting bind on {bindIp}:{requestedPort} (requested). UID={uid}");
+                    _listener = new TcpListener(bindIp, requestedPort);
+                    _listener.Start();
+                    boundPort = ((IPEndPoint)_listener.LocalEndpoint).Port;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"[{when}] Bind failed on requested port {requestedPort}: {ex.Message}. Falling back to auto-negotiation.");
+                    if (!majorNode && requestedPort == PreferredPeerPort)
+                    {
+                        // Notify UI that the preferred port is busy so the user can override in Network settings.
+                        WarningRaised?.Invoke($"Preferred port {PreferredPeerPort} is in use. Using a temporary port. You can adjust this in Network settings.");
+                    }
+                }
+            }
+            if (boundPort == 0)
+            {
+                var bindIp = SelectPreferredBindAddress();
+                PreferredBindAddress = bindIp;
+                boundPort = TryBindEphemeral(bindIp, out _listener);
+                if (boundPort == 0)
+                {
+                    Logger.Log($"[{when}] ERROR: Could not bind to any port in 49152-65535. UID={uid}");
+                    IsListening = false; ListeningPort = null;
+                    WarningRaised?.Invoke("Failed to bind to any local port. Try a different port or enable auto-negotiation.");
+                    return;
+                }
+                Logger.Log($"[{DateTime.UtcNow:o}] Auto-negotiated port {boundPort}. UID={uid}");
+                if (!majorNode && requestedPort == PreferredPeerPort)
+                {
+                    WarningRaised?.Invoke($"Using temporary port {boundPort}. Preferred {PreferredPeerPort} was unavailable.");
+                }
+            }
+            ListeningPort = boundPort;
+            var boundAddr = (_listener?.LocalEndpoint as IPEndPoint)?.Address ?? IPAddress.Any;
+            if (majorNode)
+            {
+                Logger.Log($"Listening on {boundAddr}:{boundPort} (Major Node mode)");
+                WarningRaised?.Invoke("If Windows Firewall prompts, allow P2PTalk for inbound connections on the chosen port.");
+                _ = Task.Run(async () => { try { await _nat.TryMapPortsAsync(boundPort, boundPort); } catch { } });
+                try { _nat.ConfigureDesiredPorts(boundPort, boundPort); _nat.EnableAutoMapping(true, forceKick: true); } catch { }
+            }
+            else
+            {
+                Logger.Log($"Listening on {boundAddr}:{boundPort} (Peer mode; Major Node disabled)");
+                // Even when not a major node, keep trying to obtain a mapping opportunistically to improve reachability
+                try { _nat.ConfigureDesiredPorts(boundPort, boundPort); _nat.EnableAutoMapping(true, forceKick: true); } catch { }
+            }
+            _ = AcceptLoop(_cts.Token);
+            IsListening = true;
+            _majorNodeActive = majorNode;
+            try { P2PTalk.Services.AppServices.Events.RaiseNetworkListeningChanged(true, ListeningPort); } catch { }
+            try { ListeningChanged?.Invoke(true, ListeningPort); } catch { }
+            // [DISCOVERY] Always start LAN discovery; advertising is no longer gated by Major Node.
+            StartLanDiscovery(boundPort);
+            _portReady = false;
+            _portReadyAfterUtc = DateTime.UtcNow + TimeSpan.FromSeconds(FirewallWarmupSeconds);
+            // Fire and forget warmup task (no await needed)
+            _ = Task.Run(async () => {
+                try
+                {
+                    await WaitForPortReadyAsync(CancellationToken.None);
+                    _readyMarkedUtc = DateTime.UtcNow;
+                    Logger.Log("NetworkService: port readiness gating complete");
+                    // Prompt a NAT verification pass (includes hairpin test when possible)
+                    try { await _nat.RetryVerificationAsync(); } catch { }
+                }
+                catch { }
+            });
+
+            // Start presence liveness timer
+            try { _presenceTimeoutTimer?.Change(Timeout.Infinite, Timeout.Infinite); _presenceTimeoutTimer?.Dispose(); } catch { }
+            _presenceTimeoutTimer = new System.Threading.Timer(_ => { try { SweepPresenceTimeouts(); } catch { } }, null, PresenceSweepInterval, PresenceSweepInterval);
+        }
+
+        public void Stop()
+        {
+            // Best-effort: announce going invisible before tearing down sessions (force-send 'inv')
+            try
+            {
+                var payload = System.Text.Encoding.UTF8.GetBytes("inv");
+                var frame = new byte[2 + payload.Length];
+                frame[0] = 0xD0; frame[1] = (byte)payload.Length; Buffer.BlockCopy(payload, 0, frame, 2, payload.Length);
+                var peers = _sessions.Keys.ToArray();
+                foreach (var uid in peers)
+                {
+                    _ = TrySendEncryptedAsync(uid, frame, CancellationToken.None);
+                }
+                try { SafeNetLog($"shutdown announce-inv | peers={peers.Length}"); } catch { }
+            }
+            catch { }
+            try { _cts?.Cancel(); } catch { }
+            try { _listener?.Stop(); } catch { }
+            try { _udp?.Close(); } catch { }
+            try { _ = _nat.UnmapAsync(); } catch { }
+            try { _presenceTimeoutTimer?.Change(Timeout.Infinite, Timeout.Infinite); _presenceTimeoutTimer?.Dispose(); } catch { }
+            _udp = null; _udpTask = null;
+            _cts = null; _listener = null; IsListening = false; ListeningPort = null;
+            UdpBoundPort = null; UdpBoundAddress = IPAddress.Any;
+            try { P2PTalk.Services.AppServices.Events.RaiseNetworkListeningChanged(false, null); } catch { }
+            try { ListeningChanged?.Invoke(false, null); } catch { }
+        }
+
+        private async Task AcceptLoop(CancellationToken ct)
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                TcpClient? client = null;
+                try
+                {
+                    if (_listener == null) { await Task.Delay(100, ct); continue; }
+                    client = await _listener.AcceptTcpClientAsync(ct);
+                    try { _diag.IncAccepted(); } catch { }
+                    try { ApplySocketOptions(client.Client); } catch { }
+                    Logger.Log($"Accepted from {(client.Client.RemoteEndPoint as IPEndPoint)?.ToString()}");
+                    _ = HandleClient(client, false, ct);
+                }
+                catch (OperationCanceledException) { }
+                catch (Exception ex) { Logger.Log($"Accept error: {ex.Message}"); client?.Close(); }
+            }
+        }
+
+        public async Task<TcpClient?> ConnectWithNatFallbackAsync(string hostOrIp, int port, CancellationToken ct)
+        {
+            try
+            {
+                await WaitForPortReadyAsync(ct);
+                // Enforce outbound delay to allow firewall prompt acceptance
+                if (_readyMarkedUtc != DateTime.MinValue)
+                {
+                    var since = DateTime.UtcNow - _readyMarkedUtc;
+                    if (since < OutboundConnectDelay)
+                    {
+                        var remaining = OutboundConnectDelay - since;
+                        if (remaining > TimeSpan.Zero)
+                        {
+                            try { await Task.Delay(remaining, ct); } catch { }
+                        }
+                    }
+                }
+                return await ConnectAsync(hostOrIp, port, ct);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Direct TCP connect failed: {ex.Message}");
+            }
+            // If we are unmapped and have desired ports configured, opportunistically attempt a fast UPnP try before punching
+            try
+            {
+                if (!_nat.MappedTcpPort.HasValue && ListeningPort is int lp && lp > 0)
+                {
+                    _nat.ConfigureDesiredPorts(lp, lp);
+                    // Fire-and-forget quick attempt (do not block dialing for long)
+                    _ = Task.Run(async () =>
+                    {
+                        try { await _nat.TryMapPortsAsync(lp, lp).ConfigureAwait(false); } catch { }
+                    }, CancellationToken.None);
+                }
+            }
+            catch { }
+            try
+            {
+                if (IPAddress.TryParse(hostOrIp, out var ip))
+                {
+                    // [B] Choose a sensible local UDP bind port for punching: prefer mapped UDP, then the discovery UDP port, else ephemeral (0).
+                    int localUdp = _nat.MappedUdpPort ?? (UdpBoundPort ?? 0);
+                    var ok = await _nat.TryUdpHolePunchAsync(new IPEndPoint(ip, port), localUdp, ct);
+                    if (ok)
+                    {
+                        return await ConnectAsync(hostOrIp, port, ct);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"NAT fallback error: {ex.Message}");
+            }
+            return null;
+        }
+
+        // Connect to a peer with direct -> NAT punch -> relay fallback sequence.
+        // On success, returns true once an encrypted session is established and registered in _sessions.
+        public async Task<bool> ConnectWithRelayFallbackAsync(string peerUid, string hostOrIp, int port, CancellationToken ct)
+        {
+            // First try the existing direct/NAT path
+            try
+            {
+                var expectedKey = Trim(peerUid);
+                var beforeKeys = _sessions.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var client = await ConnectWithNatFallbackAsync(hostOrIp, port, ct);
+                if (client != null)
+                {
+                    try
+                    {
+                        var ep = client.Client.RemoteEndPoint?.ToString();
+                        if (!string.IsNullOrEmpty(ep)) _pendingOutboundExpectations[ep] = expectedKey;
+                    }
+                    catch { }
+                    // Wait for handshake to register expected session or detect mismatch
+                    var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(6);
+                    bool reportedMismatch = false;
+                    while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+                    {
+                        if (_sessions.ContainsKey(expectedKey))
+                        {
+                            SafeNetLog($"connect direct/nat success | peer={peerUid} | endpoint={hostOrIp}:{port}");
+                            return true;
+                        }
+                        // Look for any new keys not in beforeKeys; if present and not expected -> mismatch
+                        var newKeys = _sessions.Keys.Where(k => !beforeKeys.Contains(k)).ToList();
+                        if (newKeys.Count > 0 && !newKeys.Contains(expectedKey, StringComparer.OrdinalIgnoreCase))
+                        {
+                            SafeNetLog($"connect direct uid-mismatch | peer={peerUid} | got={string.Join(',', newKeys)}");
+                            Logger.Log($"Direct/NAT handshake UID mismatch: expected={peerUid} got={string.Join(',', newKeys)}");
+                            try { AppServices.Events.RaiseFirewallPrompt($"Peer identity mismatch: expected {expectedKey}, got {string.Join(',', newKeys)} from {hostOrIp}:{port}. Your contact may be stale."); } catch { }
+                            reportedMismatch = true;
+                            break;
+                        }
+                        try { await Task.Delay(75, ct); } catch { }
+                    }
+                    if (!reportedMismatch)
+                    {
+                        SafeNetLog($"connect direct timeout-wait-session | peer={peerUid}");
+                        Logger.Log($"Direct connect: timeout waiting for session {expectedKey}");
+                    }
+                    return false;
+                }
+            }
+            catch { }
+
+            // Quick second attempt in case auto-mapping succeeded moments later
+            try
+            {
+                await Task.Delay(400, ct);
+                var client2 = await ConnectWithNatFallbackAsync(hostOrIp, port, ct);
+                if (client2 != null)
+                {
+                    try
+                    {
+                        var ep2 = client2.Client.RemoteEndPoint?.ToString();
+                        if (!string.IsNullOrEmpty(ep2)) _pendingOutboundExpectations[ep2] = Trim(peerUid);
+                    }
+                    catch { }
+                    var okSession = await WaitForEncryptedSessionAsync(Trim(peerUid), TimeSpan.FromSeconds(4), ct);
+                    if (okSession) { SafeNetLog($"connect direct retry success | peer={peerUid}"); return true; }
+                }
+            }
+            catch { }
+
+            // If disabled or no server configured, stop here
+            var s = AppServices.Settings.Settings;
+            if (!s.RelayFallbackEnabled || string.IsNullOrWhiteSpace(s.RelayServer))
+            {
+                SafeNetLog($"connect relay skipped | peer={peerUid} | reason={(s.RelayFallbackEnabled ? "no-server" : "disabled")}");
+                return false;
+            }
+
+            // Parse relay server as host:port
+            string relayHost = s.RelayServer!; int relayPort = 0;
+            var idx = relayHost.LastIndexOf(':');
+            if (idx > 0 && idx < relayHost.Length - 1)
+            {
+                var span = relayHost.AsSpan();
+                if (int.TryParse(span[(idx + 1)..], out var rp)) { relayPort = rp; relayHost = span[..idx].ToString(); }
+            }
+            if (relayPort <= 0) relayPort = 443; // sensible default
+
+            try
+            {
+                var relayClient = await _nat.TryRelayAsync(relayHost, relayPort, Trim(peerUid), ct);
+                if (relayClient == null) { SafeNetLog($"connect relay fail | peer={peerUid} | server={s.RelayServer}"); return false; }
+                var relayStream = relayClient.GetStream();
+
+                using var dh = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+                var pub = dh.PublicKey.ExportSubjectPublicKeyInfo();
+                await WriteFrame(relayStream, pub, ct);
+                byte[] peerPub;
+                try
+                {
+                    using var hcts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    hcts.CancelAfter(TimeSpan.FromSeconds(5));
+                    var (ok, payload, expected, actual, reason) = await TryReadHandshakeFrame(relayStream, hcts.Token);
+                    if (!ok || payload == null)
+                    {
+                        Logger.Log($"Relay handshake read error: {reason} (got {actual} / expected {expected} bytes)");
+                        try { _diag.IncHandshakeFail(reason); } catch { }
+                        SafeNetLog($"connect relay handshake-fail | peer={peerUid} | reason={reason}");
+                        return false;
+                    }
+                    peerPub = payload;
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.Log("Relay handshake read error: timeout");
+                    try { _diag.IncHandshakeFail("timeout"); } catch { }
+                    SafeNetLog($"connect relay handshake-timeout | peer={peerUid}");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Relay handshake read error: {ex.Message}");
+                    try { _diag.IncHandshakeFail(ex.Message); } catch { }
+                    SafeNetLog($"connect relay handshake-ex | peer={peerUid} | {ex.Message}");
+                    return false;
+                }
+
+                using var peerKey = ECDiffieHellman.Create();
+                peerKey.ImportSubjectPublicKeyInfo(peerPub, out _);
+                var derivedUid = IdentityService.ComputeUidFromPublicKey(peerPub);
+                if (!string.Equals(Trim(peerUid), Trim(derivedUid), StringComparison.OrdinalIgnoreCase))
+                {
+                    Logger.Log($"Relay handshake UID mismatch: claimed={peerUid} derived={derivedUid}");
+                    try { _diag.IncHandshakeFail("uid-mismatch"); } catch { }
+                    SafeNetLog($"connect relay uid-mismatch | peer={peerUid} | derived={derivedUid}");
+                    return false;
+                }
+
+                var secret = dh.DeriveKeyMaterial(peerKey.PublicKey);
+                var info = Encoding.UTF8.GetBytes("p2ptalk-session");
+                var prk = Hkdf.DeriveKey(secret, salt: Array.Empty<byte>(), info: info, length: 32 + 32 + 16 + 16);
+                CryptographicOperations.ZeroMemory(secret);
+                var txKey = new byte[32]; var rxKey = new byte[32]; var txBase = new byte[16]; var rxBase = new byte[16];
+                // Over relay, we are the initiator
+                Buffer.BlockCopy(prk, 0, txKey, 0, 32); Buffer.BlockCopy(prk, 32, rxKey, 0, 32);
+                Buffer.BlockCopy(prk, 64, txBase, 0, 16); Buffer.BlockCopy(prk, 80, rxBase, 0, 16);
+                var transport = new Utilities.AeadTransport(relayStream, txKey, rxKey, txBase, rxBase);
+                try { _handshakePeerKeys[transport] = peerPub; } catch { }
+
+                var normUid = Trim(peerUid);
+                _sessions[normUid] = transport;
+                try
+                {
+                    Logger.Log($"[sess] add | mode=relay | peer={normUid} | total={_sessions.Count} | ts={DateTime.UtcNow:o}");
+                    SafeNetLog($"session add relay | key={normUid} | total={_sessions.Count}");
+                }
+                catch { }
+                try { AppServices.Peers.SetObservedPublicKey(Trim(peerUid), peerPub); } catch { }
+                try { _diag.IncHandshakeOk(); _diag.IncSessionsActive(); } catch { }
+                try { HandshakeCompleted?.Invoke(true, Trim(peerUid), null); } catch { }
+                try { P2PTalk.Services.AppServices.Contacts.SetLastKnownEncrypted(Trim(peerUid), true, P2PTalk.Services.AppServices.Passphrase); } catch { }
+                SafeNetLog($"connect relay success | peer={peerUid} | server={s.RelayServer}");
+
+                // Announce our identity to bind session to our Ed25519 key
+                _ = SendIdentityAnnounceAsync(transport, pub, ct);
+
+                // Kick off reader loop similar to HandleClient but minimal to avoid code duplication
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        while (!ct.IsCancellationRequested)
+                        {
+                            var data = await transport.ReadAsync(ct);
+                            if (data.Length > 0)
+                            {
+                                // Reuse existing inbound frame handling by writing a small dispatcher
+                                await HandleInboundFrameAsync(Trim(peerUid), transport, data, ct);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Transient relay errors are common; don't block peers here.
+                        Logger.Log($"Relay session error: {ex.Message}");
+                        try { SafeNetLog($"relay session error | peer={Trim(peerUid)} | {ex.GetType().Name}:{ex.Message}"); } catch { }
+                    }
+                    finally
+                    {
+                        var removed = _sessions.TryRemove(Trim(peerUid), out _);
+                        try { if (removed) Logger.Log($"[sess] remove | mode=relay | peer={Trim(peerUid)} | reason=reader-exit | ts={DateTime.UtcNow:o}"); } catch { }
+                        try { _diag.DecSessionsActive(); } catch { }
+                        try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
+                        try { relayClient.Close(); } catch { }
+                    }
+                }, ct);
+
+                // Send our presence, avatar, and bio like in HandleClient
+                try { _ = SendPresenceAsync(Trim(peerUid), AppServices.Settings.Settings.Status, ct); } catch { }
+                try
+                {
+                    if (_identity.ShareAvatar && _identity.AvatarBytes != null && _identity.AvatarBytes.Length > 0)
+                    {
+                        var payload = BuildAvatarFrame(_identity.AvatarBytes);
+                        await transport.WriteAsync(payload, ct);
+                    }
+                }
+                catch (Exception ex) { Logger.Log($"Relay avatar send error: {ex.Message}"); }
+                try { var bioFrame = BuildBioFrame(_identity.Bio); await transport.WriteAsync(bioFrame, ct); } catch { }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Relay connect/handshake exception: {ex.Message}");
+                SafeNetLog($"connect relay exception | peer={peerUid} | {ex.Message}");
+                return false;
+            }
+        }
+
+        private Task HandleInboundFrameAsync(string peerUid, Utilities.AeadTransport transport, byte[] data, CancellationToken ct)
+        {
+            if (data[0] == 0xA1)
+            {
+                try
+                {
+                    int idx = 1;
+                    if (data.Length < idx + 1) return Task.CompletedTask;
+                    int pubLen = data[idx++];
+                    if (pubLen != 32 || data.Length < idx + pubLen + 1) return Task.CompletedTask;
+                    var pub = new byte[pubLen];
+                    Buffer.BlockCopy(data, idx, pub, 0, pubLen); idx += pubLen;
+                    int sigLen = data[idx++];
+                    if (sigLen != 64 || data.Length < idx + sigLen) return Task.CompletedTask;
+                    var sig = new byte[sigLen];
+                    Buffer.BlockCopy(data, idx, sig, 0, sigLen);
+                    if (!_handshakePeerKeys.TryGetValue(transport, out var peerSpki) || peerSpki == null || peerSpki.Length == 0)
+                    {
+                        Logger.Log("Identity announce received but missing handshake key; ignoring");
+                        return Task.CompletedTask;
+                    }
+                    if (!IdentityService.Verify(peerSpki, sig, pub))
+                    {
+                        Logger.Log("Identity announce verification failed; dropping");
+                        return Task.CompletedTask;
+                    }
+                    var claimedUid = IdentityService.ComputeUidFromPublicKey(pub);
+                    var normClaimed = Trim(claimedUid);
+                    var normSession = Trim(peerUid);
+                    if (!string.Equals(normClaimed, normSession, StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            // Re-key session dictionary from ephemeral UID to claimed stable UID
+                            _sessions[normClaimed] = transport;
+                            var removed = _sessions.TryRemove(normSession, out _);
+                            SafeNetLog($"identity bound | rekey {normSession} -> {normClaimed} | total={_sessions.Count}");
+                            try { if (removed) Logger.Log($"[sess] rekey | from={normSession} -> to={normClaimed} | ts={DateTime.UtcNow:o}"); } catch { }
+                            Logger.Log($"Identity bound: session rekey {normSession} -> {normClaimed}");
+                        }
+                        catch { }
+                    }
+                    try { AppServices.Peers.SetObservedPublicKey(normClaimed, pub); } catch { }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Identity announce handle error: {ex.Message}");
+                }
+                return Task.CompletedTask;
+            }
+            if (data[0] == 0xA2 && data.Length >= 5)
+            {
+                var len = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(1, 4));
+                if (len > 0 && data.Length >= 5 + len)
+                {
+                    var avatar = new byte[len];
+                    Buffer.BlockCopy(data, 5, avatar, 0, (int)len);
+                    if (ShouldAcceptAvatar(Trim(peerUid), (int)len, avatar)) SavePeerAvatarToCache(peerUid, avatar);
+                }
+            }
+            else if (data[0] == 0xD1)
+            {
+                int idx = 1; if (data.Length < idx + 2) return Task.CompletedTask; ushort blen = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2)); idx += 2;
+                if (blen > MaxBioBytes || data.Length < idx + blen) return Task.CompletedTask;
+                var bytes = blen > 0 ? data.AsSpan(idx, blen).ToArray() : Array.Empty<byte>();
+                var bio = bytes.Length == 0 ? string.Empty : Encoding.UTF8.GetString(bytes);
+                try { AppServices.Contacts.SetBio(Trim(peerUid), bio, AppServices.Passphrase); } catch { }
+            }
+            else if (data[0] == 0xB0)
+            {
+                // Chat message (signed): [0xB0][msgId(16)][len(2)][utf8 content][pubLen(1)=32][pub(32)][sigLen(1)=64][sig(64)]
+                int idx = 1;
+                if (data.Length < idx + 16 + 2 + 1 + 32 + 1 + 64) return Task.CompletedTask;
+                var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16); idx += 16; var msgId = new Guid(guidBytes);
+                ushort len = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2)); idx += 2; if (len > MaxChatBytes) return Task.CompletedTask;
+                if (len < 0 || data.Length < idx + len + 1 + 32 + 1 + 64) return Task.CompletedTask;
+                var txtBytes = data.AsSpan(idx, len).ToArray(); idx += len;
+                int pubLen = data[idx++]; if (pubLen != 32 || data.Length < idx + pubLen + 1 + 64) return Task.CompletedTask;
+                var pub = new byte[32]; Buffer.BlockCopy(data, idx, pub, 0, 32); idx += 32;
+                int sigLen = data[idx++]; if (sigLen != 64 || data.Length < idx + sigLen) return Task.CompletedTask;
+                var sig = new byte[64]; Buffer.BlockCopy(data, idx, sig, 0, 64);
+                var idxAfterSig = idx + 64;
+                // Skip any optional trailing data (legacy retention field or future extensions)
+                try
+                {
+                    if (data.Length > idxAfterSig)
+                    {
+                        var remaining = data.Length - idxAfterSig;
+                        if (remaining > 0)
+                        {
+                            // First byte indicates optional payload length; ensure it's within bounds
+                            var optLen = data[idxAfterSig];
+                            if (remaining >= 1 + optLen)
+                            {
+                                idxAfterSig += 1 + optLen;
+                            }
+                        }
+                    }
+                }
+                catch { }
+                var payloadToSign = new byte[16 + 2 + txtBytes.Length];
+                Buffer.BlockCopy(guidBytes, 0, payloadToSign, 0, 16);
+                BinaryPrimitives.WriteUInt16BigEndian(payloadToSign.AsSpan(16, 2), (ushort)txtBytes.Length);
+                Buffer.BlockCopy(txtBytes, 0, payloadToSign, 18, txtBytes.Length);
+                var claimedUid = IdentityService.ComputeUidFromPublicKey(pub);
+                if (!string.Equals(Trim(claimedUid), Trim(peerUid), StringComparison.OrdinalIgnoreCase))
+                {
+                    Logger.Log($"Spoofed message rejected: claimed {claimedUid} != session {peerUid}");
+                    try { AppServices.Crawler.BlockForMisbehavior(Trim(claimedUid)); } catch { }
+                    return Task.CompletedTask;
+                }
+                if (!IdentityService.Verify(payloadToSign, sig, pub))
+                {
+                    Logger.Log("Invalid signature; message dropped");
+                    return Task.CompletedTask;
+                }
+                var content = Encoding.UTF8.GetString(txtBytes);
+                Logger.Log($"Msg from {peerUid}: {content}");
+                try { ChatMessageReceived?.Invoke(peerUid, msgId, content); } catch { }
+                // Send Chat-Received ACK: [0xB5][msgId]
+                var ack = new byte[1 + 16]; ack[0] = 0xB5; Buffer.BlockCopy(guidBytes, 0, ack, 1, 16);
+                try { _ = TrySendEncryptedAsync(Trim(peerUid), ack, CancellationToken.None); } catch { }
+            }
+            else if (data[0] == 0xB1)
+            {
+                // Edit message (signed): [0xB1][msgId(16)][len(2)][utf8 content][pubLen(1)=32][pub(32)][sigLen(1)=64][sig(64)]
+                int idx = 1;
+                if (data.Length < idx + 16 + 2 + 1 + 32 + 1 + 64) return Task.CompletedTask;
+                var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16); idx += 16; var msgId = new Guid(guidBytes);
+                ushort len = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2)); idx += 2; if (len > MaxChatBytes) return Task.CompletedTask;
+                if (len <= 0 || data.Length < idx + len + 1 + 32 + 1 + 64) return Task.CompletedTask;
+                var txtBytes = data.AsSpan(idx, len).ToArray(); idx += len;
+                int pubLen = data[idx++]; if (pubLen != 32 || data.Length < idx + pubLen + 1 + 64) return Task.CompletedTask;
+                var pub = new byte[32]; Buffer.BlockCopy(data, idx, pub, 0, 32); idx += 32;
+                int sigLen = data[idx++]; if (sigLen != 64 || data.Length < idx + sigLen) return Task.CompletedTask;
+                var sig = new byte[64]; Buffer.BlockCopy(data, idx, sig, 0, 64);
+                var payloadToSign = new byte[16 + 2 + txtBytes.Length];
+                Buffer.BlockCopy(guidBytes, 0, payloadToSign, 0, 16);
+                BinaryPrimitives.WriteUInt16BigEndian(payloadToSign.AsSpan(16, 2), (ushort)txtBytes.Length);
+                Buffer.BlockCopy(txtBytes, 0, payloadToSign, 18, txtBytes.Length);
+                var claimed = IdentityService.ComputeUidFromPublicKey(pub);
+                if (!string.Equals(Trim(claimed), Trim(peerUid), StringComparison.OrdinalIgnoreCase)) { Logger.Log("Edit spoof rejected: UID mismatch"); return Task.CompletedTask; }
+                if (!IdentityService.Verify(payloadToSign, sig, pub)) { Logger.Log("Edit bad signature"); return Task.CompletedTask; }
+                var txt = Encoding.UTF8.GetString(txtBytes);
+                try { AppServices.MessagesUpdateFromRemote(Trim(peerUid), msgId, txt); } catch { }
+                try { ChatMessageEdited?.Invoke(Trim(peerUid), msgId, txt); } catch { }
+                // Send ACK: [0xB3][msgId]
+                var ack = new byte[1 + 16]; ack[0] = 0xB3; Buffer.BlockCopy(guidBytes, 0, ack, 1, 16);
+                try { _ = TrySendEncryptedAsync(Trim(peerUid), ack, CancellationToken.None); } catch { }
+            }
+            else if (data[0] == 0xB2)
+            {
+                // Delete message (signed): [0xB2][msgId(16)][pubLen(1)=32][pub(32)][sigLen(1)=64][sig(64)], sig over msgId
+                int idx = 1; if (data.Length < idx + 16 + 1 + 32 + 1 + 64) return Task.CompletedTask;
+                var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16); idx += 16;
+                int pubLen = data[idx++]; if (pubLen != 32 || data.Length < idx + pubLen + 1 + 64) return Task.CompletedTask;
+                var pub = new byte[32]; Buffer.BlockCopy(data, idx, pub, 0, 32); idx += 32;
+                int sigLen = data[idx++]; if (sigLen != 64 || data.Length < idx + sigLen) return Task.CompletedTask;
+                var sig = new byte[64]; Buffer.BlockCopy(data, idx, sig, 0, 64);
+                var claimed = IdentityService.ComputeUidFromPublicKey(pub);
+                if (!string.Equals(Trim(claimed), Trim(peerUid), StringComparison.OrdinalIgnoreCase)) { Logger.Log("Delete spoof rejected: UID mismatch"); return Task.CompletedTask; }
+                if (!IdentityService.Verify(guidBytes, sig, pub)) { Logger.Log("Delete bad signature"); return Task.CompletedTask; }
+                var msgId = new Guid(guidBytes);
+                try { AppServices.MessagesDeleteFromRemote(Trim(peerUid), msgId); } catch { }
+                try { ChatMessageDeleted?.Invoke(Trim(peerUid), msgId); } catch { }
+                // Send ACK: [0xB4][msgId]
+                var ack = new byte[1 + 16]; ack[0] = 0xB4; Buffer.BlockCopy(guidBytes, 0, ack, 1, 16);
+                try { _ = TrySendEncryptedAsync(Trim(peerUid), ack, CancellationToken.None); } catch { }
+            }
+            else if (data[0] == 0xB3)
+            {
+                // Edit ACK: [0xB3][msgId(16)]
+                int idx = 1; if (data.Length < idx + 16) return Task.CompletedTask;
+                var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16);
+                var msgId = new Guid(guidBytes);
+                try { ChatMessageEditAcked?.Invoke(Trim(peerUid), msgId); } catch { }
+            }
+            else if (data[0] == 0xB4)
+            {
+                // Delete ACK: [0xB4][msgId(16)]
+                int idx = 1; if (data.Length < idx + 16) return Task.CompletedTask;
+                var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16);
+                var msgId = new Guid(guidBytes);
+                try { ChatMessageDeleteAcked?.Invoke(Trim(peerUid), msgId); } catch { }
+            }
+            else if (data[0] == 0xB5)
+            {
+                // Chat Received ACK: [0xB5][msgId(16)]
+                int idx = 1; if (data.Length < idx + 16) return Task.CompletedTask;
+                var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16);
+                var msgId = new Guid(guidBytes);
+                try { ChatMessageReceivedAcked?.Invoke(Trim(peerUid), msgId); } catch { }
+            }
+            else if (data[0] == 0xB6)
+            {
+                // Chat Read ACK: [0xB6][msgId(16)]
+                int idx = 1; if (data.Length < idx + 16) return Task.CompletedTask;
+                var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16);
+                var msgId = new Guid(guidBytes);
+                try { ChatMessageReadAcked?.Invoke(Trim(peerUid), msgId); } catch { }
+            }
+            else if (data[0] == 0xC0)
+            {
+                int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen + 32 + 64 + 1) return Task.CompletedTask;
+                var nonce = Encoding.UTF8.GetString(data, idx, nlen); idx += nlen;
+                var pub = new byte[32]; Buffer.BlockCopy(data, idx, pub, 0, 32); idx += 32;
+                var sig = new byte[64]; Buffer.BlockCopy(data, idx, sig, 0, 64); idx += 64;
+                int dnLen = data[idx++]; if (dnLen < 0 || dnLen > MaxDisplayNameBytes) return Task.CompletedTask; var dn = dnLen > 0 ? Encoding.UTF8.GetString(data, idx, Math.Min(dnLen, data.Length - idx)) : string.Empty;
+                var claimed = IdentityService.ComputeUidFromPublicKey(pub);
+                if (!string.Equals(Trim(claimed), Trim(peerUid), StringComparison.OrdinalIgnoreCase)) { Logger.Log("Contact req spoofed"); return Task.CompletedTask; }
+                var payload = Encoding.UTF8.GetBytes(nonce);
+                if (!IdentityService.Verify(payload, sig, pub)) { Logger.Log("Contact req bad sig"); return Task.CompletedTask; }
+                try { SafeNetLog($"recv C0 contact-request | peer={Trim(peerUid)} | nonce={nonce} | dnLen={dnLen}"); } catch { }
+                _ = AppServices.ContactRequests.OnInboundRequestAsync(Trim(peerUid), nonce, dn ?? string.Empty);
+            }
+            else if (data[0] == 0xC1)
+            {
+                int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen) return Task.CompletedTask; var nonce = Encoding.UTF8.GetString(data, idx, nlen);
+                try { SafeNetLog($"recv C1 contact-accept | peer={Trim(peerUid)} | nonce={nonce}"); } catch { }
+                AppServices.ContactRequests.OnInboundAccept(nonce);
+            }
+            else if (data[0] == 0xC2)
+            {
+                int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen) return Task.CompletedTask; var nonce = Encoding.UTF8.GetString(data, idx, nlen);
+                try { SafeNetLog($"recv C2 contact-cancel | peer={Trim(peerUid)} | nonce={nonce}"); } catch { }
+                AppServices.ContactRequests.OnInboundCancel(nonce);
+            }
+            else if (data[0] == 0xC3)
+            {
+                // Verification intent (no payload besides opcode)
+                try { AppServices.ContactRequests.OnInboundVerifyIntent(Trim(peerUid)); } catch { }
+            }
+            else if (data[0] == 0xC4)
+            {
+                // Verification request (no payload). Receiver should show notification with Start/Decline.
+                try { AppServices.ContactRequests.OnInboundVerifyRequest(Trim(peerUid)); } catch { }
+            }
+            else if (data[0] == 0xC5)
+            {
+                // Verification cancel (no payload). Receiver should dismiss pending and show info.
+                try { AppServices.ContactRequests.OnInboundVerifyCancel(Trim(peerUid)); } catch { }
+            }
+            else if (data[0] == 0xD0)
+            {
+                int idx = 1; if (data.Length <= idx) return Task.CompletedTask; int n = data[idx++]; if (n < 0 || n > MaxPresenceToken || data.Length < idx + n) return Task.CompletedTask;
+                var tok = System.Text.Encoding.UTF8.GetString(data, idx, n).Trim().ToLowerInvariant();
+                string status = tok switch { "on" => "Online", "idle" => "Idle", "dnd" => "Do Not Disturb", "inv" => "Invisible", "off" => "Offline", _ => "Online" };
+                try { AppServices.Peers.SetPeerStatus(Trim(peerUid), status); } catch { }
+                try { _presenceLastSeenUtc[Trim(peerUid)] = DateTime.UtcNow; } catch { }
+                try { PresenceReceived?.Invoke(Trim(peerUid), status); } catch { }
+                try
+                {
+                    var myStatus = AppServices.Settings.Settings.Status;
+                    if (myStatus != Models.PresenceStatus.Invisible)
+                    {
+                        var key = Trim(peerUid);
+                        var now = DateTime.UtcNow;
+                        if (!_presenceLastSentUtc.TryGetValue(key, out var last) || (now - last) > TimeSpan.FromSeconds(10))
+                        {
+                            _ = SendPresenceAsync(key, myStatus, CancellationToken.None);
+                        }
+                    }
+                }
+                catch { }
+            }
+            return Task.CompletedTask;
+        }
+
+        private static void SafeNetLog(string line)
+        {
+            try
+            {
+                if (!Utilities.LoggingPaths.Enabled) return;
+                var path = Utilities.LoggingPaths.Network;
+                System.IO.File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {line}\n");
+            }
+            catch { }
+        }
+
+        // [DISCOVERY] Start LAN discovery (multicast + broadcast). Parameter 'port' is the TCP listen port advertised to peers.
+        private void StartLanDiscovery(int port)
+        {
+            try
+            {
+                var bindIp = SelectPreferredBindAddress();
+                PreferredBindAddress = bindIp;
+                // Bind a reusable UDP socket on the fixed discovery port for both multicast and broadcast.
+                try
+                {
+                    _udp = new UdpClient(AddressFamily.InterNetwork);
+                    _udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                    _udp.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));
+                    _udp.EnableBroadcast = true;
+                    if (DiscoveryBehavior == DiscoveryMode.Normal)
+                    {
+                        try { _udp.JoinMulticastGroup(MulticastGroup); } catch (Exception exJoin) { Logger.Log($"UDP multicast join failed: {exJoin.Message}"); }
+                        try { _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastTimeToLive, 1); } catch { }
+                    }
+                    Logger.Log($"UDP discovery bound on 0.0.0.0:{DiscoveryPort}; multicast={MulticastGroup}");
+                    try { AppServices.Discovery.NoteExternalTrigger("lan-discovery-start", $"port={port}"); } catch { }
+                    UdpBoundAddress = IPAddress.Any; UdpBoundPort = DiscoveryPort;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"UDP discovery bind failed on {DiscoveryPort}: {ex.Message}");
+                    UdpBoundPort = null; UdpBoundAddress = IPAddress.Any;
+                }
+                // [A] If UDP bind failed, skip starting the discovery loop to avoid null dereferences and noisy logs.
+                if (_udp == null)
+                {
+                    Logger.Log("UDP discovery not started because socket bind failed.");
+                    return;
+                }
+                _udpTask = Task.Run(async () =>
+                {
+                    var token = _cts?.Token ?? CancellationToken.None;
+                    var announceInterval = TimeSpan.FromSeconds(5);
+                    var lastAnnounce = DateTime.MinValue;
+                    // [DISCOVERY] Always advertise on LAN to enable true peer-to-peer discovery; no identifiers are persisted externally.
+                    var advertise = true;
+                    while (!token.IsCancellationRequested)
+                    {
+                        // Snapshot UDP reference to avoid races with Stop() nulling the field
+                        var udp = _udp;
+                        if (udp == null) break;
+                        try
+                        {
+                            if (advertise && (DateTime.UtcNow - lastAnnounce) > announceInterval)
+                            {
+                                lastAnnounce = DateTime.UtcNow;
+                                var payload = BuildBeacon(port);
+                                int sent = 0;
+                                // [DISCOVERY] Multicast announce first (best-effort, stays within LAN segment)
+                                if (DiscoveryBehavior == DiscoveryMode.Normal)
+                                {
+                                    try
+                                    {
+                                        await udp.SendAsync(payload, payload.Length, new IPEndPoint(MulticastGroup, DiscoveryPort));
+                                        try { _diag.IncUdpBeaconSent(); } catch { }
+                                        sent++;
+                                        Logger.Log($"UDP beacon (multicast) -> {MulticastGroup}:{DiscoveryPort} | uid={_identity.UID} | dn='{_identity.DisplayName}' | ts={DateTime.UtcNow:o}");
+                                    }
+                                    catch (Exception exMc)
+                                    {
+                                        Logger.Log($"UDP multicast beacon failed: {exMc.Message}");
+                                    }
+                                }
+                                foreach (var bcast in GetBroadcastAddressesPreferredFirst(bindIp))
+                                {
+                                    try
+                                    {
+                                        await udp.SendAsync(payload, payload.Length, new IPEndPoint(bcast, DiscoveryPort));
+                                        try { _diag.IncUdpBeaconSent(); } catch { }
+                                        sent++;
+                                        Logger.Log($"UDP beacon (broadcast) -> {bcast}:{DiscoveryPort} | uid={_identity.UID} | dn='{_identity.DisplayName}' | ts={DateTime.UtcNow:o}");
+                                    }
+                                    catch (Exception exSend)
+                                    {
+                                        Logger.Log($"UDP beacon send failed to {bcast}:{DiscoveryPort}: {exSend.Message}");
+                                    }
+                                }
+                                if (sent == 0 && advertise)
+                                {
+                                    try
+                                    {
+                                        await udp.SendAsync(payload, payload.Length, new IPEndPoint(IPAddress.Broadcast, DiscoveryPort));
+                                        try { _diag.IncUdpBeaconSent(); } catch { }
+                                        Logger.Log($"UDP beacon (broadcast-fallback) -> 255.255.255.255:{DiscoveryPort}");
+                                    }
+                                    catch (Exception exSend2)
+                                    {
+                                        Logger.Log($"UDP beacon fallback send failed: {exSend2.Message}");
+                                    }
+                                }
+                            }
+                            // Refresh snapshot in case Stop() ran while sending
+                            udp = _udp;
+                            if (udp == null) break;
+                            if (udp.Available > 0)
+                            {
+                                var result = await udp.ReceiveAsync(token);
+                                try { _diag.IncUdpBeaconRecv(); } catch { }
+                                Logger.Log($"UDP beacon <- {result.RemoteEndPoint.Address}:{result.RemoteEndPoint.Port} | ts={DateTime.UtcNow:o}");
+                                HandleBeacon(result.Buffer, result.RemoteEndPoint);
+                            }
+                            else
+                            {
+                                await Task.Delay(100, token);
+                            }
+                        }
+                        catch (OperationCanceledException) { }
+                        catch (Exception ex) { Logger.Log($"UDP discovery error: {ex.Message}"); await Task.Delay(500, token); }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"LAN discovery start failed: {ex.Message}");
+            }
+        }
+
+        // [DISCOVERY] Build a LAN beacon announcing our UID, TCP port, public key, display name, and presence.
+        private byte[] BuildBeacon(int port)
+        {
+            var uid = _identity.UID;
+            var b64 = Convert.ToBase64String(_identity.PublicKey);
+            var dn = _identity.DisplayName?.Replace("|", "/") ?? string.Empty;
+            // Presence: compact tokens to keep payload small
+            var presence = AppServices.Settings.Settings.Status switch
+            {
+                Models.PresenceStatus.Online => "on",
+                Models.PresenceStatus.Idle => "idle",
+                Models.PresenceStatus.DoNotDisturb => "dnd",
+                Models.PresenceStatus.Invisible => "inv",
+                _ => "on"
+            };
+            var s = $"{uid}|{port}|{b64}|{dn}|{presence}";
+            return Encoding.UTF8.GetBytes(s);
+        }
+
+        // [DISCOVERY] Handle incoming LAN beacons on DiscoveryPort; extract the peer's TCP port for potential connection.
+        private void HandleBeacon(byte[] bytes, IPEndPoint remote)
+        {
+            try
+            {
+                var text = Encoding.UTF8.GetString(bytes);
+                var parts = text.Split('|');
+                if (parts.Length < 3) return;
+                var uid = parts[0];
+                if (string.Equals(uid, _identity.UID, StringComparison.Ordinal)) return; // self
+                if (!int.TryParse(parts[1], out var port)) return;
+                var pub = Convert.FromBase64String(parts[2]);
+                var dn = parts.Length >= 4 ? parts[3] : string.Empty;
+                string? presence = null;
+                if (parts.Length >= 5)
+                {
+                    var tok = parts[4].Trim().ToLowerInvariant();
+                    presence = tok switch
+                    {
+                        "on" => "Online",
+                        "idle" => "Idle",
+                        "dnd" => "Do Not Disturb",
+                        "inv" => "Invisible",
+                        "off" => "Offline",
+                        _ => null
+                    };
+                }
+                Logger.Log($"UDP beacon parsed from {remote.Address}: uid={uid} port={port} dn='{dn}' ts={DateTime.UtcNow:o}");
+                try { AppServices.Discovery.NoteExternalTrigger("beacon-rx", $"uid={uid} dn='{dn}'"); } catch { }
+                // Note: We intentionally only store UID/IP/TCP Port; no trust or profile metadata is broadcasted.
+                var normUidDisc = uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+                var peer = new Models.Peer { UID = normUidDisc, Address = remote.Address.ToString(), Port = port, Status = presence ?? "Discovered" };
+                var list = new System.Collections.Generic.List<Models.Peer>(AppServices.Peers.Peers) { peer };
+                AppServices.Peers.SetDiscovered(list);
+                try { _presenceLastSeenUtc[normUidDisc] = DateTime.UtcNow; } catch { }
+                // Proactively attempt to connect to known peers after discovery/beacon
+                try { RequestAutoConnectSweep(); } catch { }
+
+                // Opportunistically apply remote display name to existing contact when safe (only if user hasn't customized).
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(dn))
+                    {
+                        var contacts = AppServices.Contacts.Contacts;
+                        var c = contacts.FirstOrDefault(x => string.Equals(Trim(x.UID), normUidDisc, StringComparison.OrdinalIgnoreCase));
+                        if (c != null)
+                        {
+                            var currentDn = c.DisplayName ?? string.Empty;
+                            // Treat as user-customized if DisplayName is not empty and not equal to UID.
+                            var isCustomized = !string.IsNullOrWhiteSpace(currentDn) && !string.Equals(currentDn, c.UID, StringComparison.Ordinal);
+                            if (!isCustomized && !string.Equals(currentDn, dn, StringComparison.Ordinal))
+                            {
+                                AppServices.Contacts.UpdateDisplayName(normUidDisc, dn, AppServices.Passphrase);
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+            catch { }
+        }
+
+        // [AUTO-CONNECT] Attempt to connect to known peers with endpoints to establish sessions for identity/verification
+        public void RequestAutoConnectSweep()
+        {
+            if (System.Threading.Interlocked.Exchange(ref _autoConnSweepRunning, 1) == 1) return;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var snapshot = AppServices.Peers.Peers.ToList();
+                    var now = DateTime.UtcNow;
+                    foreach (var p in snapshot)
+                    {
+                        try
+                        {
+                            if (p is null) continue;
+                            var uid = p.UID;
+                            if (string.IsNullOrWhiteSpace(uid)) continue;
+                            uid = uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+                            if (HasEncryptedSession(uid)) continue;
+                            if (string.IsNullOrWhiteSpace(p.Address) || p.Port <= 0) continue;
+                            if (_autoConnLastAttempt.TryGetValue(uid, out var last) && (now - last) < AutoConnectBackoff) continue;
+                            _autoConnLastAttempt[uid] = now;
+                            try { await ConnectWithRelayFallbackAsync(uid, p.Address!, p.Port, CancellationToken.None); } catch { }
+                        }
+                        catch { }
+                    }
+                }
+                finally
+                {
+                    System.Threading.Interlocked.Exchange(ref _autoConnSweepRunning, 0);
+                }
+            });
+        }
+
+        private static int TryBindEphemeral(IPAddress bindIp, out TcpListener? listener)
+        {
+            listener = null;
+            var rand = new Random();
+            const int start = 49152; const int end = 65535;
+            var tried = new System.Collections.Generic.HashSet<int>();
+            for (int i = 0; i < 200; i++)
+            {
+                var p = rand.Next(start, end + 1);
+                if (tried.Contains(p)) { i--; continue; }
+                tried.Add(p);
+                try
+                {
+                    var l = new TcpListener(bindIp, p);
+                    l.Start();
+                    listener = l;
+                    return p;
+                }
+                catch { }
+            }
+            for (int p = start; p <= end; p++)
+            {
+                if (tried.Contains(p)) continue;
+                try
+                {
+                    var l = new TcpListener(bindIp, p);
+                    l.Start();
+                    listener = l;
+                    return p;
+                }
+                catch { }
+            }
+            return 0;
+        }
+
+        private static IPAddress SelectPreferredBindAddress()
+        {
+            try
+            {
+                var order = AppServices.Settings.Settings.AdapterPriorityIds ?? new System.Collections.Generic.List<string>();
+                var nics = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces();
+                foreach (var id in order)
+                {
+                    var ni = System.Linq.Enumerable.FirstOrDefault(nics, n => n.Id == id);
+                    if (ni == null) continue;
+                    if (ni.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
+                    var ipProps = ni.GetIPProperties();
+                    foreach (var ua in ipProps.UnicastAddresses)
+                        if (ua.Address.AddressFamily == AddressFamily.InterNetwork)
+                            return ua.Address;
+                }
+                foreach (var ni in nics)
+                {
+                    if (ni.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
+                    var ipProps = ni.GetIPProperties();
+                    foreach (var ua in ipProps.UnicastAddresses)
+                        if (ua.Address.AddressFamily == AddressFamily.InterNetwork)
+                            return ua.Address;
+                }
+            }
+            catch { }
+            return IPAddress.Any;
+        }
+
+        private static System.Collections.Generic.IEnumerable<IPAddress> GetBroadcastAddressesPreferredFirst(IPAddress preferred)
+        {
+            var primary = new System.Collections.Generic.List<IPAddress>();
+            var others = new System.Collections.Generic.List<IPAddress>();
+            try
+            {
+                foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (ni.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
+                    if (ni.NetworkInterfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Loopback) continue;
+                    var ipProps = ni.GetIPProperties();
+                    foreach (var ua in ipProps.UnicastAddresses)
+                    {
+                        if (ua.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                        var ip = ua.Address.GetAddressBytes();
+                        var mask = ua.IPv4Mask?.GetAddressBytes();
+                        if (mask == null) continue;
+                        var bcast = new byte[4];
+                        for (int i = 0; i < 4; i++) bcast[i] = (byte)(ip[i] | (mask[i] ^ 255));
+                        var addr = new IPAddress(bcast);
+                        if (!preferred.Equals(IPAddress.Any) && ua.Address.Equals(preferred)) primary.Add(addr);
+                        else others.Add(addr);
+                    }
+                }
+            }
+            catch { }
+            if (primary.Count == 0 && others.Count == 0) return new[] { IPAddress.Broadcast };
+            foreach (var o in others) primary.Add(o);
+            return primary;
+        }
+
+        private async Task HandleClient(TcpClient client, bool isInitiator, CancellationToken ct)
+        {
+            using var dh = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
+            var localPort = (client.Client.LocalEndPoint as IPEndPoint)?.Port ?? 0;
+            var remoteEp = (client.Client.RemoteEndPoint as IPEndPoint)?.ToString() ?? "unknown";
+            var baseStream = client.GetStream();
+            var ns = new CountingStream(baseStream,
+                onRead: n => ReportBytes(localPort, inbound: n, outbound: 0),
+                onWrite: n => ReportBytes(localPort, inbound: 0, outbound: n));
+            var hsWatch = System.Diagnostics.Stopwatch.StartNew();
+            var pub = dh.PublicKey.ExportSubjectPublicKeyInfo();
+            await WriteFrame(ns, pub, ct);
+            // Defensive handshake read: tolerate prematurely closed sockets and log actual vs expected bytes
+            byte[] peerPub;
+            try
+            {
+                using var hcts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                hcts.CancelAfter(TimeSpan.FromSeconds(5)); // bound handshake wait to avoid hanging connections
+                var (ok, payload, expected, actual, reason) = await TryReadHandshakeFrame(ns, hcts.Token);
+                if (!ok || payload == null)
+                {
+                    Logger.Log($"Handshake read error from {remoteEp}: {reason} (got {actual} / expected {expected} bytes)");
+                    try { SafeNetLog($"handshake ecdh-fail | ep={remoteEp} | ms={hsWatch.ElapsedMilliseconds} | reason={reason}"); } catch { }
+                    try { _diag.IncHandshakeFail(reason); } catch { }
+                    try { HandshakeCompleted?.Invoke(false, remoteEp, reason); } catch { }
+                    client.Close();
+                    return;
+                }
+                try { SafeNetLog($"handshake ecdh-ok | ep={remoteEp} | ms={hsWatch.ElapsedMilliseconds} | initiator={isInitiator}"); } catch { }
+                peerPub = payload;
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.Log($"Handshake read error from {remoteEp}: timed out waiting for peer");
+                try { SafeNetLog($"handshake ecdh-timeout | ep={remoteEp} | ms={hsWatch.ElapsedMilliseconds}"); } catch { }
+                try { _diag.IncHandshakeFail("timeout"); } catch { }
+                try { HandshakeCompleted?.Invoke(false, remoteEp, "timeout"); } catch { }
+                client.Close(); return;
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Handshake read error from {remoteEp}: {ex.Message}");
+                try { SafeNetLog($"handshake ecdh-ex | ep={remoteEp} | ms={hsWatch.ElapsedMilliseconds} | {ex.GetType().Name}:{ex.Message}"); } catch { }
+                try { _diag.IncHandshakeFail(ex.Message); } catch { }
+                try { HandshakeCompleted?.Invoke(false, remoteEp, ex.Message); } catch { }
+                client.Close(); return;
+            }
+            using var peerKey = ECDiffieHellman.Create();
+            peerKey.ImportSubjectPublicKeyInfo(peerPub, out _);
+            // Do not treat ECDH-derived UID as identity; defer identity decisions until 0xA1 announce.
+            var epNow = (client.Client.RemoteEndPoint as IPEndPoint)?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(epNow)) epNow = remoteEp;
+            if (AppServices.Settings.Settings.BlockList?.Contains(epNow) == true)
+            {
+                Logger.Log($"Blocked endpoint attempted connection: {epNow}");
+                client.Close();
+                return;
+            }
+            var secret = dh.DeriveKeyMaterial(peerKey.PublicKey);
+            var info = Encoding.UTF8.GetBytes("p2ptalk-session");
+            var prk = Hkdf.DeriveKey(secret, salt: Array.Empty<byte>(), info: info, length: 32 + 32 + 16 + 16);
+            CryptographicOperations.ZeroMemory(secret);
+            var txKey = new byte[32]; var rxKey = new byte[32]; var txBase = new byte[16]; var rxBase = new byte[16];
+            if (isInitiator)
+            {
+                Buffer.BlockCopy(prk, 0, txKey, 0, 32); Buffer.BlockCopy(prk, 32, rxKey, 0, 32);
+                Buffer.BlockCopy(prk, 64, txBase, 0, 16); Buffer.BlockCopy(prk, 80, rxBase, 0, 16);
+            }
+            else
+            {
+                Buffer.BlockCopy(prk, 0, rxKey, 0, 32); Buffer.BlockCopy(prk, 32, txKey, 0, 32);
+                Buffer.BlockCopy(prk, 64, rxBase, 0, 16); Buffer.BlockCopy(prk, 80, txBase, 0, 16);
+            }
+            var transport = new Utilities.AeadTransport(ns, txKey, rxKey, txBase, rxBase);
+            Logger.Log($"Session cipher established with {(client.Client.RemoteEndPoint as IPEndPoint)?.ToString()}");
+            // Track peer's handshake ECDH SPKI and endpoint for identity binding and rotation checks
+            try { _handshakePeerKeys[transport] = peerPub; } catch { }
+            try { _transportEndpoints[transport] = epNow; } catch { }
+            try { _ = SendIdentityAnnounceAsync(transport, pub, ct); } catch { }
+            string? boundUid = null;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    while (!ct.IsCancellationRequested)
+                    {
+                        var data = await transport.ReadAsync(ct);
+                        if (data.Length > 0)
+                        {
+                            if (data[0] == 0xA2 && data.Length >= 5)
+                            {
+                                var len = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(1, 4));
+                                if (len > 0 && data.Length >= 5 + len)
+                                {
+                                    var avatar = new byte[len];
+                                    Buffer.BlockCopy(data, 5, avatar, 0, (int)len);
+                                    if (!string.IsNullOrEmpty(boundUid) && ShouldAcceptAvatar(boundUid, (int)len, avatar)) SavePeerAvatarToCache(boundUid, avatar);
+                                }
+                            }
+                            else if (data[0] == 0xD1)
+                            {
+                                // Bio frame: [0xD1][len(2)][utf8]
+                                int idx = 1; if (data.Length < idx + 2) continue; ushort blen = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2)); idx += 2;
+                                if (blen > MaxBioBytes || data.Length < idx + blen) continue;
+                                var bytes = blen > 0 ? data.AsSpan(idx, blen).ToArray() : Array.Empty<byte>();
+                                var bio = bytes.Length == 0 ? string.Empty : Encoding.UTF8.GetString(bytes);
+                                if (!string.IsNullOrEmpty(boundUid))
+                                {
+                                    try { AppServices.Contacts.SetBio(boundUid, bio, AppServices.Passphrase); } catch { }
+                                }
+                            }
+                            else if (data[0] == 0xA1)
+                            {
+                                try
+                                {
+                                    int idx = 1;
+                                    if (data.Length < idx + 1) continue;
+                                    int pubLen = data[idx++];
+                                    if (pubLen != 32 || data.Length < idx + pubLen + 1) continue;
+                                    var pub2 = new byte[pubLen];
+                                    Buffer.BlockCopy(data, idx, pub2, 0, pubLen); idx += pubLen;
+                                    int sigLen = data[idx++];
+                                    if (sigLen != 64 || data.Length < idx + sigLen) continue;
+                                    var sig2 = new byte[sigLen];
+                                    Buffer.BlockCopy(data, idx, sig2, 0, sigLen);
+                                    if (!_handshakePeerKeys.TryGetValue(transport, out var peerSpki2) || peerSpki2 == null || peerSpki2.Length == 0) continue;
+                                    if (!IdentityService.Verify(peerSpki2, sig2, pub2)) continue;
+                                    var claimed2 = IdentityService.ComputeUidFromPublicKey(pub2);
+                                    var normClaimed2 = Trim(claimed2);
+                                    // If we initiated, verify expected UID now (not during ECDH stage)
+                                    try
+                                    {
+                                        if (_transportEndpoints.TryGetValue(transport, out var epStr) && !string.IsNullOrEmpty(epStr))
+                                        {
+                                            if (_pendingOutboundExpectations.TryRemove(epStr, out var expectedUid) &&
+                                                !string.Equals(Trim(expectedUid), normClaimed2, StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                SafeNetLog($"handshake direct uid-mismatch | expected={expectedUid} | got={normClaimed2}");
+                                                Logger.Log($"Direct handshake UID mismatch after identity announce: expected={expectedUid} got={normClaimed2}");
+                                                try { AppServices.Events.RaiseFirewallPrompt($"Peer identity mismatch: expected {expectedUid}, got {normClaimed2}. Aborting connection."); } catch { }
+                                                try { client.Close(); } catch { }
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    catch { }
+                                    // Block if this identity is on the block list
+                                    try
+                                    {
+                                        if (AppServices.Settings.Settings.BlockList?.Contains(normClaimed2) == true)
+                                        {
+                                            Logger.Log($"Blocked peer attempted connection: {normClaimed2}");
+                                            try { client.Close(); } catch { }
+                                            break;
+                                        }
+                                    }
+                                    catch { }
+                                    // Register session under stable identity if not already
+                                    if (!_sessions.ContainsKey(normClaimed2))
+                                    {
+                                        _sessions[normClaimed2] = transport;
+                                        try
+                                        {
+                                            Logger.Log($"[sess] add | mode=direct | peer={normClaimed2} | total={_sessions.Count} | ts={DateTime.UtcNow:o}");
+                                            SafeNetLog($"session add direct | key={normClaimed2} | total={_sessions.Count}");
+                                        }
+                                        catch { }
+                                        // Endpoint-based rotation detection now based on stable identity
+                                        try
+                                        {
+                                            if (_transportEndpoints.TryGetValue(transport, out var epStr) && !string.IsNullOrEmpty(epStr))
+                                            {
+                                                if (_endpointLastUid.TryGetValue(epStr, out var last) && !string.Equals(last, normClaimed2, StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    SafeNetLog($"identity rotate detected | endpoint={epStr} | prev={last} | now={normClaimed2}");
+                                                    Logger.Log($"Identity rotation detected on endpoint {epStr}: {last} -> {normClaimed2}");
+                                                    try { AppServices.Events.RaiseFirewallPrompt($"Identity rotation detected for {epStr}: {last} → {normClaimed2}. Remote may have a new account; your contact might be stale."); } catch { }
+                                                }
+                                                _endpointLastUid[epStr] = normClaimed2;
+                                            }
+                                        }
+                                        catch { }
+                                        // Observed public key is the Ed25519 identity key
+                                        try { AppServices.Peers.SetObservedPublicKey(normClaimed2, pub2); } catch { }
+                                        try { _diag.IncHandshakeOk(); _diag.IncSessionsActive(); } catch { }
+                                        try { SafeNetLog($"handshake bind-ok | peer={normClaimed2} | ms={hsWatch.ElapsedMilliseconds} | ep={epNow}"); } catch { }
+                                        try { HandshakeCompleted?.Invoke(true, normClaimed2, null); } catch { }
+                                        // Send current presence and avatar after binding
+                                        try { _ = SendPresenceAsync(normClaimed2, AppServices.Settings.Settings.Status, ct); } catch { }
+                                        try
+                                        {
+                                            if (_identity.ShareAvatar && _identity.AvatarBytes != null && _identity.AvatarBytes.Length > 0)
+                                            {
+                                                var payload = BuildAvatarFrame(_identity.AvatarBytes);
+                                                await transport.WriteAsync(payload, ct);
+                                            }
+                                        }
+                                        catch (Exception ex) { Logger.Log($"Avatar send error: {ex.Message}"); }
+                                        // Send our bio as part of profile sync
+                                        try { var bioFrame = BuildBioFrame(_identity.Bio); await transport.WriteAsync(bioFrame, ct); } catch { }
+                                        // Mark identity as bound
+                                        boundUid = normClaimed2;
+                                    }
+                                }
+                                catch { }
+                                continue;
+                            }
+                            else if (data[0] == 0xB0)
+                            {
+                                // Chat message (signed): [0xB0][msgId(16)][len(2)][utf8 content][pubLen(1)=32][pub(32)][sigLen(1)=64][sig(64)]
+                                int idx = 1;
+                                if (data.Length < idx + 16 + 2 + 1 + 32 + 1 + 64) continue;
+                                var gid = new byte[16]; Buffer.BlockCopy(data, idx, gid, 0, 16); idx += 16; var mid = new Guid(gid);
+                                ushort len = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2)); idx += 2; if (len > MaxChatBytes) continue;
+                                if (len < 0 || data.Length < idx + len + 1 + 32 + 1 + 64) continue;
+                                var txtb = data.AsSpan(idx, len).ToArray(); idx += len;
+                                int pl = data[idx++]; if (pl != 32 || data.Length < idx + pl + 1 + 64) continue;
+                                var pub = new byte[32]; Buffer.BlockCopy(data, idx, pub, 0, 32); idx += 32;
+                                int sl = data[idx++]; if (sl != 64 || data.Length < idx + sl) continue;
+                                var sig = new byte[64]; Buffer.BlockCopy(data, idx, sig, 0, 64);
+                                var idxAfterSig = idx + 64;
+                                try
+                                {
+                                    if (data.Length > idxAfterSig)
+                                    {
+                                        var remaining = data.Length - idxAfterSig;
+                                        if (remaining > 0)
+                                        {
+                                            var optLen = data[idxAfterSig];
+                                            if (remaining >= 1 + optLen)
+                                            {
+                                                idxAfterSig += 1 + optLen;
+                                            }
+                                        }
+                                    }
+                                }
+                                catch { }
+                                if (string.IsNullOrEmpty(boundUid)) continue;
+                                var claimedUid = IdentityService.ComputeUidFromPublicKey(pub);
+                                if (!string.Equals(Trim(claimedUid), boundUid, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    Logger.Log($"Spoofed message rejected: claimed {claimedUid} != session {boundUid}");
+                                    try { AppServices.Crawler.BlockForMisbehavior(Trim(claimedUid)); } catch { }
+                                    continue;
+                                }
+                                var payloadToSign = new byte[16 + 2 + txtb.Length];
+                                Buffer.BlockCopy(gid, 0, payloadToSign, 0, 16);
+                                BinaryPrimitives.WriteUInt16BigEndian(payloadToSign.AsSpan(16, 2), (ushort)txtb.Length);
+                                Buffer.BlockCopy(txtb, 0, payloadToSign, 18, txtb.Length);
+                                if (!IdentityService.Verify(payloadToSign, sig, pub))
+                                {
+                                    Logger.Log("Invalid signature; message dropped");
+                                    continue;
+                                }
+                                var content = Encoding.UTF8.GetString(txtb);
+                                Logger.Log($"Msg from {boundUid}: {content}");
+                                try { ChatMessageReceived?.Invoke(boundUid, mid, content); } catch { }
+                            }
+                            else if (data[0] == 0xB1)
+                            {
+                                // Signed edit in direct session
+                                int idx2 = 1;
+                                if (data.Length < idx2 + 16 + 2 + 1 + 32 + 1 + 64) continue;
+                                var gid = new byte[16]; Buffer.BlockCopy(data, idx2, gid, 0, 16); idx2 += 16; var mid = new Guid(gid);
+                                ushort len2 = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx2, 2)); idx2 += 2; if (len2 > MaxChatBytes) continue;
+                                if (len2 <= 0 || data.Length < idx2 + len2 + 1 + 32 + 1 + 64) continue;
+                                var txtb = data.AsSpan(idx2, len2).ToArray(); idx2 += len2;
+                                int pl = data[idx2++]; if (pl != 32 || data.Length < idx2 + pl + 1 + 64) continue;
+                                var pub = new byte[32]; Buffer.BlockCopy(data, idx2, pub, 0, 32); idx2 += 32;
+                                int sl = data[idx2++]; if (sl != 64 || data.Length < idx2 + sl) continue;
+                                var sig = new byte[64]; Buffer.BlockCopy(data, idx2, sig, 0, 64);
+                                if (string.IsNullOrEmpty(boundUid)) continue;
+                                var claimed = IdentityService.ComputeUidFromPublicKey(pub);
+                                if (!string.Equals(Trim(claimed), boundUid, StringComparison.OrdinalIgnoreCase)) { Logger.Log("Edit spoof rejected: UID mismatch"); continue; }
+                                var payloadToSign = new byte[16 + 2 + txtb.Length];
+                                Buffer.BlockCopy(gid, 0, payloadToSign, 0, 16);
+                                BinaryPrimitives.WriteUInt16BigEndian(payloadToSign.AsSpan(16, 2), (ushort)txtb.Length);
+                                Buffer.BlockCopy(txtb, 0, payloadToSign, 18, txtb.Length);
+                                if (!IdentityService.Verify(payloadToSign, sig, pub)) { Logger.Log("Edit bad signature"); continue; }
+                                var txt2 = Encoding.UTF8.GetString(txtb);
+                                try { AppServices.MessagesUpdateFromRemote(boundUid, mid, txt2); } catch { }
+                                try { ChatMessageEdited?.Invoke(boundUid, mid, txt2); } catch { }
+                                var ack = new byte[1 + 16]; ack[0] = 0xB3; Buffer.BlockCopy(gid, 0, ack, 1, 16);
+                                try { _ = TrySendEncryptedAsync(boundUid, ack, CancellationToken.None); } catch { }
+                            }
+                            else if (data[0] == 0xB2)
+                            {
+                                // Signed delete in direct session
+                                int idx2 = 1; if (data.Length < idx2 + 16 + 1 + 32 + 1 + 64) continue;
+                                var gid = new byte[16]; Buffer.BlockCopy(data, idx2, gid, 0, 16); idx2 += 16;
+                                int pl = data[idx2++]; if (pl != 32 || data.Length < idx2 + pl + 1 + 64) continue;
+                                var pub = new byte[32]; Buffer.BlockCopy(data, idx2, pub, 0, 32); idx2 += 32;
+                                int sl = data[idx2++]; if (sl != 64 || data.Length < idx2 + sl) continue;
+                                var sig = new byte[64]; Buffer.BlockCopy(data, idx2, sig, 0, 64);
+                                if (string.IsNullOrEmpty(boundUid)) continue;
+                                var claimed = IdentityService.ComputeUidFromPublicKey(pub);
+                                if (!string.Equals(Trim(claimed), boundUid, StringComparison.OrdinalIgnoreCase)) { Logger.Log("Delete spoof rejected: UID mismatch"); continue; }
+                                if (!IdentityService.Verify(gid, sig, pub)) { Logger.Log("Delete bad signature"); continue; }
+                                var mid = new Guid(gid);
+                                try { AppServices.MessagesDeleteFromRemote(boundUid, mid); } catch { }
+                                try { ChatMessageDeleted?.Invoke(boundUid, mid); } catch { }
+                                var ack = new byte[1 + 16]; ack[0] = 0xB4; Buffer.BlockCopy(gid, 0, ack, 1, 16);
+                                try { _ = TrySendEncryptedAsync(boundUid, ack, CancellationToken.None); } catch { }
+                            }
+                            else if (data[0] == 0xB3)
+                            {
+                                int idx2 = 1; if (data.Length < idx2 + 16) continue;
+                                var gid = new byte[16]; Buffer.BlockCopy(data, idx2, gid, 0, 16);
+                                var mid = new Guid(gid);
+                                if (!string.IsNullOrEmpty(boundUid)) { try { ChatMessageEditAcked?.Invoke(boundUid, mid); } catch { } }
+                            }
+                            else if (data[0] == 0xB4)
+                            {
+                                int idx2 = 1; if (data.Length < idx2 + 16) continue;
+                                var gid = new byte[16]; Buffer.BlockCopy(data, idx2, gid, 0, 16);
+                                var mid = new Guid(gid);
+                                if (!string.IsNullOrEmpty(boundUid)) { try { ChatMessageDeleteAcked?.Invoke(boundUid, mid); } catch { } }
+                            }
+                            else if (data[0] == 0xC0)
+                            {
+                                int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen + 32 + 64 + 1) continue;
+                                var nonce = Encoding.UTF8.GetString(data, idx, nlen); idx += nlen;
+                                var pub = new byte[32]; Buffer.BlockCopy(data, idx, pub, 0, 32); idx += 32;
+                                var sig = new byte[64]; Buffer.BlockCopy(data, idx, sig, 0, 64); idx += 64;
+                                int dnLen = data[idx++]; if (dnLen < 0 || dnLen > MaxDisplayNameBytes) continue; var dn = dnLen > 0 ? Encoding.UTF8.GetString(data, idx, Math.Min(dnLen, data.Length - idx)) : string.Empty;
+                                var claimed = IdentityService.ComputeUidFromPublicKey(pub);
+                                if (string.IsNullOrEmpty(boundUid)) continue;
+                                if (!string.Equals(Trim(claimed), boundUid, StringComparison.OrdinalIgnoreCase)) { Logger.Log("Contact req spoofed"); continue; }
+                                var payload = Encoding.UTF8.GetBytes(nonce);
+                                if (!IdentityService.Verify(payload, sig, pub)) { Logger.Log("Contact req bad sig"); continue; }
+                                try { SafeNetLog($"recv C0 contact-request | peer={boundUid} | nonce={nonce} | dnLen={dnLen}"); } catch { }
+                                _ = AppServices.ContactRequests.OnInboundRequestAsync(boundUid, nonce, dn ?? string.Empty);
+                            }
+                            else if (data[0] == 0xC1)
+                            {
+                                int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen) continue; var nonce = Encoding.UTF8.GetString(data, idx, nlen);
+                                try { SafeNetLog($"recv C1 contact-accept | peer={boundUid} | nonce={nonce}"); } catch { }
+                                AppServices.ContactRequests.OnInboundAccept(nonce);
+                            }
+                            else if (data[0] == 0xC2)
+                            {
+                                int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen) continue; var nonce = Encoding.UTF8.GetString(data, idx, nlen);
+                                try { SafeNetLog($"recv C2 contact-cancel | peer={boundUid} | nonce={nonce}"); } catch { }
+                                AppServices.ContactRequests.OnInboundCancel(nonce);
+                            }
+                            else if (data[0] == 0xD0)
+                            {
+                                int idx = 1; if (data.Length <= idx) continue; int n = data[idx++]; if (n < 0 || n > MaxPresenceToken || data.Length < idx + n) continue;
+                                var tok = System.Text.Encoding.UTF8.GetString(data, idx, n).Trim().ToLowerInvariant();
+                                string status = tok switch { "on" => "Online", "idle" => "Idle", "dnd" => "Do Not Disturb", "inv" => "Invisible", "off" => "Offline", _ => "Online" };
+                                if (!string.IsNullOrEmpty(boundUid)) { try { AppServices.Peers.SetPeerStatus(boundUid, status); } catch { } try { _presenceLastSeenUtc[boundUid] = DateTime.UtcNow; } catch { } try { PresenceReceived?.Invoke(boundUid, status); } catch { } }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Do not block peers for generic session errors; networks flap and peers may disconnect normally.
+                    // Only explicit spoofing/protocol violations trigger blocking elsewhere.
+                    Logger.Log($"Session error: {ex.Message}");
+                    try { SafeNetLog($"session error | uid={boundUid ?? "?"} | {ex.GetType().Name}:{ex.Message}"); } catch { }
+                }
+                finally
+                {
+                    if (!string.IsNullOrEmpty(boundUid))
+                    {
+                        var removed = _sessions.TryRemove(boundUid, out _);
+                        try { if (removed) Logger.Log($"[sess] remove | mode=direct | peer={boundUid} | reason=reader-exit | ts={DateTime.UtcNow:o}"); } catch { }
+                    }
+                    try { if (!string.IsNullOrEmpty(boundUid)) P2PTalk.Services.AppServices.Contacts.SetLastKnownEncrypted(boundUid, false, P2PTalk.Services.AppServices.Passphrase); } catch { }
+                    try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
+                    try { _transportEndpoints.TryRemove(transport, out _); } catch { }
+                    try { _diag.DecSessionsActive(); } catch { }
+                    // On session close: mark peer Offline immediately; liveness timers will maintain thereafter
+                    if (!string.IsNullOrEmpty(boundUid)) { try { AppServices.Peers.SetPeerStatus(boundUid, "Offline"); } catch { } }
+                    try { ns.Dispose(); } catch { }
+                    try { client.Close(); client.Dispose(); } catch { }
+                }
+            }, ct);
+        }
+
+        private static void SavePeerAvatarToCache(string uid, byte[] bytes)
+        {
+            try
+            {
+                AvatarCache.Save(uid, bytes);
+            }
+            catch { }
+        }
+
+        private static byte[] BuildAvatarFrame(byte[] avatarBytes)
+        {
+            var buf = new byte[1 + 4 + avatarBytes.Length];
+            buf[0] = 0xA2;
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(buf.AsSpan(1, 4), (uint)avatarBytes.Length);
+            Buffer.BlockCopy(avatarBytes, 0, buf, 5, avatarBytes.Length);
+            return buf;
+        }
+
+        private static byte[] BuildBioFrame(string? bio)
+        {
+            var text = string.IsNullOrWhiteSpace(bio) ? string.Empty : bio!;
+            if (text.Length > 280) text = text.Substring(0, 280);
+            var bytes = Encoding.UTF8.GetBytes(text);
+            var buf = new byte[1 + 2 + bytes.Length];
+            buf[0] = 0xD1; // profile bio frame
+            BinaryPrimitives.WriteUInt16BigEndian(buf.AsSpan(1, 2), (ushort)bytes.Length);
+            if (bytes.Length > 0) Buffer.BlockCopy(bytes, 0, buf, 3, bytes.Length);
+            return buf;
+        }
+
+        private bool ShouldAcceptAvatar(string uid, int len, byte[] data)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(uid)) return false;
+                if (len <= 0 || len > AvatarMaxBytes) return false;
+
+                // Per-peer interval
+                var now = DateTime.UtcNow;
+                if (_avatarLastAcceptedUtc.TryGetValue(uid, out var last) && (now - last) < AvatarMinIntervalPerPeer)
+                {
+                    return false;
+                }
+
+                // Lightweight signature (length + sparse hash) to avoid re-writing same avatar
+                unchecked
+                {
+                    int hash = 17;
+                    int step = Math.Max(1, len / 64);
+                    for (int i = 0; i < len; i += step) hash = hash * 31 + data[i];
+                    var sig = $"{len}:{hash}";
+                    if (_avatarLastSignature.TryGetValue(uid, out var prev) && string.Equals(prev, sig, StringComparison.Ordinal))
+                    {
+                        // Duplicate content; skip
+                        return false;
+                    }
+                    // Global windowed cap
+                    while (_avatarGlobalAccepts.TryPeek(out var ts) && (now - ts) > AvatarGlobalWindow)
+                    {
+                        _avatarGlobalAccepts.TryDequeue(out _);
+                    }
+                    if (_avatarGlobalAccepts.Count >= AvatarGlobalMaxPerWindow)
+                    {
+                        return false;
+                    }
+                    // Accept: record state
+                    _avatarLastAcceptedUtc[uid] = now;
+                    _avatarLastSignature[uid] = sig;
+                    _avatarGlobalAccepts.Enqueue(now);
+                }
+                return true;
+            }
+            catch { return false; }
+        }
+
+        private static async Task WriteFrame(System.IO.Stream ns, byte[] payload, CancellationToken ct)
+        {
+            var lenBuf = new byte[4];
+            BinaryPrimitives.WriteUInt32BigEndian(lenBuf, (uint)payload.Length);
+            await ns.WriteAsync(lenBuf.AsMemory(0, 4), ct);
+            await ns.WriteAsync(payload.AsMemory(0, payload.Length), ct);
+            await ns.FlushAsync(ct);
+        }
+
+        // Periodic presence liveness sweep: mark peers Offline when not seen recently (no beacon/presence)
+        private void SweepPresenceTimeouts()
+        {
+            var now = DateTime.UtcNow;
+            try
+            {
+                foreach (var kv in _presenceLastSeenUtc.ToArray())
+                {
+                    var uid = kv.Key; var last = kv.Value;
+                    if (now - last > PresenceTimeout)
+                    {
+                        try { AppServices.Peers.SetPeerStatus(uid, "Offline"); } catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        // Defensive, handshake-only frame reader that logs expected vs actual bytes and bounds payload sizes.
+        // Keeps wire format unchanged; validates plausibility of the payload length to detect protocol mismatches early.
+        private static async Task<(bool ok, byte[]? payload, uint expected, int actual, string reason)> TryReadHandshakeFrame(Stream ns, CancellationToken ct)
+        {
+            const int HeaderSize = 4;
+            const int HandshakeMaxFrameLen = 512; // P-256 SPKI is ~90-120 bytes; 512 is a safe upper bound
+
+            // Read length header with a manual loop to avoid throwing on short reads.
+            var lenBuf = new byte[HeaderSize];
+            int read = 0;
+            while (read < HeaderSize)
+            {
+                int n = await ns.ReadAsync(lenBuf.AsMemory(read, HeaderSize - read), ct);
+                if (n == 0)
+                {
+                    return (false, null, HeaderSize, read, "stream closed while reading length");
+                }
+                read += n;
+            }
+            var len = BinaryPrimitives.ReadUInt32BigEndian(lenBuf);
+            if (len == 0)
+            {
+                return (false, null, 0, 0, "empty handshake frame");
+            }
+            if (len > HandshakeMaxFrameLen)
+            {
+                return (false, null, len, 0, "handshake frame too large (protocol mismatch?)");
+            }
+
+            var payload = new byte[len];
+            int got = 0;
+            while (got < len)
+            {
+                int n = await ns.ReadAsync(payload.AsMemory(got, (int)len - got), ct);
+                if (n == 0)
+                {
+                    // Truncated payload
+                    return (false, null, len, got, "truncated handshake payload");
+                }
+                got += n;
+            }
+
+            // Plausibility check for ECDH P-256 SPKI, typical range ~80-200 bytes; reject extremely small frames early
+            if (got < 60)
+            {
+                return (false, null, len, got, "handshake payload too small");
+            }
+            // Basic DER SPKI validation: should start with 0x30 (SEQUENCE). If not, likely protocol mismatch/noise.
+            if (payload[0] != 0x30)
+            {
+                return (false, null, len, got, "unexpected handshake payload (not DER SPKI)");
+            }
+
+            return (true, payload, len, got, "");
+        }
+
+        private void ReportBytes(int localPort, long inbound, long outbound)
+        {
+            if (localPort <= 0) return;
+            var t = _traffic.GetOrAdd(localPort, _ => new PortTraffic());
+            if (inbound != 0) Interlocked.Add(ref t.TotalIn, inbound);
+            if (outbound != 0) Interlocked.Add(ref t.TotalOut, outbound);
+        }
+
+        public System.Collections.Generic.Dictionary<int, (long TotalIn, long TotalOut)> GetPortStatsSnapshot()
+        {
+            var dict = new System.Collections.Generic.Dictionary<int, (long, long)>();
+            foreach (var kv in _traffic)
+            {
+                var t = kv.Value;
+                var tin = Interlocked.Read(ref t.TotalIn);
+                var tout = Interlocked.Read(ref t.TotalOut);
+                dict[kv.Key] = (tin, tout);
+            }
+            if (ListeningPort is int lp && !dict.ContainsKey(lp)) dict[lp] = (0, 0);
+            if (LastAutoClientPort is int ap && !dict.ContainsKey(ap)) dict[ap] = (0, 0);
+            if (UdpBoundPort is int up && !dict.ContainsKey(up)) dict[up] = (0, 0);
+            return dict;
+        }
+
+        private sealed class PortTraffic
+        {
+            public long TotalIn;
+            public long TotalOut;
+        }
+
+    public async Task<TcpClient> ConnectAsync(string host, int port, CancellationToken ct)
+        {
+            TcpClient client;
+            var bindIp = SelectPreferredBindAddress();
+            if (!bindIp.Equals(IPAddress.Any))
+            {
+                client = new TcpClient(bindIp.AddressFamily);
+                try { client.Client.Bind(new IPEndPoint(bindIp, 0)); }
+                catch (Exception ex) { Logger.Log($"Local bind {bindIp}:0 failed, continuing without: {ex.Message}"); }
+            }
+            else
+            {
+                client = new TcpClient();
+            }
+            await client.ConnectAsync(host, port, ct);
+            try { _diag.IncConnects(); } catch { }
+            try { ApplySocketOptions(client.Client); } catch { }
+            LastAutoClientPort = (client.Client.LocalEndPoint as IPEndPoint)?.Port;
+            Logger.Log($"Connected to {host}:{port} (local {LastAutoClientPort})");
+            _ = HandleClient(client, true, ct);
+            return client;
+        }
+
+        // Identity announce: bind our Ed25519 identity to this session by signing our ephemeral ECDH public key
+        private async Task SendIdentityAnnounceAsync(Utilities.AeadTransport transport, byte[] myDhSpki, CancellationToken ct)
+        {
+            try
+            {
+                var pub = _identity.PublicKey; // 32 bytes Ed25519
+                var sig = _identity.Sign(myDhSpki); // sign our ECDH SPKI bytes
+                var frame = new byte[1 + 1 + pub.Length + 1 + sig.Length];
+                int i = 0; frame[i++] = 0xA1; frame[i++] = (byte)pub.Length; Buffer.BlockCopy(pub, 0, frame, i, pub.Length); i += pub.Length; frame[i++] = (byte)sig.Length; Buffer.BlockCopy(sig, 0, frame, i, sig.Length);
+                await transport.WriteAsync(frame, ct);
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Identity announce send error: {ex.Message}");
+            }
+        }
+
+        public async Task SendSignedAsync(TcpClient client, string message, CancellationToken ct)
+        {
+            using var ns = client.GetStream();
+            var payload = Encoding.UTF8.GetBytes(message);
+            var sig = _identity.Sign(payload);
+            var frame = new byte[1 + 1 + 32 + 1 + 64 + payload.Length];
+            int i = 0; frame[i++] = 0xB0; frame[i++] = 32; Buffer.BlockCopy(_identity.PublicKey, 0, frame, i, 32); i += 32; frame[i++] = 64; Buffer.BlockCopy(sig, 0, frame, i, 64); i += 64; Buffer.BlockCopy(payload, 0, frame, i, payload.Length);
+            await ns.WriteAsync(frame.AsMemory(0, frame.Length), ct);
+            await ns.FlushAsync(ct);
+        }
+
+        // Sends a signed chat message over an established encrypted session to a known peer UID
+        public Task<bool> SendChatAsync(string peerUid, Guid messageId, string content, CancellationToken ct)
+        {
+            var bytes = Encoding.UTF8.GetBytes(content ?? string.Empty);
+            var idb = messageId.ToByteArray();
+            var payloadToSign = new byte[16 + 2 + bytes.Length];
+            Buffer.BlockCopy(idb, 0, payloadToSign, 0, 16);
+            BinaryPrimitives.WriteUInt16BigEndian(payloadToSign.AsSpan(16, 2), (ushort)bytes.Length);
+            Buffer.BlockCopy(bytes, 0, payloadToSign, 18, bytes.Length);
+            var sig = _identity.Sign(payloadToSign);
+            var frame = new byte[1 + 16 + 2 + bytes.Length + 1 + 32 + 1 + 64];
+            int i = 0; frame[i++] = 0xB0; Buffer.BlockCopy(idb, 0, frame, i, 16); i += 16; BinaryPrimitives.WriteUInt16BigEndian(frame.AsSpan(i, 2), (ushort)bytes.Length); i += 2; Buffer.BlockCopy(bytes, 0, frame, i, bytes.Length); i += bytes.Length; frame[i++] = 32; Buffer.BlockCopy(_identity.PublicKey, 0, frame, i, 32); i += 32; frame[i++] = 64; Buffer.BlockCopy(sig, 0, frame, i, 64);
+            return TrySendEncryptedAsync(peerUid, frame, ct);
+        }
+
+        // Edit message: signed propagation to recipient
+        public Task<bool> SendEditMessageAsync(string peerUid, Guid messageId, string newContent, CancellationToken ct)
+        {
+            var bytes = Encoding.UTF8.GetBytes(newContent ?? string.Empty);
+            var idb = messageId.ToByteArray();
+            var payloadToSign = new byte[16 + 2 + bytes.Length];
+            Buffer.BlockCopy(idb, 0, payloadToSign, 0, 16);
+            BinaryPrimitives.WriteUInt16BigEndian(payloadToSign.AsSpan(16, 2), (ushort)bytes.Length);
+            Buffer.BlockCopy(bytes, 0, payloadToSign, 18, bytes.Length);
+            var sig = _identity.Sign(payloadToSign);
+            var frame = new byte[1 + 16 + 2 + bytes.Length + 1 + 32 + 1 + 64];
+            int i = 0; frame[i++] = 0xB1; Buffer.BlockCopy(idb, 0, frame, i, 16); i += 16; BinaryPrimitives.WriteUInt16BigEndian(frame.AsSpan(i, 2), (ushort)bytes.Length); i += 2; Buffer.BlockCopy(bytes, 0, frame, i, bytes.Length); i += bytes.Length; frame[i++] = 32; Buffer.BlockCopy(_identity.PublicKey, 0, frame, i, 32); i += 32; frame[i++] = 64; Buffer.BlockCopy(sig, 0, frame, i, 64);
+            return TrySendEncryptedAsync(peerUid, frame, ct);
+        }
+
+        // Delete message: signed propagation to recipient
+        public Task<bool> SendDeleteMessageAsync(string peerUid, Guid messageId, CancellationToken ct)
+        {
+            var idb = messageId.ToByteArray();
+            var sig = _identity.Sign(idb);
+            var frame = new byte[1 + 16 + 1 + 32 + 1 + 64];
+            int i = 0; frame[i++] = 0xB2; Buffer.BlockCopy(idb, 0, frame, i, 16); i += 16; frame[i++] = 32; Buffer.BlockCopy(_identity.PublicKey, 0, frame, i, 32); i += 32; frame[i++] = 64; Buffer.BlockCopy(sig, 0, frame, i, 64);
+            return TrySendEncryptedAsync(peerUid, frame, ct);
+        }
+
+        // Read receipt (unsinged ack frame): informs sender that message was read in UI
+        public Task<bool> SendReadReceiptAsync(string peerUid, Guid messageId, CancellationToken ct)
+        {
+            var idb = messageId.ToByteArray();
+            var frame = new byte[1 + 16];
+            int i = 0; frame[i++] = 0xB6; Buffer.BlockCopy(idb, 0, frame, i, 16);
+            return TrySendEncryptedAsync(peerUid, frame, ct);
+        }
+
+    private async Task<bool> TrySendEncryptedAsync(string peerUid, byte[] frame, CancellationToken ct)
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            Utilities.AeadTransport? tr = null;
+            var key = Trim(peerUid);
+            var start = DateTime.UtcNow;
+            // Kick off a best-effort connection attempt in the background if we don't already have a session
+            var connectStarted = false;
+            Task? connectTask = null;
+            while (true)
+            {
+                if (_sessions.TryGetValue(key, out tr)) break;
+                // Fallback: try opposite form (prefixed) if not already
+                if (!key.StartsWith("usr-", StringComparison.Ordinal))
+                {
+                    if (_sessions.TryGetValue("usr-" + key, out tr)) break;
+                }
+                else
+                {
+                    var alt = key.StartsWith("usr-", StringComparison.Ordinal) && key.Length > 4 ? key.Substring(4) : key;
+                    if (_sessions.TryGetValue(alt, out tr)) break;
+                }
+
+                // If no session yet, start a one-shot connect attempt using discovered peer info
+                if (!connectStarted)
+                {
+                    try
+                    {
+                        var peer = AppServices.Peers.Peers.FirstOrDefault(p => string.Equals(Trim(p.UID), key, StringComparison.OrdinalIgnoreCase));
+                        if (peer != null && !string.IsNullOrWhiteSpace(peer.Address) && peer.Port > 0)
+                        {
+                            connectStarted = true;
+                            connectTask = Task.Run(async () =>
+                            {
+                                try { await ConnectWithRelayFallbackAsync(key, peer.Address!, peer.Port, ct); }
+                                catch { }
+                            }, ct);
+                        }
+                    }
+                    catch { }
+                }
+                if (DateTime.UtcNow > deadline)
+                {
+                    try
+                    {
+                        var keys = string.Join(',', _sessions.Keys);
+                        Logger.Log($"TrySend timeout; no session for {key}; sessions=[{keys}]");
+                        SafeNetLog($"send timeout | peer={key} | sessions={keys}");
+                    }
+                    catch { }
+                    return false;
+                }
+                await Task.Delay(50, ct);
+            }
+            await tr!.WriteAsync(frame, ct);
+            try
+            {
+                var waitedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                if (waitedMs > 250)
+                {
+                    Logger.Log($"[sess-send] waited {waitedMs:F0}ms for session key={key}; keys={string.Join(',', _sessions.Keys)}");
+                    SafeNetLog($"session send-wait {waitedMs:F0}ms | key={key}");
+                }
+            }
+            catch { }
+            return true;
+        }
+
+        // Public helper: check if an encrypted session exists (post-handshake)
+        public bool HasEncryptedSession(string peerUid)
+        {
+            if (string.IsNullOrWhiteSpace(peerUid)) return false;
+            var key = Trim(peerUid);
+            if (_sessions.ContainsKey(key)) return true;
+            if (!key.StartsWith("usr-", StringComparison.Ordinal) && _sessions.ContainsKey("usr-" + key)) return true;
+            if (key.StartsWith("usr-", StringComparison.Ordinal) && key.Length > 4)
+            {
+                var alt = key.Substring(4);
+                if (_sessions.ContainsKey(alt)) return true;
+            }
+            return false;
+        }
+
+        // Await an encrypted session for the given peer UID up to timeout.
+        public async Task<bool> WaitForEncryptedSessionAsync(string peerUid, TimeSpan timeout, CancellationToken ct)
+        {
+            var end = DateTime.UtcNow + timeout;
+            var logged = false;
+            while (DateTime.UtcNow < end && !ct.IsCancellationRequested)
+            {
+                if (HasEncryptedSession(peerUid)) return true;
+                if (!logged)
+                {
+                    try { Logger.Log($"Waiting for encrypted session with {peerUid}..."); } catch { }
+                    logged = true;
+                }
+                try { await Task.Delay(75, ct); } catch { }
+            }
+            var ok = HasEncryptedSession(peerUid);
+            if (!ok)
+            {
+                try
+                {
+                    var keys = string.Join(',', _sessions.Keys);
+                    Logger.Log($"Encrypted session wait timeout for {peerUid}; existing keys=[{keys}]");
+                    SafeNetLog($"session wait-timeout | peer={peerUid} | keys={keys}");
+                }
+                catch { }
+            }
+            return ok;
+        }
+
+        // Broadcast our presence status to a specific peer over an established encrypted session
+        // Frame: 0xD0 | 1-byte token length | ASCII token (on|idle|dnd|inv)
+        public async Task<bool> SendPresenceAsync(string peerUid, Models.PresenceStatus status, CancellationToken ct)
+        {
+            // [PRIVACY] Do not actively broadcast presence when Invisible
+            if (status == Models.PresenceStatus.Invisible)
+            {
+                return true;
+            }
+            var tok = status switch
+            {
+                Models.PresenceStatus.Online => "on",
+                Models.PresenceStatus.Idle => "idle",
+                Models.PresenceStatus.DoNotDisturb => "dnd",
+                _ => "on"
+            };
+            var payload = System.Text.Encoding.UTF8.GetBytes(tok);
+            var frame = new byte[2 + payload.Length];
+            frame[0] = 0xD0; frame[1] = (byte)payload.Length; Buffer.BlockCopy(payload, 0, frame, 2, payload.Length);
+            var ok = await TrySendEncryptedAsync(peerUid, frame, ct);
+            if (ok)
+            {
+                try { _presenceLastSentUtc[Trim(peerUid)] = DateTime.UtcNow; } catch { }
+            }
+            return ok;
+        }
+
+        // Fire-and-forget broadcast to all currently active sessions
+        public void BroadcastPresenceToActiveSessions(Models.PresenceStatus status)
+        {
+            try
+            {
+                // [PRIVACY] Suppress broadcasts when Invisible; rely on TTL expiry on peers
+                if (status == Models.PresenceStatus.Invisible) return;
+                var peers = _sessions.Keys.ToArray();
+                foreach (var uid in peers)
+                {
+                    _ = SendPresenceAsync(uid, status, CancellationToken.None);
+                }
+            }
+            catch { }
+        }
+
+        // Broadcast current avatar to all active sessions when it changes or sharing toggles on
+        public void BroadcastAvatarToActiveSessions()
+        {
+            try
+            {
+                var bytes = _identity.AvatarBytes;
+                if (!_identity.ShareAvatar || bytes == null || bytes.Length == 0) return;
+                var frame = BuildAvatarFrame(bytes);
+                var peers = _sessions.Keys.ToArray();
+                foreach (var uid in peers)
+                {
+                    try { _ = TrySendEncryptedAsync(uid, frame, CancellationToken.None); } catch { }
+                }
+            }
+            catch { }
+        }
+
+        // Broadcast current bio to all active sessions
+        public void BroadcastBioToActiveSessions()
+        {
+            try
+            {
+                var frame = BuildBioFrame(_identity.Bio);
+                var peers = _sessions.Keys.ToArray();
+                foreach (var uid in peers)
+                {
+                    try { _ = TrySendEncryptedAsync(uid, frame, CancellationToken.None); } catch { }
+                }
+            }
+            catch { }
+        }
+
+        public async Task<bool> SendContactRequestAsync(string peerUid, string nonce, string displayName, CancellationToken ct)
+        {
+            var payload = Encoding.UTF8.GetBytes(nonce);
+            var sig = _identity.Sign(payload);
+            var dn = Encoding.UTF8.GetBytes(displayName ?? string.Empty);
+            var frame = new byte[1 + 1 + payload.Length + 32 + 64 + 1 + dn.Length];
+            int i = 0; frame[i++] = 0xC0; frame[i++] = (byte)payload.Length; Buffer.BlockCopy(payload, 0, frame, i, payload.Length); i += payload.Length; Buffer.BlockCopy(_identity.PublicKey, 0, frame, i, 32); i += 32; Buffer.BlockCopy(sig, 0, frame, i, 64); i += 64; frame[i++] = (byte)dn.Length; Buffer.BlockCopy(dn, 0, frame, i, dn.Length);
+            try { SafeNetLog($"send C0 contact-request | peer={Trim(peerUid)} | nonce={nonce} | dnLen={dn.Length}"); } catch { }
+            return await TrySendEncryptedAsync(peerUid, frame, ct);
+        }
+
+        public Task<bool> SendContactAcceptAsync(string peerUid, string nonce, CancellationToken ct)
+        {
+            var payload = Encoding.UTF8.GetBytes(nonce);
+            var frame = new byte[1 + 1 + payload.Length]; int i = 0; frame[i++] = 0xC1; frame[i++] = (byte)payload.Length; Buffer.BlockCopy(payload, 0, frame, i, payload.Length);
+            try { SafeNetLog($"send C1 contact-accept | peer={Trim(peerUid)} | nonce={nonce}"); } catch { }
+            return TrySendEncryptedAsync(peerUid, frame, ct);
+        }
+
+        public Task<bool> SendContactCancelAsync(string peerUid, string nonce, CancellationToken ct)
+        {
+            var payload = Encoding.UTF8.GetBytes(nonce);
+            var frame = new byte[1 + 1 + payload.Length]; int i = 0; frame[i++] = 0xC2; frame[i++] = (byte)payload.Length; Buffer.BlockCopy(payload, 0, frame, i, payload.Length);
+            try { SafeNetLog($"send C2 contact-cancel | peer={Trim(peerUid)} | nonce={nonce}"); } catch { }
+            return TrySendEncryptedAsync(peerUid, frame, ct);
+        }
+
+        public async Task SendContactRequestAsync(TcpClient client, string nonce, string displayName, CancellationToken ct)
+        {
+            var payload = Encoding.UTF8.GetBytes(nonce);
+            var sig = _identity.Sign(payload);
+            var dn = Encoding.UTF8.GetBytes(displayName ?? string.Empty);
+            var frame = new byte[1 + 1 + payload.Length + 32 + 64 + 1 + dn.Length];
+            int i = 0; frame[i++] = 0xC0; frame[i++] = (byte)payload.Length; Buffer.BlockCopy(payload, 0, frame, i, payload.Length); i += payload.Length; Buffer.BlockCopy(_identity.PublicKey, 0, frame, i, 32); i += 32; Buffer.BlockCopy(sig, 0, frame, i, 64); i += 64; frame[i++] = (byte)dn.Length; Buffer.BlockCopy(dn, 0, frame, i, dn.Length);
+            using var ns = client.GetStream();
+            await ns.WriteAsync(frame.AsMemory(0, frame.Length), ct);
+            await ns.FlushAsync(ct);
+        }
+
+        public async Task SendContactAcceptAsync(TcpClient client, string nonce, CancellationToken ct)
+        {
+            var payload = Encoding.UTF8.GetBytes(nonce);
+            var frame = new byte[1 + 1 + payload.Length]; int i = 0; frame[i++] = 0xC1; frame[i++] = (byte)payload.Length; Buffer.BlockCopy(payload, 0, frame, i, payload.Length);
+            using var ns = client.GetStream();
+            await ns.WriteAsync(frame.AsMemory(0, frame.Length), ct);
+            await ns.FlushAsync(ct);
+        }
+
+        public async Task SendContactCancelAsync(TcpClient client, string nonce, CancellationToken ct)
+        {
+            var payload = Encoding.UTF8.GetBytes(nonce);
+            var frame = new byte[1 + 1 + payload.Length]; int i = 0; frame[i++] = 0xC2; frame[i++] = (byte)payload.Length; Buffer.BlockCopy(payload, 0, frame, i, payload.Length);
+            using var ns = client.GetStream();
+            await ns.WriteAsync(frame.AsMemory(0, frame.Length), ct);
+            await ns.FlushAsync(ct);
+        }
+
+        // 0xC3: Verification intent (no payload). Returns false if session is not established within deadline.
+        public Task<bool> SendVerifyIntentAsync(string peerUid, CancellationToken ct)
+        {
+            var frame = new byte[] { 0xC3 };
+            return TrySendEncryptedAsync(Trim(peerUid), frame, ct);
+        }
+
+        // 0xC4: Verification request (no payload) – ask peer to open verification dialog.
+        public Task<bool> SendVerifyRequestAsync(string peerUid, CancellationToken ct)
+        {
+            var frame = new byte[] { 0xC4 };
+            return TrySendEncryptedAsync(Trim(peerUid), frame, ct);
+        }
+
+        // 0xC5: Verification cancel (no payload) – notify peer to dismiss request/dialog.
+        public Task<bool> SendVerifyCancelAsync(string peerUid, CancellationToken ct)
+        {
+            var frame = new byte[] { 0xC5 };
+            return TrySendEncryptedAsync(Trim(peerUid), frame, ct);
+        }
+
+        private static string Trim(string uid) => uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+
+        // Expose diagnostics snapshot for UI/monitoring.
+
+        // Apply low-latency, resilient socket options suitable for chat traffic.
+        private static void ApplySocketOptions(Socket s)
+        {
+            try { s.NoDelay = true; } catch { }
+            try { s.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true); } catch { }
+        }
+
+        public void Dispose()
+        {
+            try { Stop(); } catch { }
+            // Dispose peer connections
+            try
+            {
+                foreach (var kv in _peers)
+                {
+                    try { kv.Value.Close(); kv.Value.Dispose(); } catch { }
+                }
+            }
+            catch { }
+            try { _cts?.Dispose(); } catch { }
+            try
+            {
+                // AeadTransport has no IDisposable; just clear references
+                foreach (var s in _sessions.Values) { /* no dispose */ }
+                _sessions.Clear();
+            }
+            catch { }
+            System.GC.SuppressFinalize(this);
+        }
+    }
+}

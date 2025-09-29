@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Reconstructed sovereignty style: neutralize platform accents, unify selection, keep minimal needed rules -->
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Styles.Resources>
+    <!-- Core brush contract (can be overridden by theme override files) -->
+  <SolidColorBrush x:Key="App.Background" Color="#181818"/>
+  <SolidColorBrush x:Key="App.TitleBarBackground" Color="#181818"/>
+  <SolidColorBrush x:Key="App.Surface" Color="#202020"/>
+    <SolidColorBrush x:Key="App.CardBackground" Color="#232323"/>
+    <SolidColorBrush x:Key="App.ForegroundPrimary" Color="#FFFFFF"/>
+  <SolidColorBrush x:Key="App.TitleBarForeground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="App.Border" Color="#333333"/>
+    <SolidColorBrush x:Key="App.ItemHover" Color="#242424"/>
+    <SolidColorBrush x:Key="App.ItemSelected" Color="#2D2D2D"/>
+    <SolidColorBrush x:Key="App.SelectionBackground" Color="#3A3A3A"/>
+    <SolidColorBrush x:Key="App.SelectionForeground" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="App.ButtonBackground" Color="#252525"/>
+    <SolidColorBrush x:Key="App.ButtonHover" Color="#2E2E2E"/>
+    <SolidColorBrush x:Key="App.ButtonPressed" Color="#363636"/>
+    <SolidColorBrush x:Key="App.InputBorder" Color="#3D3D3D"/>
+    <SolidColorBrush x:Key="App.Accent" Color="#5C82FF"/>
+    <SolidColorBrush x:Key="App.AccentLight" Color="#7998FF"/>
+    <SolidColorBrush x:Key="App.ChatSenderName" Color="#9AB3FF"/>
+    <SolidColorBrush x:Key="App.ChatReceiverName" Color="#F3AA64"/>
+  </Styles.Resources>
+
+  <!-- Remove focus adorners globally -->
+  <Style Selector="Control">
+    <Setter Property="FocusAdorner" Value="{x:Null}"/>
+  </Style>
+
+  <!-- Window baseline -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource App.Background}"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+  </Style>
+
+  <!-- TextBox selection + caret unified -->
+  <Style Selector="TextBox">
+    <Setter Property="SelectionBrush" Value="{DynamicResource App.SelectionBackground}"/>
+    <Setter Property="CaretBrush" Value="{DynamicResource App.ForegroundPrimary}"/>
+  </Style>
+
+  <!-- ListBoxItem states -->
+  <Style Selector="ListBoxItem">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+  </Style>
+  <Style Selector="ListBoxItem:pointerover">
+    <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+  </Style>
+  <Style Selector="ListBoxItem:selected, ListBoxItem:focus, ListBoxItem:selected:focus, ListBoxItem:focus-within, ListBoxItem:selected:not(:focus):not(:pointerover)">
+    <Setter Property="Background" Value="{DynamicResource App.ItemSelected}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+
+  <!-- ScrollBar minimal styling -->
+  <Style Selector="ScrollBar">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="ScrollBar /template/ Thumb" x:SetterTargetType="Thumb">
+    <Setter Property="Background" Value="#555"/>
+    <Setter Property="CornerRadius" Value="5"/>
+    <Setter Property="MinWidth" Value="10"/>
+    <Setter Property="MinHeight" Value="10"/>
+  </Style>
+  <Style Selector="ScrollBar:pointerover /template/ Thumb" x:SetterTargetType="Thumb">
+    <Setter Property="Background" Value="#6A6A6A"/>
+  </Style>
+  <Style Selector="ScrollBar:pressed /template/ Thumb" x:SetterTargetType="Thumb">
+    <Setter Property="Background" Value="#7A7A7A"/>
+  </Style>
+
+  <!-- Button baseline -->
+  <Style Selector="Button">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonBackground}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+  </Style>
+  <Style Selector="Button:pointerover">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonHover}"/>
+  </Style>
+  <Style Selector="Button:pressed">
+    <Setter Property="Background" Value="{DynamicResource App.ButtonPressed}"/>
+  </Style>
+
+  <!-- (Removed old generic CheckBox path fill to avoid full-width coloring) -->
+  <Style Selector="RadioButton:checked">
+    <Setter Property="Background" Value="{DynamicResource App.Accent}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.SelectionForeground}"/>
+  </Style>
+
+  <!-- Custom sovereign CheckBox template (only square box changes color) -->
+  <Style Selector="CheckBox">
+    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+  <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+      <Border x:Name="Box" Width="16" Height="16" CornerRadius="3"
+      Background="Transparent"
+      BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
+    <TextBlock x:Name="Glyph" Text="✔" FontSize="12" FontWeight="SemiBold" 
+           Foreground="{DynamicResource App.SelectionForeground}" 
+           HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="False"/>
+      </Border>
+          <ContentPresenter VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}" 
+                            ContentTemplate="{TemplateBinding ContentTemplate}" 
+                            Foreground="{TemplateBinding Foreground}"/>
+        </StackPanel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <!-- Unchecked hover border accent -->
+  <Style Selector="CheckBox:pointerover #Box" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
+  </Style>
+  <!-- Unchecked pressed -->
+  <Style Selector="CheckBox:pressed #Box" x:SetterTargetType="Border">
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  <!-- Checked visuals -->
+  <Style Selector="CheckBox:checked #Box" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.Accent}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  <Style Selector="CheckBox:checked:pointerover #Box" x:SetterTargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource App.AccentLight}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
+  </Style>
+  <Style Selector="CheckBox:checked #Glyph" x:SetterTargetType="TextBlock">
+    <Setter Property="IsVisible" Value="True"/>
+  </Style>
+  <!-- Indeterminate: show a horizontal bar -->
+  <Style Selector="CheckBox:indeterminate #Glyph" x:SetterTargetType="TextBlock">
+    <Setter Property="Text" Value="−"/>
+    <Setter Property="IsVisible" Value="True"/>
+    <Setter Property="Foreground" Value="{DynamicResource App.Accent}"/>
+  </Style>
+  <!-- Disabled fades -->
+  <Style Selector="CheckBox:disabled #Box" x:SetterTargetType="Border">
+    <Setter Property="Opacity" Value="0.45"/>
+  </Style>
+  <Style Selector="CheckBox:disabled #Glyph" x:SetterTargetType="TextBlock">
+    <Setter Property="Opacity" Value="0.55"/>
+  </Style>
+</Styles>

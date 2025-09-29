@@ -1,0 +1,211 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Neutral, color-agnostic metrics and templates. Themes supply colors. -->
+
+  <!-- Global focus behavior -->
+  <Style Selector="Control">
+    <Setter Property="FocusAdorner" Value="{x:Null}"/>
+  </Style>
+
+  <!-- Typography base (no colors) -->
+  <Style Selector="TextBlock">
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI"/>
+  </Style>
+
+  <!-- Buttons: neutral sizing & layout (no brushes) -->
+  <Style Selector="Button">
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Button /template/ ContentPresenter">
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Margin" Value="0"/>
+  </Style>
+  <!-- Keep border thickness stable across states to avoid jitter -->
+  <Style Selector="Button /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+  <Style Selector="Button:pointerover /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+  <Style Selector="Button:pressed /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+
+  <!-- Icon-only button metrics (colors come from theme) -->
+  <Style Selector="Button.icon-button">
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Width" Value="32"/>
+    <Setter Property="Height" Value="32"/>
+    <Setter Property="MinWidth" Value="32"/>
+    <Setter Property="MaxWidth" Value="32"/>
+    <Setter Property="MinHeight" Value="32"/>
+    <Setter Property="MaxHeight" Value="32"/>
+    <Setter Property="FocusAdorner" Value="{x:Null}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Margin="0"/>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.icon-button /template/ ContentPresenter">
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="Margin" Value="0"/>
+  </Style>
+
+  <!-- Icon glyph helpers (no colors) -->
+  <Style Selector="TextBlock.icon-glyph">
+    <Setter Property="FontFamily" Value="Segoe UI Emoji"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="TextAlignment" Value="Center"/>
+    <Setter Property="Margin" Value="0,1,0,0"/>
+  </Style>
+  <Style Selector="TextBlock.icon-mdl2">
+    <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="TextAlignment" Value="Center"/>
+    <Setter Property="Margin" Value="1"/>
+  </Style>
+
+  <!-- Utility classes: sizes only -->
+  <Style Selector="TextBlock.heading">
+    <Setter Property="FontSize" Value="16"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="TextBlock.caption">
+    <Setter Property="FontSize" Value="11"/>
+  </Style>
+  <Style Selector="Border.card">
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="8"/>
+  </Style>
+  <Style Selector="Border.divider-bottom">
+    <Setter Property="BorderThickness" Value="0,0,0,1"/>
+  </Style>
+
+  <!-- Text input metrics (no brushes) -->
+  <Style Selector="TextBox">
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="FocusAdorner" Value="{x:Null}"/>
+  </Style>
+  <Style Selector="TextBox /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+
+  <!-- Chat input metrics -->
+  <Style Selector="TextBox.chat-input">
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="8"/>
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style Selector="TextBox.chat-input /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+
+  <!-- Tabs & Menus: metrics only -->
+  <Style Selector="TabItem">
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Padding" Value="10,6"/>
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.08"/>
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.08"/>
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="TabItem:selected /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="0,0,0,2"/>
+  </Style>
+
+  <!-- Settings left menu: larger bold items (global) -->
+  <Style Selector="ListBox#MenuList ListBoxItem">
+    <Setter Property="FontSize" Value="18"/>
+    <Setter Property="FontWeight" Value="Normal"/>
+  </Style>
+  <!-- Ensure inner text in MenuList items inherits the sizing -->
+  <Style Selector="ListBox#MenuList ListBoxItem TextBlock">
+    <Setter Property="FontSize" Value="18"/>
+    <Setter Property="FontWeight" Value="Normal"/>
+  </Style>
+
+  <!-- ToggleSwitch: neutral metrics template (themes set brushes) -->
+  <Style Selector="ToggleSwitch">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid Width="46" Height="24">
+          <Border x:Name="Track" Width="46" Height="24" CornerRadius="12"/>
+          <Canvas x:Name="PART_MovingKnobs" Width="46" Height="24">
+            <Border x:Name="Thumb" Width="18" Height="18" CornerRadius="9" Canvas.Left="3" Canvas.Top="3"/>
+          </Canvas>
+          <ContentPresenter Margin="52,0,0,0" VerticalAlignment="Center" Content="{TemplateBinding Content}"/>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <!-- Move thumb to the right when checked (neutral metric) -->
+  <Style Selector="ToggleSwitch:checked /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="Canvas.Left" Value="25"/>
+  </Style>
+  <!-- Neutral part thickness so themes don't set metrics -->
+  <Style Selector="ToggleSwitch /template/ #Track" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+  <Style Selector="ToggleSwitch /template/ #Thumb" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+
+  <Style Selector="MenuItem">
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Padding" Value="10,6"/>
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.08"/>
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.08"/>
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <!-- ComboBox neutral metric: border thickness only -->
+  <Style Selector="ComboBox">
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+
+  <!-- Contacts list metrics: container and card outlines -->
+  <Style Selector="#ContactsList ListBoxItem /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:pointerover /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:selected /template/ Border" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem .contact-card" x:SetterTargetType="Border">
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="0"/>
+  </Style>
+
+</Styles>

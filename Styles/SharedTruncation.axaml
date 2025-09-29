@@ -1,0 +1,33 @@
+<Styles xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!--
+    Shared, opt-in truncation styles for long inline text across windows/dialogs.
+    Usage: add Classes="app-trunc" to TextBlock/Label/TextBox that may overflow.
+    - TextBlock.app-trunc: Ellipses + tooltip bound to its own Text.
+    - Label.app-trunc: Tooltip bound to Content; any TextBlock within gets ellipses.
+    - TextBox.app-trunc: Tooltip bound to Text (TextBox doesn't support TextTrimming; we preserve layout and only add tooltip/clip).
+  -->
+
+  <!-- TextBlock: ellipsis and self-tooltip -->
+  <Style Selector="TextBlock.app-trunc">
+    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    <Setter Property="ToolTip.Tip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+  </Style>
+
+  <!-- Label: add tooltip; ensure inner text uses ellipsis without altering overall layout. -->
+  <Style Selector="Label.app-trunc">
+    <Setter Property="ToolTip.Tip" Value="{Binding Content, RelativeSource={RelativeSource Self}}"/>
+  </Style>
+  <!-- Descendant TextBlocks inside an opt-in Label should ellipsize. -->
+  <Style Selector="Label.app-trunc TextBlock">
+    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+  </Style>
+
+  <!-- TextBox: cannot ellipsize; provide tooltip and clip to bounds to keep visuals tidy. -->
+  <Style Selector="TextBox.app-trunc">
+    <Setter Property="ToolTip.Tip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+    <Setter Property="ClipToBounds" Value="True"/>
+  </Style>
+
+  <!-- Avatar interpolation style removed due to Avalonia version incompatibility. -->
+</Styles>

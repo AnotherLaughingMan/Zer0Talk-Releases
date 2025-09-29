@@ -1,0 +1,316 @@
+<!--
+    Context: Network and Peers management UI.
+    - "Network" tab shows local port, TCP/UDP/NAT status, and Major Node toggle with warnings.
+    - "Peers" tab lists only Discovered Peers.
+    - "Major Nodes" tab manages host:port entries; "Blocked" tab manages blocked peers with Clear All.
+    - Compact layout with smaller fonts; includes an "On top" checkbox bound to Window.Topmost and persisted in settings.
+-->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:P2PTalk.ViewModels"
+    xmlns:i="using:Avalonia.Input"
+    xmlns:c="clr-namespace:P2PTalk.Controls"
+    xmlns:m="clr-namespace:ZTalk.Models"
+    xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        x:Class="P2PTalk.Views.NetworkWindow"
+    Title="Network Settings"
+    Width="520" Height="360"
+    MinWidth="480" MinHeight="320"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ExtendClientAreaTitleBarHeightHint="36"
+    mc:Ignorable="d"
+    x:DataType="vm:NetworkViewModel"
+    Background="{DynamicResource App.Background}"
+    Foreground="{DynamicResource App.ForegroundPrimary}">
+        <Window.DataContext>
+                <vm:NetworkViewModel />
+        </Window.DataContext>
+
+    <Window.Styles>
+        <Style Selector="TabControl TabItem">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="6,3"/>
+        </Style>
+        <!-- [TRUNC-STYLE] Reusable opt-in style for long inline values in this window: ellipsis + tooltip bound to self.Text. -->
+        <Style Selector="TextBlock.net-trunc">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="ToolTip.Tip" Value="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+        </Style>
+    </Window.Styles>
+
+    <!-- [CHROME] Custom client area with no OS chrome; drag bar below handles move/drag. -->
+    <Grid RowDefinitions="Auto,*">
+        <!-- [DRAGBAR] Minimal drag bar with centered title and placeholder icon. -->
+    <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.Background}"
+                PointerPressed="DragBar_PointerPressed">
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <Border Grid.Column="0" Width="20" Height="20" CornerRadius="4" Background="Transparent"/>
+                <!-- [TRUNC-OPTIN] Title usually fits, no truncation needed; leaving unchanged. -->
+        <TextBlock Grid.Column="1" Text="Network Settings" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <Grid Grid.Column="2"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Padding="8" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <Grid ColumnDefinitions="Auto,*">
+                    <!-- Removed redundant left-side title label; shift controls left and keep right-aligned options -->
+                    <!-- Quick access to Monitoring window -->
+                    <Button Grid.Column="0" Content="Monitoring" Width="96" Height="28" Padding="8,2" Margin="0,0,12,0" Click="OpenMonitoring_Click"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+                        <!-- Use ToggleSwitch here so the window chrome exposes a slider-style toggle; do not down-convert to ToggleButton again. -->
+                        <ToggleSwitch
+                              Content="On top"
+                              IsChecked="{Binding $parent[Window].Topmost, Mode=TwoWay}"
+                              ToolTip.Tip="Keep this window on top of other windows"
+                              VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+                <TabControl Grid.Row="1" x:Name="NetworkTabs">
+                    <TabItem Header="Network">
+                        <ScrollViewer>
+                            <StackPanel Margin="8" Spacing="8">
+                                <Border Padding="8" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6">
+                                    <StackPanel Spacing="8">
+                                        <!-- Port row -->
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="Port:"/>
+                                            <TextBox Text="{Binding PortText, Mode=TwoWay}" Width="120" ToolTip.Tip="{Binding TcpStatus}"/>
+                                        </StackPanel>
+                                        <!-- [TRUNC] Status rows: switch rows to Grids so value cells can star-size and truncate with ellipses. -->
+                                        <StackPanel Spacing="4">
+                                            <!-- [TRUNC] TCP status row: value truncates at min window width with tooltip for full text. -->
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                <TextBlock Grid.Column="0" Text="TCP:" VerticalAlignment="Center"/>
+                                                <!-- [TRUNC] Use reusable style instead of inline properties. -->
+                                                <TextBlock Grid.Column="1" Classes="net-trunc" Text="{Binding TcpStatus}"/>
+                                            </Grid>
+                                            <!-- [TRUNC] UDP status row. -->
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                <TextBlock Grid.Column="0" Text="UDP:" VerticalAlignment="Center"/>
+                                                <!-- [TRUNC] Use reusable style. -->
+                                                <TextBlock Grid.Column="1" Classes="net-trunc" Text="{Binding UdpStatus}"/>
+                                            </Grid>
+                                            <!-- [TRUNC] NAT status row with inline indicator; value truncates and shows tooltip. -->
+                                            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" VerticalAlignment="Center">
+                                                <TextBlock Grid.Column="0" Text="NAT:" VerticalAlignment="Center"/>
+                                                <!-- Inline status indicator ellipse next to NAT label -->
+                                                <Ellipse Grid.Column="1" Width="10" Height="10" Fill="{Binding NatIndicatorBrush}" Opacity="{Binding NatIndicatorOpacity}" VerticalAlignment="Center"/>
+                                                <!-- [TRUNC] Use reusable style. -->
+                                                <!-- Replace StackPanel with Grid so truncation can occur (StackPanel gives infinite width). -->
+                                                <Grid Grid.Column="2" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                                    <TextBlock Grid.Column="0" Classes="net-trunc" Text="{Binding NatStatus}"/>
+                                                    <Button Grid.Column="1" Content="Retry" Command="{Binding RetryNatVerificationCommand}" Height="20" Padding="8,0"
+                                                            ToolTip.Tip="Re-run mapping verification &amp; hairpin test"/>
+                                                </Grid>
+                                            </Grid>
+                                            <!-- [TRUNC] NAT mapping verification row. -->
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                                <TextBlock Grid.Column="0" Text="Map check:" VerticalAlignment="Center"/>
+                                                <!-- [TRUNC] Use reusable style. -->
+                                                <!-- Replace StackPanel with Grid to allow the verification text to truncate before hairpin columns. -->
+                                                <Grid Grid.Column="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+                                                    <TextBlock Grid.Column="0" Classes="net-trunc" Text="{Binding NatVerification}"/>
+                                                    <TextBlock Grid.Column="1" Text="| Hairpin:"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding HairpinStatus}"/>
+                                                </Grid>
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <!-- Compact, inline Status Legend (theme-independent colors); unobtrusive and right-aligned -->
+                                <Grid>
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="12"
+                                                HorizontalAlignment="Right"
+                                                Margin="0,4,0,0">
+                                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                            <Ellipse Width="8" Height="8" Fill="#E0B000" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Searching" FontSize="12" FontWeight="Normal" Foreground="{DynamicResource App.ForegroundPrimary}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                            <Ellipse Width="8" Height="8" Fill="#D24A4A" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Failure" FontSize="12" FontWeight="Normal" Foreground="{DynamicResource App.ForegroundPrimary}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                            <Ellipse Width="8" Height="8" Fill="#4CAF50" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Success" FontSize="12" FontWeight="Normal" Foreground="{DynamicResource App.ForegroundPrimary}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                                <Border Padding="8" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6">
+                                    <StackPanel Spacing="6">
+                                        <!-- Preserve ToggleSwitch for the slider presentation of the major-node enable control. -->
+                                        <ToggleSwitch Content="Enable Major Node (manual port assignment)" IsChecked="{Binding MajorNode, Mode=TwoWay}"/>
+                                        <!-- Theme-independent warning box styling -->
+                                        <Border IsVisible="{Binding MajorNode}"
+                                                Background="#151515"
+                                                BorderBrush="#CC0000"
+                                                BorderThickness="1"
+                                                Padding="8"
+                                                CornerRadius="4">
+                                            <StackPanel Spacing="4">
+                                                <TextBlock TextWrapping="Wrap" FontSize="12">
+                                                    <TextBlock.Inlines>
+                                                        <Run Text="Warning: " Foreground="#E53935" FontWeight="SemiBold"/>
+                                                        <Run Text="Major Node requires an inbound port. Allow ZTalk in Windows Firewall or forward the port on your router." Foreground="#FFFFFF"/>
+                                                    </TextBlock.Inlines>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding InfoMessage}"
+                                                           TextWrapping="Wrap"
+                                                           FontSize="12"
+                                                           Foreground="#FFFFFF"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                    <TabItem Header="Peers">
+                        <Grid Margin="8" RowDefinitions="Auto,*">
+                            <!-- [PRIVACY] Column headers: show only UID and Public Key (Address/Port hidden) -->
+                            <Grid ColumnDefinitions="140,*,Auto" Margin="0,0,0,4">
+                                <TextBlock Grid.Column="0" Text="UID" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="1" Text="Public Key" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="2" Text="Actions" FontWeight="SemiBold"/>
+                            </Grid>
+                            <!-- List fills remaining space and scrolls internally -->
+                            <ListBox Grid.Row="1" ItemsSource="{Binding DiscoveredPeers}" SelectedItem="{Binding SelectedDiscoveredPeer}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="m:Peer">
+                                        <Grid ColumnDefinitions="140,*,Auto" Margin="0,2" HorizontalAlignment="Stretch">
+                                            <!-- [TRUNC] UID cell: swap inner StackPanel for Grid to constrain text and enable ellipsis. -->
+                                            <Grid Grid.Column="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+                                                <!-- [MAJOR] Globe icon for Major Nodes; inherits accent color -->
+                                                <TextBlock Grid.Column="0" Classes="icon-mdl2" Text="&#xE774;" Foreground="{DynamicResource App.Accent}" IsVisible="{Binding IsMajorNode}"/>
+                                                <!-- [TRUNC] UID text uses reusable truncation style. -->
+                                                <TextBlock Grid.Column="1" Classes="net-trunc" Text="{Binding DisplayUID}"/>
+                                                <!-- [VERIFY] Green shield badge when public key verified -->
+                                                <c:VerifiedBadge Grid.Column="2" Width="18" Height="18" VerticalAlignment="Center" IsVisible="{Binding PublicKeyVerified}"/>
+                                            </Grid>
+                                            <!-- [TRUNC] Public key cell uses reusable truncation style; center vertically. -->
+                                            <TextBlock Grid.Column="1" Classes="net-trunc" VerticalAlignment="Center" Text="{Binding PublicKeyDisplay}"/>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                                                <Button Content="Block" HorizontalAlignment="Left" Command="{Binding $parent[Window].DataContext.BlockPeerCommand}" CommandParameter="{Binding UID}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="Major Nodes">
+                        <Grid Margin="8" RowDefinitions="Auto,Auto,*" RowSpacing="8">
+                            <TextBlock Text="Known Major Nodes (host:port)" FontWeight="SemiBold"/>
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                                <TextBox Text="{Binding NewMajorNode}" Watermark="example.com:26264" Width="240"/>
+                                <Button Content="Add" Command="{Binding AddMajorNodeCommand}"/>
+                            </StackPanel>
+                            <ListBox Grid.Row="2" ItemsSource="{Binding KnownMajorNodes}" SelectedItem="{Binding SelectedMajorNode}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="sys:String">
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2" HorizontalAlignment="Stretch">
+                                            <TextBlock Grid.Column="0" Text="{Binding .}"/>
+                                            <Button Grid.Column="1" Content="Remove" HorizontalAlignment="Left" Command="{Binding $parent[Window].DataContext.RemoveMajorNodeCommand}" CommandParameter="{Binding .}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="Blocked">
+                        <Grid Margin="8" RowDefinitions="Auto,*,Auto" RowSpacing="8">
+                            <TextBlock Text="Blocked Peers" FontWeight="SemiBold"/>
+                            <ListBox Grid.Row="1" ItemsSource="{Binding BlockedPeers}" SelectedItem="{Binding SelectedBlockedPeer}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="sys:String">
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,2" HorizontalAlignment="Stretch">
+                                            <TextBlock Grid.Column="0" Text="{Binding .}"/>
+                                            <Button Grid.Column="1" Content="Unblock" HorizontalAlignment="Left" Command="{Binding $parent[Window].DataContext.UnblockPeerCommand}" CommandParameter="{Binding .}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <Button Grid.Row="2" Content="Clear All Blocks" Command="{Binding ClearAllBlocksCommand}" HorizontalAlignment="Left"/>
+                        </Grid>
+                    </TabItem>
+                    <!-- New Logging tab: shows real-time log bound to NetworkViewModel.LogItems. -->
+                    <TabItem Header="Logging">
+                        <Grid Margin="8" RowDefinitions="*,Auto" RowSpacing="8">
+                            <!-- Log list fills available space and scrolls internally; placeholder when empty. -->
+                            <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}" MinHeight="140">
+                                <Grid>
+                                    <ListBox x:Name="LoggingList" ItemsSource="{Binding LogItems}"
+                                             SelectionMode="Multiple"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                             ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                                    <TextBlock Text="No log entries yet" Opacity="0.6" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsLogEmpty}"/>
+                                </Grid>
+                            </Border>
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                <Button Content="Clear Log" Command="{Binding ClearLogCommand}"/>
+                                <Button Content="Copy" Command="{Binding CopySelectedCommand}" CommandParameter="{Binding #LoggingList.SelectedItems}"/>
+                                <Button Content="Copy All" Command="{Binding CopyAllCommand}"/>
+                            </StackPanel>
+                        </Grid>
+                    </TabItem>
+                    <!-- Monitoring tab extracted to dedicated MonitoringWindow; access via header button. -->
+                    <TabItem Header="Adapters">
+                        <Grid Margin="8" RowDefinitions="Auto,*,Auto" RowSpacing="8">
+                            <TextBlock Text="Network Adapters (top has priority)" FontWeight="SemiBold"/>
+                            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <ListBox x:Name="AdaptersList"
+                                         Grid.Column="0"
+                                         ItemsSource="{Binding Adapters}"
+                                         SelectedItem="{Binding SelectedAdapter}"
+                                         i:DragDrop.AllowDrop="True"
+                                         PointerPressed="AdaptersList_PointerPressed"
+                                         PointerMoved="AdaptersList_PointerMoved"
+                                         i:DragDrop.DragOver="AdaptersList_DragOver"
+                                         i:DragDrop.Drop="AdaptersList_Drop">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Spacing="2">
+                                                <TextBlock Text="{Binding Name}"/>
+                                                <TextBlock Text="{Binding Address}" FontSize="12" Opacity="0.8"/>
+                                                <TextBlock Text="{Binding Status}" FontSize="12" Opacity="0.8"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Top">
+                                    <Button Content="▲" Command="{Binding MoveAdapterUpCommand}"/>
+                                    <Button Content="▼" Command="{Binding MoveAdapterDownCommand}"/>
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                <Button Content="Save Order" Command="{Binding SaveAdaptersCommand}"/>
+                            </StackPanel>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Content="Cancel" Command="{Binding CancelCommand}"/>
+                    <Button Content="Save" Command="{Binding SaveCommand}"/>
+                    <Button Content="Close" Command="{Binding CloseApplyCommand}"/>
+                </StackPanel>
+                <!-- Toast overlay for saved notification -->
+        <Border IsVisible="{Binding SaveToastVisible}"
+                        Grid.RowSpan="3"
+                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,8,8,0" Padding="8,4"
+                        CornerRadius="6"
+                        Background="{DynamicResource App.Surface}"
+                        BorderBrush="{DynamicResource App.Border}"
+            BorderThickness="1"
+            IsHitTestVisible="False">
+                    <TextBlock Text="{Binding SaveToastText}" FontSize="11"/>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="P2PTalk.Controls.VerifiedBadge"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Width="18"
+             Height="18">
+  <Viewbox Stretch="Uniform">
+    <Canvas Width="24" Height="24">
+      <Path Fill="{DynamicResource App.Success}"
+            Data="M12,2 L20,6 V11 C20,15.75 16.92,19.87 12,21.75 7.08,19.87 4,15.75 4,11 V6 L12,2 Z"/>
+  <Path Stroke="{DynamicResource App.OnSuccess}"
+    StrokeThickness="2.2"
+    StrokeLineCap="Round"
+    StrokeJoin="Round"
+            Data="M9.4,12.6 L11.9,15.1 16.6,9.6"/>
+    </Canvas>
+  </Viewbox>
+</UserControl>

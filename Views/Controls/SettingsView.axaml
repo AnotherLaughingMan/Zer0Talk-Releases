@@ -1,0 +1,560 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:P2PTalk.ViewModels"
+             x:Class="P2PTalk.Views.Controls.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+  <Grid ColumnDefinitions="200,1,*">
+    <Border Grid.Column="0" Background="{DynamicResource App.Surface}" BorderThickness="0">
+      <ListBox x:Name="MenuList" SelectedIndex="2" BorderThickness="0">
+        <ListBoxItem Content="Appearance"/>
+        <ListBoxItem Content="General"/>
+        <ListBoxItem Content="Profile"/>
+        <ListBoxItem Content="Performance"/>
+        <ListBoxItem Content="Accessibility"/>
+        <ListBoxItem Content="About"/>
+        <ListBoxItem Content="Danger Zone"/>
+        <ListBoxItem Tag="logout">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="icon-mdl2" Text="&#xE7E8;" Foreground="#FF5757"/>
+            <TextBlock Text="Log Out" Foreground="#FF5757"/>
+          </StackPanel>
+        </ListBoxItem>
+      </ListBox>
+    </Border>
+
+  <!-- Vertical divider between menu and content -->
+  <Border Grid.Column="1" Background="{DynamicResource App.Border}" IsHitTestVisible="False"/>
+
+  <Grid Grid.Column="2">
+      <!-- Profile Panel -->
+      <ScrollViewer x:Name="ProfilePanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="Profile" FontWeight="SemiBold" FontSize="18"/>
+
+          <!-- Card container matching prior layout -->
+          <Border Background="{DynamicResource App.CardBackground}" CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="16">
+              <!-- Identity Section -->
+              <StackPanel Spacing="8">
+                <TextBlock Text="Identity" FontWeight="SemiBold"/>
+                <Grid ColumnDefinitions="160,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Username" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Username}" VerticalAlignment="Center"/>
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="UID" VerticalAlignment="Center"/>
+                  <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding DisplayUID}" VerticalAlignment="Center"/>
+                    <Button Command="{Binding CopyUidCommand}" ToolTip.Tip="Copy UID" Padding="6,2" MinWidth="0">
+                      <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
+                    </Button>
+                  </StackPanel>
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Display Name" VerticalAlignment="Center"/>
+                  <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DisplayName}" Watermark="Enter your display name"/>
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Prev. Name" VerticalAlignment="Center"/>
+                  <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                    <ComboBox ItemsSource="{Binding DisplayNameHistory}" SelectedItem="{Binding SelectedPreviousDisplayName}" Width="220">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Border BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="12" Padding="8,2">
+                      <TextBlock Text="{Binding DisplayNameChangeCount, StringFormat=Changes {0}}"/>
+                    </Border>
+                  </StackPanel>
+
+                  <!-- Public Key row, visible only when enabled in General -->
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Public Key" VerticalAlignment="Center" IsVisible="{Binding ShowPublicKeys}"/>
+                  <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowPublicKeys}">
+                    <TextBlock Text="{Binding SelfPublicKeyHex}" TextTrimming="CharacterEllipsis" Width="420"/>
+                    <Button Command="{Binding CopyPublicKeyCommand}" ToolTip.Tip="Copy Public Key" Padding="6,2" MinWidth="0">
+                      <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
+                    </Button>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+
+              <!-- Separator -->
+              <Border BorderBrush="{DynamicResource App.Border}" BorderThickness="0,1,0,0"/>
+
+              <!-- Avatar Section -->
+              <StackPanel Spacing="8">
+                <TextBlock Text="Avatar" FontWeight="SemiBold"/>
+                <Grid ColumnDefinitions="160,Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
+                  <TextBlock Grid.Column="0" Text="Avatar" VerticalAlignment="Center"/>
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Border Width="48" Height="48" CornerRadius="24" Background="{DynamicResource App.SecondaryBackground}">
+                      <Image Source="{Binding AvatarPreview}" Stretch="UniformToFill"/>
+                    </Border>
+                    <Button Content="Choose..." Command="{Binding ChooseAvatarCommand}"/>
+                    <Button Content="Clear" Command="{Binding ClearAvatarCommand}"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="Share Avatar with peers" VerticalAlignment="Center"/>
+                    <ToggleSwitch IsChecked="{Binding ShareAvatar}"/>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+
+              <!-- Separator -->
+              <Border BorderBrush="{DynamicResource App.Border}" BorderThickness="0,1,0,0"/>
+
+              <!-- About Section -->
+              <StackPanel Spacing="8">
+                <TextBlock Text="About" FontWeight="SemiBold"/>
+                <Grid ColumnDefinitions="160,*" ColumnSpacing="12">
+                  <TextBlock Grid.Column="0" Text="Bio" VerticalAlignment="Top"/>
+                  <StackPanel Grid.Column="1" Spacing="6">
+                    <TextBox Text="{Binding Bio}" TextWrapping="Wrap" AcceptsReturn="True" Height="140"/>
+                    <TextBlock Text="{Binding BioCounter}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" HorizontalAlignment="Right"/>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- General Panel -->
+      <ScrollViewer x:Name="GeneralPanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="General" FontWeight="SemiBold" FontSize="18"/>
+
+          <!-- Presence -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Default Presence" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+                <TextBlock Text="Status:" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="1" SelectedIndex="{Binding DefaultPresenceIndex}" Width="150">
+                  <ComboBoxItem Content="Online"/>
+                  <ComboBoxItem Content="Away"/>
+                  <ComboBoxItem Content="Busy"/>
+                  <ComboBoxItem Content="Offline"/>
+                </ComboBox>
+              </Grid>
+              <TextBlock Text="Offline is automatic only and cannot be selected." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Auto-Lock -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Auto-Lock" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="Enable Auto-Lock" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding AutoLockEnabled}"/>
+                <TextBlock Grid.Row="0" Grid.Column="3" Text="Minutes" VerticalAlignment="Center"/>
+                <NumericUpDown Grid.Row="0" Grid.Column="4" Value="{Binding AutoLockMinutes}" Minimum="0" Maximum="1440" Width="64" ShowButtonSpinner="False" IsEnabled="{Binding AutoLockEnabled}"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="Lock on minimize" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="1" Grid.Column="0" IsChecked="{Binding LockOnMinimize}"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Lock Blur Radius -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Lock Blur Radius" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="280,Auto" ColumnSpacing="12">
+                <Slider Grid.Column="0" Value="{Binding LockBlurRadius}" Minimum="0" Maximum="10" Width="280"/>
+    <Border Grid.Column="1"
+                        BorderBrush="{DynamicResource App.Border}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+      Padding="6,0"
+                        MinWidth="48"
+      Height="28"
+                        HorizontalAlignment="Left">
+                  <TextBlock Text="{Binding LockBlurRadius}" VerticalAlignment="Center"/>
+                </Border>
+              </Grid>
+              <TextBlock Text="Controls blur strength while locked. 0 = no blur, 10 = maximum." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Privacy -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Privacy" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
+                <TextBlock Grid.Column="1" Text="Block screen capture" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding BlockScreenCapture}"/>
+              </Grid>
+              <TextBlock Text="Windows-only; older/legacy capture tools may not honor this." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Key Visibility -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Key Visibility" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
+                <TextBlock Grid.Column="1" Text="Show public keys on profiles" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowPublicKeys}"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Appearance Panel -->
+      <ScrollViewer x:Name="AppearancePanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="Appearance" FontWeight="SemiBold" FontSize="18"/>
+          
+          <!-- Theme Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Theme" FontWeight="SemiBold"/>
+              <ComboBox SelectedIndex="{Binding ThemeIndex}" Width="180">
+                <ComboBoxItem Content="Dark"/>
+                <ComboBoxItem Content="Light"/>
+                <ComboBoxItem Content="Sandy"/>
+                <ComboBoxItem Content="Butter"/>
+              </ComboBox>
+            </StackPanel>
+          </Border>
+
+          <!-- Font Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Font" FontWeight="SemiBold"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Family:" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding UiFontFamily}" Width="200" Watermark="Enter font family name"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Scale:" VerticalAlignment="Center"/>
+                <Slider Value="{Binding UiScale}" Minimum="0.5" Maximum="3.0" Width="150" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding UiScale, StringFormat={}{0:F1}x}" VerticalAlignment="Center" Width="40"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+  </ScrollViewer>
+
+      <ScrollViewer x:Name="PerformancePanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="Performance" FontWeight="SemiBold" FontSize="18"/>
+          
+          <!-- CPU Section (first) -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="CPU" FontWeight="SemiBold"/>
+              <!-- Enumerate CPU model and cache capabilities (model normal, details subtle) -->
+              <TextBlock Text="{Binding CpuModel}"/>
+              <TextBlock Text="{Binding VCacheInfo}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="CCD Affinity:" VerticalAlignment="Center"/>
+                <ComboBox SelectedIndex="{Binding CcdAffinityIndex}" Width="150" ToolTip.Tip="{Binding CcdAffinityTooltip}">
+                  <ComboBoxItem Content="Auto"/>
+                  <ComboBoxItem Content="CCD 0"/>
+                  <ComboBoxItem Content="CCD 1"/>
+                  <ComboBoxItem Content="Both CCDs"/>
+                </ComboBox>
+                <!-- Inline red pill warning when Both CCDs is selected -->
+                <Border
+                  Background="{DynamicResource DangerButtonBackgroundColor}"
+                  BorderBrush="{DynamicResource DangerButtonBorderColor}"
+                  CornerRadius="12"
+                  Padding="8,2"
+                  Margin="8,0,0,0"
+                  VerticalAlignment="Center"
+                  IsVisible="{Binding BothCcdWarningVisible}"
+                  ToolTip.Tip="Using both CCDs can increase latency due to inter-CCD data transfers.">
+                  <TextBlock Text="Not Recommended"
+                             Foreground="{DynamicResource DangerButtonForegroundColor}"
+                             FontWeight="SemiBold"
+                             FontSize="12"/>
+                </Border>
+              </StackPanel>
+              <TextBlock Text="{Binding CcdAffinityNotice}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" IsVisible="{Binding CcdAffinityNoticeVisible}"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Enforce RAM Limit" VerticalAlignment="Center"/>
+                <ToggleSwitch IsChecked="{Binding EnforceRamLimit}"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding EnforceRamLimit}">
+                <TextBlock Text="RAM Limit:" VerticalAlignment="Center"/>
+                <NumericUpDown Value="{Binding RamUsageLimitMb}" Minimum="0" Width="80" ShowButtonSpinner="False"/>
+                <TextBlock Text="MB (0 = unlimited)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- GPU Section (moved after CPU) -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="GPU" FontWeight="SemiBold"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Enable GPU Acceleration" VerticalAlignment="Center"/>
+                <ToggleSwitch IsChecked="{Binding EnableGpuAcceleration}"/>
+              </StackPanel>
+              <TextBlock Text="{Binding GpuTextNotice}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Enforce VRAM Limit" VerticalAlignment="Center"/>
+                <ToggleSwitch IsChecked="{Binding EnforceVramLimit}"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding EnforceVramLimit}">
+                <TextBlock Text="VRAM Limit:" VerticalAlignment="Center"/>
+                <NumericUpDown Value="{Binding VramUsageLimitMb}" Minimum="0" Width="80" ShowButtonSpinner="False"/>
+                <TextBlock Text="MB (0 = unlimited)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Framerate Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Framerate" FontWeight="SemiBold"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="FPS Throttle:" VerticalAlignment="Center"/>
+                <NumericUpDown Value="{Binding FpsThrottle}" Minimum="0" Maximum="300" Width="80" ShowButtonSpinner="False"/>
+                <TextBlock Text="fps (0 = unlimited)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Refresh Rate Throttle:" VerticalAlignment="Center"/>
+                <NumericUpDown Value="{Binding RefreshRateThrottle}" Minimum="0" Maximum="300" Width="80" ShowButtonSpinner="False"/>
+                <TextBlock Text="hz (0 = unlimited)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Background Framerate:" VerticalAlignment="Center"/>
+                <NumericUpDown Value="{Binding BackgroundFramerateFps}" Minimum="1" Maximum="60" Width="80" ShowButtonSpinner="False"/>
+                <TextBlock Text="fps" VerticalAlignment="Center"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <ScrollViewer x:Name="AccessibilityPanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="Accessibility" FontWeight="SemiBold" FontSize="18"/>
+          
+          <!-- Display Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Display" FontWeight="SemiBold"/>
+              <TextBlock Text="UI Scale and Font settings can be adjusted in the Appearance section." FontSize="14" Foreground="{DynamicResource App.SecondaryText}"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Current Scale:" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding UiScale, StringFormat={}{0:F1}x}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <TextBlock Text="(Adjust in Appearance tab)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Font Rendering Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Font Rendering" FontWeight="SemiBold"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="OS Font Smoothing:" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding OsFontSmoothingEnabled, StringFormat='{}{0}'}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                <TextBlock Text="(System setting)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Keyboard Navigation Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Keyboard Navigation" FontWeight="SemiBold"/>
+              <TextBlock Text="Use Tab to navigate between controls, Space/Enter to activate buttons." FontSize="14" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <ScrollViewer x:Name="AboutPanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <!-- App Information -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Application Information" FontWeight="SemiBold" FontSize="16"/>
+              <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" HorizontalAlignment="Stretch">
+                <TextBlock Text="Name:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding AppName}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
+                <TextBlock Text="Version:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding AppVersion}" VerticalAlignment="Center" FontWeight="Medium"/>
+                  <Border Background="#FFA500" Padding="8,2" CornerRadius="4">
+                    <TextBlock Text="InDev-Prototype" Foreground="Black" FontWeight="Bold"/>
+                  </Border>
+                </StackPanel>
+                <TextBlock Text="Build:" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="Debug" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
+                <TextBlock Text="Platform:" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="Windows" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
+                <TextBlock Text="Author:" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding Author}" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Framework Information -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Framework Information" FontWeight="SemiBold" FontSize="16"/>
+              <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" HorizontalAlignment="Stretch">
+                <TextBlock Text="Avalonia UI:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding AvaloniaVersion}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
+                <TextBlock Text=".NET Runtime:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding DotNetVersion}" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Links and Resources -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Links &amp; Resources" FontWeight="SemiBold" FontSize="16"/>
+              <Grid ColumnDefinitions="*,*" RowDefinitions="Auto" ColumnSpacing="8" RowSpacing="8">
+                <Button Grid.Row="0" Grid.Column="0" Content="Documentation" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
+                <Button Grid.Row="0" Grid.Column="1" Content="Privacy Policy" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Acknowledgments -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Acknowledgments" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="Built with Avalonia UI - A cross-platform XAML-based UI framework for .NET" TextWrapping="Wrap" Opacity="0.8"/>
+              <TextBlock Text="Special thanks to the open source community for their contributions and support." TextWrapping="Wrap" Opacity="0.8"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <ScrollViewer x:Name="DangerPanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <!-- Account Deletion Warning -->
+          <Border CornerRadius="8" Padding="16" BorderBrush="Red" BorderThickness="1" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="⚠️ Danger Zone" FontWeight="SemiBold" FontSize="16" Foreground="Red"/>
+              <TextBlock Text="These actions are irreversible and will permanently delete your data." TextWrapping="Wrap" Opacity="0.9"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Delete Account Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Delete Account" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="Once you delete your account, there is no going back. This will permanently delete your account and remove your data from our servers." TextWrapping="Wrap" Opacity="0.8"/>
+              <TextBlock Text="Please type the following code to confirm:" Opacity="0.8"/>
+              <Border CornerRadius="4" Padding="8" BorderBrush="{DynamicResource App.BorderBrush}" BorderThickness="1" Width="320" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding GeneratedDeleteCode}" FontFamily="Consolas" FontWeight="Medium" HorizontalAlignment="Center"/>
+              </Border>
+              <TextBox Text="{Binding DeleteConfirmText}" Watermark="Enter confirmation code..." HorizontalAlignment="Left" Width="320"/>
+              <Button Content="Delete Account" Command="{Binding DeleteAccountCommand}" Background="Red" Foreground="White" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Purge Messages Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Purge All Messages" FontWeight="SemiBold" FontSize="16" Foreground="#C0392B"/>
+              <TextBlock Text="Securely delete every conversation and pending message from this device. This process overwrites the encrypted archives before removal making recovery impossible." TextWrapping="Wrap" Opacity="0.85"/>
+              <TextBlock Text="Use this if you're decommissioning the device or need a clean slate." TextWrapping="Wrap" Opacity="0.75"/>
+              <Button Content="Purge All Messages" Command="{Binding PurgeAllMessagesCommand}" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium" Background="#B00020" Foreground="White"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Data Export -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Export Data" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="Download a copy of your data before deleting your account. This includes your messages, contacts, and settings." TextWrapping="Wrap" Opacity="0.8"/>
+              <Button Content="Export Data" HorizontalAlignment="Left" Padding="12,8"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Additional Warnings -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="What happens when you delete your account?" FontWeight="SemiBold"/>
+              <StackPanel Spacing="4" Opacity="0.8">
+                <TextBlock Text="• All your messages will be permanently deleted" TextWrapping="Wrap"/>
+                <TextBlock Text="• Your contact list will be removed" TextWrapping="Wrap"/>
+                <TextBlock Text="• Your profile information will be erased" TextWrapping="Wrap"/>
+                <TextBlock Text="• You will be removed from all conversations" TextWrapping="Wrap"/>
+                <TextBlock Text="• This action cannot be undone" TextWrapping="Wrap"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <ScrollViewer x:Name="LogoutPanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <!-- Logout Information -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Sign Out" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="Signing out will disconnect you from the application and require you to enter your passphrase again to access your account." TextWrapping="Wrap" Opacity="0.8"/>
+              <TextBlock Text="Your data will remain securely stored locally and will be available when you sign back in." TextWrapping="Wrap" Opacity="0.8"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Current Session Info -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Current Session" FontWeight="SemiBold" FontSize="16"/>
+              <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" HorizontalAlignment="Stretch">
+                <TextBlock Text="Status:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="Active" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium" Foreground="Green"/>
+                <TextBlock Text="Last Activity:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="Just now" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Opacity="0.8"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Sign Out Button -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Ready to sign out?" FontWeight="SemiBold"/>
+              <TextBlock Text="Click the button below to sign out of your account. You'll need your passphrase to sign back in." TextWrapping="Wrap" Opacity="0.8"/>
+              <Button Content="Sign Out" Command="{Binding LogoutCommand}" Background="{DynamicResource App.Accent}" Foreground="White" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Security Note -->
+          <Border CornerRadius="8" Padding="16" BorderBrush="{DynamicResource App.BorderBrush}" BorderThickness="1" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="🔒 Security Reminder" FontWeight="SemiBold"/>
+              <TextBlock Text="Always sign out when using shared or public computers to protect your privacy and security." TextWrapping="Wrap" Opacity="0.8"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+      <Grid Grid.Column="0" Grid.ColumnSpan="3" IsHitTestVisible="False" Panel.ZIndex="5">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0" Spacing="6">
+          <Border IsVisible="{Binding UnsavedWarningVisible}"
+                  Background="{DynamicResource App.Surface}"
+                  BorderBrush="{DynamicResource DangerButtonBackgroundColor}"
+                  BorderThickness="1"
+                  CornerRadius="8"
+                  Padding="12,6"
+                  MaxWidth="360"
+                  Opacity="0.95">
+            <TextBlock Text="{Binding UnsavedWarningText}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+          </Border>
+          <Border IsVisible="{Binding SaveToastVisible}"
+                  Background="{DynamicResource App.Surface}"
+                  BorderBrush="{DynamicResource App.Accent}"
+                  BorderThickness="1"
+                  CornerRadius="8"
+                  Padding="12,6"
+                  MaxWidth="360"
+                  Opacity="0.95">
+            <TextBlock Text="{Binding SaveToastText}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>

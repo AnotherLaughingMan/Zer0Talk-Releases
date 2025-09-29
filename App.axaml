@@ -1,0 +1,101 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:util="clr-namespace:P2PTalk.Utilities"
+             x:Class="P2PTalk.App"
+             RequestedThemeVariant="Dark">
+    <Application.Styles>
+        <FluentTheme />
+        <!-- Sovereignty layers first: define app-owned tokens and templates -->
+        <!-- (Temporarily removed ThemeSovereignty.axaml to isolate phantom build errors) -->
+    <!-- <StyleInclude Source="avares://ZTalk/Styles/ThemeSovereignty.axaml" /> -->
+    <StyleInclude Source="avares://ZTalk/Styles/ThemeSovereigntyCore.axaml" />
+    <StyleInclude Source="avares://ZTalk/Styles/ThemeSovereigntyBase.axaml" />
+            <!-- Load a default theme override after sovereignty so early windows use our palette; ThemeService will swap later. -->
+    <StyleInclude Source="avares://ZTalk/Styles/DarkThemeOverrides.axaml" />
+        <!-- [TRUNC] Shared opt-in truncation styles for long inline text across windows/dialogs. -->
+    <StyleInclude Source="avares://ZTalk/Styles/SharedTruncation.axaml" />
+            <!-- Neutral metrics (sizes, templates, typography) shared by all themes; include last for precedence on metrics. -->
+        <StyleInclude Source="avares://ZTalk/Styles/NeutralMetrics.axaml" />
+        
+        <!-- Pill-shaped toggle button style -->
+        <Style Selector="ToggleButton.pill-toggle">
+            <Setter Property="Background" Value="{DynamicResource App.CardBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource App.PrimaryText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource App.BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="PART_Border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Border Name="PART_Indicator"
+                                    Width="20"
+                                    Height="20"
+                                    CornerRadius="10"
+                                    Background="{DynamicResource App.SecondaryBackground}"
+                                    Margin="0,0,8,0"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+                                <Border Name="PART_CheckMark"
+                                        Width="8"
+                                        Height="8"
+                                        CornerRadius="4"
+                                        Background="{DynamicResource App.Accent}"
+                                        Opacity="0"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"/>
+                            </Border>
+                            <ContentPresenter Name="PART_ContentPresenter"
+                                            Content="{TemplateBinding Content}"
+                                            VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        
+        <!-- Checked state for pill toggle -->
+        <Style Selector="ToggleButton.pill-toggle:checked">
+            <Setter Property="Background" Value="{DynamicResource App.Accent}"/>
+            <Setter Property="Foreground" Value="{DynamicResource App.PrimaryText}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+        </Style>
+        
+        <Style Selector="ToggleButton.pill-toggle:checked /template/ Border#PART_CheckMark">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        
+        <!-- Hover states -->
+        <Style Selector="ToggleButton.pill-toggle:pointerover">
+            <Setter Property="Background" Value="{DynamicResource App.HoverBackground}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+        </Style>
+        
+        <Style Selector="ToggleButton.pill-toggle:checked:pointerover">
+            <Setter Property="Background" Value="{DynamicResource App.AccentHover}"/>
+        </Style>
+    </Application.Styles>
+    <Application.Resources>
+        <!-- Default avatar interpolation is HighQuality; ViewModel can override at runtime. -->
+        <x:String x:Key="App.AvatarInterpolation">HighQuality</x:String>
+        <!-- Global converters -->
+        <util:InverseBoolConverter x:Key="InverseBoolConverter" />
+    <util:ObjectNotNullConverter x:Key="ObjectNotNullConverter" />
+    <util:ByteArrayToBitmapConverter x:Key="ByteArrayToBitmapConverter" />
+        <!-- Make these available to all templates -->
+        <util:UidToAvatarConverter x:Key="UidToAvatarConverter" />
+        <util:VerificationShieldVisibilityConverter x:Key="VerificationShieldVisibilityConverter" />
+        <util:PresenceEqualsToBoolConverter x:Key="PresenceEqualsToBoolConverter" />
+        <util:MessageSenderNameConverter x:Key="MessageSenderNameConverter" />
+        <util:MessageSenderBrushConverter x:Key="MessageSenderBrushConverter" />
+        <util:NotOrConverter x:Key="NotOrConverter" />
+        <util:StringEqualsMultiConverter x:Key="StringEqualsMultiConverter" />
+    </Application.Resources>
+</Application>

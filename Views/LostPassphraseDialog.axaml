@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:vm="clr-namespace:P2PTalk.ViewModels"
+  x:Class="P2PTalk.Views.LostPassphraseDialog"
+  x:DataType="vm:UnlockViewModel"
+  Width="640" Height="360" CanResize="False"
+        Title="Lost Passphrase Recovery"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="32">
+  <Window.DataContext>
+    <vm:UnlockViewModel />
+  </Window.DataContext>
+  <Grid RowDefinitions="Auto,*">
+    <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.Background}" PointerPressed="DragBar_PointerPressed">
+      <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+        <TextBlock Text="Lost Passphrase Recovery" FontSize="15" FontWeight="SemiBold"/>
+  <Button Grid.Column="1" Content="✕" Classes="icon-button" Click="Close_Click"/>
+      </Grid>
+    </Border>
+    <Border Grid.Row="1" Padding="14" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="0">
+      <StackPanel Spacing="10">
+        <TextBlock Text="This will generate a NEW passphrase and re-encrypt your data. Continue?" TextWrapping="Wrap"/>
+        <TextBox Watermark="Username" Text="{Binding RecoveryUsername, Mode=TwoWay}"/>
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+          <Button Content="Cancel" Click="Close_Click"/>
+          <Button Content="Generate New Passphrase" Command="{Binding ConfirmRecoveryCommand}"/>
+        </StackPanel>
+        <Border IsVisible="{Binding HasNewPassphrase}" Padding="8" CornerRadius="6" Background="#223" BorderBrush="#A7A" BorderThickness="1">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Write down this new passphrase now. You will not be able to recover it later." TextWrapping="Wrap"/>
+            <TextBox Text="{Binding NewPassphrase}" IsReadOnly="True" FontFamily="Consolas"/>
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+              <Button Content="I saved it" Command="{Binding AcceptNewPassphraseCommand}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>
