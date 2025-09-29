@@ -50,6 +50,11 @@ dotnet run --project .\P2PTalk.csproj
 - `scripts/verify-checkpoint.ps1` — validates manifests; `-Strict` fails on mismatch.
 - `scripts/memory-profile.ps1` & `scripts/memory-stress.ps1` — profiling helpers when tuning allocations.
 
+## Documentation
+
+- [Architecture Overview](docs/architecture.md) — how services, view models, and resources fit together.
+- [Developer Guide](docs/developer-guide.md) — build commands, scripts, and repo hygiene tips.
+
 ## Contributing
 
 - Pull requests are welcome for targeted fixes and feature spikes, but expect fast-moving branches.
