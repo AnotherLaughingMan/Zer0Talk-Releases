@@ -4,7 +4,6 @@
 # Build output
 AI/
 AI/Archived/
-Assets/
 publish/
 bin/
 obj/
@@ -102,8 +101,8 @@ Thumbs.db
 Desktop.ini
 ehthumbs.db
 $RECYCLE.BIN/
-Icon?
 *.lnk
+!Assets/Icons/Icon.ico
 
 # Package artifacts
 *.nupkg
@@ -113,6 +112,8 @@ Icon?
 # Image assets
 *.png
 *.ico
+!Assets/Avatars/*.png
+!Assets/Icons/**/*.ico
 
 # Tooling state
 **/node_modules/
