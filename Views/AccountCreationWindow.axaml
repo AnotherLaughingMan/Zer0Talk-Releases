@@ -1,0 +1,42 @@
+<!--
+  Context: Forced onboarding when no user.p2e found.
+  - Collects display name and username; generates keypair-backed identity.
+  - After creation, shows a modal passphrase dialog with Copy/Save; passphrase is also set as AppServices.Passphrase.
+  - Window is Topmost and non-closable until flow completes; includes an "On top" toggle.
+-->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:P2PTalk.ViewModels"
+  xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+        mc:Ignorable="d"
+        x:Class="P2PTalk.Views.AccountCreationWindow"
+  x:DataType="vm:AccountCreationViewModel"
+        Width="460" Height="320"
+  Title="Create Account" CanResize="False" Topmost="True">
+  <ScrollViewer>
+    <StackPanel Margin="12" Spacing="8">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="Create your local account"/>
+        <ToggleButton Grid.Column="1" Content="On top" IsChecked="{Binding $parent[Window].Topmost, Mode=TwoWay}" ToolTip.Tip="Keep this window on top of other windows" Classes="pill-toggle"/>
+      </Grid>
+  <TextBlock Text="Pick a username (6–24 chars). We’ll generate a secure keypair and UID." TextWrapping="Wrap"/>
+
+      <TextBlock Text="Display name"/>
+      <TextBox Text="{Binding DisplayName, Mode=TwoWay}"/>
+
+  <TextBlock Text="Username"/>
+  <TextBox Text="{Binding Username, Mode=TwoWay}"/>
+
+      <TextBlock Foreground="Red" Text="{Binding ErrorMessage}" TextWrapping="Wrap"/>
+
+  <!-- No email verification. UID derives from your keypair. -->
+
+  <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+  <Button Content="Cancel" Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}"/>
+  <Button Content="Create" Command="{Binding CreateCommand}" IsDefault="True"/>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Window>

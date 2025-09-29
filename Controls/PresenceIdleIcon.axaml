@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="P2PTalk.Controls.PresenceIdleIcon"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Width="12"
+             Height="12">
+  <Viewbox Stretch="Uniform">
+    <Canvas Width="24" Height="24">
+      <Ellipse Width="18" Height="18" Canvas.Left="3" Canvas.Top="3"
+               Fill="{DynamicResource App.Warning}"
+               Opacity="0.22"
+               Stroke="{DynamicResource App.Warning}"
+               StrokeThickness="2"/>
+  <Path Stroke="{DynamicResource App.Warning}"
+    StrokeThickness="2"
+    StrokeLineCap="Round"
+    Data="M12,6.5 L12,12.5 15.5,14.2"/>
+    </Canvas>
+  </Viewbox>
+</UserControl>
