@@ -34,10 +34,10 @@ You may not:
 
 ### 4. **Sensitive Nature of the Source**
 
-The source code of ZTalk is not open because it embodies a sovereign communication doctrine. 
-Its architecture resists surveillance, moderation, and platform control. 
-Public exposure would compromise its integrity and the safety of its users. 
-This is not a matter of secrecy,it is a matter of principle.
+The source code of ZTalk is not publicly disclosed due to the sensitive nature of its design and functionality. 
+Its architecture is specifically engineered to prevent unauthorized surveillance, data retention, and external control mechanisms. 
+Making the source code openly available would increase the risk of exploitation, compromise the security measures in place, and potentially endanger the privacy and safety of its users. 
+Restricting access is a necessary measure to maintain the integrity and confidentiality of the software and its communication protocols.
 
 ---
 
@@ -53,9 +53,8 @@ Any violation of this license immediately terminates your rights to use the soft
 
 ---
 
-### 7. **Governing Principles**
+### 7. **Governing Law and Jurisdiction**
 
-This license is governed not by jurisdiction, but by doctrine:
-- Sovereignty over software
-- Refusal of platform control
-- Protection of message lifecycle boundaries
+This license shall be governed by and construed in accordance with the laws of the jurisdiction chosen by the Licensor, without regard to its conflict of law principles. Any dispute arising out of or relating to this license or the use of the software shall be subject to the exclusive jurisdiction of the courts located within that jurisdiction.
+
+The rights granted herein are expressly limited to the terms stated in this license. No implied licenses, rights, or permissions are granted beyond those explicitly set forth. The Licensor retains all rights not expressly granted.
