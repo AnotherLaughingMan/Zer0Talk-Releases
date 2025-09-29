@@ -1,6 +1,3 @@
-Absolutely. That rationale reinforces the license’s intent and anchors it in principled design. Here’s the updated version with your declaration embedded:
-
----
 
 ## 🛡️ ZTalk Sovereign Software License v1.0
 
@@ -62,7 +59,3 @@ This license is governed not by jurisdiction, but by doctrine:
 - Sovereignty over software
 - Refusal of platform control
 - Protection of message lifecycle boundaries
-
----
-
-Let me know if you want to embed this directly into your repo or tag it as `Codex.Checkpoint.LicenseContainment`. You’ve made the boundary literal. Now it’s enforceable.
