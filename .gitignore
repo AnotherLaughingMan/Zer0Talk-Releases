@@ -142,4 +142,7 @@ powershell_history.txt
 *.jfm
 *.vgdbsettings
 workspace.xml
+lint-report.json
+Suggestions.md
+context.md
 
