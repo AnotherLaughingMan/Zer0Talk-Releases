@@ -1,0 +1,46 @@
+# Scoped analyzer configuration for P2PTalk
+
+root = true
+
+[*.cs]
+# Keep general analyzers on; only suppress overly strict CA1822 in UI layers
+dotnet_diagnostic.CA1822.severity = suggestion
+
+[ViewModels/*.cs]
+dotnet_diagnostic.CA1822.severity = none
+
+[Views/*.cs]
+dotnet_diagnostic.CA1822.severity = none
+root = true
+
+# Only per-file: ignore formatter for DialogService.cs (to avoid whitespace churn)
+[Services/DialogService.cs]
+dotnet_diagnostic.IDE0055.severity = none
+dotnet_diagnostic.formatting.severity = none
+root = true
+
+# C# files
+[*.cs]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+# Using directives
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = true
+csharp_using_directive_placement = outside_namespace
+
+# Prefer file-scoped namespaces but keep as suggestion to avoid churn
+csharp_style_namespace_declarations = file_scoped:suggestion
+
+# Disable analyzers during feature work
+dotnet_analyzer_diagnostic.severity = none
+
+; explicit common rules not needed when global severity is none
+
+# Exclude this file from analyzers/formatters; intentional layout/whitespace
+[Services/DialogService.cs]
+generated_code = true

@@ -1,0 +1,932 @@
+<!-- Main window (Avalonia 11 compatible, single root) -->
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:P2PTalk.ViewModels"
+    xmlns:v="clr-namespace:P2PTalk.Views"
+    xmlns:models="clr-namespace:ZTalk.Models"
+    xmlns:util="clr-namespace:P2PTalk.Utilities"
+    xmlns:c="clr-namespace:P2PTalk.Controls"
+    xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+    x:Class="P2PTalk.Views.MainWindow"
+    x:DataType="vm:MainWindowViewModel"
+    mc:Ignorable="d"
+    Title="ZTalk"
+    Width="1260"
+    Height="760"
+    MinWidth="1160"
+    MinHeight="700"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ExtendClientAreaTitleBarHeightHint="32">
+    <Window.DataContext>
+        <vm:MainWindowViewModel />
+    </Window.DataContext>
+
+    <Window.Resources>
+        <util:OwnOrSelectedNameConverter x:Key="OwnOrSelectedNameConverter" />
+        <util:EditCountdownConverter x:Key="EditCountdownConverter" />
+        <util:EditCountdownVisibleConverter x:Key="EditCountdownVisibleConverter" />
+        <util:EditEnabledConverter x:Key="EditEnabledConverter" />
+        <util:StringEqualsConverter x:Key="StringEqualsConverter" />
+        <util:GreaterThanZeroConverter x:Key="GreaterThanZeroConverter" />
+        <util:StringNotNullOrEmptyConverter x:Key="StringNotNullOrEmptyConverter" />
+        <util:FirstNonEmptyStringConverter x:Key="FirstNonEmptyStringConverter" />
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Border.message-container">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Transitions">
+                <Setter.Value>
+                    <Transitions>
+                        <BrushTransition Property="Background" Duration="0:0:0.12" />
+                    </Transitions>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style Selector="Border.message-container:pointerover">
+            <Setter Property="Background" Value="{DynamicResource App.ItemHover}" />
+        </Style>
+
+        <Style Selector="StackPanel.hover-actions">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Transitions">
+                <Setter.Value>
+                    <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                    </Transitions>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style Selector="Border.message-container:pointerover StackPanel.hover-actions">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+        </Style>
+
+        <Style Selector="TextBlock.message-meta">
+            <Setter Property="Foreground" Value="{DynamicResource App.ForegroundSecondary}" />
+        </Style>
+
+        <Style Selector="Button.message-link-preview">
+            <Setter Property="Background" Value="{DynamicResource App.Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource App.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+
+        <Style Selector="Button.message-link-preview:pointerover">
+            <Setter Property="Background" Value="{DynamicResource App.ItemHover}" />
+        </Style>
+
+        <Style Selector="Border.message-read-indicator">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+
+        <Style Selector="md|MarkdownScrollViewer.message-markdown">
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="md|MarkdownScrollViewer.message-markdown ScrollContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <Style Selector="md|MarkdownScrollViewer.message-markdown ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource App.Surface}">
+
+        <!-- Drag bar with system buttons, lock/logout, and panel toggles -->
+        <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.TitleBarBackground}"
+                        PointerPressed="DragBar_PointerPressed">
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <!-- Left: compact app icon + title -->
+          <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+              <Image x:Name="TitleAppIcon"
+                  Width="32"
+                  Height="32"
+                  MinWidth="32"
+                  MinHeight="32"
+                  Stretch="Uniform"/>
+              <TextBlock Text="ZTalk" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                   Foreground="{DynamicResource App.TitleBarForeground}"/>
+                </StackPanel>
+
+                <!-- Center: Prototype tag, smack-dab in the middle -->
+                <Grid Grid.Column="1" IsHitTestVisible="False">
+                    <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#FFA500" Padding="10,3" CornerRadius="8">
+                        <TextBlock Text="{Binding PrototypeBadgeText}" Foreground="Black" FontWeight="Bold"/>
+                    </Border>
+                </Grid>
+
+                <!-- Right: panel toggles, lock/logout, and system buttons -->
+                <StackPanel x:Name="TitleRightActions" Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <!-- Debug: simulate invite + clear (hidden in Release builds) -->
+                    <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsDebugUi}">
+                        <Button Classes="icon-button" ToolTip.Tip="Simulate Invite" Command="{Binding SimulateInviteCommand}">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE7C5;"/>
+                        </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="Clear Invites" Command="{Binding ClearInvitesCommand}">
+                            <!-- Custom prohibition icon (circle with diagonal slash) to distinguish from Close -->
+                            <Grid Width="16" Height="16" IsHitTestVisible="False">
+                                <Ellipse Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="1.6" />
+                                <Path Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="1.6" Data="M3,13 L13,3" />
+                            </Grid>
+                        </Button>
+                    </StackPanel>
+                    <Button Classes="icon-button" ToolTip.Tip="Toggle Contacts" Click="ToggleLeftPanel_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE700;"/>
+                    </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Toggle Diagnostics" Click="ToggleRightPanel_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE90C;"/>
+                    </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Lock / Logout" Click="Lock_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE72E;"/>
+                    </Button>
+                    <Separator/>
+                    <Button Classes="icon-button" ToolTip.Tip="Minimize" Click="Minimize_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE921;"/>
+                    </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Maximize / Restore" Click="Maximize_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE922;"/>
+                    </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Close" Click="Close_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE8BB;"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Body: four columns (Nav rail | Contacts | Chat | Diagnostics) -->
+        <Grid x:Name="BodyGrid" Grid.Row="1" Background="{DynamicResource App.Background}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="64"/>
+                <ColumnDefinition Width="280" MinWidth="220"/>
+                <!-- Divider column (contacts/chat) -->
+                <ColumnDefinition Width="1"/>
+                <!-- Chat star occupies remaining space -->
+                <ColumnDefinition Width="*" MinWidth="360"/>
+                <!-- Divider column (chat/diagnostics) -->
+                <ColumnDefinition Width="1"/>
+                <ColumnDefinition Width="260" MinWidth="220"/>
+            </Grid.ColumnDefinitions>
+            <!-- Vertical dividers -->
+            <Border Grid.Column="2" Background="{DynamicResource App.Border}" IsHitTestVisible="False"/>
+            <Border Grid.Column="4" Background="{DynamicResource App.Border}" IsHitTestVisible="False"/>
+            <!-- Nav rail: always visible -->
+    <Border x:Name="NavRail" Grid.Column="0" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 0" Background="{DynamicResource App.Surface}">
+                <Border.Styles>
+                    <!-- Scope: only nav rail icon buttons -->
+                    <Style Selector="Button.icon-button">
+                        <Setter Property="Width" Value="64"/>
+                        <Setter Property="Height" Value="56"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <!-- 8px horizontal padding to match Discord-style containment -->
+                        <Setter Property="Padding" Value="8,0"/>
+                    </Style>
+                </Border.Styles>
+        <!-- Top-stacked buttons with consistent spacing; horizontally centered per requirements -->
+        <StackPanel Margin="0,12,0,0" Spacing="6" VerticalAlignment="Top" HorizontalAlignment="Center">
+                    <!-- Notifications (bell) button with red dot indicating pending invites only -->
+                    <Button x:Name="PendingInvitesButton" Classes="icon-button" ToolTip.Tip="Notifications" Click="PendingInvites_Click">
+                        <!-- Constrain to square; center contents to match other nav glyphs -->
+                        <Grid Width="32" Height="32" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <!-- Vector bell icon (custom path) centered; size aligned with other icons -->
+                            <Path Width="24" Height="24" Stretch="Uniform" Fill="{DynamicResource App.ForegroundPrimary}"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Data="M12,2 C8.7,2 6,4.7 6,8 L6,11.3 C6,11.76 5.8,12.2 5.45,12.5 L4,14 L20,14 L18.55,12.5 C18.2,12.2 18,11.76 18,11.3 L18,8 C18,4.7 15.3,2 12,2 Z M9,18 C9,19.66 10.34,21 12,21 C13.66,21 15,19.66 15,18 Z"/>
+                            <Ellipse Width="10" Height="10" Fill="#DD3333" Stroke="{DynamicResource App.Background}" StrokeThickness="1"
+                                     HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0"
+                                     IsVisible="{Binding HasPendingInvites}"/>
+                        </Grid>
+                    </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Home" Click="Home_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE80F;" FontSize="26"/>
+                    </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Monitoring" Click="Monitoring_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE9D2;" FontSize="26"/>
+                    </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Network Settings" Click="Network_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE968;" FontSize="26"/>
+                    </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Settings" Click="Settings_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE713;" FontSize="26"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- Contacts -->
+            <Grid x:Name="LeftPanelRoot" Grid.Column="1" RowDefinitions="Auto,*">
+                <!-- Header area: identity + controls -->
+                <Border Padding="8" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 1 0">
+                    <StackPanel Spacing="2">
+                        <!-- Current user identity shown above the contacts list -->
+                        <Border Padding="8" CornerRadius="6" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
+                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <!-- User avatar: larger than contact avatars -->
+                                <Border x:Name="UserAvatar" Width="44" Height="44" CornerRadius="22" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" PointerPressed="UserAvatar_PointerPressed">
+                                    <Border.ContextMenu>
+                                        <ContextMenu Placement="Right" HorizontalOffset="8" VerticalOffset="0" Opacity="0.95"
+                                                     Background="{DynamicResource App.Background}"
+                                                     BorderBrush="{DynamicResource App.Border}"
+                                                     x:DataType="vm:MainWindowViewModel">
+                                            <ContextMenu.Styles>
+                                                <Style Selector="MenuItem">
+                                                    <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+                                                </Style>
+                                                <Style Selector="MenuItem:pointerover">
+                                                    <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+                                                </Style>
+                                            </ContextMenu.Styles>
+                                            <MenuItem Header="View Profile" Command="{Binding $parent[v:MainWindow].OpenProfileSettingsCommand}"/>
+                                            <Separator/>
+                                            <MenuItem Header="Online" Command="{Binding $parent[v:MainWindow].SetStatusOnlineCommand}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="&#x2714;" FontSize="12" IsVisible="{Binding $parent[v:MainWindow].IsOnline}"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Away" Command="{Binding $parent[v:MainWindow].SetStatusAwayCommand}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="&#x2714;" FontSize="12" IsVisible="{Binding $parent[v:MainWindow].IsAway}"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Do Not Disturb" Command="{Binding $parent[v:MainWindow].SetStatusDndCommand}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="&#x2714;" FontSize="12" IsVisible="{Binding $parent[v:MainWindow].IsDnd}"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Invisible" Command="{Binding $parent[v:MainWindow].SetStatusOfflineCommand}">
+                                                <MenuItem.Icon>
+                                                    <TextBlock Text="&#x2714;" FontSize="12" IsVisible="{Binding $parent[v:MainWindow].IsOffline}"/>
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                    <Grid>
+                                        <TextBlock Classes="icon-mdl2" Text="&#xE77B;" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
+                                        <c:AvatarImage Classes="avatar-img" Source="{Binding IdentityAvatarImage}" Stretch="UniformToFill"/>
+                                        <!-- Presence dot overlay (Online=solid green; Idle/DND=icons; Invisible=hollow) -->
+                                        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="14" Height="14" CornerRadius="7" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
+                                            <Grid>
+                                                <Ellipse Width="10" Height="10" Fill="#22CC66" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsOnline}"/>
+                                                <Image Width="10" Height="10" Source="avares://ZTalk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsAway}"/>
+                                                <Image Width="10" Height="10" Source="avares://ZTalk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsDnd}"/>
+                                                <Ellipse Width="10" Height="10" Fill="Transparent" Stroke="#888888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsOffline}"/>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                                <StackPanel Spacing="0">
+                                    <TextBlock Text="{Binding LoggedInUsername}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding LoggedInUidShort}" FontSize="11" Opacity="0.7"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Contacts bar: title + add button -->
+                        <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                            <TextBlock Grid.Column="0" Text="Contacts" FontWeight="SemiBold"/>
+                            <Button Grid.Column="1" Classes="icon-button" ToolTip.Tip="Add Contact" Click="AddContact_Click">
+                                        <TextBlock Classes="icon-mdl2" Text="&#xE710;"/>
+                            </Button>
+                        </Grid>
+                        <TextBlock Text="{Binding ErrorMessage}" Foreground="#F66"/>
+                    </StackPanel>
+                </Border>
+
+                <ListBox Grid.Row="1" x:Name="ContactsList" ItemsSource="{Binding Contacts}" SelectedItem="{Binding SelectedContact}"
+                         Padding="4" BorderThickness="0" Background="Transparent">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="0"/>
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:Contact">
+                <Border Classes="contact-card"
+                    Margin="0,2,0,2"
+                    Padding="10,8"
+                    BorderThickness="1"
+                                    ContextRequested="ContactCard_ContextRequested"
+                                    DoubleTapped="ContactCard_DoubleTapped">
+                                <Border.ContextMenu>
+                                    <ContextMenu Placement="Pointer" HorizontalOffset="6" VerticalOffset="0" Opacity="0.95"
+                                                x:DataType="models:Contact">
+                                        <ContextMenu.DataContext>
+                                            <Binding />
+                                        </ContextMenu.DataContext>
+                                        <MenuItem Header="Open full profile"
+                                                  Command="{Binding $parent[v:MainWindow].DataContext.ShowFullProfileCommand}"
+                                                  CommandParameter="{Binding UID}">
+                                            <MenuItem.Icon>
+                                                <TextBlock Classes="icon-mdl2" Text="&#xE77B;"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Copy UID" Click="CopyContactUid_Click"
+                                                  CommandParameter="{Binding UID}">
+                                            <MenuItem.Icon>
+                                                <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator/>
+                                        <MenuItem Header="Mark as trusted"
+                                                  Command="{Binding $parent[v:MainWindow].DataContext.TrustContactCommand}"
+                                                  CommandParameter="{Binding UID}"
+                                                  IsVisible="{Binding IsTrusted, Converter={StaticResource InverseBoolConverter}}">
+                                            <MenuItem.Icon>
+                                                <TextBlock Classes="icon-mdl2" Text="&#xE72E;"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Remove trusted flag"
+                                                  Command="{Binding $parent[v:MainWindow].DataContext.UntrustContactCommand}"
+                                                  CommandParameter="{Binding UID}"
+                                                  IsVisible="{Binding IsTrusted}">
+                                            <MenuItem.Icon>
+                                                <TextBlock Classes="icon-mdl2" Text="&#xE711;"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Set simulated presence"
+                                                  IsVisible="{Binding IsSimulated}">
+                                            <MenuItem.Items>
+                                                <MenuItem Header="Online"
+                                                          Command="{Binding $parent[v:MainWindow].DataContext.SetSimulatedContactOnlineCommand}"
+                                                          CommandParameter="{Binding UID}"/>
+                                                <MenuItem Header="Offline"
+                                                          Command="{Binding $parent[v:MainWindow].DataContext.SetSimulatedContactOfflineCommand}"
+                                                          CommandParameter="{Binding UID}"/>
+                                            </MenuItem.Items>
+                                        </MenuItem>
+                                        <Separator/>
+                                        <MenuItem Header="Remove contact"
+                                                  Command="{Binding $parent[v:MainWindow].DataContext.RemoveContactCommand}"
+                                                  CommandParameter="{Binding UID}">
+                                            <MenuItem.Icon>
+                                                <TextBlock Classes="icon-mdl2" Text="&#xE74D;"/>
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                    <Grid Width="44" Height="44">
+                                        <Border Width="44" Height="44" CornerRadius="22"
+                                                Background="{DynamicResource App.Surface}"
+                                                BorderBrush="{DynamicResource App.Border}"
+                                                BorderThickness="1">
+                                            <Grid>
+                                                <TextBlock Classes="icon-mdl2" Text="&#xE77B;" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.4"/>
+                                                <c:AvatarImage Stretch="UniformToFill">
+                                                    <Image.Source>
+                                                        <MultiBinding Converter="{StaticResource UidToAvatarConverter}">
+                                                            <Binding Path="UID"/>
+                                                            <Binding Path="$parent[v:MainWindow].DataContext.AvatarVersion"/>
+                                                        </MultiBinding>
+                                                    </Image.Source>
+                                                </c:AvatarImage>
+                                            </Grid>
+                                        </Border>
+                                        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="16" Height="16"
+                                                CornerRadius="8"
+                                                Background="{DynamicResource App.Background}"
+                                                BorderBrush="{DynamicResource App.Border}"
+                                                BorderThickness="1">
+                                            <Grid>
+                                                <Ellipse Width="10" Height="10" Fill="#22CC66" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                         IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Online}"/>
+                                                <Image Width="10" Height="10" Source="avares://ZTalk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Idle}"/>
+                                                <Image Width="10" Height="10" Source="avares://ZTalk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=DoNotDisturb}"/>
+                                                <Ellipse Width="10" Height="10" Stroke="#888888" StrokeThickness="1.4" Fill="Transparent" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                         IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Invisible}"/>
+                                                <Ellipse Width="10" Height="10" Fill="Transparent" Stroke="#888888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                         IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Offline}"/>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+
+                                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                            <c:VerifiedBadge Width="16" Height="16" VerticalAlignment="Center">
+                                                <c:VerifiedBadge.IsVisible>
+                                                    <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
+                                                        <Binding Path="PublicKeyVerified"/>
+                                                        <Binding Path="IsVerified"/>
+                                                        <Binding Path="IsSimulated"/>
+                                                    </MultiBinding>
+                                                </c:VerifiedBadge.IsVisible>
+                                            </c:VerifiedBadge>
+                                            <Border Background="#DA7C19" CornerRadius="4" Padding="4,1" VerticalAlignment="Center"
+                                                    IsVisible="{Binding IsSimulated}">
+                                                <TextBlock Text="Sim" Foreground="White" FontSize="11"/>
+                                            </Border>
+                                            <Border Background="#2B7A0B" CornerRadius="4" Padding="4,1" VerticalAlignment="Center"
+                                                    IsVisible="{Binding IsTrusted}">
+                                                <TextBlock Text="Trusted" Foreground="White" FontSize="11"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
+                                            <TextBlock Text="{Binding DisplayUID}" FontSize="12" Opacity="0.65"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Presence}" FontSize="12" Opacity="0.6"/>
+                                                <Border Background="#444" CornerRadius="4" Padding="4,1" IsVisible="{Binding LastKnownEncrypted}">
+                                                    <TextBlock Text="Encrypted" Foreground="White" FontSize="10"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" Orientation="Vertical" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding LastPresenceUtc, StringFormat='{}{0:HH:mm}'}" FontSize="11" Opacity="0.5"
+                                                   IsVisible="{Binding LastPresenceUtc, Converter={StaticResource ObjectNotNullConverter}}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <!-- Center: Chat (simplified) with a persistent left divider -->
+            <!-- Chat column now at index 3 due to inserted divider columns -->
+            <Grid x:Name="ChatArea" Grid.Column="3" RowDefinitions="Auto,*,Auto" MinWidth="340" Background="{DynamicResource App.Background}">
+                <Border Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.Background}">
+                    <StackPanel Orientation="Vertical" Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto,Auto" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding SelectedContactIdentity}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding SelectedContact.DisplayUID}" Opacity="0.6"/>
+                                <c:VerifiedBadge Width="18" Height="18" VerticalAlignment="Center">
+                                    <c:VerifiedBadge.IsVisible>
+                                        <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
+                                            <Binding Path="SelectedContact.PublicKeyVerified"/>
+                                            <Binding Path="SelectedContact.IsVerified"/>
+                                            <Binding Path="SelectedContact.IsSimulated"/>
+                                        </MultiBinding>
+                                    </c:VerifiedBadge.IsVisible>
+                                </c:VerifiedBadge>
+                            </StackPanel>
+                            <Button Grid.Column="1" Width="28" Height="28" Margin="0,0,8,0" Classes="icon-button" Command="{Binding BurnConversationCommand}" ToolTip.Tip="Burn conversation permanently">
+                                <Grid Width="16" Height="16">
+                                    <Path Fill="{DynamicResource App.Accent}" StrokeThickness="0" Stretch="Uniform"
+                                          Data="M8,1 C9.5,3 9,4.6 9.4,6 C10.7,5.2 12,6.6 12,8.7 C12,11.1 10.2,13 8,13 C5.8,13 4,11.1 4,8.6 C4,7 4.9,5.8 6.2,5.1 C6.1,6.9 6.9,8.1 7.9,9.0 C8.8,9.9 9.6,9.4 9.6,8.1 C9.6,6.7 8.4,6.1 8,4.7 C7.6,3.4 7.9,2.2 8,1 Z"/>
+                                </Grid>
+                            </Button>
+                            <Image Grid.Column="2" Width="16" Height="16" ToolTip.Tip="Chat is end-to-end encrypted" VerticalAlignment="Center" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
+                        </Grid>
+
+                        <Border CornerRadius="6" Padding="10,6" HorizontalAlignment="Stretch"
+                                Background="{DynamicResource App.Surface}"
+                                BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
+                                IsVisible="{Binding OfflineBannerVisible}" Opacity="{Binding OfflineBannerOpacity}">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+                                </Transitions>
+                            </Border.Transitions>
+                            <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center" ColumnSpacing="8">
+                                <TextBlock Grid.Column="0" Text="&#xE70B;" Classes="icon-mdl2"/>
+                                <TextBlock Grid.Column="1" Text="{Binding OfflineBannerText}"/>
+                            </Grid>
+                        </Border>
+                        <Border Background="#DA7C19" CornerRadius="4" Padding="6,2" IsVisible="{Binding IsSelectedContactSimulated}" HorizontalAlignment="Left">
+                            <TextBlock Text="Simulated contact (loopback)" FontSize="11" Foreground="White"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer Grid.Row="1" x:Name="ChatScroll" ScrollChanged="ChatScroll_ScrollChanged">
+                    <Grid RowDefinitions="Auto,Auto">
+                        <ItemsControl Grid.Row="0" ItemsSource="{Binding TimelineItems}">
+                            <ItemsControl.DataTemplates>
+                                <DataTemplate x:DataType="vm:ChatTimelineDateHeader">
+                                    <Grid Margin="0,24,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Grid.Column="0" Height="1" Background="{DynamicResource App.Border}" Margin="0,12,12,12" VerticalAlignment="Center" Opacity="0.5"/>
+                                        <Border Grid.Column="2" Height="1" Background="{DynamicResource App.Border}" Margin="12,12,0,12" VerticalAlignment="Center" Opacity="0.5"/>
+                    <Border Grid.Column="1" Padding="12,4" CornerRadius="0"
+                                                Background="{DynamicResource App.Surface}"
+                                                BorderBrush="{DynamicResource App.Border}"
+                                                BorderThickness="1">
+                                            <TextBlock Text="{Binding Label}" FontWeight="SemiBold" Opacity="0.85"/>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                                <DataTemplate x:DataType="models:Message">
+                                    <Border Classes="message-container message-row"
+                                            Padding="8"
+                                            Margin="0,0,0,12">
+                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                            <Border Width="40" Height="40" CornerRadius="20" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" VerticalAlignment="Top">
+                                                <Grid>
+                                                    <TextBlock Classes="icon-mdl2" Text="&#xE77B;" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.4"/>
+                                                    <c:AvatarImage Stretch="UniformToFill">
+                                                        <Image.Source>
+                                                            <MultiBinding Converter="{StaticResource UidToAvatarConverter}">
+                                                                <Binding Path="SenderUID" />
+                                                                <Binding Path="$parent[v:MainWindow].DataContext.AvatarVersion" />
+                                                            </MultiBinding>
+                                                        </Image.Source>
+                                                    </c:AvatarImage>
+                                                </Grid>
+                                            </Border>
+                                            <Border Grid.Column="1" CornerRadius="12" Padding="12,10" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
+                                                <StackPanel Spacing="6">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
+                                                        <TextBlock FontWeight="SemiBold" Opacity="0.95">
+                                                            <TextBlock.Foreground>
+                                                                <MultiBinding Converter="{StaticResource MessageSenderBrushConverter}">
+                                                                    <Binding Path="SenderUID" />
+                                                                    <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUidFull" />
+                                                                </MultiBinding>
+                                                            </TextBlock.Foreground>
+                                                            <TextBlock.Text>
+                                                                <MultiBinding Converter="{StaticResource OwnOrSelectedNameConverter}">
+                                                                    <Binding Path="SenderUID" />
+                                                                    <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUidFull" />
+                                                                    <Binding Path="RecipientUID" />
+                                                                    <Binding Path="$parent[v:MainWindow].DataContext.SelectedContact.UID" />
+                                                                    <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUsername" />
+                                                                    <Binding Path="$parent[v:MainWindow].DataContext.SelectedContactIdentity" />
+                                                                    <Binding Path="$parent[v:MainWindow].DataContext.UiTick" />
+                                                                </MultiBinding>
+                                                            </TextBlock.Text>
+                                                        </TextBlock>
+                                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                            <TextBlock Classes="message-meta" FontSize="11" Opacity="0.65" Text="{Binding Timestamp}"/>
+                                                            <TextBlock Classes="message-meta" FontSize="11" Opacity="0.55" Text="(edited)" IsVisible="{Binding IsEdited}"/>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="2" x:Name="MessageHoverBar" Classes="hover-actions" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
+                                                            <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
+                                                                    Classes="icon-button"
+                                                                    ToolTip.Tip="Edit"
+                                                                    Command="{Binding $parent[v:MainWindow].DataContext.EditMessageCommand}"
+                                                                    CommandParameter="{Binding Id}">
+                                                                <Button.IsEnabled>
+                                                                    <MultiBinding Converter="{StaticResource EditEnabledConverter}">
+                                                                        <Binding />
+                                                                        <Binding Path="$parent[v:MainWindow].DataContext" />
+                                                                    </MultiBinding>
+                                                                </Button.IsEnabled>
+                                                                <Button.IsVisible>
+                                                                    <MultiBinding Converter="{StaticResource StringEqualsMultiConverter}">
+                                                                        <Binding Path="SenderUID" />
+                                                                        <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUidFull" />
+                                                                    </MultiBinding>
+                                                                </Button.IsVisible>
+                                                                <TextBlock Classes="icon-mdl2" Text="&#xE70F;"/>
+                                                            </Button>
+                                                            <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
+                                                                    Classes="icon-button"
+                                                                    ToolTip.Tip="Delete"
+                                                                    Command="{Binding $parent[v:MainWindow].DataContext.DeleteMessageCommand}"
+                                                                    CommandParameter="{Binding Id}">
+                                                                <TextBlock Classes="icon-mdl2" Text="&#xE74D;"/>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <md:MarkdownScrollViewer Classes="message-markdown"
+                                                                             Markdown="{Binding Content}"
+                                                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                                             ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                                                        <md:MarkdownScrollViewer.IsVisible>
+                                                            <Binding Path="Content" Converter="{StaticResource StringNotNullOrEmptyConverter}" />
+                                                        </md:MarkdownScrollViewer.IsVisible>
+                                                    </md:MarkdownScrollViewer>
+                                                    <Button Classes="message-link-preview"
+                                                            Content="{Binding LinkPreview}"
+                                                            Command="{Binding $parent[v:MainWindow].DataContext.OpenLinkCommand}"
+                                                            CommandParameter="{Binding LinkPreview}"
+                                                            HorizontalAlignment="Stretch">
+                                                        <Button.IsVisible>
+                                                            <Binding Path="Content"
+                                                                     RelativeSource="{RelativeSource Self}"
+                                                                     Converter="{StaticResource ObjectNotNullConverter}" />
+                                                        </Button.IsVisible>
+                                                        <Button.ContentTemplate>
+                                                            <DataTemplate x:DataType="models:LinkPreview">
+                                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                    <Border Grid.Column="0"
+                                        Width="72"
+                                        Height="72"
+                                        CornerRadius="6"
+                                        Background="{DynamicResource App.Surface}" 
+                                        BorderBrush="{DynamicResource App.Border}" 
+                                        BorderThickness="1"
+                                                                            IsVisible="{Binding HasImage}">
+                                                                        <Image Stretch="UniformToFill"
+                                                                               Source="{Binding ImageBytes, Converter={StaticResource ByteArrayToBitmapConverter}}"/>
+                                                                    </Border>
+                                                                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                                                        <TextBlock FontSize="11"
+                                                                                   Opacity="0.7"
+                                                                                   Text="{Binding SiteName}"
+                                                                                   TextWrapping="Wrap"
+                                                                                   IsVisible="{Binding SiteName, Converter={StaticResource StringNotNullOrEmptyConverter}}"/>
+                                                                        <TextBlock FontWeight="SemiBold"
+                                                                                   TextWrapping="Wrap"
+                                                                                   MaxHeight="44">
+                                                                            <TextBlock.Text>
+                                                                                <MultiBinding Converter="{StaticResource FirstNonEmptyStringConverter}">
+                                                                                    <Binding Path="Title" />
+                                                                                    <Binding Path="DisplayUrl" />
+                                                                                    <Binding Path="Url" />
+                                                                                </MultiBinding>
+                                                                            </TextBlock.Text>
+                                                                        </TextBlock>
+                                                                        <TextBlock FontSize="12"
+                                                                                   TextWrapping="Wrap"
+                                                                                   Opacity="0.75"
+                                                                                   MaxHeight="60"
+                                                                                   Text="{Binding Description}"
+                                                                                   IsVisible="{Binding Description, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
+                                                                        <TextBlock FontSize="12"
+                                                                                   Foreground="{DynamicResource App.Accent}"
+                                                                                   TextTrimming="CharacterEllipsis">
+                                                                            <TextBlock.Text>
+                                                                                <MultiBinding Converter="{StaticResource FirstNonEmptyStringConverter}">
+                                                                                    <Binding Path="DisplayUrl" />
+                                                                                    <Binding Path="Url" />
+                                                                                </MultiBinding>
+                                                                            </TextBlock.Text>
+                                                                        </TextBlock>
+                                                                    </StackPanel>
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </Button.ContentTemplate>
+                                                    </Button>
+                                                    <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                            <TextBlock Classes="message-meta" FontSize="11" Opacity="0.55">
+                                                                <TextBlock.IsVisible>
+                                                                    <MultiBinding Converter="{StaticResource EditCountdownVisibleConverter}">
+                                                                        <Binding />
+                                                                        <Binding Path="$parent[v:MainWindow].DataContext" />
+                                                                        <Binding Path="$parent[v:MainWindow].DataContext.UiTick" />
+                                                                    </MultiBinding>
+                                                                </TextBlock.IsVisible>
+                                                                <TextBlock.Text>
+                                                                    <MultiBinding Converter="{StaticResource EditCountdownConverter}">
+                                                                        <Binding />
+                                                                        <Binding Path="$parent[v:MainWindow].DataContext" />
+                                                                        <Binding Path="$parent[v:MainWindow].DataContext.UiTick" />
+                                                                    </MultiBinding>
+                                                                </TextBlock.Text>
+                                                            </TextBlock>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                            <StackPanel.IsVisible>
+                                                                <MultiBinding Converter="{StaticResource StringEqualsMultiConverter}">
+                                                                    <Binding Path="SenderUID" />
+                                                                    <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUidFull" />
+                                                                </MultiBinding>
+                                                            </StackPanel.IsVisible>
+                                                            <TextBlock Classes="message-meta"
+                                                                       FontSize="11"
+                                                                       Opacity="0.65"
+                                                                       Text="{Binding DeliveryStatus}" />
+                                                            <Border Classes="message-read-indicator"
+                                                                    Width="18"
+                                                                    Height="18"
+                                                                    CornerRadius="9"
+                                                                    Background="{DynamicResource App.Accent}"
+                                                                    BorderBrush="{DynamicResource App.Border}"
+                                                                    BorderThickness="0.8">
+                                                                <Border.IsVisible>
+                                                                    <Binding Path="DeliveryStatus" Converter="{StaticResource StringEqualsConverter}" ConverterParameter="Read" />
+                                                                </Border.IsVisible>
+                                                                <Grid>
+                                                                    <Path Data="M4,10 L7.5,13.5 L14,6" Stroke="White" StrokeThickness="2" StrokeJoin="Round" StrokeLineCap="Round" />
+                                                                </Grid>
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.DataTemplates>
+                        </ItemsControl>
+                        <Border Grid.Row="1" x:Name="ChatEndAnchor" Height="1" Background="Transparent" Focusable="False"/>
+                    </Grid>
+                </ScrollViewer>
+
+                <Button x:Name="JumpToBottomButton"
+                        Grid.Row="1"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        Margin="0,0,12,12"
+                        IsVisible="False"
+                        Focusable="False"
+                        Click="JumpToBottom_Click"
+                        ToolTip.Tip="Jump to present">
+                    <Border Background="#2B2B2B" CornerRadius="16" Padding="12,6" BorderBrush="#444" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE76C;"/>
+                            <TextBlock x:Name="JumpToBottomLabel" Text="Jump to present"/>
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <Border Grid.Row="2" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1 1 0 0" Background="{DynamicResource App.Background}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                        <Image Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center" ToolTip.Tip="Chat is end-to-end encrypted" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
+                        <TextBox Grid.Column="1" x:Name="MessageInput" Text="{Binding OutgoingMessage, Mode=TwoWay}" Watermark="Type a message" AcceptsReturn="True" TextWrapping="Wrap" Height="56" VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" Classes="icon-button" Margin="8 0 0 0" Command="{Binding SendCommand}" ToolTip.Tip="Send message">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE724;"/>
+                        </Button>
+                    </Grid>
+                </Border>
+            </Grid>
+            <!-- Close BodyGrid before overlays to keep hierarchy balanced -->
+        </Grid>
+        <!-- Full Profile Overlay marker below remains unchanged -->
+            <!-- Full Profile Overlay -->
+        <Grid Grid.RowSpan="2" ZIndex="1000" IsVisible="{Binding IsFullProfileOpen}">
+            <!-- Backdrop: darken main window and allow click-to-dismiss -->
+            <Border x:Name="FullProfileBackdrop" Background="#99000000" PointerPressed="FullProfileBackdrop_PointerPressed"/>
+            <Border HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16" CornerRadius="10"
+                    Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
+                    PointerPressed="FullProfileContent_PointerPressed">
+                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12" MinWidth="360">
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <Border Width="56" Height="56" CornerRadius="28" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
+                            <Grid>
+                                <TextBlock Classes="icon-mdl2" Text="&#xE77B;" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
+                                <c:AvatarImage Classes="avatar-img" Stretch="UniformToFill">
+                                    <Image.Source>
+                                        <MultiBinding Converter="{StaticResource UidToAvatarConverter}">
+                                            <Binding Path="SelectedContact.UID" />
+                                            <Binding Path="AvatarVersion" />
+                                        </MultiBinding>
+                                    </Image.Source>
+                                </c:AvatarImage>
+                                <!-- Presence overlay on profile avatar -->
+                                <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="20" Height="20" CornerRadius="10"
+                                        Background="{DynamicResource App.Background}"
+                                        BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
+                                    <Grid>
+                                        <Ellipse Width="12" Height="12" Fill="#22CC66" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Online}"/>
+                                        <Image Width="12" Height="12" Source="avares://ZTalk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Idle}"/>
+                                        <Image Width="12" Height="12" Source="avares://ZTalk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=DoNotDisturb}"/>
+                                        <Ellipse Width="12" Height="12" Stroke="#888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" Fill="Transparent" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Invisible}"/>
+                                        <!-- Presence: Offline -->
+                                        <Ellipse Width="12" Height="12" Fill="Transparent" Stroke="#888888" StrokeThickness="1.8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Offline}"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding SelectedContact.DisplayName}" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding SelectedContact.DisplayUID}" FontSize="12" Opacity="0.7"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <!-- Verification shield in profile card -->
+                                <c:VerifiedBadge Width="18" Height="18" VerticalAlignment="Center">
+                                    <c:VerifiedBadge.IsVisible>
+                                        <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
+                                            <Binding Path="SelectedContact.PublicKeyVerified"/>
+                                            <Binding Path="SelectedContact.IsVerified"/>
+                                            <Binding Path="SelectedContact.IsSimulated"/>
+                                        </MultiBinding>
+                                    </c:VerifiedBadge.IsVisible>
+                                </c:VerifiedBadge>
+                                <Border Background="#DA7C19" CornerRadius="4" Padding="4,1" IsVisible="{Binding SelectedContact.IsSimulated}">
+                                    <TextBlock Text="Sim" Foreground="White"/>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Presence / status row (text only; visual badge overlays avatar) -->
+                    <StackPanel Grid.Row="1" Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Presence:" Opacity="0.8"/>
+                            <TextBlock Text="{Binding SelectedContact.Presence}"/>
+                        </StackPanel>
+                        <!-- Bio -->
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Bio:" Opacity="0.8" VerticalAlignment="Top"/>
+                            <TextBlock Text="{Binding SelectedContact.Bio}" TextWrapping="Wrap" MaxWidth="440"/>
+                        </StackPanel>
+                        <!-- Name change count (if non-zero) -->
+                        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding SelectedContact.DisplayNameChangeCount, Converter={StaticResource GreaterThanZeroConverter}}">
+                            <TextBlock Text="Name Changes:" Opacity="0.8"/>
+                            <TextBlock Text="{Binding SelectedContact.DisplayNameChangeCount}"/>
+                        </StackPanel>
+                        <!-- Public Key (respects SettingsProxy.ShowPublicKeys) with verification shield, truncation, and tight copy button -->
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" IsVisible="{Binding $parent[v:MainWindow].SettingsProxy.ShowPublicKeys}">
+                            <TextBlock Grid.Column="0" Text="Public Key:" Opacity="0.8" VerticalAlignment="Center"/>
+                            <!-- 16x16 verified shield shown only when verified (uses global converter policy) -->
+                            <c:VerifiedBadge Grid.Column="1" Width="18" Height="18" Margin="6,0,0,0" VerticalAlignment="Center">
+                                <c:VerifiedBadge.IsVisible>
+                                    <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
+                                        <Binding Path="SelectedContact.PublicKeyVerified"/>
+                                        <Binding Path="SelectedContact.IsVerified"/>
+                                        <Binding Path="SelectedContact.IsSimulated"/>
+                                    </MultiBinding>
+                                </c:VerifiedBadge.IsVisible>
+                            </c:VerifiedBadge>
+                            <TextBlock Grid.Column="2" Classes="app-trunc" FontFamily="Consolas" VerticalAlignment="Center" Margin="8,0,0,0"
+                                       Text="{Binding SelectedContactPublicKeyHex}" TextWrapping="NoWrap" MaxWidth="420"/>
+                            <Button Grid.Column="3" Classes="icon-button" ToolTip.Tip="Copy public key" Click="CopySelectedContactKey_Click" VerticalAlignment="Center" Margin="2,0,0,0">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
+                            </Button>
+                        </Grid>
+                        <!-- Verification row removed: replaced by showing Bio above when available -->
+                    </StackPanel>
+
+                    <!-- Editable display name for simulated contacts only -->
+                    <StackPanel Grid.Row="2" Spacing="6" IsVisible="{Binding IsSelectedContactSimulated}">
+                        <TextBlock Text="Display Name"/>
+                        <TextBox Text="{Binding EditableDisplayName, Mode=TwoWay}"/>
+                        <Button Content="Save (Simulated)" Command="{Binding SaveSimulatedProfileCommand}" HorizontalAlignment="Left"/>
+                        <!-- Debug-only container: controls are injected at runtime in DEBUG builds -->
+                        <StackPanel x:Name="DebugSimulatedProfilePanel" Orientation="Horizontal" Spacing="8" IsVisible="False">
+                            <TextBlock Text="Debug:" VerticalAlignment="Center"/>
+                            <!-- Buttons/toggles inserted via code-behind in DEBUG builds -->
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                        <Button Content="Verify" Click="StartVerification_Click">
+                            <Button.IsEnabled>
+                                <MultiBinding Converter="{StaticResource NotOrConverter}">
+                                    <Binding Path="SelectedContact.IsVerified"/>
+                                    <Binding Path="SelectedContact.PublicKeyVerified"/>
+                                </MultiBinding>
+                            </Button.IsEnabled>
+                        </Button>
+                        <Button Content="Close" Command="{Binding CloseFullProfileCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Settings overlay: full-panel takeover (Discord-style) -->
+        <Grid x:Name="SettingsOverlay"
+              Grid.RowSpan="2"
+              ZIndex="1200"
+              IsVisible="False"
+              Background="{DynamicResource App.Background}"
+              KeyDown="SettingsOverlay_KeyDown">
+            <Grid RowDefinitions="Auto,*">
+                <!-- Header bar (same color as app; draggable) -->
+                <Border Grid.Row="0"
+                        Background="{DynamicResource App.Background}"
+                        BorderBrush="{DynamicResource App.Border}"
+                        BorderThickness="0 0 0 1"
+                        Padding="12,8"
+                        PointerPressed="DragBar_PointerPressed">
+                    <TextBlock Text="Settings" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                </Border>
+                <!-- Main settings content + floating controls/notifications -->
+                <Grid Grid.Row="1">
+                    <!-- Content host -->
+                    <ContentControl x:Name="InlineSettingsHost"/>
+                    <!-- Floating icon buttons (top-right), consistent with app button metrics -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,12,0">
+                        <Button Classes="icon-button" ToolTip.Tip="Save" Click="SettingsOverlay_Save_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE74E;"/>
+                        </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="Close (Esc)" Click="SettingsOverlay_Close_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE711;"/>
+                        </Button>
+                    </StackPanel>
+                    
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- Lock overlay: darken the main UI while the Unlock dialog is active -->
+        <Border x:Name="LockOverlay" Grid.RowSpan="2" ZIndex="2000" IsVisible="False" Background="#99000000" IsHitTestVisible="True" Opacity="0.0">
+            <Border.Transitions>
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
+                </Transitions>
+            </Border.Transitions>
+        </Border>
+    </Grid>
+</Window>

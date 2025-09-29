@@ -1,0 +1,245 @@
+<!--
+    MonitoringWindow: standalone live monitoring UI.
+    - User-configurable refresh interval (250ms .. 20m) persisted in AppSettings.MonitoringIntervalMs.
+    - Real-time traffic counters, port bindings, NAT status with indicator + legend, scrollable log.
+-->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:P2PTalk.ViewModels"
+    xmlns:vc="clr-namespace:P2PTalk.Views.Controls"
+        x:Class="P2PTalk.Views.MonitoringWindow"
+    x:Name="MonitoringWin"
+    Title="Monitoring"
+    Width="700" Height="520"
+    MinWidth="640" MinHeight="440"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ExtendClientAreaTitleBarHeightHint="36"
+    mc:Ignorable="d"
+        x:DataType="vm:MonitoringViewModel"
+        Background="{DynamicResource App.Background}">
+    <Window.DataContext>
+        <vm:MonitoringViewModel />
+    </Window.DataContext>
+
+    <!-- [CHROME] Custom client area; add a simple drag bar on top. -->
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.Background}"
+                PointerPressed="DragBar_PointerPressed">
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <Border Grid.Column="0" Width="20" Height="20" CornerRadius="4" Background="Transparent"/>
+                <TextBlock Grid.Column="1" Text="ZTalk" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <Grid Grid.Column="2"/>
+            </Grid>
+        </Border>
+
+    <!-- Compact container with consistent padding for a balanced UI -->
+    <Border Grid.Row="1" Padding="10" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}">
+        <!-- Layout rows: header, controls, body(*) with chart + log, footer -->
+        <!-- Layout polish: reduce row spacing a bit to fit comfortably in default window size -->
+        <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="6">
+            <!-- Header with NAT indicator and legend -->
+            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center" MinHeight="28">
+                <StackPanel Spacing="4" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock Text="NAT:"/>
+                        <Ellipse Width="10" Height="10" Fill="{Binding NatIndicatorBrush}" Opacity="{Binding NatIndicatorOpacity}"/>
+                        <!-- [TRUNC-OPTIN] Long NAT status can overflow; opt-in ellipsis + tooltip. -->
+                        <TextBlock Classes="app-trunc" Text="{Binding NatStatus}"/>
+                        <Button Content="Retry" Margin="8,0,0,0" Command="{Binding RetryNatVerificationCommand}" Height="20" Padding="8,0" ToolTip.Tip="Re-run mapping verification &amp; hairpin test"/>
+                    </StackPanel>
+                    <!-- [TRUNC-OPTIN] Summary can be lengthy; opt-in ellipsis + tooltip. -->
+                    <TextBlock Classes="app-trunc" Text="{Binding DiagnosticsSummary}" FontSize="11" Opacity="0.85"/>
+                </StackPanel>
+        <!-- Status Legend: fixed, theme-independent styling for consistency across all themes -->
+        <!-- Layout tweak: slightly reduced padding to save vertical space without changing style -->
+        <Border Grid.Column="1" Padding="6" Margin="8,0,0,0" CornerRadius="6"
+                        BorderBrush="#4A4A4A" BorderThickness="1" Background="#2A2A2A">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Status Legend" FontWeight="SemiBold" Foreground="#EDEDED"/>
+                        <!-- Two-column grid ensures perfect icon/label alignment without jitter -->
+            <!-- Layout tweak: slightly reduce row spacing in legend for compactness -->
+            <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="Auto,*" RowSpacing="3" VerticalAlignment="Center">
+                            <Ellipse Grid.Row="0" Grid.Column="0" Width="10" Height="10" Fill="#E0B000" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="Searching" Foreground="#EDEDED" VerticalAlignment="Center"/>
+                            <Ellipse Grid.Row="1" Grid.Column="0" Width="10" Height="10" Fill="#D24A4A" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="Failure" Foreground="#EDEDED" VerticalAlignment="Center"/>
+                            <Ellipse Grid.Row="2" Grid.Column="0" Width="10" Height="10" Fill="#4CAF50" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Success" Foreground="#EDEDED" VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Controls row: refresh selector and ports -->
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <TextBlock Text="Traffic (bytes/sec)" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Width="10" Height="10" Fill="{Binding TcpBrush}"/>
+                        <TextBlock Text="{Binding TcpRate}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Width="10" Height="10" Fill="{Binding UdpBrush}"/>
+                        <TextBlock Text="{Binding UdpRate}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Width="10" Height="10" Fill="{Binding OutBrush}"/>
+                        <TextBlock Text="{Binding OutRate}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="Refresh"/>
+                    <!-- Downsize dropdown a bit to reduce crowding -->
+                    <ComboBox Width="110" SelectedIndex="{Binding IntervalIndex, Mode=TwoWay}">
+                        <ComboBoxItem Content="250ms"/>
+                        <ComboBoxItem Content="500ms"/>
+                        <ComboBoxItem Content="1s"/>
+                        <ComboBoxItem Content="2s"/>
+                        <ComboBoxItem Content="5s"/>
+                        <ComboBoxItem Content="10s"/>
+                        <ComboBoxItem Content="30s"/>
+                        <ComboBoxItem Content="1m"/>
+                        <ComboBoxItem Content="2m"/>
+                        <ComboBoxItem Content="5m"/>
+                        <ComboBoxItem Content="10m"/>
+                        <ComboBoxItem Content="20m"/>
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+
+            <!-- Body: ports line, NAT diagnostics, traffic history chart, and diagnostics log -->
+            <!-- Remove outer ScrollViewer to prevent window-level scrolling from interfering with log scrolling -->
+            <Grid Grid.Row="2" RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <TextBlock Text="Ports:" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding TcpPortLabel}"/>
+                        <TextBlock Text="{Binding UdpPortLabel}"/>
+                        <TextBlock Text="{Binding ExternalPortLabel}"/>
+                    </StackPanel>
+
+                    <!-- NAT diagnostics details: compact two-column grid inside a styled border -->
+                    <Border Grid.Row="1" Padding="8" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}">
+                        <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="4">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Gateway:"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding NatGateway}" Classes="app-trunc"/>
+                            <TextBlock Grid.Row="0" Grid.Column="2" Text="External IP:"/>
+                            <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding NatExternalIp}" Classes="app-trunc"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Service:"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding NatService}" Classes="app-trunc"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" Text="Alt Services:"/>
+                            <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding NatAvailableServices}" Classes="app-trunc"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Map/Ping:"/>
+                            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Map @"/>
+                                <TextBlock Text="{Binding NatMapAttemptLabel}"/>
+                                <TextBlock Text="· Verify @"/>
+                                <TextBlock Text="{Binding NatVerifyTimeLabel}"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="Punch:"/>
+                            <StackPanel Grid.Row="2" Grid.Column="3" Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding NatPunchSummary}"/>
+                                <TextBlock Text="| Hairpin:"/>
+                                <TextBlock Text="{Binding HairpinStatus}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Discovery panel: tiny snapshot with restart control -->
+                    <Border Grid.Row="2" Padding="8" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4" VerticalAlignment="Center">
+                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="Discovery:" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding DiscoveryState}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                                <TextBlock Text="Attempts:"/>
+                                <TextBlock Text="{Binding DiscoveryAttempts}"/>
+                                <TextBlock Text="Backoff:" Margin="12,0,0,0"/>
+                                <TextBlock Text="{Binding DiscoveryBackoff}"/>
+                                <TextBlock Text="s"/>
+                            </StackPanel>
+                            <Button Grid.Row="0" Grid.Column="2" Content="Restart Discovery" Command="{Binding RestartDiscoveryCommand}"/>
+                            <!-- Debug-only checkpoint controls are added programmatically into this panel -->
+                            <StackPanel x:Name="DebugCheckpointPanel" Grid.Row="0" Grid.Column="3" Orientation="Horizontal" Spacing="6"/>
+                            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                                <TextBlock Text="Last attempt:"/>
+                                <TextBlock Text="{Binding DiscoveryLastAttemptLabel}"/>
+                                <TextBlock Text="· Last success:"/>
+                                <TextBlock Text="{Binding DiscoveryLastSuccessLabel}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Persistent history chart using a lightweight drawing surface;
+                         height constrained to ensure it fits the default window size -->
+                    <Border Grid.Row="3" Padding="4" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}" ClipToBounds="True">
+                        <!-- Chart uses fixed colors inside TrafficHistoryView to avoid theme bleed; only bind history -->
+                        <!-- Slightly reduce chart height to make all content fit without window scrolling -->
+                        <vc:TrafficHistoryView Height="150"
+                                               History="{Binding History}"/>
+                    </Border>
+
+                    <!-- Diagnostics log with small, theme-aware text and adjustable font size -->
+                    <!-- Use a Grid (Auto,Auto,*) so the log area fills remaining space and never overlaps other controls -->
+                    <Grid Grid.Row="4" RowDefinitions="Auto,Auto,*" RowSpacing="6">
+                        <!-- Header row: title + visibility toggle -->
+                        <Grid ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Center">
+                            <TextBlock Text="Diagnostics log" FontWeight="SemiBold"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="12,0,0,0">
+                                <!-- Keep as ToggleSwitch to render the intented slider UI; do not replace with ToggleButton. -->
+                                <ToggleSwitch Content="Show log" IsChecked="{Binding ShowLog}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Controls row: filter (left) and compact text size controls (right) -->
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                            <!-- Filter under the label; compact width -->
+                            <ComboBox Grid.Column="0" Width="84" HorizontalAlignment="Left" SelectedIndex="{Binding FilterIndex}">
+                                <ComboBoxItem Content="ALL"/>
+                                <ComboBoxItem Content="NET"/>
+                                <ComboBoxItem Content="WARNING"/>
+                                <ComboBoxItem Content="INFO"/>
+                            </ComboBox>
+
+                            <!-- Text size for log aligned to the right; label above compact slider -->
+                            <StackPanel Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Right" Spacing="2">
+                                <TextBlock Text="Text Size for Log" HorizontalAlignment="Right"/>
+                                <!-- Remove negative margin to avoid overlap with nearby scrollbars; modest width -->
+                                <Slider Minimum="6" Maximum="18" Value="{Binding LogFontSize}" Width="120" HorizontalAlignment="Right"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Star row: border with scroll viewer fills remaining space; avoids whole-window scrolling -->
+                        <Border Grid.Row="2" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}">
+                            <ScrollViewer x:Name="LogScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding ShowLog}">
+                                <ItemsControl x:Name="LogItemsControl" ItemsSource="{Binding FilteredLogItems}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Vertical"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding .}" FontSize="{Binding DataContext.LogFontSize, ElementName=MonitoringWin}" Foreground="{DynamicResource App.ForegroundPrimary}" TextWrapping="NoWrap"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+            <!-- Footer actions (logging controls removed) -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button Content="Close" Command="{Binding CloseCommand}"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+    </Grid>
+</Window>

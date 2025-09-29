@@ -1,0 +1,126 @@
+# P2PTalk .gitignore
+# Based on the standard .NET template with project-specific additions.
+
+# Build output
+bin/
+obj/
+**/bin/
+**/obj/
+[Bb]uild/
+[Bb]uildOutput/
+
+
+# Publish artifacts
+publish/
+*.Publish.xml
+*.pubxml
+*.pubxml.user
+*.publishsettings
+*.pubxml*.user
+*.publish.log
+publish/**/*.zip
+
+# Logs and diagnostics
+logs/
+**/logs/
+*.log
+*.etl
+*.dmp
+error.txt
+
+# User- and IDE-specific files
+.vs/
+.vscode/
+.idea/
+.idea/**
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.DotSettings
+*.sln.DotSettings
+*.DotSettings.user
+
+# Generated caches / databases
+*.db
+*.db-shm
+*.db-wal
+*.pdb
+*.mdb
+*.ldf
+*.mdf
+*.log.db
+
+# Temporary files and folders
+*.tmp
+*.temp
+~$*
+*.bak
+*_tmp/
+.tmp/
+cache/
+_tmp/
+_trash/
+tmp/
+/tmp/
+*.old
+*.orig
+*.swp
+*.swn
+tmp_*
+*.pid
+
+# Secrets and certificates
+*.pfx
+*.snk
+*.key
+*.cer
+*.p12
+*.pem
+*.p7b
+*.p7s
+secret*/
+*.p2e
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+Icon?
+*.lnk
+
+# Package artifacts
+*.nupkg
+*.snupkg
+*.symbols.nupkg
+
+# Tooling state
+**/node_modules/
+.yarn/
+.pnpm-store/
+
+# PowerShell history and cache
+*.ps1xml
+*.psc1
+powershell_history.txt
+
+# Miscellaneous
+*.iws
+*.tlog
+*.psess
+*.vsp
+*.vspx
+*.vspscc
+*.vssscc
+*.cache
+*.sdf
+*.opensdf
+*.ipch
+*.dbmdl
+*.jfm
+*.vgdbsettings
+workspace.xml
+

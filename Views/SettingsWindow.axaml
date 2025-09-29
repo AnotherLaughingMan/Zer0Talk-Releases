@@ -1,0 +1,319 @@
+<!--
+    Context: Application settings UI (General, Appearance, Account).
+    - Settings persisted encrypted via SettingsService; window state (size/pos/topmost) is saved in AppSettings.SettingsWindow.
+    - Compact tabs with reduced fonts; top-right "On top" checkbox toggles Window.Topmost.
+    - Programmatic tab switching available via code-behind SwitchToTab().
+-->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:P2PTalk.ViewModels"
+    xmlns:m="clr-namespace:ZTalk.Models"
+        xmlns:c="clr-namespace:P2PTalk.Controls"
+    xmlns:util="clr-namespace:P2PTalk.Utilities"
+        x:Class="P2PTalk.Views.SettingsWindow"
+        Title="Settings"
+        Width="520" Height="400"
+        MinWidth="480" MinHeight="360"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="36"
+        mc:Ignorable="d"
+        x:DataType="vm:SettingsViewModel"
+        Background="{DynamicResource App.Background}"
+        Foreground="{DynamicResource App.ForegroundPrimary}"
+        Topmost="True">
+    <!-- [CHROME] Custom client area with no OS chrome; drag bar below handles move/drag. -->
+    <Window.DataContext>
+        <vm:SettingsViewModel />
+    </Window.DataContext>
+
+    
+
+    <!-- [DRAGBAR] Minimal drag bar with centered app title and placeholder icon. -->
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Padding="6"
+                PointerPressed="DragBar_PointerPressed">
+            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                <Border Grid.Column="0" Width="20" Height="20" CornerRadius="4"/>
+                <TextBlock Grid.Column="1" Text="Settings" Classes="heading" HorizontalAlignment="Center"/>
+                <Grid Grid.Column="2"/>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Padding="8">
+        <Grid RowDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="*,Auto">
+                <ToggleSwitch Grid.Column="1"
+                              Content="On top"
+                              IsChecked="{Binding $parent[Window].Topmost, Mode=TwoWay}"
+                              ToolTip.Tip="Keep this window on top of other windows"/>
+            </Grid>
+
+            <!-- [LAYOUT] Two-column redesign: use left-aligned tab strip for category list and right for content. -->
+            <TabControl Grid.Row="1" x:Name="SettingsTabs" TabStripPlacement="Left">
+                <TabItem Header="Profile">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                        <Grid>
+                <Border Margin="16" Padding="12" Classes="card" MaxWidth="640" HorizontalAlignment="Center">
+                                <Grid>
+                                    <!-- Profile layout refactor: clearer sections, aligned labels, responsive inputs; functionality preserved -->
+                                    <StackPanel Spacing="16">
+                                        <!-- Identity section -->
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="Identity" FontWeight="SemiBold"/>
+                                            <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+                                                <TextBlock Text="Username" Grid.Row="0" Grid.Column="0"/>
+                                                <!-- [TRUNC-OPTIN] Username may be long; enable ellipsis + tooltip. -->
+                                                <TextBlock Classes="app-trunc" Text="{Binding Username}" Grid.Row="0" Grid.Column="1" FontFamily="Consolas"/>
+
+                                                <TextBlock Text="UID" Grid.Row="1" Grid.Column="0"/>
+                                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="6" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <!-- [TRUNC-OPTIN] UID may be long; enable ellipsis + tooltip. -->
+                                                    <TextBlock Classes="app-trunc" Text="{Binding DisplayUID}" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                                    <Button Classes="icon-button" Command="{Binding CopyUidCommand}" ToolTip.Tip="Copy UID to clipboard">
+                                                        <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
+                                                    </Button>
+                                                </StackPanel>
+
+                                                <TextBlock Text="Display Name" Grid.Row="2" Grid.Column="0"/>
+                                                <StackPanel Grid.Row="2" Grid.Column="1" Spacing="6">
+                                                    <!-- [INPUT-STYLING] Use neutral background for text input; avoid App.Surface on Display Name. -->
+                                                    <!-- [TRUNC-OPTIN] Input can overflow; add tooltip + clip (TextBox can't ellipsize). -->
+                                                    <TextBox Classes="app-trunc" Text="{Binding DisplayName, Mode=TwoWay}" Background="{DynamicResource App.Background}"/>
+                                                    <!-- Layout refinement: widen dropdown and push counter to the right; keep elements centered and balanced -->
+                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                            <!-- Label update for brevity and flexibility -->
+                                                            <TextBlock Text="Prev. Name"/>
+                                                            <!-- Human-readable width: stretch within sensible bounds to avoid overlap -->
+                                                            <ComboBox ItemsSource="{Binding DisplayNameHistory}"
+                                                                      SelectedItem="{Binding SelectedPreviousDisplayName}"
+                                                                      HorizontalAlignment="Stretch"
+                                                                      MinWidth="280" MaxWidth="400">
+                                                                <ComboBox.ItemTemplate>
+                                                                    <DataTemplate x:DataType="m:DisplayNameRecord">
+                                                                        <!-- [TRUNC-OPTIN] History item text can be long; enable ellipsis + tooltip. -->
+                                                                        <TextBlock Classes="app-trunc" Text="{Binding Name}"/>
+                                                                    </DataTemplate>
+                                                                </ComboBox.ItemTemplate>
+                                                            </ComboBox>
+                                                        </StackPanel>
+                                                        <!-- Reposition “Changes” counter to the right with spacing and alignment -->
+                                                        <Border Grid.Column="1" CornerRadius="8" Padding="6,2" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,0,0">
+                                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                <TextBlock Text="Changes"/>
+                                                                <TextBlock Text="{Binding DisplayNameChangeCount}" FontWeight="Bold"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+
+                                        <!-- Subtle divider -->
+                                        <Border Height="1" Classes="divider"/>
+
+                                        <!-- Avatar section -->
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="Avatar" FontWeight="SemiBold"/>
+                                            <Grid ColumnDefinitions="160,*" ColumnSpacing="8">
+                                                <TextBlock Text="Avatar" Grid.Column="0"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <!-- Circular avatar preview (clips image to rounded border) -->
+                                                    <Border Width="48" Height="48" CornerRadius="24" Background="{DynamicResource App.Surface}"
+                                                            BorderBrush="{DynamicResource App.Border}" BorderThickness="1" ClipToBounds="True">
+                                                        <Grid>
+                                                            <!-- Fallback silhouette when no avatar -->
+                                                            <TextBlock Classes="icon-mdl2" Text="&#xE77B;" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6" Foreground="{DynamicResource App.ForegroundPrimary}"/>
+                                                            <c:AvatarImage Classes="avatar-img" Source="{Binding AvatarPreview}" Stretch="UniformToFill"/>
+                                                        </Grid>
+                                                    </Border>
+                                                    <Button Content="Choose…" Command="{Binding ChooseAvatarCommand}"/>
+                                                    <Button Content="Clear" Command="{Binding ClearAvatarCommand}"/>
+                                                    <ToggleSwitch Content="Share Avatar with peers"
+                                                                  IsChecked="{Binding ShareAvatar, Mode=TwoWay}"
+                                                                  VerticalAlignment="Center" Margin="8,0,0,0"
+                                                                  ToolTip.Tip="Allow peers to see your avatar image"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+
+                                        <!-- Subtle divider -->
+                                        <Border Height="1" Classes="divider"/>
+
+                                        <!-- About section -->
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="About" FontWeight="SemiBold"/>
+                                            <Grid ColumnDefinitions="160,*" ColumnSpacing="8" RowDefinitions="Auto" RowSpacing="8">
+                                                <TextBlock Text="Bio" Grid.Row="0" Grid.Column="0"/>
+                                                <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                                                    <!-- Bio height increased slightly using golden ratio: 64 × 1.618 ≈ 104 -->
+                                                    <!-- [INPUT-STYLING] Use neutral background for text area; avoid App.Surface on Bio. -->
+                                                    <TextBox TextWrapping="Wrap" AcceptsReturn="True" Height="104" MaxLength="280" Text="{Binding Bio, Mode=TwoWay}" Background="{DynamicResource App.Background}"/>
+                                                    <TextBlock Text="{Binding BioCounter}" FontSize="11" Opacity="0.7"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Tiny toast overlay inside the bordered container -->
+                    <Border IsVisible="{Binding CopyToastVisible}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,4,0,0" Padding="6,3" CornerRadius="6" Classes="card">
+                                        <!-- [TRUNC-OPTIN] Toast text may be lengthy; enable ellipsis + tooltip. -->
+                                        <TextBlock Classes="app-trunc" Text="{Binding CopyToastText}" FontSize="11"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="General">
+                    <ScrollViewer>
+                        <StackPanel Margin="8" Spacing="8">
+                            <StackPanel>
+                                <TextBlock Text="Default Presence"/>
+                                <ComboBox SelectedIndex="{Binding DefaultPresenceIndex, Mode=TwoWay}">
+                                    <ComboBoxItem Content="Online"/>
+                                    <ComboBoxItem Content="Idle"/>
+                                    <ComboBoxItem Content="Do Not Disturb"/>
+                                    <ComboBoxItem Content="Invisible"/>
+                                </ComboBox>
+                                <TextBlock FontSize="11" Opacity="0.7" Text="Offline is automatic only and cannot be selected."/>
+                            </StackPanel>
+                            <Separator/>
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Auto-Lock"/>
+                                <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="8">
+                                    <ToggleSwitch Grid.Column="0" Content="Enable Auto-Lock"
+                                                  IsChecked="{Binding AutoLockEnabled, Mode=TwoWay}"
+                                                  ToolTip.Tip="Automatically lock the app after inactivity"/>
+                                    <TextBlock Grid.Column="1" Text="Minutes" VerticalAlignment="Center"/>
+                                    <TextBox Grid.Column="2" Width="80" Text="{Binding AutoLockMinutes, Mode=TwoWay}" Watermark="e.g. 10" Background="{DynamicResource App.Background}"/>
+                                </Grid>
+                                <ToggleSwitch Content="Lock on minimize"
+                                              IsChecked="{Binding LockOnMinimize, Mode=TwoWay}"
+                                              ToolTip.Tip="Lock immediately when the window is minimized"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="Appearance">
+                    <ScrollViewer>
+                        <StackPanel Margin="8" Spacing="8">
+                            <StackPanel>
+                                <!-- [TRUNC-OPTIN] Static label; left unchanged. -->
+                                <TextBlock Text="Theme" />
+                                <ComboBox SelectedIndex="{Binding ThemeIndex, Mode=TwoWay}">
+                                    <ComboBoxItem Content="Dark"/>
+                                    <ComboBoxItem Content="Light"/>
+                                    <ComboBoxItem Content="Sandy"/>
+                                    <ComboBoxItem Content="Butter"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <Separator/>
+                            <StackPanel>
+                                <TextBlock Text="Font (Theme Engine)"/>
+                                <TextBox Watermark="e.g. Segoe UI, Inter, 'JetBrains Mono'" Text="{Binding UiFontFamily, Mode=TwoWay}"/>
+                                <TextBlock Text="Leave blank to use default platform font." FontSize="11" Opacity="0.6"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="UI Scale"/>
+                                <Slider Minimum="0.75" Maximum="2.0" SmallChange="0.05" LargeChange="0.25" Value="{Binding UiScale, Mode=TwoWay}"/>
+                                <TextBlock Text="{Binding UiScale, StringFormat=Current Scale: {0:F2}x}" FontSize="11"/>
+                                <TextBlock Text="Scaling placeholder: full layout adoption pending future refactor." FontSize="11" Opacity="0.6"/>
+                            </StackPanel>
+                            <Border Padding="8" CornerRadius="6" Classes="card">
+                                <TextBlock TextWrapping="Wrap" FontSize="11" Opacity="0.75"
+                                           Text="Legacy theme selector: enjoy it while it lasts. A full Theme Engine (fonts, scaling, future color palettes &amp; user themes) will replace this workflow soon."/>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="Security">
+                    <ScrollViewer>
+                        <StackPanel Margin="8" Spacing="8">
+                            <ToggleSwitch Content="Remember this passphrase"
+                                          IsChecked="{Binding RememberPassphrase, Mode=TwoWay}"
+                                          ToolTip.Tip="Store your passphrase encrypted for faster unlock (unsafe on shared devices)"/>
+                            <Button Content="Purge Stored Passphrase Now"
+                                    HorizontalAlignment="Left"
+                                    Command="{Binding PurgeStoredPassphraseCommand}"
+                                    ToolTip.Tip="Immediately deletes stored passphrase and locks your session."/>
+                            <!-- [TRUNC-OPTIN] Explanatory text wraps; keep wrapping (no ellipsis) for readability. -->
+                            <TextBlock Text="Uses Windows DPAPI to protect the passphrase. On non-Windows platforms this option is disabled." FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+                <TabItem Header="Danger Zone">
+                    <ScrollViewer>
+                        <StackPanel Margin="8" Spacing="10">
+                            <TextBlock Text="Permanently delete your local account and data" FontWeight="SemiBold"/>
+                            <Border Padding="8" CornerRadius="6" Classes="card">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="To confirm, type the code exactly as shown:"/>
+                                    <!-- [TRUNC-OPTIN] Generated code can be long; enable ellipsis + tooltip. -->
+                                    <TextBlock Classes="app-trunc" Text="{Binding GeneratedDeleteCode}" FontFamily="Consolas"/>
+                                    <!-- [INPUT-STYLING] Neutral background for confirmation input; remove App.Surface usage. -->
+                                    <!-- [TRUNC-OPTIN] Input may overflow; add tooltip + clip. -->
+                                    <TextBox Classes="app-trunc" Watermark="Type confirmation code" Text="{Binding DeleteConfirmText, Mode=TwoWay}" Background="{DynamicResource App.Background}"/>
+                                    <ToggleSwitch Content="Also delete local settings and themes"
+                                                  IsChecked="{Binding WipeLocalSettings, Mode=TwoWay}"
+                                                  ToolTip.Tip="Include your local settings and custom themes in the deletion"/>
+                                    <Button Content="Delete Account"
+                                            ToolTip.Tip="This action is permanent and cannot be undone."
+                                            Background="{DynamicResource DangerButtonBackgroundColor}"
+                                            Foreground="{DynamicResource DangerButtonForegroundColor}"
+                                            BorderBrush="{DynamicResource DangerButtonBorderColor}"
+                                            Command="{Binding DeleteAccountCommand}"/>
+                                </StackPanel>
+                            </Border>
+                               <!-- Purge Messages Section -->
+                               <Border CornerRadius="8" Padding="16" MaxWidth="640" HorizontalAlignment="Center">
+                                 <StackPanel Spacing="12">
+                                   <TextBlock Text="Purge All Messages" FontWeight="SemiBold" FontSize="16" Foreground="#C0392B"/>
+                                   <TextBlock Text="Securely wipe every stored conversation and pending message from this device. The encrypted archives are overwritten multiple times before removal, making recovery impossible." TextWrapping="Wrap" Opacity="0.85"/>
+                                   <TextBlock Text="Only run this when you want a clean slate or before decommissioning the device." TextWrapping="Wrap" Opacity="0.75"/>
+                                   <Button Content="Purge All Messages" Command="{Binding PurgeAllMessagesCommand}" Background="#B00020" Foreground="White" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium"/>
+                                 </StackPanel>
+                               </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Content="Cancel" Command="{Binding CancelCommand}"/>
+                <Button Content="Save" Command="{Binding SaveCommand}"/>
+                <Button Content="Close" Command="{Binding CloseApplyCommand}"/>
+            </StackPanel>
+            <Grid Grid.RowSpan="3" IsHitTestVisible="False" Panel.ZIndex="5">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,8,0,0" Spacing="6">
+                    <Border IsVisible="{Binding UnsavedWarningVisible}"
+                            Background="{DynamicResource App.Surface}"
+                            BorderBrush="{DynamicResource DangerButtonBackgroundColor}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,6"
+                            MaxWidth="360"
+                            Opacity="0.95">
+                        <TextBlock Text="{Binding UnsavedWarningText}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    </Border>
+                    <Border IsVisible="{Binding SaveToastVisible}"
+                            Background="{DynamicResource App.Surface}"
+                            BorderBrush="{DynamicResource App.Accent}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="12,6"
+                            MaxWidth="360"
+                            Opacity="0.95">
+                        <TextBlock Text="{Binding SaveToastText}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    </Border>
+                </StackPanel>
+            </Grid>
+          
+        </Grid>
+    </Border>
+    </Grid>
+</Window>

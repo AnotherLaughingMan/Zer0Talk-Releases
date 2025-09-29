@@ -1,0 +1,71 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:P2PTalk.ViewModels"
+        xmlns:util="clr-namespace:P2PTalk.Utilities"
+  x:Class="P2PTalk.Views.AddContactWindow"
+        Title="Add Contact"
+  Width="420" Height="300"
+  CanResize="False"
+  ExtendClientAreaToDecorationsHint="True"
+  ExtendClientAreaChromeHints="NoChrome"
+  ExtendClientAreaTitleBarHeightHint="36"
+        mc:Ignorable="d"
+        x:DataType="vm:AddContactViewModel"
+        WindowStartupLocation="CenterOwner"
+    Background="{DynamicResource App.Background}" Foreground="{DynamicResource App.ForegroundPrimary}">
+  <Window.DataContext>
+    <vm:AddContactViewModel />
+  </Window.DataContext>
+  <Window.Resources>
+    <util:InverseBoolConverter x:Key="InverseBoolConverter" />
+  </Window.Resources>
+  <!-- [CHROME] Custom client area; add drag bar to replace OS title bar. -->
+  <Grid RowDefinitions="Auto,*">
+    <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.Background}"
+            PointerPressed="DragBar_PointerPressed">
+      <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+        <Border Grid.Column="0" Width="20" Height="20" CornerRadius="4" Background="Transparent"/>
+  <TextBlock Grid.Column="1" Text="ZTalk" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        <Grid Grid.Column="2"/>
+      </Grid>
+    </Border>
+  <!-- [LAYOUT] Increased fixed height slightly so content fits without scrollbars across themes/DPI. -->
+  <!-- [LAYOUT] Non-resizable per requirement; fixed size ensures contained layout across DPIs. -->
+  <Border Grid.Row="1" Padding="10" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="8" Background="{DynamicResource App.Background}"> <!-- [LAYOUT] Slightly reduced padding to maximize content area. -->
+    <!-- [LAYOUT] Two-row Grid anchors buttons; no ScrollViewer so no window scrollbars. -->
+    <Grid RowDefinitions="*,Auto" RowSpacing="8">
+      <!-- [LAYOUT] Removed ScrollViewer per requirement; content fits within fixed window size. -->
+      <StackPanel Grid.Row="0" Spacing="8">
+          <TextBlock Text="Enter the contact’s UID (no prefix). Optionally provide Host:Port if not discovered." TextWrapping="Wrap"/>
+          <StackPanel>
+            <TextBlock Text="UID"/>
+            <TextBox Text="{Binding UID, Mode=TwoWay}" Watermark="e.g., 7XKQ9Z8P"/>
+          </StackPanel>
+          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+            <TextBox Grid.Column="0" Text="{Binding Host, Mode=TwoWay}" Watermark="Host (optional)"/>
+            <TextBlock Grid.Column="1" Text=":" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="2" Text="{Binding Port, Mode=TwoWay}" Watermark="Port" Width="64"/>
+          </Grid>
+          <StackPanel>
+            <TextBlock Text="Expected Public Key (hex, optional)"/>
+            <TextBox Text="{Binding ExpectedPublicKeyHex, Mode=TwoWay}" Watermark="abcdef..."/>
+          </StackPanel>
+          <!-- Simulated contact opt-in (hidden in Release builds) -->
+          <ToggleButton Content="Simulated Contact"
+                    IsChecked="{Binding IsSimulated, Mode=TwoWay}"
+                    IsVisible="{Binding ShowSimulatedOption}"
+                    Classes="pill-toggle"/>
+          <!-- [TRUNC-OPTIN] Status messages can be long; enable ellipsis + tooltip. -->
+          <TextBlock Classes="app-trunc" Text="{Binding Status}" FontSize="12" Opacity="0.7"/>
+      </StackPanel>
+  <!-- [LAYOUT] Button row anchored and padded to remain fully visible within window bounds; aligned for consistency with other windows. -->
+      <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
+        <Button Content="Cancel" Command="{Binding CancelCommand}"/>
+        <Button Content="Send Request" Command="{Binding SendCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+  </Grid>
+</Window>

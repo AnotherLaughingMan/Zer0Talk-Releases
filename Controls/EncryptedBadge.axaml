@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="P2PTalk.Controls.EncryptedBadge"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Width="16"
+             Height="16">
+  <Viewbox Stretch="Uniform">
+    <Canvas Width="24" Height="24">
+      <Path Fill="{DynamicResource App.Accent}"
+            Data="M12,2 C9.243,2 7,4.243 7,7 V10 H6 C4.343,10 3,11.343 3,13 V20 C3,21.657 4.343,23 6,23 H18 C19.657,23 21,21.657 21,20 V13 C21,11.343 19.657,10 18,10 H17 V7 C17,4.243 14.757,2 12,2 Z M12,4 C13.657,4 15,5.343 15,7 V10 H9 V7 C9,5.343 10.343,4 12,4 Z"/>
+      <Path Fill="{DynamicResource App.OnAccent}"
+            Data="M12,14 C13.105,14 14,14.895 14,16 C14,16.74 13.597,17.386 13,17.732 V20 H11 V17.732 C10.403,17.386 10,16.74 10,16 C10,14.895 10.895,14 12,14 Z"/>
+    </Canvas>
+  </Viewbox>
+</UserControl>
