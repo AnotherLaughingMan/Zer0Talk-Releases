@@ -1,6 +1,3 @@
-Understood. Here's a serious, legally grounded `Disclaimer.md` tailored for ZTalk, with no metaphor, mythology, or ambiguity:
-
----
 
 ## DISCLAIMER
 
@@ -44,6 +41,3 @@ Use of ZTalk does not imply endorsement by the author of any user, organization,
 
 Any legal disputes arising from the use of ZTalk shall be governed by the laws of the jurisdiction specified in the license. The author reserves the right to enforce restrictions and pursue remedies for violations.
 
----
-
-Let me know if you want to tag this as `Codex.Checkpoint.DisclaimerFormalization` or embed it directly into your repository. This document reinforces your boundaries—clearly, seriously, and without compromise.
