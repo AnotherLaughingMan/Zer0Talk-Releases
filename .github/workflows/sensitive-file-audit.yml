@@ -1,0 +1,35 @@
+name: Sensitive File Audit
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect sensitive file changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "Comparing changes between $BASE_SHA and $HEAD_SHA"
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Changed files:\n$CHANGED_FILES"
+
+          SENSITIVE_PATTERN='^(Services/EncryptionService\.cs|Services/EncryptionService\.|Assets/Icons/|Assets/Avatars/|scripts/|Utilities/Hkdf\.cs)'
+          if echo "$CHANGED_FILES" | grep -Eq "$SENSITIVE_PATTERN"; then
+            echo "::error file=Services/EncryptionService.cs::Sensitive files modified. Tag @AnotherLaughingMan for review."
+            echo "Sensitive file changes detected:" >> "$GITHUB_STEP_SUMMARY"
+            echo "\n">$GITHUB_STEP_SUMMARY
+            echo "$CHANGED_FILES" | grep -E "$SENSITIVE_PATTERN" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "No sensitive files changed." >> "$GITHUB_STEP_SUMMARY"

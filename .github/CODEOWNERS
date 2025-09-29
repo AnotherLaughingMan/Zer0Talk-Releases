@@ -1,0 +1,13 @@
+# CODEOWNERS establishes required reviewers for sensitive areas.
+# Update entries as the team grows.
+
+# Default owner for everything in the repository.
+* @AnotherLaughingMan
+
+# Sensitive encryption-related code must be reviewed by the lead.
+Services/EncryptionService.cs @AnotherLaughingMan
+Services/EncryptionService.* @AnotherLaughingMan
+
+# Critical build scripts and automation.
+scripts/ @AnotherLaughingMan
+.github/workflows/ @AnotherLaughingMan

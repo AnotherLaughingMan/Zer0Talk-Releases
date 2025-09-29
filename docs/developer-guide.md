@@ -26,6 +26,8 @@ This guide summarizes the day-to-day commands, scripts, and conventions you need
 - The root `.gitignore` protects generated assets, logs, publish outputs, and tooling artifacts.
 - If you need to track a resource under `Assets/`, add a `!` exception next to the existing rules.
 - Remove previously tracked files by running `git rm --cached <path>` once the ignore pattern is in place.
+- CODEOWNERS is configured so that sensitive folders (`Services/EncryptionService.*`, `scripts/`, `.github/workflows/`) require approval from `@AnotherLaughingMan`.
+- A GitHub Action (`sensitive-file-audit.yml`) blocks pull requests that touch sensitive files without review—coordinate before force-pushing fixes.
 
 ## Code Quality & Diagnostics
 
