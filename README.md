@@ -54,6 +54,7 @@ dotnet run --project .\P2PTalk.csproj
 
 - [Architecture Overview](docs/architecture.md) — how services, view models, and resources fit together.
 - [Developer Guide](docs/developer-guide.md) — build commands, scripts, and repo hygiene tips.
+- CODEOWNERS and a sensitive file audit workflow enforce reviews for critical assets; see the Developer Guide for details.
 
 ## Contributing
 
