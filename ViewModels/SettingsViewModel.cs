@@ -127,7 +127,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(RamUsageLimitMb),
         nameof(VramUsageLimitMb),
         nameof(EnforceRamLimit),
-        nameof(EnforceVramLimit)
+        nameof(EnforceVramLimit),
+        nameof(EnableDebugLogAutoTrim),
+        nameof(DebugUiLogMaxLines),
+        nameof(DebugLogRetentionDays),
+        nameof(DebugLogMaxMegabytes)
     };
 
     private bool _saveToastVisible;
@@ -181,6 +185,16 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
     }
     private bool _disposed;
+    private bool _enableDebugLogAutoTrim;
+    private int _debugUiLogMaxLines;
+    private int _debugLogRetentionDays;
+    private int _debugLogMaxMegabytes;
+    private bool _baseEnableDebugLogAutoTrim;
+    private int _baseDebugUiLogMaxLines;
+    private int _baseDebugLogRetentionDays;
+    private int _baseDebugLogMaxMegabytes;
+    private string _logMaintenanceStatus = "Log maintenance hasn't run yet.";
+    private DateTime? _lastLogMaintenanceUtc;
 
     private async System.Threading.Tasks.Task ShowSaveToastAsync(string message, int durationMs = 2000)
     {
@@ -233,6 +247,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        try { AppServices.LogMaintenance.MaintenanceCompleted -= OnLogMaintenanceCompleted; } catch { }
         DismissSaveToast();
         GC.SuppressFinalize(this);
     }
@@ -346,6 +361,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             VramUsageLimitMb = Math.Max(0, settings.VramUsageLimitMb);
             EnforceRamLimit = settings.EnforceRamLimit;
             EnforceVramLimit = settings.EnforceVramLimit;
+            EnableDebugLogAutoTrim = settings.EnableDebugLogAutoTrim;
+            DebugUiLogMaxLines = ClampRange(settings.DebugUiLogMaxLines <= 0 ? 1000 : settings.DebugUiLogMaxLines, 100, 20000);
+            DebugLogRetentionDays = settings.DebugLogRetentionDays < 0 ? 0 : (settings.DebugLogRetentionDays > 30 ? 30 : settings.DebugLogRetentionDays);
+            DebugLogMaxMegabytes = ClampRange(settings.DebugLogMaxMegabytes <= 0 ? 16 : settings.DebugLogMaxMegabytes, 1, 512);
 
             var themeIndex = settings.Theme switch
             {
@@ -361,6 +380,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         {
             _themeIndex = 0;
             _baseThemeIndex = 0;
+            EnableDebugLogAutoTrim = true;
+            DebugUiLogMaxLines = 1000;
+            DebugLogRetentionDays = 1;
+            DebugLogMaxMegabytes = 16;
         }
 
         if (string.IsNullOrWhiteSpace(DisplayName))
@@ -389,7 +412,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         ClearAvatarCommand = new RelayCommand(_ => { _avatarBytes = null; RefreshAvatarPreview(); }, _ => _avatarBytes != null && _avatarBytes.Length > 0);
         DeleteAccountCommand = new RelayCommand(_ => DeleteAccount(), _ => !string.IsNullOrWhiteSpace(DeleteConfirmText) && string.Equals(DeleteConfirmText.Trim(), GeneratedDeleteCode, StringComparison.Ordinal));
         ResetLayoutCommand = new RelayCommand(_ => ResetLayout(), _ => true);
+        RunLogMaintenanceCommand = new RelayCommand(async _ => await RunLogMaintenanceAsync(), _ => true);
         CopyPublicKeyCommand = new RelayCommand(async _ => await CopyPublicKeyAsync(), _ => !string.IsNullOrWhiteSpace(SelfPublicKeyHex));
+
+        try
+        {
+            AppServices.LogMaintenance.MaintenanceCompleted += OnLogMaintenanceCompleted;
+            UpdateLogMaintenanceStatus(AppServices.LogMaintenance.LastSummary, AppServices.LogMaintenance.LastRunUtc);
+        }
+        catch { }
 
         try { _themeService.ApplyThemeEngine(UiFontFamily, UiScale); }
         catch { }
@@ -445,6 +476,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             LockOnMinimize = s.LockOnMinimize;
             ShowPublicKeys = s.ShowPublicKeys;
             BlockScreenCapture = s.BlockScreenCapture;
+            EnableDebugLogAutoTrim = s.EnableDebugLogAutoTrim;
+            DebugUiLogMaxLines = ClampRange(s.DebugUiLogMaxLines <= 0 ? 1000 : s.DebugUiLogMaxLines, 100, 20000);
+            DebugLogRetentionDays = s.DebugLogRetentionDays < 0 ? 0 : (s.DebugLogRetentionDays > 30 ? 30 : s.DebugLogRetentionDays);
+            DebugLogMaxMegabytes = ClampRange(s.DebugLogMaxMegabytes <= 0 ? 16 : s.DebugLogMaxMegabytes, 1, 512);
 
             CcdAffinityIndex = ClampRange(s.CcdAffinityIndex, 0, 3);
             DisableGpuAcceleration = s.DisableGpuAcceleration;
@@ -1267,6 +1302,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand DeleteAccountCommand { get; }
     public ICommand PurgeAllMessagesCommand { get; }
     public ICommand ResetLayoutCommand { get; }
+    public ICommand RunLogMaintenanceCommand { get; }
     public ICommand RetryNatVerificationCommand => new RelayCommand(async _ => { try { await AppServices.Nat.RetryVerificationAsync(); } catch { } });
     public ICommand CopyPublicKeyCommand { get; }
 
@@ -1342,6 +1378,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.LockOnMinimize = LockOnMinimize;
             s.LockBlurRadius = ClampRange(LockBlurRadius, 0, 10);
             s.ShowPublicKeys = ShowPublicKeys;
+            s.EnableDebugLogAutoTrim = EnableDebugLogAutoTrim;
+            s.DebugUiLogMaxLines = DebugUiLogMaxLines;
+            s.DebugLogRetentionDays = DebugLogRetentionDays;
+            s.DebugLogMaxMegabytes = DebugLogMaxMegabytes;
             // Apply staged Security change: RememberPassphrase
             if (RememberPassphrase != s.RememberPassphrase)
             {
@@ -1546,6 +1586,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseVramUsageLimitMb != _vramUsageLimitMb) return true;
             if (_baseEnforceRamLimit != _enforceRamLimit) return true;
             if (_baseEnforceVramLimit != _enforceVramLimit) return true;
+            if (_baseEnableDebugLogAutoTrim != _enableDebugLogAutoTrim) return true;
+            if (_baseDebugUiLogMaxLines != _debugUiLogMaxLines) return true;
+            if (_baseDebugLogRetentionDays != _debugLogRetentionDays) return true;
+            if (_baseDebugLogMaxMegabytes != _debugLogMaxMegabytes) return true;
             return false;
         }
         catch
@@ -1607,6 +1651,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseLockBlurRadius = _lockBlurRadius;
             _baseBlockScreenCapture = _blockScreenCapture;
             _baseShowPublicKeys = _showPublicKeys;
+            _baseEnableDebugLogAutoTrim = _enableDebugLogAutoTrim;
+            _baseDebugUiLogMaxLines = _debugUiLogMaxLines;
+            _baseDebugLogRetentionDays = _debugLogRetentionDays;
+            _baseDebugLogMaxMegabytes = _debugLogMaxMegabytes;
             HasUnsavedChanges = false;
         }
         catch { }
@@ -1639,6 +1687,76 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         get => _showPublicKeys;
         set { if (_showPublicKeys != value) { _showPublicKeys = value; OnPropertyChanged(); } }
     }
+    public bool EnableDebugLogAutoTrim
+    {
+        get => _enableDebugLogAutoTrim;
+        set
+        {
+            if (_enableDebugLogAutoTrim != value)
+            {
+                _enableDebugLogAutoTrim = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+    public int DebugUiLogMaxLines
+    {
+        get => _debugUiLogMaxLines;
+        set
+        {
+            var v = ClampRange(value <= 0 ? 1000 : value, 100, 20000);
+            if (_debugUiLogMaxLines != v)
+            {
+                _debugUiLogMaxLines = v;
+                OnPropertyChanged();
+            }
+        }
+    }
+    public int DebugLogRetentionDays
+    {
+        get => _debugLogRetentionDays;
+        set
+        {
+            var v = value;
+            if (v < 0) v = 0;
+            if (v > 30) v = 30;
+            if (_debugLogRetentionDays != v)
+            {
+                _debugLogRetentionDays = v;
+                OnPropertyChanged();
+            }
+        }
+    }
+    public int DebugLogMaxMegabytes
+    {
+        get => _debugLogMaxMegabytes;
+        set
+        {
+            var v = ClampRange(value <= 0 ? 16 : value, 1, 512);
+            if (_debugLogMaxMegabytes != v)
+            {
+                _debugLogMaxMegabytes = v;
+                OnPropertyChanged();
+            }
+        }
+    }
+    public string LogMaintenanceStatus
+    {
+        get => _logMaintenanceStatus;
+        private set
+        {
+            var text = value ?? string.Empty;
+            if (!string.Equals(_logMaintenanceStatus, text, StringComparison.Ordinal))
+            {
+                _logMaintenanceStatus = text;
+                OnPropertyChanged();
+            }
+        }
+    }
+    public string LogMaintenanceLastRun
+        => _lastLogMaintenanceUtc.HasValue
+            ? _lastLogMaintenanceUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+            : "Never";
     private string _selfPublicKeyHex = string.Empty;
     public string SelfPublicKeyHex { get => _selfPublicKeyHex; private set { _selfPublicKeyHex = value; OnPropertyChanged(); } }
 
@@ -1811,6 +1929,44 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (lifetime?.MainWindow?.Clipboard != null && !string.IsNullOrWhiteSpace(SelfPublicKeyHex))
                 await lifetime.MainWindow.Clipboard.SetTextAsync(SelfPublicKeyHex);
             _ = ShowToastAsync("Public key copied!");
+        }
+        catch { }
+    }
+
+    private async System.Threading.Tasks.Task RunLogMaintenanceAsync()
+    {
+        try
+        {
+            var summary = await System.Threading.Tasks.Task.Run(() => AppServices.LogMaintenance.RunMaintenanceNow("manual"));
+            UpdateLogMaintenanceStatus(summary, AppServices.LogMaintenance.LastRunUtc);
+            await ShowSaveToastAsync("Log maintenance complete", 1600);
+        }
+        catch { }
+    }
+
+    private void OnLogMaintenanceCompleted(string summary)
+    {
+        try
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    UpdateLogMaintenanceStatus(summary, AppServices.LogMaintenance.LastRunUtc);
+                }
+                catch { }
+            });
+        }
+        catch { }
+    }
+
+    private void UpdateLogMaintenanceStatus(string summary, DateTime? whenUtc)
+    {
+        try
+        {
+            _lastLogMaintenanceUtc = whenUtc;
+            LogMaintenanceStatus = summary ?? string.Empty;
+            OnPropertyChanged(nameof(LogMaintenanceLastRun));
         }
         catch { }
     }

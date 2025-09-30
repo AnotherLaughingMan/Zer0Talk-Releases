@@ -50,11 +50,19 @@
     <DumpAvaloniaResources>false</DumpAvaloniaResources>
   </PropertyGroup><!-- Explicitly remove phantom sovereignty style variants that are causing stale XAML compile errors -->
   <ItemGroup>
+  <Compile Remove="scripts/**/*.cs"/>
+  <Compile Remove="Scripts/**/*.cs"/>
+  <None Remove="scripts/**/*.csproj"/>
+  <None Remove="Scripts/**/*.csproj"/>
     <AvaloniaResource Remove="Styles/ThemeSovereignty.axaml"/>
     <AvaloniaResource Remove="Styles/ThemeSovereignty_OLD.axaml"/>
     <AvaloniaResource Remove="Styles/ThemeSovereignty.full.bak"/>
     <AvaloniaResource Remove="Styles/ThemeSovereignty.gone"/><!-- Broad wildcard removal; we will re-include the intended active file below -->
     <AvaloniaResource Remove="Styles/ThemeSovereignty*.axaml"/>
+    <AvaloniaResource Remove="scripts/Markdown.Avalonia/**/*.axaml"/>
+    <AvaloniaResource Remove="Scripts/Markdown.Avalonia/**/*.axaml"/>
+    <AvaloniaXaml Remove="scripts/Markdown.Avalonia/**/*.axaml"/>
+    <AvaloniaXaml Remove="Scripts/Markdown.Avalonia/**/*.axaml"/>
   </ItemGroup><!-- Re-include only the minimal active sovereignty style -->
   <ItemGroup>
     <AvaloniaResource Include="Styles/ThemeSovereigntyCore.axaml"/>

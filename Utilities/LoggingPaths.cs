@@ -73,6 +73,7 @@ namespace P2PTalk.Utilities
         public static string Monitoring => PathFor("monitoring.log");
         public static string UI => PathFor("ui.log");
         public static string Interaction => PathFor("interaction.log");
+        public static string Maintenance => PathFor("maintenance.log");
 
         public static bool TryWrite(string path, string line)
         {

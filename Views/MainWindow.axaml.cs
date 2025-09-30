@@ -1,6 +1,7 @@
 
 using System;
 using System.Linq;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
@@ -18,6 +19,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 using System.Threading;
 using System.IO;
+using System.Collections.Specialized;
 
 using ZTalk.Models;
 using Models = ZTalk.Models;
@@ -359,7 +361,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 // Hook messages collection changes to manage scrolling
                 if (DataContext is MainWindowViewModel vm)
                 {
-                    vm.Messages.CollectionChanged += (_, args) => OnMessagesCollectionChanged(args);
+                    _messagesChangedHandler ??= (_, args) => OnMessagesCollectionChanged(args);
+                    vm.Messages.CollectionChanged += _messagesChangedHandler;
+                    AttachMessageHandlers(vm.Messages);
                 }
             }
             catch { }
@@ -436,6 +440,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     }
 
     private bool _stickToBottom = true;
+    private static readonly TimeSpan AutoFollowGuardWindow = TimeSpan.FromMilliseconds(1800);
+    private const double AutoFollowGuardGapTolerance = 720.0;
+    private DateTime _autoFollowGuardUntilUtc;
     private double _lastViewportHeight;
     private double _lastExtentHeight;
     private bool _suppressNextAutoScroll;
@@ -445,6 +452,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _bringIntoViewPosted; // coalesce render-phase auto-scroll
     private DateTime _lastBringIntoViewAtUtc; // suppress bursts at startup/add storms
     private double _lastAutoScrollExtentHeight; // guard: only auto-scroll when extent grows
+    private readonly HashSet<Message> _trackedMessages = new();
+    private NotifyCollectionChangedEventHandler? _messagesChangedHandler;
 
     private void SafeUiLog(string message)
     {
@@ -776,6 +785,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _lastExtentHeight = sv.Extent.Height;
             var bottomGap = GetBottomGap(sv);
             var atBottom = IsAtBottom(sv);
+            var guardActive = DateTime.UtcNow < _autoFollowGuardUntilUtc;
+            if (!atBottom && guardActive)
+            {
+                if (bottomGap <= AutoFollowGuardGapTolerance)
+                {
+                    if (!_stickToBottom)
+                    {
+                        SafeUiLog($"[AutoScroll][Guard] preserving follow (gap={bottomGap:F1})");
+                    }
+                    atBottom = true;
+                }
+                else
+                {
+                    guardActive = false;
+                    _autoFollowGuardUntilUtc = DateTime.MinValue;
+                }
+            }
             _followChat = atBottom;
             _stickToBottom = atBottom; // keep legacy flag in sync for other helpers
             // Discord-like behavior: when at bottom, clear unread counter; otherwise keep/show jump button
@@ -791,7 +817,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 UpdateJumpToBottomUi();
             }
-            SafeUiLog($"ScrollChanged: offsetY={sv.Offset.Y:F1}, extentH={sv.Extent.Height:F1}, viewportH={sv.Viewport.Height:F1}, bottomGap={bottomGap:F1}, stick={_stickToBottom}");
+            SafeUiLog($"ScrollChanged: offsetY={sv.Offset.Y:F1}, extentH={sv.Extent.Height:F1}, viewportH={sv.Viewport.Height:F1}, bottomGap={bottomGap:F1}, stick={_stickToBottom}, guard={(guardActive ? "Y" : "N")}");
         }
         catch { }
     }
@@ -807,6 +833,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (IsSourceWithinChatScrollBar(e.Source, out var el))
             {
                 _stickToBottom = false;
+                _autoFollowGuardUntilUtc = DateTime.MinValue;
                 _scrollbarPressedActive = true;
                 _scrollbarInteractionUntilUtc = DateTime.UtcNow.AddMilliseconds(1500);
                 WriteUiCategory("[AutoScroll]", $"Holdoff: ChatScroll {el} press (user drag)");
@@ -850,6 +877,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     if (e.Delta.Y > 0.0001)
                     {
                         _stickToBottom = false;
+                        _autoFollowGuardUntilUtc = DateTime.MinValue;
                         var now = DateTime.UtcNow;
                         bool wasInactive = now >= _userScrollHoldoffUntilUtc;
                         _userScrollHoldoffUntilUtc = now.AddMilliseconds(700);
@@ -898,11 +926,75 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    private void AttachMessageHandlers(System.Collections.IEnumerable? items)
+    {
+        try
+        {
+            if (items == null) return;
+            foreach (var item in items)
+            {
+                if (item is Message msg && _trackedMessages.Add(msg))
+                {
+                    msg.PropertyChanged += OnMessagePropertyChanged;
+                }
+            }
+        }
+        catch { }
+    }
+
+    private void DetachMessageHandlers(System.Collections.IEnumerable? items)
+    {
+        try
+        {
+            if (items == null) return;
+            foreach (var item in items)
+            {
+                if (item is Message msg && _trackedMessages.Remove(msg))
+                {
+                    msg.PropertyChanged -= OnMessagePropertyChanged;
+                }
+            }
+        }
+        catch { }
+    }
+
+    private void ClearMessageHandlers()
+    {
+        try
+        {
+            foreach (var msg in _trackedMessages.ToArray())
+            {
+                try { msg.PropertyChanged -= OnMessagePropertyChanged; } catch { }
+            }
+            _trackedMessages.Clear();
+        }
+        catch { }
+    }
+
     private void OnMessagesCollectionChanged(System.Collections.Specialized.NotifyCollectionChangedEventArgs args)
     {
         try
         {
+            switch (args.Action)
+            {
+                case System.Collections.Specialized.NotifyCollectionChangedAction.Add:
+                    AttachMessageHandlers(args.NewItems);
+                    break;
+                case System.Collections.Specialized.NotifyCollectionChangedAction.Remove:
+                    DetachMessageHandlers(args.OldItems);
+                    break;
+                case System.Collections.Specialized.NotifyCollectionChangedAction.Replace:
+                    DetachMessageHandlers(args.OldItems);
+                    AttachMessageHandlers(args.NewItems);
+                    break;
+                case System.Collections.Specialized.NotifyCollectionChangedAction.Reset:
+                    ClearMessageHandlers();
+                    break;
+            }
+
             if (_suppressNextAutoScroll) { _suppressNextAutoScroll = false; return; }
+
+            var wasFollowing = _stickToBottom;
             // Ignore replace/move for autoscroll and unread purposes
             if (args.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Replace ||
                 args.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Move)
@@ -942,20 +1034,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
                 // Re-evaluate bottom state using actual scroll metrics to avoid stale _followChat
                 bool atBottomNow = sv != null && IsAtBottom(sv);
-                _followChat = atBottomNow;
-                _stickToBottom = atBottomNow;
-                if (appendedAtEnd && atBottomNow)
+                bool shouldFollow = appendedAtEnd && (wasFollowing || atBottomNow);
+                if (shouldFollow)
                 {
-                    // User is following; force scroll to bottom to keep view anchored (no gating)
-                    ForceScrollToBottom("Add while at bottom");
+                    _followChat = true;
+                    _stickToBottom = true;
+                    ForceScrollToBottom(wasFollowing ? "Add while following" : "Add while newly at bottom");
                 }
                 else if (appendedAtEnd && !atBottomNow)
                 {
+                    _followChat = atBottomNow;
+                    _stickToBottom = atBottomNow;
                     _unreadSinceLastBottom += addCount;
                     UpdateJumpToBottomUi();
                 }
                 else
                 {
+                    _followChat = atBottomNow;
+                    _stickToBottom = atBottomNow;
                     // Insertions not at end (e.g., history load) should not affect unread or autoscroll
                     SafeUiLog($"MessagesChanged: Non-end Add (idx={args.NewStartingIndex}, count={addCount}); no unread change");
                 }
@@ -1152,12 +1248,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
             else
             {
+                var guardActivated = false;
                 if (!BringChatEndIntoView())
                 {
                     var targetY = Math.Max(0, sv.Extent.Height - sv.Viewport.Height);
-                    SafeUiLog($"TryScrollToBottom(force={force}): fromY={sv.Offset.Y:F1} -> targetY={targetY:F1} (extentH={sv.Extent.Height:F1}, viewportH={sv.Viewport.Height:F1})");
+                    var fromY = sv.Offset.Y;
+                    if (Math.Abs(targetY - fromY) > 0.5) guardActivated = true;
+                    SafeUiLog($"TryScrollToBottom(force={force}): fromY={fromY:F1} -> targetY={targetY:F1} (extentH={sv.Extent.Height:F1}, viewportH={sv.Viewport.Height:F1})");
                     try { sv.ScrollToEnd(); }
                     catch { sv.Offset = new Vector(sv.Offset.X, targetY); }
+                }
+                else
+                {
+                    guardActivated = true;
+                }
+                if (guardActivated)
+                {
+                    _autoFollowGuardUntilUtc = DateTime.UtcNow.Add(AutoFollowGuardWindow);
                 }
             }
         }
@@ -1202,6 +1309,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             var sv = this.FindControl<ScrollViewer>("ChatScroll");
             if (sv == null) return;
+            _autoFollowGuardUntilUtc = DateTime.UtcNow.Add(AutoFollowGuardWindow);
             Dispatcher.UIThread.Post(() =>
             {
                 try
@@ -1214,6 +1322,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     _lastBringIntoViewAtUtc = DateTime.UtcNow;
                     _followChat = true;
                     _stickToBottom = true;
+                    _autoFollowGuardUntilUtc = DateTime.UtcNow.Add(AutoFollowGuardWindow);
                     _unreadSinceLastBottom = 0;
                     UpdateJumpToBottomUi();
                     SafeUiLog($"[AutoScroll][Force] {reason}: fromY={fromY:F1} -> {targetY:F1} (extentH={sv.Extent.Height:F1}, viewportH={sv.Viewport.Height:F1})");
@@ -1238,6 +1347,65 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return Math.Abs(offsetY - targetY) > eps;
         }
         catch { return false; }
+    }
+
+    private void MessageContent_SizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        try
+        {
+            var guardActive = DateTime.UtcNow < _autoFollowGuardUntilUtc;
+            if (!_stickToBottom && !guardActive) return;
+            if (e.PreviousSize.Width <= 0 && e.PreviousSize.Height <= 0) return;
+            if (Math.Abs(e.NewSize.Height - e.PreviousSize.Height) < 0.5) return;
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var guardNow = DateTime.UtcNow < _autoFollowGuardUntilUtc;
+                    var forceFollow = !_stickToBottom && guardNow;
+                    TryScrollChatToBottom(force: forceFollow);
+                }
+                catch { }
+            }, DispatcherPriority.Background);
+        }
+        catch { }
+    }
+
+    private void OnMessagePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        try
+        {
+            if (sender is not Message message) return;
+            if (e.PropertyName is not (nameof(Message.LinkPreview) or nameof(Message.HasLinkPreview))) return;
+
+            var preview = message.LinkPreview;
+            var hasPreview = preview != null && !preview.IsEmpty;
+            SafeUiLog($"[AutoScroll][Preview] property={e.PropertyName} message={message.Id} hasPreview={hasPreview} stick={_stickToBottom}");
+            if (!hasPreview) return;
+
+            var messageId = message.Id;
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var sv = this.FindControl<ScrollViewer>("ChatScroll");
+                    if (sv == null) return;
+                    var bottomGap = GetBottomGap(sv);
+                    var atBottom = bottomGap <= 2.0;
+                    var guardActive = DateTime.UtcNow < _autoFollowGuardUntilUtc;
+                    SafeUiLog($"[AutoScroll][Preview] followCheck message={messageId} stick={_stickToBottom} bottomBefore={atBottom}, gap={bottomGap:F1}, guard={(guardActive ? "Y" : "N")}");
+                    if (!_stickToBottom && !atBottom)
+                    {
+                        if (!(guardActive && bottomGap <= AutoFollowGuardGapTolerance)) return;
+                        SafeUiLog($"[AutoScroll][Preview] guard-follow message={messageId} gap={bottomGap:F1}");
+                    }
+                    ForceScrollToBottom("Link preview materialized");
+                }
+                catch { }
+            }, DispatcherPriority.Background);
+        }
+        catch { }
     }
 
     private bool IsSafeToAutoScroll()
@@ -2309,6 +2477,319 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private void Lock_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         try { new P2PTalk.Services.LockService().Lock(); } catch { }
+    }
+
+    private void BoldButton_Click(object? sender, RoutedEventArgs e)
+    {
+        ApplyInlineFormatting("**", "**", "bold text", sender);
+        e.Handled = true;
+    }
+
+    private void ItalicButton_Click(object? sender, RoutedEventArgs e)
+    {
+        ApplyInlineFormatting("*", "*", "italic text", sender);
+        e.Handled = true;
+    }
+
+    private void UnderlineButton_Click(object? sender, RoutedEventArgs e)
+    {
+        ApplyInlineFormatting("__", "__", "underline", sender);
+        e.Handled = true;
+    }
+
+    private void StrikeButton_Click(object? sender, RoutedEventArgs e)
+    {
+        ApplyInlineFormatting("~~", "~~", "strike", sender);
+        e.Handled = true;
+    }
+
+    private void SpoilerButton_Click(object? sender, RoutedEventArgs e)
+    {
+        ApplySpoilerFormatting(sender);
+        e.Handled = true;
+    }
+
+    private void QuoteButton_Click(object? sender, RoutedEventArgs e)
+    {
+        ApplyQuoteFormatting("quote text", sender);
+        e.Handled = true;
+    }
+
+    private void CodeButton_Click(object? sender, RoutedEventArgs e)
+    {
+        ApplyCodeFormatting(sender);
+        e.Handled = true;
+    }
+
+    private TextBox? GetMessageInput()
+    {
+        try { return this.FindControl<TextBox>("MessageInput"); } catch { return null; }
+    }
+
+    private void ApplyInlineFormatting(string prefix, string suffix, string placeholder, object? source)
+    {
+        try
+        {
+            var input = GetMessageInput();
+            if (input is null) return;
+
+            var text = input.Text ?? string.Empty;
+            var length = text.Length;
+            var rawStart = input.SelectionStart;
+            var rawEnd = input.SelectionEnd;
+            var start = Math.Min(rawStart, rawEnd);
+            start = Math.Max(0, Math.Min(start, length));
+            var end = Math.Max(rawStart, rawEnd);
+            end = Math.Max(0, Math.Min(end, length));
+
+            var hasSelection = end > start;
+            string updatedText;
+            int newSelectionStart;
+            int newSelectionEnd;
+
+            if (!hasSelection)
+            {
+                var insertion = string.Concat(prefix, placeholder, suffix);
+                updatedText = text.Insert(start, insertion);
+                newSelectionStart = start + prefix.Length;
+                newSelectionEnd = newSelectionStart + placeholder.Length;
+            }
+            else
+            {
+                var selectedText = text.Substring(start, end - start);
+                var replacement = string.Concat(prefix, selectedText, suffix);
+                updatedText = text.Remove(start, end - start).Insert(start, replacement);
+                newSelectionStart = start + prefix.Length;
+                newSelectionEnd = newSelectionStart + selectedText.Length;
+            }
+
+            input.Text = updatedText;
+            input.SelectionStart = newSelectionStart;
+            input.SelectionEnd = newSelectionEnd;
+            input.CaretIndex = newSelectionEnd;
+            input.Focus();
+        }
+        catch (Exception ex)
+        {
+            SafeLogContextError(ex, source);
+        }
+    }
+
+    private void ApplySpoilerFormatting(object? source)
+    {
+        try
+        {
+            var input = GetMessageInput();
+            if (input is null) return;
+
+            var text = input.Text ?? string.Empty;
+            var length = text.Length;
+            var rawStart = input.SelectionStart;
+            var rawEnd = input.SelectionEnd;
+            var start = Math.Min(rawStart, rawEnd);
+            start = Math.Max(0, Math.Min(start, length));
+            var end = Math.Max(rawStart, rawEnd);
+            end = Math.Max(0, Math.Min(end, length));
+            var selectionLength = end - start;
+
+            if (selectionLength <= 0)
+            {
+                const string placeholder = "spoiler";
+                var insertion = $"||{placeholder}||";
+                var updated = text.Insert(start, insertion);
+                input.Text = updated;
+                var selectStart = start + 2;
+                var selectEnd = selectStart + placeholder.Length;
+                input.SelectionStart = selectStart;
+                input.SelectionEnd = selectEnd;
+                input.CaretIndex = selectEnd;
+                input.Focus();
+                return;
+            }
+
+            var selected = text.Substring(start, selectionLength);
+            var normalized = selected.Replace("\r\n", "\n").Replace('\r', '\n');
+            var endsWithLineBreak = normalized.EndsWith("\n", StringComparison.Ordinal);
+            var lines = normalized.Split('\n');
+            var formattedLines = lines.Select(line =>
+            {
+                if (line.Length == 0) return "|| ||";
+                return $"||{line}||";
+            });
+            var replacementNormalized = string.Join(Environment.NewLine, formattedLines);
+            if (endsWithLineBreak)
+            {
+                replacementNormalized += Environment.NewLine;
+            }
+
+            var updatedText = text.Remove(start, selectionLength).Insert(start, replacementNormalized);
+            input.Text = updatedText;
+            var caret = start + replacementNormalized.Length;
+            input.SelectionStart = caret;
+            input.SelectionEnd = caret;
+            input.CaretIndex = caret;
+            input.Focus();
+        }
+        catch (Exception ex)
+        {
+            SafeLogContextError(ex, source);
+        }
+    }
+
+    private void ApplyQuoteFormatting(string placeholder, object? source)
+    {
+        try
+        {
+            var input = GetMessageInput();
+            if (input is null) return;
+
+            var text = input.Text ?? string.Empty;
+            var length = text.Length;
+            var rawStart = input.SelectionStart;
+            var rawEnd = input.SelectionEnd;
+            var start = Math.Min(rawStart, rawEnd);
+            start = Math.Max(0, Math.Min(start, length));
+            var end = Math.Max(rawStart, rawEnd);
+            end = Math.Max(0, Math.Min(end, length));
+            var hasSelection = end > start;
+
+            string updatedText;
+            int newSelectionStart;
+            int newSelectionEnd;
+
+            if (!hasSelection)
+            {
+                var insertion = $"> {placeholder}{Environment.NewLine}";
+                updatedText = text.Insert(start, insertion);
+                newSelectionStart = start + 2;
+                newSelectionEnd = newSelectionStart + placeholder.Length;
+            }
+            else
+            {
+                var selectedText = text.Substring(start, end - start);
+                var normalized = selectedText.Replace("\r\n", "\n").Replace('\r', '\n');
+                var lines = normalized.Split('\n');
+                var quotedLines = lines.Select(line => $"> {line}");
+                var replacement = string.Join(Environment.NewLine, quotedLines);
+                if (normalized.EndsWith("\n", StringComparison.Ordinal))
+                {
+                    replacement += Environment.NewLine;
+                }
+                updatedText = text.Remove(start, end - start).Insert(start, replacement);
+                newSelectionStart = start;
+                newSelectionEnd = start + replacement.Length;
+            }
+
+            input.Text = updatedText;
+            input.SelectionStart = newSelectionStart;
+            input.SelectionEnd = newSelectionEnd;
+            input.CaretIndex = newSelectionEnd;
+            input.Focus();
+        }
+        catch (Exception ex)
+        {
+            SafeLogContextError(ex, source);
+        }
+    }
+
+    private void ApplyCodeFormatting(object? source)
+    {
+        try
+        {
+            var input = GetMessageInput();
+            if (input is null) return;
+
+            var text = input.Text ?? string.Empty;
+            var length = text.Length;
+            var rawStart = input.SelectionStart;
+            var rawEnd = input.SelectionEnd;
+            var start = Math.Min(rawStart, rawEnd);
+            start = Math.Max(0, Math.Min(start, length));
+            var end = Math.Max(rawStart, rawEnd);
+            end = Math.Max(0, Math.Min(end, length));
+            var selectionLength = end - start;
+
+            if (selectionLength <= 0)
+            {
+                var placeholder = "code";
+                var block = $"```{Environment.NewLine}{placeholder}{Environment.NewLine}```";
+                var needsLeadingBlock = RequiresLeadingNewline(text, start);
+                var needsTrailingBlock = RequiresTrailingNewline(text, end);
+                var insertion = string.Concat(needsLeadingBlock ? Environment.NewLine : string.Empty,
+                                              block,
+                                              needsTrailingBlock ? Environment.NewLine : string.Empty);
+                var updatedText = text.Insert(start, insertion);
+                input.Text = updatedText;
+                var selectStart = start + (needsLeadingBlock ? Environment.NewLine.Length : 0) + 3 + Environment.NewLine.Length;
+                var selectEnd = selectStart + placeholder.Length;
+                input.SelectionStart = selectStart;
+                input.SelectionEnd = selectEnd;
+                input.CaretIndex = selectEnd;
+                input.Focus();
+                return;
+            }
+
+            var selectedText = text.Substring(start, selectionLength);
+            if (!selectedText.Contains('\n') && !selectedText.Contains('\r'))
+            {
+                ApplyInlineFormatting("`", "`", "code", source);
+                return;
+            }
+
+            var normalized = selectedText.Replace("\r\n", "\n").Replace('\r', '\n');
+            var endsWithBreak = normalized.EndsWith("\n", StringComparison.Ordinal);
+            var splitLines = normalized.Split('\n');
+            if (endsWithBreak && splitLines.Length > 0 && splitLines[^1].Length == 0)
+            {
+                splitLines = splitLines[..^1];
+            }
+            if (splitLines.Length == 0)
+            {
+                splitLines = new[] { "code" };
+            }
+            var content = string.Join(Environment.NewLine, splitLines);
+
+            var blockPrefix = $"```{Environment.NewLine}";
+            var blockSuffix = $"{Environment.NewLine}```";
+            var needsLeading = RequiresLeadingNewline(text, start);
+            var needsTrailing = RequiresTrailingNewline(text, end);
+
+            var replacementCore = string.Concat(blockPrefix, content, blockSuffix);
+            var replacement = string.Concat(needsLeading ? Environment.NewLine : string.Empty,
+                                            replacementCore,
+                                            needsTrailing || endsWithBreak ? Environment.NewLine : string.Empty);
+
+            var updated = text.Remove(start, selectionLength).Insert(start, replacement);
+            input.Text = updated;
+            var selectionStart = start + (needsLeading ? Environment.NewLine.Length : 0) + blockPrefix.Length;
+            var selectionEnd = selectionStart + content.Length;
+            input.SelectionStart = selectionStart;
+            input.SelectionEnd = selectionEnd;
+            input.CaretIndex = selectionEnd;
+            input.Focus();
+        }
+        catch (Exception ex)
+        {
+            SafeLogContextError(ex, source);
+        }
+    }
+
+    private static bool RequiresLeadingNewline(string text, int index)
+    {
+        if (index <= 0 || text.Length == 0) return false;
+        var prev = text[index - 1];
+        if (prev == '\n') return false;
+        if (prev == '\r') return false;
+        return true;
+    }
+
+    private static bool RequiresTrailingNewline(string text, int index)
+    {
+        if (index >= text.Length) return false;
+        var next = text[index];
+        if (next == '\n') return false;
+        if (next == '\r') return false;
+        return true;
     }
 
     private void OnMessageInputKeyDown(object? sender, KeyEventArgs e)
@@ -3433,6 +3914,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _uiPulseHandler = null;
         }
         catch { }
+        try
+        {
+            if (_messagesChangedHandler != null && DataContext is MainWindowViewModel vm)
+            {
+                vm.Messages.CollectionChanged -= _messagesChangedHandler;
+            }
+        }
+        catch { }
+        ClearMessageHandlers();
         GC.SuppressFinalize(this);
     }
 }

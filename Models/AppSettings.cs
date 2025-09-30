@@ -97,6 +97,12 @@ public class AppSettings
     // Privacy: show/hide public keys on profiles (default hidden)
     public bool ShowPublicKeys { get; set; }
 
-    // UI: remember last selected Settings menu index (0..7)
+    // UI: remember last selected Settings menu index (0..8 when debug panel is visible)
     public int LastSettingsMenuIndex { get; set; } = 2;
+
+    // Debug-only log maintenance (applies when debug panel surfaced)
+    public bool EnableDebugLogAutoTrim { get; set; } = true;
+    public int DebugUiLogMaxLines { get; set; } = 1000;
+    public int DebugLogRetentionDays { get; set; } = 1;
+    public int DebugLogMaxMegabytes { get; set; } = 16;
 }

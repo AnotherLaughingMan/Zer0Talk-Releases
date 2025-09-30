@@ -369,6 +369,44 @@
         </StackPanel>
       </ScrollViewer>
 
+      <ScrollViewer x:Name="DebugPanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="Debug Tools" FontWeight="SemiBold" FontSize="18"/>
+
+          <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Log Maintenance" FontWeight="SemiBold"/>
+
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Text="Auto-trim UI log" VerticalAlignment="Center"/>
+                <ToggleSwitch IsChecked="{Binding EnableDebugLogAutoTrim}"/>
+              </StackPanel>
+
+              <Grid ColumnDefinitions="220,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Max entries to keep" VerticalAlignment="Center"/>
+                <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding DebugUiLogMaxLines}" Minimum="100" Maximum="20000" Increment="100" Width="100" ShowButtonSpinner="False"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Retention window (days)" VerticalAlignment="Center"/>
+                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding DebugLogRetentionDays}" Minimum="0" Maximum="30" Width="80" ShowButtonSpinner="False"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Size cap (MB)" VerticalAlignment="Center"/>
+                <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding DebugLogMaxMegabytes}" Minimum="1" Maximum="512" Width="80" ShowButtonSpinner="False"/>
+              </Grid>
+
+              <StackPanel Spacing="4">
+                <TextBlock Text="Last maintenance" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding LogMaintenanceLastRun}" Foreground="{DynamicResource App.SecondaryText}"/>
+                <TextBlock Text="{Binding LogMaintenanceStatus}" TextWrapping="Wrap" Foreground="{DynamicResource App.SecondaryText}"/>
+              </StackPanel>
+
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Run Maintenance Now" Command="{Binding RunLogMaintenanceCommand}"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
       <ScrollViewer x:Name="AboutPanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
           <!-- App Information -->

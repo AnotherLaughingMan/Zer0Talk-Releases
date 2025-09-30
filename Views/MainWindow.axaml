@@ -9,6 +9,7 @@
     xmlns:models="clr-namespace:ZTalk.Models"
     xmlns:util="clr-namespace:P2PTalk.Utilities"
     xmlns:c="clr-namespace:P2PTalk.Controls"
+    xmlns:cm="clr-namespace:P2PTalk.Controls.Markdown"
     xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
     x:Class="P2PTalk.Views.MainWindow"
     x:DataType="vm:MainWindowViewModel"
@@ -34,6 +35,7 @@
         <util:GreaterThanZeroConverter x:Key="GreaterThanZeroConverter" />
         <util:StringNotNullOrEmptyConverter x:Key="StringNotNullOrEmptyConverter" />
         <util:FirstNonEmptyStringConverter x:Key="FirstNonEmptyStringConverter" />
+    <util:WidthFractionConverter x:Key="ChatBubbleWidthConverter" Fraction="0.66" />
     </Window.Resources>
 
     <Window.Styles>
@@ -104,6 +106,27 @@
         </Style>
         <Style Selector="md|MarkdownScrollViewer.message-markdown ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="md|MarkdownScrollViewer.message-markdown TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource App.Foreground}" />
+        </Style>
+        <Style Selector="Border.chat-spoiler">
+            <Setter Property="Background" Value="{DynamicResource App.Surface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource App.Border}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Transitions">
+                <Setter.Value>
+                    <Transitions>
+                        <BrushTransition Property="Background" Duration="0:0:0.12" />
+                        <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+                    </Transitions>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style Selector="Border.chat-spoiler:pointerover">
+            <Setter Property="Background" Value="{DynamicResource App.ItemHover}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}" />
         </Style>
     </Window.Styles>
 
@@ -552,8 +575,8 @@
                                                     </c:AvatarImage>
                                                 </Grid>
                                             </Border>
-                                            <Border Grid.Column="1" CornerRadius="12" Padding="12,10" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
-                                                <StackPanel Spacing="6">
+                                            <Border Grid.Column="1" CornerRadius="12" Padding="12,10" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" MaxWidth="{Binding Bounds.Width, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource ChatBubbleWidthConverter}}" HorizontalAlignment="Left">
+                                                <StackPanel Spacing="6" SizeChanged="MessageContent_SizeChanged">
                                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
                                                         <TextBlock FontWeight="SemiBold" Opacity="0.95">
                                                             <TextBlock.Foreground>
@@ -609,11 +632,12 @@
                                                     </Grid>
                                                     <md:MarkdownScrollViewer Classes="message-markdown"
                                                                              Markdown="{Binding Content}"
-                                                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                                                             ScrollViewer.VerticalScrollBarVisibility="Disabled">
-                                                        <md:MarkdownScrollViewer.IsVisible>
-                                                            <Binding Path="Content" Converter="{StaticResource StringNotNullOrEmptyConverter}" />
-                                                        </md:MarkdownScrollViewer.IsVisible>
+                                                                             IsVisible="{Binding Content, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                                                        <md:MarkdownScrollViewer.Plugins>
+                                                            <md:MdAvPlugins>
+                                                                <cm:ChatSpoilerPlugin />
+                                                            </md:MdAvPlugins>
+                                                        </md:MarkdownScrollViewer.Plugins>
                                                     </md:MarkdownScrollViewer>
                                                     <Button Classes="message-link-preview"
                                                             Content="{Binding LinkPreview}"
@@ -632,12 +656,14 @@
                                         Width="72"
                                         Height="72"
                                         CornerRadius="6"
-                                        Background="{DynamicResource App.Surface}" 
+                                        Background="#332D2D2D" 
                                         BorderBrush="{DynamicResource App.Border}" 
-                                        BorderThickness="1"
-                                                                            IsVisible="{Binding HasImage}">
-                                                                        <Image Stretch="UniformToFill"
-                                                                               Source="{Binding ImageBytes, Converter={StaticResource ByteArrayToBitmapConverter}}"/>
+                                        BorderThickness="1">
+                                                                        <Grid ClipToBounds="True">
+                                                                            <Rectangle Fill="#44242424" RadiusX="6" RadiusY="6"/>
+                                                                            <Image Stretch="UniformToFill"
+                                                                                   Source="{Binding ImageBytes, Converter={StaticResource ByteArrayToBitmapConverter}}"/>
+                                                                        </Grid>
                                                                     </Border>
                                                                     <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
                                                                         <TextBlock FontSize="11"
@@ -752,12 +778,37 @@
                 </Button>
 
                 <Border Grid.Row="2" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1 1 0 0" Background="{DynamicResource App.Background}">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                        <Image Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center" ToolTip.Tip="Chat is end-to-end encrypted" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
-                        <TextBox Grid.Column="1" x:Name="MessageInput" Text="{Binding OutgoingMessage, Mode=TwoWay}" Watermark="Type a message" AcceptsReturn="True" TextWrapping="Wrap" Height="56" VerticalAlignment="Center"/>
-                        <Button Grid.Column="2" Classes="icon-button" Margin="8 0 0 0" Command="{Binding SendCommand}" ToolTip.Tip="Send message">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE724;"/>
-                        </Button>
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
+                            <Button Classes="icon-button" Click="BoldButton_Click" ToolTip.Tip="Bold (**text**)">
+                                <TextBlock Text="B" FontWeight="Bold" FontSize="13"/>
+                            </Button>
+                            <Button Classes="icon-button" Click="ItalicButton_Click" ToolTip.Tip="Italic (*text*)">
+                                <TextBlock Text="I" FontStyle="Italic" FontSize="13"/>
+                            </Button>
+                            <Button Classes="icon-button" Click="UnderlineButton_Click" ToolTip.Tip="Underline (__text__)">
+                                <TextBlock Text="U" TextDecorations="Underline" FontSize="13"/>
+                            </Button>
+                            <Button Classes="icon-button" Click="StrikeButton_Click" ToolTip.Tip="Strike-through (~~text~~)">
+                                <TextBlock Text="S" TextDecorations="Strikethrough" FontSize="13"/>
+                            </Button>
+                            <Button Classes="icon-button" Click="QuoteButton_Click" ToolTip.Tip="Quote (&gt; text)">
+                                <TextBlock Text="&gt;" FontSize="13"/>
+                            </Button>
+                            <Button Classes="icon-button" Click="CodeButton_Click" ToolTip.Tip="Code (&#96;text&#96; or &#96;&#96;&#96;block&#96;&#96;&#96;)">
+                                <TextBlock Text="&lt;/&gt;" FontFamily="Consolas" FontSize="11"/>
+                            </Button>
+                            <Button Classes="icon-button" Click="SpoilerButton_Click" ToolTip.Tip="Spoiler (||text||)">
+                                <TextBlock Text="||" FontSize="13"/>
+                            </Button>
+                        </StackPanel>
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <Image Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center" ToolTip.Tip="Chat is end-to-end encrypted" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
+                            <TextBox Grid.Column="1" x:Name="MessageInput" Classes="chat-input" Text="{Binding OutgoingMessage, Mode=TwoWay}" Watermark="Type a message" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56" VerticalAlignment="Center"/>
+                            <Button Grid.Column="2" Classes="icon-button" Margin="8 0 0 0" Command="{Binding SendCommand}" ToolTip.Tip="Send message">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE724;"/>
+                            </Button>
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>

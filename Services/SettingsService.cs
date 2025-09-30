@@ -317,6 +317,10 @@ public class SettingsService
             RelayFallbackEnabled = true,
             RelayServer = null,
             ShowPublicKeys = false,
+            EnableDebugLogAutoTrim = true,
+            DebugUiLogMaxLines = 1000,
+            DebugLogRetentionDays = 1,
+            DebugLogMaxMegabytes = 16,
         };
     }
 }

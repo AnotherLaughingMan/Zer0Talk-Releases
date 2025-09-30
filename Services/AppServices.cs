@@ -34,6 +34,7 @@ public static class AppServices
     public static PresenceRefreshService PresenceRefresh { get; } = new();
     public static LinkPreviewService LinkPreview { get; } = new();
     public static OutboxService Outbox { get; } = new();
+    public static LogMaintenanceService LogMaintenance { get; } = new(Settings, Updates);
     // Centralized UI pulse key; interval can be adjusted via Settings if desired
     private const string UiPulseKey = "App.UI.Pulse";
     // Email verification removed in keypair-based identity model
@@ -237,6 +238,10 @@ public static class AppServices
         // Start discovery orchestrator (non-invasive; coordinates existing services) (skip in SafeMode)
         try { if (!P2PTalk.Utilities.RuntimeFlags.SafeMode) Discovery.Start(); } catch { }
 
+#if DEBUG
+    try { LogMaintenance.TryStart(); } catch { }
+#endif
+
         // Opportunistic retention triggers
         try
         {
@@ -289,6 +294,9 @@ public static class AppServices
         try { PeersStore.Save(Peers.Peers, Passphrase); } catch { }
         try { Settings.Save(Passphrase); } catch { }
         try { LinkPreview.Dispose(); } catch { }
+#if DEBUG
+    try { LogMaintenance.Stop(); } catch { }
+#endif
         // No hard process exit here; allow normal app shutdown.
     }
 
