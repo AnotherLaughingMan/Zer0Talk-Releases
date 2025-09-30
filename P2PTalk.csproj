@@ -43,7 +43,7 @@
   </ItemGroup><!-- Convert/Include icon: expect an .ico alongside the provided PNG. If only PNG exists, tooling can generate .ico externally. -->
   <ItemGroup>
     <Content Include="Assets\Icons\Icon.png" Condition="Exists(&apos;Assets\\Icons\\Icon.png&apos;)" CopyToOutputDirectory="PreserveNewest"/>
-    <None Include="Assets\Icons\Icon.ico" Condition="Exists(&apos;Assets\\Icons\\Icon.ico&apos;)"/><!-- Legacy probe compatibility: some incremental Avalonia resource passes still look for Assets/Icon.ico -->
+    <Content Include="Assets\Icons\Icon.ico" Condition="Exists(&apos;Assets\\Icons\\Icon.ico&apos;)" CopyToOutputDirectory="PreserveNewest"/><!-- Legacy probe compatibility: some incremental Avalonia resource passes still look for Assets/Icon.ico -->
     <None Include="Assets\Icons\Icon.ico" Link="Assets\Icon.ico" Condition="Exists(&apos;Assets\\Icons\\Icon.ico&apos;)"/>
   </ItemGroup><!-- Diagnostic toggle for dumping AvaloniaResource items during build -->
   <PropertyGroup><!-- Set to true only when needing to inspect @(AvaloniaResource) again -->
@@ -70,6 +70,7 @@
     <AvaloniaResource Include="Styles/NeutralMetrics.axaml"/>
     <AvaloniaResource Include="Styles/DarkThemeOverrides.axaml"/>
   <AvaloniaResource Include="Styles/SharedTruncation.axaml"/>
+    <AvaloniaResource Include="Assets\Syntax\Rust.xshd"/>
     <AvaloniaResource Include="Assets\Icons\Special\Encrypted.ico"/>
     <AvaloniaResource Include="Assets\Icons\Status\Away.ico"/>
     <AvaloniaResource Include="Assets\Icons\Status\DND.ico"/>

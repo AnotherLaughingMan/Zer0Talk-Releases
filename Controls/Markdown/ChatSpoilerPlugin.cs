@@ -86,10 +86,10 @@ public sealed class SpoilerInlineControl : Border
             FontWeight = FontWeight.SemiBold,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            Opacity = 0.75,
             IsHitTestVisible = false,
             IsVisible = true
         };
+        _placeholderBlock.Classes.Add("spoiler-placeholder");
 
         var grid = new Grid { ClipToBounds = false };
         grid.Children.Add(_placeholderBlock);
@@ -144,11 +144,6 @@ public sealed class SpoilerInlineControl : Border
     {
         _contentBlock.IsVisible = _isRevealed;
         _placeholderBlock.IsVisible = !_isRevealed;
-
-        if (_placeholderBlock.IsVisible)
-        {
-            _placeholderBlock.Opacity = 0.75;
-        }
 
         InvalidateMeasure();
         InvalidateArrange();

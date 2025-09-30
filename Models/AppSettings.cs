@@ -57,6 +57,8 @@ public class AppSettings
     public WindowStateSettings NetworkWindow { get; set; } = new();
     // New: persist MonitoringWindow size/position/state
     public WindowStateSettings MonitoringWindow { get; set; } = new();
+    // Persist LogViewerWindow geometry for consistent placement across sessions
+    public WindowStateSettings LogViewerWindow { get; set; } = new();
 
     // Monitoring window refresh interval (milliseconds). Default 500ms.
     public int MonitoringIntervalMs { get; set; } = 500;

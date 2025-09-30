@@ -1,9 +1,9 @@
-
 using System;
 using System.Linq;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -14,6 +14,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
@@ -45,6 +46,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     public System.Windows.Input.ICommand StatusDurationCommand { get; }
     // Scoped refresh: event-driven only for MainWindow (no periodic app-wide loop)
     private const string NatThrottleKey = "MainWindow.UI.throttle";
+    private const double ChatInputDefaultMinHeight = 56d;
+    private const double ChatInputDefaultMaxHeight = 200d;
     private System.Action? _natThrottled;
     // Geometry is now persisted via lightweight LayoutCache on close only (no runtime throttled writes)
     // NOTE: We intentionally removed frequent writes to settings.p2e to avoid I/O overhead.
@@ -128,6 +131,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             this.Opened += (_, __) => AttachFlickerWatchers();
+            this.Opened += (_, __) => InitializeMessageInputSizing();
             this.Activated += (_, __) => WriteUiCategory("[Window]", "Activated");
             this.Deactivated += (_, __) => WriteUiCategory("[Window]", "Deactivated");
         }
@@ -325,25 +329,34 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         this.Opened += (_, __) => { try { CheckpointNavRail(); } catch { } };
         // Close Full Profile overlay via Esc from the window scope
         this.AddHandler(InputElement.KeyDownEvent, OnWindowKeyDownForOverlays, RoutingStrategies.Tunnel);
-        // Set top-bar app icon with PNG->ICO fallback
+        // Set top-bar app icon with fallback to embedded resource
         this.Opened += (_, __) =>
         {
             try
             {
-                var assetsDir = Path.Combine(AppContext.BaseDirectory, "Assets", "Icons");
-                var pngPath = Path.Combine(assetsDir, "Icon.png");
-                var icoPath = Path.Combine(assetsDir, "Icon.ico");
                 var img = this.FindControl<Image>("TitleAppIcon");
-                if (img != null)
+                if (img is null) return;
+
+                try
                 {
-                    string? chosen = File.Exists(pngPath) ? pngPath : (File.Exists(icoPath) ? icoPath : null);
-                    if (chosen != null)
+                    // Try direct file path first
+                    var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Icons", "Icon.ico");
+                    if (File.Exists(iconPath))
                     {
-                        // Use Bitmap for either format; Avalonia supports ICO
-                        using var fs = File.OpenRead(chosen);
+                        using var fs = File.OpenRead(iconPath);
                         img.Source = new Avalonia.Media.Imaging.Bitmap(fs);
+                        return;
                     }
                 }
+                catch { }
+
+                try
+                {
+                    // Fallback to embedded resource
+                    using var stream = AssetLoader.Open(new Uri("avares://ZTalk/Assets/Icons/Icon.ico"));
+                    img.Source = new Avalonia.Media.Imaging.Bitmap(stream);
+                }
+                catch { }
             }
             catch { }
         };
@@ -452,6 +465,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _bringIntoViewPosted; // coalesce render-phase auto-scroll
     private DateTime _lastBringIntoViewAtUtc; // suppress bursts at startup/add storms
     private double _lastAutoScrollExtentHeight; // guard: only auto-scroll when extent grows
+    private ScrollAnimator? _chatScrollAnimator;
     private readonly HashSet<Message> _trackedMessages = new();
     private NotifyCollectionChangedEventHandler? _messagesChangedHandler;
 
@@ -461,7 +475,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             var line = $"{DateTime.Now:O} [UI] {message}{Environment.NewLine}";
             if (P2PTalk.Utilities.LoggingPaths.Enabled)
-                System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.UI, line);
+                P2PTalk.Utilities.LoggingPaths.TryWrite(P2PTalk.Utilities.LoggingPaths.UI, line);
         }
         catch { }
     }
@@ -491,7 +505,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             if (!P2PTalk.Utilities.LoggingPaths.Enabled) return;
             var text = $"{DateTime.Now:O} {category} {message}{Environment.NewLine}";
-            System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.UI, text);
+            P2PTalk.Utilities.LoggingPaths.TryWrite(P2PTalk.Utilities.LoggingPaths.UI, text);
         }
         catch { }
     }
@@ -822,6 +836,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    private void ChatScroll_SizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        try
+        {
+            if (sender is not ScrollViewer sv) return;
+            _lastViewportHeight = sv.Viewport.Height;
+            var viewportWidth = sv.Viewport.Width;
+            if (viewportWidth > 0 && DataContext is MainWindowViewModel vm)
+            {
+                vm.ChatViewportWidth = viewportWidth;
+            }
+            if ((e.PreviousSize.Width <= 0 && e.PreviousSize.Height <= 0) || (Math.Abs(e.PreviousSize.Height - e.NewSize.Height) < 0.5 && Math.Abs(e.PreviousSize.Width - e.NewSize.Width) < 0.5))
+                return;
+
+            var guardActive = DateTime.UtcNow < _autoFollowGuardUntilUtc;
+            if (!_stickToBottom && !guardActive) return;
+
+            CancelChatScrollAnimation();
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var stillGuard = DateTime.UtcNow < _autoFollowGuardUntilUtc;
+                    if (_stickToBottom || stillGuard)
+                    {
+                        var force = !_stickToBottom && stillGuard;
+                        TryScrollChatToBottom(force);
+                    }
+                }
+                catch { }
+            }, DispatcherPriority.Background);
+        }
+        catch { }
+    }
+
     private void OnAnyPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         try
@@ -830,6 +880,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var p = e.GetPosition(this);
             var kind = e.GetCurrentPoint(this).Properties.PointerUpdateKind;
             WriteUiCategory("[Pointer]", $"Pressed src={src} at ({p.X:0.0},{p.Y:0.0}) kind={kind}");
+            CancelChatScrollAnimation();
             if (IsSourceWithinChatScrollBar(e.Source, out var el))
             {
                 _stickToBottom = false;
@@ -867,6 +918,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             var src = DescribeElement(e.Source);
             WriteUiCategory("[Pointer]", $"Wheel src={src} delta=({e.Delta.X:0.00},{e.Delta.Y:0.00})");
+            CancelChatScrollAnimation();
             // If the wheel occurs over ChatScroll, assume user is navigating; hold off auto-scroll briefly.
             if (e.Source is Visual v)
             {
@@ -1034,7 +1086,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
                 // Re-evaluate bottom state using actual scroll metrics to avoid stale _followChat
                 bool atBottomNow = sv != null && IsAtBottom(sv);
-                bool shouldFollow = appendedAtEnd && (wasFollowing || atBottomNow);
+                // More aggressive autoscroll - follow if we were following OR if we're near the bottom
+                bool nearBottom = sv != null && GetBottomGap(sv) <= 100.0; // within 100px of bottom
+                bool shouldFollow = appendedAtEnd && (wasFollowing || atBottomNow || nearBottom);
                 if (shouldFollow)
                 {
                     _followChat = true;
@@ -1153,10 +1207,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     if (sv.Extent.Height <= _lastAutoScrollExtentHeight + 0.1)
                         return;
 
-                    if (!BringChatEndIntoView())
+                    var targetY = Math.Max(0, sv.Extent.Height - sv.Viewport.Height);
+                    if (BringChatEndIntoView())
                     {
-                        try { sv.ScrollToEnd(); }
-                        catch { sv.Offset = new Vector(sv.Offset.X, Math.Max(0, sv.Extent.Height - sv.Viewport.Height)); }
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            try
+                            {
+                                var sv2 = this.FindControl<ScrollViewer>("ChatScroll");
+                                if (sv2 == null) return;
+                                sv2.UpdateLayout();
+                                var finalTarget = Math.Max(0, sv2.Extent.Height - sv2.Viewport.Height);
+                                var usedAnimation = SmoothScrollToOffset(sv2, finalTarget);
+                                if (!usedAnimation && Math.Abs(sv2.Offset.Y - finalTarget) > 0.5)
+                                {
+                                    try { sv2.ScrollToEnd(); }
+                                    catch { sv2.Offset = new Vector(sv2.Offset.X, finalTarget); }
+                                }
+                            }
+                            catch { }
+                        }, DispatcherPriority.Background);
+                    }
+                    else
+                    {
+                        var usedAnimation = SmoothScrollToOffset(sv, targetY);
+                        if (!usedAnimation && Math.Abs(sv.Offset.Y - targetY) > 0.5)
+                        {
+                            try { sv.ScrollToEnd(); }
+                            catch { sv.Offset = new Vector(sv.Offset.X, targetY); }
+                        }
                     }
                     _lastAutoScrollExtentHeight = sv.Extent.Height;
                     _lastBringIntoViewAtUtc = now;
@@ -1248,19 +1327,46 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
             else
             {
+                var fromY = sv.Offset.Y;
+                var targetY = Math.Max(0, sv.Extent.Height - sv.Viewport.Height);
+                var delta = Math.Abs(targetY - fromY);
                 var guardActivated = false;
-                if (!BringChatEndIntoView())
+                if (BringChatEndIntoView())
                 {
-                    var targetY = Math.Max(0, sv.Extent.Height - sv.Viewport.Height);
-                    var fromY = sv.Offset.Y;
-                    if (Math.Abs(targetY - fromY) > 0.5) guardActivated = true;
-                    SafeUiLog($"TryScrollToBottom(force={force}): fromY={fromY:F1} -> targetY={targetY:F1} (extentH={sv.Extent.Height:F1}, viewportH={sv.Viewport.Height:F1})");
-                    try { sv.ScrollToEnd(); }
-                    catch { sv.Offset = new Vector(sv.Offset.X, targetY); }
+                    guardActivated = true;
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            var sv2 = this.FindControl<ScrollViewer>("ChatScroll");
+                            if (sv2 == null) return;
+                            sv2.UpdateLayout();
+                            var startY = sv2.Offset.Y;
+                            var finalTarget = Math.Max(0, sv2.Extent.Height - sv2.Viewport.Height);
+                            var usedAnimation = SmoothScrollToOffset(sv2, finalTarget);
+                            if (!usedAnimation && Math.Abs(sv2.Offset.Y - finalTarget) > 0.5)
+                            {
+                                try { sv2.ScrollToEnd(); }
+                                catch { sv2.Offset = new Vector(sv2.Offset.X, finalTarget); }
+                            }
+                            SafeUiLog($"TryScrollToBottom(force={force}): fromY={startY:F1} -> targetY={finalTarget:F1} (mode={(usedAnimation ? "anim" : "snap")}, extentH={sv2.Extent.Height:F1}, viewportH={sv2.Viewport.Height:F1})");
+                        }
+                        catch { }
+                    }, DispatcherPriority.Background);
                 }
                 else
                 {
-                    guardActivated = true;
+                    var usedAnimation = SmoothScrollToOffset(sv, targetY);
+                    if (!usedAnimation && Math.Abs(sv.Offset.Y - targetY) > 0.5)
+                    {
+                        try { sv.ScrollToEnd(); }
+                        catch { sv.Offset = new Vector(sv.Offset.X, targetY); }
+                    }
+                    if (delta > 0.5)
+                    {
+                        guardActivated = true;
+                    }
+                    SafeUiLog($"TryScrollToBottom(force={force}): fromY={fromY:F1} -> targetY={targetY:F1} (mode={(usedAnimation ? "anim" : "snap")}, extentH={sv.Extent.Height:F1}, viewportH={sv.Viewport.Height:F1})");
                 }
                 if (guardActivated)
                 {
@@ -1282,6 +1388,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return true;
         }
         catch { return false; }
+    }
+
+    private ScrollAnimator? EnsureChatScrollAnimator(ScrollViewer sv)
+    {
+        try
+        {
+            if (_chatScrollAnimator is { } existing && existing.IsFor(sv))
+            {
+                return existing;
+            }
+
+            _chatScrollAnimator?.Dispose();
+            _chatScrollAnimator = new ScrollAnimator(sv);
+            return _chatScrollAnimator;
+        }
+        catch { return null; }
+    }
+
+    private void CancelChatScrollAnimation()
+    {
+        try { _chatScrollAnimator?.Cancel(); }
+        catch { }
+    }
+
+    private bool SmoothScrollToOffset(ScrollViewer sv, double targetY)
+    {
+        try
+        {
+            sv.UpdateLayout();
+            targetY = Math.Max(0, targetY);
+            var animator = EnsureChatScrollAnimator(sv);
+            if (animator != null)
+            {
+                return animator.MoveTo(targetY);
+            }
+        }
+        catch { }
+
+        try
+        {
+            var current = sv.Offset;
+            sv.Offset = new Vector(current.X, targetY);
+        }
+        catch { }
+        return false;
     }
 
     private static double GetBottomGap(ScrollViewer sv)
@@ -1317,7 +1468,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     sv.UpdateLayout();
                     var targetY = Math.Max(0, sv.Extent.Height - sv.Viewport.Height);
                     var fromY = sv.Offset.Y;
-                    sv.Offset = new Vector(sv.Offset.X, targetY);
+                    var usedAnimation = SmoothScrollToOffset(sv, targetY);
+                    if (!usedAnimation && Math.Abs(sv.Offset.Y - targetY) > 0.5)
+                    {
+                        try { sv.ScrollToEnd(); }
+                        catch { sv.Offset = new Vector(sv.Offset.X, targetY); }
+                    }
                     _lastAutoScrollExtentHeight = sv.Extent.Height;
                     _lastBringIntoViewAtUtc = DateTime.UtcNow;
                     _followChat = true;
@@ -1325,7 +1481,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     _autoFollowGuardUntilUtc = DateTime.UtcNow.Add(AutoFollowGuardWindow);
                     _unreadSinceLastBottom = 0;
                     UpdateJumpToBottomUi();
-                    SafeUiLog($"[AutoScroll][Force] {reason}: fromY={fromY:F1} -> {targetY:F1} (extentH={sv.Extent.Height:F1}, viewportH={sv.Viewport.Height:F1})");
+                    SafeUiLog($"[AutoScroll][Force] {reason}: fromY={fromY:F1} -> {targetY:F1} (mode={(usedAnimation ? "anim" : "snap")}, extentH={sv.Extent.Height:F1}, viewportH={sv.Viewport.Height:F1})");
                 }
                 catch { }
             }, DispatcherPriority.Render);
@@ -1652,6 +1808,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var sv = this.FindControl<ScrollViewer>("ChatScroll");
             if (sv == null) return;
             if (_stickToBottom) return;
+            CancelChatScrollAnimation();
             var bottomGap = Math.Max(0, sv.Extent.Height - sv.Offset.Y - sv.Viewport.Height);
             SafeUiLog($"PreserveScrollOnRemoval: bottomGap snapshot={bottomGap:F1}");
             _ = Dispatcher.UIThread.InvokeAsync(() =>
@@ -2005,6 +2162,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         P2PTalk.Services.WindowManager.ShowSingleton<MonitoringWindow>();
     }
 
+    private void Logs_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        P2PTalk.Services.WindowManager.ShowSingleton<LogViewerWindow>();
+    }
+
     private void OpenLogs_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         try { P2PTalk.Services.WindowManager.ShowSingleton<NetworkWindow>()?.SwitchToTab("Logging"); } catch { }
@@ -2192,7 +2354,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                                 void OnClosed(object? _, EventArgs __)
                                 {
                                     try { if (DataContext is MainWindowViewModel vm2) vm2.EndSelectionFreeze(); } catch { }
-                                    try { if (target.ContextMenu != null) target.ContextMenu.Closed -= OnClosed; } catch { }
+                                    try { target.ContextMenu.Closed -= OnClosed; } catch { }
                                 }
                                 try { target.ContextMenu.Closed += OnClosed; } catch { }
                                 target.ContextMenu.PlacementTarget = target;
@@ -2396,9 +2558,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 try
                 {
+                    var lb2 = this.FindControl<ListBox>("ContactsList");
                     string suid = "", sname = "";
-                    if (lb?.SelectedItem is Contact sc) { suid = sc.UID; sname = sc.DisplayName; }
-                    SafeLogContextTrace($"ContactsList_PointerReleased[Deferred]: SelIndex={lb?.SelectedIndex} uid={suid} name={sname}", sender);
+                    if (lb2?.SelectedItem is Contact sc) { suid = sc.UID; sname = sc.DisplayName; }
+                    SafeLogContextTrace($"ContactsList_PointerReleased[Deferred]: SelIndex={lb2?.SelectedIndex} uid={suid} name={sname}", sender);
                 }
                 catch (Exception ex2) { SafeLogContextError(ex2, sender); }
             });
@@ -2524,6 +2687,166 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private TextBox? GetMessageInput()
     {
         try { return this.FindControl<TextBox>("MessageInput"); } catch { return null; }
+    }
+
+    private void InitializeMessageInputSizing()
+    {
+        try
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var input = GetMessageInput();
+                    if (input != null)
+                    {
+                        AdjustMessageInputHeight(input);
+                    }
+                }
+                catch { }
+            }, DispatcherPriority.Background);
+        }
+        catch { }
+    }
+
+    private System.Threading.CancellationTokenSource? _inputResizeCts;
+    private DateTime _lastInputResize = DateTime.MinValue;
+
+    private void MessageInput_TextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox input)
+        {
+            return;
+        }
+
+        // Skip resize during active text selection to prevent freezing
+        if (input.SelectionStart != input.SelectionEnd)
+        {
+            return;
+        }
+
+        try
+        {
+            // Throttle resize operations to prevent spam during typing
+            var now = DateTime.UtcNow;
+            if ((now - _lastInputResize).TotalMilliseconds < 50)
+            {
+                _inputResizeCts?.Cancel();
+                _inputResizeCts = new System.Threading.CancellationTokenSource();
+                var token = _inputResizeCts.Token;
+                
+                _ = System.Threading.Tasks.Task.Delay(50, token).ContinueWith(t =>
+                {
+                    if (!t.IsCanceled)
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            try
+                            {
+                                if (!token.IsCancellationRequested)
+                                {
+                                    AdjustMessageInputHeight(input);
+                                    _lastInputResize = DateTime.UtcNow;
+                                }
+                            }
+                            catch { }
+                        }, DispatcherPriority.Background);
+                    }
+                }, token);
+            }
+            else
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    try
+                    {
+                        AdjustMessageInputHeight(input);
+                        _lastInputResize = DateTime.UtcNow;
+                    }
+                    catch { }
+                }, DispatcherPriority.Background);
+            }
+        }
+        catch { }
+    }
+
+    private void AdjustMessageInputHeight(TextBox input)
+    {
+        try
+        {
+            var maintainFollow = false;
+            ScrollViewer? chatScroll = null;
+            try
+            {
+                chatScroll = this.FindControl<ScrollViewer>("ChatScroll");
+                if (chatScroll != null)
+                {
+                    maintainFollow = _stickToBottom || _followChat || IsAtBottom(chatScroll);
+                }
+                else
+                {
+                    maintainFollow = _stickToBottom || _followChat;
+                }
+            }
+            catch
+            {
+                maintainFollow = _stickToBottom || _followChat;
+            }
+
+            var min = input.MinHeight > 0 ? input.MinHeight : ChatInputDefaultMinHeight;
+            var max = input.MaxHeight > 0 && double.IsFinite(input.MaxHeight) ? input.MaxHeight : ChatInputDefaultMaxHeight;
+
+            var previous = input.Height;
+            // Only remeasure if we actually need to
+            var width = input.Bounds.Width;
+            if (width <= 0 && input.Parent is Control parent)
+            {
+                width = parent.Bounds.Width;
+            }
+            if (width <= 0)
+            {
+                width = 400; // fallback reasonable width
+            }
+
+            // Estimate height based on line count to avoid expensive measure
+            var text = input.Text ?? string.Empty;
+            var lineCount = Math.Max(1, text.Split('\n').Length);
+            var estimatedHeight = lineCount * 20 + 16; // rough estimate
+            var desired = Math.Max(estimatedHeight, min);
+
+            var clamped = Math.Clamp(desired, min, max);
+            if (!double.IsFinite(clamped))
+            {
+                clamped = max;
+            }
+
+            var shouldAdjust = double.IsNaN(previous) || Math.Abs(previous - clamped) > 0.1;
+            if (shouldAdjust && maintainFollow)
+            {
+                _autoFollowGuardUntilUtc = DateTime.UtcNow.Add(AutoFollowGuardWindow);
+            }
+
+            if (shouldAdjust)
+            {
+                input.Height = clamped;
+                if (maintainFollow)
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            TryScrollChatToBottom(force: true);
+                        }
+                        catch { }
+                    }, DispatcherPriority.Background);
+                }
+            }
+            else
+            {
+                input.Height = previous;
+            }
+        }
+        catch { }
     }
 
     private void ApplyInlineFormatting(string prefix, string suffix, string placeholder, object? source)
@@ -3154,7 +3477,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (!P2PTalk.Utilities.LoggingPaths.Enabled) return;
             var path = System.IO.Path.Combine(AppContext.BaseDirectory, "logs", "settings.log");
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            System.IO.File.AppendAllText(path, text);
+            P2PTalk.Utilities.LoggingPaths.TryWrite(path, text);
         }
         catch { }
     }
@@ -3166,7 +3489,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             if (!P2PTalk.Utilities.LoggingPaths.Enabled) return;
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.Theme, text);
+            P2PTalk.Utilities.LoggingPaths.TryWrite(P2PTalk.Utilities.LoggingPaths.Theme, text);
         }
         catch { }
     }
@@ -3179,7 +3502,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (!P2PTalk.Utilities.LoggingPaths.Enabled) return;
             var path = System.IO.Path.Combine(AppContext.BaseDirectory, "logs", "layout.log");
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            System.IO.File.AppendAllText(path, text);
+            P2PTalk.Utilities.LoggingPaths.TryWrite(path, text);
         }
         catch { }
     }
@@ -3907,11 +4230,157 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    private sealed class ScrollAnimator : IDisposable
+    {
+        private readonly ScrollViewer _scrollViewer;
+        private DispatcherTimer? _timer;
+        private Stopwatch? _stopwatch;
+        private double _startY;
+        private double _targetY;
+        private TimeSpan _duration;
+
+        public ScrollAnimator(ScrollViewer scrollViewer)
+        {
+            _scrollViewer = scrollViewer;
+        }
+
+        public bool IsFor(ScrollViewer viewer) => ReferenceEquals(_scrollViewer, viewer);
+
+        public bool MoveTo(double targetY)
+        {
+            try
+            {
+                targetY = Math.Max(0, targetY);
+                var current = _scrollViewer.Offset;
+                var startY = current.Y;
+                var delta = targetY - startY;
+                if (Math.Abs(delta) < 0.5)
+                {
+                    SetOffset(targetY);
+                    Cancel();
+                    return false;
+                }
+
+                _startY = startY;
+                _targetY = targetY;
+                var durationMs = Math.Clamp(110.0 + (Math.Abs(delta) / 3.5), 160.0, 420.0);
+                _duration = TimeSpan.FromMilliseconds(durationMs);
+                if (_duration <= TimeSpan.Zero)
+                    _duration = TimeSpan.FromMilliseconds(120);
+
+                EnsureTimer();
+                _stopwatch ??= new Stopwatch();
+                _stopwatch.Restart();
+                return true;
+            }
+            catch
+            {
+                try { SetOffset(targetY); }
+                catch { }
+                Cancel();
+                return false;
+            }
+        }
+
+        public void Cancel()
+        {
+            StopTimer();
+            _stopwatch?.Stop();
+        }
+
+        public void Dispose()
+        {
+            if (_timer != null)
+            {
+                _timer.Tick -= OnTick;
+                _timer.Stop();
+                _timer = null;
+            }
+            _stopwatch?.Stop();
+        }
+
+        private void EnsureTimer()
+        {
+            if (_timer == null)
+            {
+                _timer = new DispatcherTimer(DispatcherPriority.Render)
+                {
+                    Interval = TimeSpan.FromMilliseconds(16)
+                };
+                _timer.Tick += OnTick;
+            }
+
+            if (!_timer.IsEnabled)
+            {
+                _timer.Start();
+            }
+        }
+
+        private void StopTimer()
+        {
+            if (_timer != null && _timer.IsEnabled)
+            {
+                _timer.Stop();
+            }
+        }
+
+        private void OnTick(object? sender, EventArgs e)
+        {
+            if (_stopwatch == null)
+            {
+                Cancel();
+                return;
+            }
+
+            var elapsed = _stopwatch.Elapsed;
+            if (_duration <= TimeSpan.Zero)
+            {
+                SetOffset(_targetY);
+                Cancel();
+                return;
+            }
+
+            var progress = elapsed.TotalMilliseconds / _duration.TotalMilliseconds;
+            if (progress >= 1)
+            {
+                SetOffset(_targetY);
+                Cancel();
+                return;
+            }
+
+            var eased = EaseOutCubic(Math.Clamp(progress, 0, 1));
+            var y = _startY + ((_targetY - _startY) * eased);
+            SetOffset(y);
+        }
+
+        private static double EaseOutCubic(double t)
+        {
+            var inv = 1 - t;
+            return 1 - (inv * inv * inv);
+        }
+
+        private void SetOffset(double targetY)
+        {
+            try
+            {
+                var current = _scrollViewer.Offset;
+                _scrollViewer.Offset = new Vector(current.X, targetY);
+            }
+            catch { }
+        }
+    }
+
     public void Dispose()
     {
         try
         {
             _uiPulseHandler = null;
+        }
+        catch { }
+        try
+        {
+            _chatScrollAnimator?.Dispose();
+            _chatScrollAnimator = null;
         }
         catch { }
         try

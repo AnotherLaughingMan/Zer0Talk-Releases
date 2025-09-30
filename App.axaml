@@ -95,6 +95,7 @@
         <util:PresenceEqualsToBoolConverter x:Key="PresenceEqualsToBoolConverter" />
         <util:MessageSenderNameConverter x:Key="MessageSenderNameConverter" />
         <util:MessageSenderBrushConverter x:Key="MessageSenderBrushConverter" />
+        <util:MessageIsFromContactConverter x:Key="MessageIsFromContactConverter" />
         <util:NotOrConverter x:Key="NotOrConverter" />
         <util:StringEqualsMultiConverter x:Key="StringEqualsMultiConverter" />
     </Application.Resources>

@@ -11,7 +11,11 @@
     xmlns:c="clr-namespace:P2PTalk.Controls"
     xmlns:cm="clr-namespace:P2PTalk.Controls.Markdown"
     xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+    xmlns:avedit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+    xmlns:ctb="clr-namespace:ColorTextBlock.Avalonia;assembly=ColorTextBlock.Avalonia"
+    xmlns:mde="clr-namespace:Markdown.Avalonia.SyntaxHigh.Extensions;assembly=Markdown.Avalonia.SyntaxHigh"
     x:Class="P2PTalk.Views.MainWindow"
+    x:Name="RootWindow"
     x:DataType="vm:MainWindowViewModel"
     mc:Ignorable="d"
     Title="ZTalk"
@@ -35,7 +39,8 @@
         <util:GreaterThanZeroConverter x:Key="GreaterThanZeroConverter" />
         <util:StringNotNullOrEmptyConverter x:Key="StringNotNullOrEmptyConverter" />
         <util:FirstNonEmptyStringConverter x:Key="FirstNonEmptyStringConverter" />
-    <util:WidthFractionConverter x:Key="ChatBubbleWidthConverter" Fraction="0.66" />
+        <util:WidthFractionConverter x:Key="ChatBubbleWidthConverter" Fraction="0.9" />
+        <SolidColorBrush x:Key="MarkdownSyntaxBaseForeground" Color="#000000" />
     </Window.Resources>
 
     <Window.Styles>
@@ -44,14 +49,14 @@
             <Setter Property="Transitions">
                 <Setter.Value>
                     <Transitions>
-                        <BrushTransition Property="Background" Duration="0:0:0.12" />
+                        <BrushTransition Property="Background" Duration="0:0:0.25" />
                     </Transitions>
                 </Setter.Value>
             </Setter>
         </Style>
 
         <Style Selector="Border.message-container:pointerover">
-            <Setter Property="Background" Value="{DynamicResource App.ItemHover}" />
+            <Setter Property="Background" Value="#0AFFFFFF" />
         </Style>
 
         <Style Selector="StackPanel.hover-actions">
@@ -60,7 +65,7 @@
             <Setter Property="Transitions">
                 <Setter.Value>
                     <Transitions>
-                        <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
                     </Transitions>
                 </Setter.Value>
             </Setter>
@@ -81,13 +86,12 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="10" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
             <Setter Property="Focusable" Value="False" />
         </Style>
-
-        <Style Selector="Button.message-link-preview:pointerover">
-            <Setter Property="Background" Value="{DynamicResource App.ItemHover}" />
+        <Style Selector="Button.message-link-preview /template/ ContentPresenter" x:SetterTargetType="ContentPresenter">
+            <Setter Property="HorizontalAlignment" Value="Left" />
         </Style>
 
         <Style Selector="Border.message-read-indicator">
@@ -99,6 +103,8 @@
 
         <Style Selector="md|MarkdownScrollViewer.message-markdown">
             <Setter Property="Margin" Value="0" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
         </Style>
         <Style Selector="md|MarkdownScrollViewer.message-markdown ScrollContentPresenter">
             <Setter Property="Background" Value="Transparent" />
@@ -109,6 +115,56 @@
         </Style>
         <Style Selector="md|MarkdownScrollViewer.message-markdown TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource App.Foreground}" />
+        </Style>
+        <Style Selector="md|MarkdownScrollViewer.message-markdown Border.CodeBlock">
+            <Setter Property="Background" Value="#FF1E1E1E" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="8,8,8,8" />
+        </Style>
+        <Style Selector="md|MarkdownScrollViewer.message-markdown TextBlock.CodeBlock">
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, 'Courier New', monospace" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="md|MarkdownScrollViewer.message-markdown .CodeBlock avedit|TextEditor">
+            <Setter Property="Background" Value="#FF1E1E1E" />
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, 'Courier New', monospace" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="SyntaxHighlighting" Value="{mde:SyntaxHighlightWrapper MarkdownSyntaxBaseForeground}" />
+        </Style>
+        <Style Selector="md|MarkdownScrollViewer.message-markdown .CodeBlock ctb|CTextBlock">
+            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, 'Courier New', monospace" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="md|MarkdownScrollViewer.message-markdown .CodeBlock Label.LangInfo">
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="md|MarkdownScrollViewer.message-markdown .CodeBlock Button.CopyButton">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style Selector="md|MarkdownScrollViewer.message-markdown .CodeBlock Button.CopyButton TextBlock">
+            <Setter Property="Text" Value="Copy" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style Selector="TextBlock.spoiler-placeholder">
+            <Setter Property="Foreground" Value="{DynamicResource App.Accent}" />
+            <Setter Property="Opacity" Value="0.94" />
         </Style>
         <Style Selector="Border.chat-spoiler">
             <Setter Property="Background" Value="{DynamicResource App.Surface}" />
@@ -244,6 +300,9 @@
                     <Button Classes="icon-button" ToolTip.Tip="Monitoring" Click="Monitoring_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE9D2;" FontSize="26"/>
                     </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Logs" Click="Logs_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE8A5;" FontSize="26"/>
+                    </Button>
                     <Button Classes="icon-button" ToolTip.Tip="Network Settings" Click="Network_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE968;" FontSize="26"/>
                     </Button>
@@ -309,7 +368,7 @@
                                                 <Ellipse Width="10" Height="10" Fill="#22CC66" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsOnline}"/>
                                                 <Image Width="10" Height="10" Source="avares://ZTalk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsAway}"/>
                                                 <Image Width="10" Height="10" Source="avares://ZTalk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsDnd}"/>
-                                                <Ellipse Width="10" Height="10" Fill="Transparent" Stroke="#888888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsOffline}"/>
+                                                <Ellipse Width="10" Height="10" Stroke="#888888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsOffline}"/>
                                             </Grid>
                                         </Border>
                                     </Grid>
@@ -536,7 +595,7 @@
                     </StackPanel>
                 </Border>
 
-                <ScrollViewer Grid.Row="1" x:Name="ChatScroll" ScrollChanged="ChatScroll_ScrollChanged">
+                <ScrollViewer Grid.Row="1" x:Name="ChatScroll" ScrollChanged="ChatScroll_ScrollChanged" SizeChanged="ChatScroll_SizeChanged">
                     <Grid RowDefinitions="Auto,Auto">
                         <ItemsControl Grid.Row="0" ItemsSource="{Binding TimelineItems}">
                             <ItemsControl.DataTemplates>
@@ -575,7 +634,7 @@
                                                     </c:AvatarImage>
                                                 </Grid>
                                             </Border>
-                                            <Border Grid.Column="1" CornerRadius="12" Padding="12,10" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" MaxWidth="{Binding Bounds.Width, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource ChatBubbleWidthConverter}}" HorizontalAlignment="Left">
+                                            <Border Grid.Column="1" CornerRadius="0" Padding="0" Background="Transparent" BorderThickness="0" MaxWidth="{Binding DataContext.ChatViewportWidth, ElementName=RootWindow, Converter={StaticResource ChatBubbleWidthConverter}}" HorizontalAlignment="Stretch">
                                                 <StackPanel Spacing="6" SizeChanged="MessageContent_SizeChanged">
                                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
                                                         <TextBlock FontWeight="SemiBold" Opacity="0.95">
@@ -600,6 +659,17 @@
                                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                                             <TextBlock Classes="message-meta" FontSize="11" Opacity="0.65" Text="{Binding Timestamp}"/>
                                                             <TextBlock Classes="message-meta" FontSize="11" Opacity="0.55" Text="(edited)" IsVisible="{Binding IsEdited}"/>
+                                                            
+                                                            <!-- Dot indicator for incoming messages (messages we received) -->
+                                                            <Grid Width="14" Height="14" VerticalAlignment="Center" ToolTip.Tip="Message received">
+                                                                <Grid.IsVisible>
+                                                                    <MultiBinding Converter="{StaticResource MessageIsFromContactConverter}">
+                                                                        <Binding Path="SenderUID" />
+                                                                        <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUidFull" />
+                                                                    </MultiBinding>
+                                                                </Grid.IsVisible>
+                                                                <Ellipse Width="5" Height="5" Fill="{DynamicResource App.ForegroundSecondary}" />
+                                                            </Grid>
                                                         </StackPanel>
                                                         <StackPanel Grid.Column="2" x:Name="MessageHoverBar" Classes="hover-actions" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
                                                             <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
@@ -631,10 +701,12 @@
                                                         </StackPanel>
                                                     </Grid>
                                                     <md:MarkdownScrollViewer Classes="message-markdown"
-                                                                             Markdown="{Binding Content}"
-                                                                             IsVisible="{Binding Content, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                                                                             Markdown="{Binding RenderedContent}"
+                                                                             IsVisible="{Binding Content, Converter={StaticResource StringNotNullOrEmptyConverter}}"
+                                                                             SizeChanged="MessageContent_SizeChanged">
                                                         <md:MarkdownScrollViewer.Plugins>
                                                             <md:MdAvPlugins>
+                                                                <cm:AutoCodeLanguagePlugin />
                                                                 <cm:ChatSpoilerPlugin />
                                                             </md:MdAvPlugins>
                                                         </md:MarkdownScrollViewer.Plugins>
@@ -651,7 +723,7 @@
                                                         </Button.IsVisible>
                                                         <Button.ContentTemplate>
                                                             <DataTemplate x:DataType="models:LinkPreview">
-                                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" HorizontalAlignment="Left">
                                     <Border Grid.Column="0"
                                         Width="72"
                                         Height="72"
@@ -729,24 +801,52 @@
                                                                     <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUidFull" />
                                                                 </MultiBinding>
                                                             </StackPanel.IsVisible>
-                                                            <TextBlock Classes="message-meta"
-                                                                       FontSize="11"
-                                                                       Opacity="0.65"
-                                                                       Text="{Binding DeliveryStatus}" />
-                                                            <Border Classes="message-read-indicator"
-                                                                    Width="18"
-                                                                    Height="18"
-                                                                    CornerRadius="9"
-                                                                    Background="{DynamicResource App.Accent}"
-                                                                    BorderBrush="{DynamicResource App.Border}"
-                                                                    BorderThickness="0.8">
-                                                                <Border.IsVisible>
-                                                                    <Binding Path="DeliveryStatus" Converter="{StaticResource StringEqualsConverter}" ConverterParameter="Read" />
-                                                                </Border.IsVisible>
-                                                                <Grid>
-                                                                    <Path Data="M4,10 L7.5,13.5 L14,6" Stroke="White" StrokeThickness="2" StrokeJoin="Round" StrokeLineCap="Round" />
-                                                                </Grid>
-                                                            </Border>
+                                                            <!-- Message delivery status indicators -->
+                                                            <Grid Width="18" Height="18" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                                
+                                                                <!-- Clock: Pending (contact offline) -->
+                                                                <Border Width="18" Height="18" CornerRadius="9" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                        ToolTip.Tip="Message pending - contact is offline">
+                                                                    <Border.IsVisible>
+                                                                        <Binding Path="DeliveryStatus" Converter="{StaticResource StringEqualsConverter}" ConverterParameter="Pending" />
+                                                                    </Border.IsVisible>
+                                                                    <Grid>
+                                                                        <Ellipse Width="12" Height="12" Stroke="{DynamicResource App.ForegroundSecondary}" StrokeThickness="1.5" />
+                                                                        <Path Data="M6,3 L6,7 L9,9" Stroke="{DynamicResource App.ForegroundSecondary}" StrokeThickness="1.2" StrokeLineCap="Round" />
+                                                                    </Grid>
+                                                                </Border>
+
+                                                                <!-- Spinner: Sending -->
+                                                                <Border Width="18" Height="18" CornerRadius="9" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                        ToolTip.Tip="Sending message...">
+                                                                    <Border.IsVisible>
+                                                                        <Binding Path="DeliveryStatus" Converter="{StaticResource StringEqualsConverter}" ConverterParameter="Sending" />
+                                                                    </Border.IsVisible>
+                                                                    <c:Spinner Width="16" Height="16" IsActive="True" />
+                                                                </Border>
+
+                                                                <!-- Dot: Sent -->
+                                                                <Border Width="18" Height="18" CornerRadius="9" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                        ToolTip.Tip="Message sent">
+                                                                    <Border.IsVisible>
+                                                                        <Binding Path="DeliveryStatus" Converter="{StaticResource StringEqualsConverter}" ConverterParameter="Sent" />
+                                                                    </Border.IsVisible>
+                                                                    <Grid>
+                                                                        <Ellipse Width="6" Height="6" Fill="{DynamicResource App.ForegroundPrimary}" />
+                                                                    </Grid>
+                                                                </Border>
+
+                                                                <!-- Checkmark: Read -->
+                                                                <Border Width="18" Height="18" CornerRadius="9" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                        ToolTip.Tip="Message read by contact">
+                                                                    <Border.IsVisible>
+                                                                        <Binding Path="DeliveryStatus" Converter="{StaticResource StringEqualsConverter}" ConverterParameter="Read" />
+                                                                    </Border.IsVisible>
+                                                                    <Grid>
+                                                                        <Path Data="M4,9 L8,13 L14,7" Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="2" StrokeJoin="Round" StrokeLineCap="Round" />
+                                                                    </Grid>
+                                                                </Border>
+                                                            </Grid>
                                                         </StackPanel>
                                                     </Grid>
                                                 </StackPanel>
@@ -804,7 +904,19 @@
                         </StackPanel>
                         <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                             <Image Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center" ToolTip.Tip="Chat is end-to-end encrypted" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
-                            <TextBox Grid.Column="1" x:Name="MessageInput" Classes="chat-input" Text="{Binding OutgoingMessage, Mode=TwoWay}" Watermark="Type a message" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1"
+                                     x:Name="MessageInput"
+                                     Classes="chat-input"
+                                     Text="{Binding OutgoingMessage, Mode=TwoWay}"
+                                     Watermark="Type a message"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     MinHeight="56"
+                                     MaxHeight="200"
+                                     VerticalAlignment="Center"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     TextChanged="MessageInput_TextChanged"/>
                             <Button Grid.Column="2" Classes="icon-button" Margin="8 0 0 0" Command="{Binding SendCommand}" ToolTip.Tip="Send message">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE724;"/>
                             </Button>

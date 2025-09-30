@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,6 +35,14 @@ namespace P2PTalk.Utilities
             try
             {
                 EnsureStarted();
+                
+                // Check file size before logging to prevent runaway growth
+                if (CheckAndRotateIfNeeded())
+                {
+                    // File was rotated, log a marker
+                    var rotateMsg = $"[{DateTime.Now:O}] [ErrorLogger] Log rotated due to size limit";
+                    _queue.Add(rotateMsg);
+                }
                 var sb = new StringBuilder();
                 var now = DateTime.Now;
                 sb.Append('[').Append(now.ToString("O")).Append("] ");
@@ -69,6 +78,47 @@ namespace P2PTalk.Utilities
             catch { /* never throw from logger */ }
         }
 
+        private static bool CheckAndRotateIfNeeded()
+        {
+            try
+            {
+                if (!File.Exists(LogPath)) return false;
+                
+                var info = new FileInfo(LogPath);
+                const long maxBytes = 10 * 1024 * 1024; // 10MB limit
+                
+                if (info.Length > maxBytes)
+                {
+                    // Rotate: keep last 25% of the file
+                    var lines = File.ReadAllLines(LogPath);
+                    var keepCount = Math.Max(10, lines.Length / 4);
+                    var keepLines = lines.Skip(lines.Length - keepCount).ToArray();
+                    
+                    File.WriteAllLines(LogPath, keepLines);
+                    return true;
+                }
+            }
+            catch { /* ignore rotation errors */ }
+            return false;
+        }
+        
+        public static void ManualTrim()
+        {
+            try
+            {
+                if (!File.Exists(LogPath)) return;
+                
+                var lines = File.ReadAllLines(LogPath);
+                if (lines.Length > 1000)
+                {
+                    // Keep last 500 lines
+                    var keepLines = lines.Skip(lines.Length - 500).ToArray();
+                    File.WriteAllLines(LogPath, keepLines);
+                }
+            }
+            catch { /* ignore */ }
+        }
+        
         // Flush pending writes synchronously (best-effort). Call on process exit.
         public static void FlushNow()
         {
@@ -91,7 +141,8 @@ namespace P2PTalk.Utilities
             try
             {
                 // Open with append semantics; leave open and reuse to minimize contention
-                using var fs = new FileStream(LogPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
+                // Allow other processes to read/write and allow delete/rename operations
+                using var fs = new FileStream(LogPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
                 using var writer = new StreamWriter(fs, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)) { AutoFlush = true };
                 foreach (var line in _queue.GetConsumingEnumerable())
                 {

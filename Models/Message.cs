@@ -3,6 +3,7 @@
 */
 using System;
 using System.Text.Json.Serialization;
+using P2PTalk.Utilities;
 
 namespace ZTalk.Models
 {
@@ -28,10 +29,34 @@ namespace ZTalk.Models
         }
 
         private string _content = string.Empty;
+        private string _renderedContent = string.Empty;
         public string Content
         {
             get => _content;
-            set { if (_content != value) { _content = value; OnPropertyChanged(nameof(Content)); } }
+            set
+            {
+                var normalized = value ?? string.Empty;
+                if (_content != normalized)
+                {
+                    _content = normalized;
+                    OnPropertyChanged(nameof(Content));
+                    RenderedContent = MarkdownCodeBlockLanguageAnnotator.Annotate(_content);
+                }
+            }
+        }
+
+        [JsonIgnore]
+        public string RenderedContent
+        {
+            get => _renderedContent;
+            private set
+            {
+                if (_renderedContent != value)
+                {
+                    _renderedContent = value;
+                    OnPropertyChanged(nameof(RenderedContent));
+                }
+            }
         }
 
         public DateTime Timestamp { get; set; }
@@ -54,7 +79,7 @@ namespace ZTalk.Models
         public byte[] Signature { get; set; } = Array.Empty<byte>(); // Ed25519 signature over (SenderUID|RecipientUID|Timestamp|Content)
         public byte[] SenderPublicKey { get; set; } = Array.Empty<byte>(); // included for verification and caching
         // Delivery status and timing
-        private string _deliveryStatus = string.Empty; // "Pending" | "Sent" | "Received"
+        private string _deliveryStatus = string.Empty; // "Pending" | "Sending" | "Sent" | "Read"
         public string DeliveryStatus
         {
             get => _deliveryStatus;

@@ -64,11 +64,12 @@ namespace P2PTalk.Utilities
         public static string Theme => PathFor("theme.log");
         public static string Performance => PathFor("performance.log");
         public static string Network => PathFor("network.log");
+        public static string NetworkHeartbeat => PathFor("network_heartbeat.log");
         public static string Startup => PathFor("startup.log");
         public static string Input => PathFor("input.log");
         public static string Render => PathFor("render.log");
         public static string Debug => PathFor("debug.log");
-    public static string App => PathFor("app.log");
+        public static string App => PathFor("app.log");
         public static string Retention => PathFor("retention.log");
         public static string Monitoring => PathFor("monitoring.log");
         public static string UI => PathFor("ui.log");
@@ -78,7 +79,23 @@ namespace P2PTalk.Utilities
         public static bool TryWrite(string path, string line)
         {
             if (!Enabled) return false;
-            try { File.AppendAllText(path, line); return true; } catch { return false; }
+            try
+            {
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
+                    using var fs = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+                    using var sw = new StreamWriter(fs, System.Text.Encoding.UTF8, leaveOpen: false);
+                    sw.Write(line);
+                    sw.Flush();
+                    return true;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+            catch { return false; }
         }
     }
 }

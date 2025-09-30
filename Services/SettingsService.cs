@@ -314,6 +314,7 @@ public class SettingsService
             SettingsWindow = new WindowStateSettings(),
             NetworkWindow = new WindowStateSettings(),
             MonitoringWindow = new WindowStateSettings(),
+            LogViewerWindow = new WindowStateSettings(),
             RelayFallbackEnabled = true,
             RelayServer = null,
             ShowPublicKeys = false,

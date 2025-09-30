@@ -45,7 +45,7 @@ namespace P2PTalk.Views.Controls
                 try
                 {
                     var s = P2PTalk.Services.AppServices.Settings.Settings;
-                    var max = HasDebugPanel() ? 8 : 7;
+                    var max = HasDebugPanel() ? 9 : 8;
                     if (idx >= 0 && idx <= max && s.LastSettingsMenuIndex != idx)
                     {
                         s.LastSettingsMenuIndex = idx;
@@ -59,7 +59,7 @@ namespace P2PTalk.Views.Controls
             try
             {
                 var saved = P2PTalk.Services.AppServices.Settings.Settings.LastSettingsMenuIndex;
-                var max = HasDebugPanel() ? 8 : 7;
+                var max = HasDebugPanel() ? 9 : 8;
                 if (saved < 0 || saved > max) saved = Math.Min(2, max);
                 menu.SelectedIndex = saved;
             }
@@ -94,28 +94,31 @@ namespace P2PTalk.Views.Controls
             var profile = this.FindControl<ScrollViewer>("ProfilePanel");
             var general = this.FindControl<ScrollViewer>("GeneralPanel");
             var appearance = this.FindControl<ScrollViewer>("AppearancePanel");
+            var network = this.FindControl<ScrollViewer>("NetworkPanel");
             var logout = this.FindControl<ScrollViewer>("LogoutPanel");
             var performance = this.FindControl<ScrollViewer>("PerformancePanel");
             var accessibility = this.FindControl<ScrollViewer>("AccessibilityPanel");
             var about = this.FindControl<ScrollViewer>("AboutPanel");
             var danger = this.FindControl<ScrollViewer>("DangerPanel");
             var debugPanel = this.FindControl<ScrollViewer>("DebugPanel");
+            // Don't return early if only network panel is missing - allow other panels to show
             if (profile == null || general == null || appearance == null || logout == null || performance == null || accessibility == null || about == null || danger == null) return;
             var hasDebug = HasDebugPanel() && debugPanel != null;
-            var maxIndex = hasDebug ? 8 : 7;
+            var maxIndex = hasDebug ? 10 : 9;
             if (index < 0) index = 0;
             if (index > maxIndex) index = maxIndex;
-            // Order: Appearance(0), General(1), Profile(2), Performance(3), Accessibility(4), Debug(5*), About(5/6), Danger Zone(6/7), Logout(7/8)
+            // Order: Appearance(0), General(1), Profile(2), Network(3), Performance(4), Accessibility(5), Debug(6*), About(7/8), Danger Zone(8/9), Logout(9/10)
             appearance.IsVisible = index == 0;
             general.IsVisible = index == 1;
             profile.IsVisible = index == 2;
-            performance.IsVisible = index == 3;
-            accessibility.IsVisible = index == 4;
+            if (network != null) network.IsVisible = index == 3;
+            performance.IsVisible = index == 4;
+            accessibility.IsVisible = index == 5;
             if (debugPanel != null)
-                debugPanel.IsVisible = hasDebug && index == 5;
-            about.IsVisible = index == (hasDebug ? 6 : 5);
-            danger.IsVisible = index == (hasDebug ? 7 : 6);
-            logout.IsVisible = index == (hasDebug ? 8 : 7);
+                debugPanel.IsVisible = hasDebug && index == 6;
+            about.IsVisible = index == (hasDebug ? 7 : 6);
+            danger.IsVisible = index == (hasDebug ? 8 : 7);
+            logout.IsVisible = index == (hasDebug ? 9 : 8);
         }
 
         
@@ -194,14 +197,15 @@ namespace P2PTalk.Views.Controls
                     "appearance" => 0,
                     "general" => 1,
                     "profile" => 2,
-                    "performance" => 3,
-                    "accessibility" => 4,
-                    "debug" => hasDebug ? 5 : 3,
-                    "debug tools" => hasDebug ? 5 : 3,
-                    "about" => hasDebug ? 6 : 5,
-                    "danger" => hasDebug ? 7 : 6,
-                    "danger zone" => hasDebug ? 7 : 6,
-                    "logout" => hasDebug ? 8 : 7,
+                    "network" => 3,
+                    "performance" => 4,
+                    "accessibility" => 5,
+                    "debug" => hasDebug ? 6 : -1,
+                    "debug tools" => hasDebug ? 6 : -1,
+                    "about" => hasDebug ? 7 : 6,
+                    "danger" => hasDebug ? 8 : 7,
+                    "danger zone" => hasDebug ? 8 : 7,
+                    "logout" => hasDebug ? 9 : 8,
                     _ => 2 // default to Profile
                 };
                 var menu = this.FindControl<ListBox>("MenuList");
@@ -226,7 +230,7 @@ namespace P2PTalk.Views.Controls
                 {
                     var item = new ListBoxItem { Content = "Debug Tools" };
                     _debugMenuItem = item;
-                    var insertIndex = Math.Min(5, list.Count);
+                    var insertIndex = Math.Min(6, list.Count); // Insert after Accessibility (index 5)
                     list.Insert(insertIndex, item);
                 }
             }

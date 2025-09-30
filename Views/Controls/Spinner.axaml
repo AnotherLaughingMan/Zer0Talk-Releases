@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:P2PTalk.Controls"
+             x:Class="P2PTalk.Controls.Spinner"
+             Width="18" Height="18">
+  <Grid>
+    <!-- subtle background ring -->
+    <Ellipse Stroke="{DynamicResource App.Border}" StrokeThickness="2" Opacity="0.25"/>
+    <!-- arc segment that we rotate to simulate spinner -->
+    <Path Stroke="{DynamicResource App.Accent}" StrokeThickness="2" StrokeLineCap="Round" Data="M9,2 A7,7 0 1 1 8.99,2">
+      <Path.RenderTransform>
+        <RotateTransform Angle="{Binding Angle, Mode=OneWay, RelativeSource={RelativeSource AncestorType=c:Spinner}}"/>
+      </Path.RenderTransform>
+    </Path>
+  </Grid>
+</UserControl>

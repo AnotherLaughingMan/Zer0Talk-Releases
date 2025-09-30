@@ -46,6 +46,27 @@ namespace P2PTalk.ViewModels
         public ObservableCollection<Contact> Contacts { get; } = new();
         public ObservableCollection<Message> Messages { get; } = new();
         public ObservableCollection<object> TimelineItems { get; } = new();
+        private double _chatViewportWidth;
+        public double ChatViewportWidth
+        {
+            get => _chatViewportWidth;
+            set
+            {
+                if (double.IsNaN(value) || double.IsInfinity(value)) return;
+                if (Math.Abs(value - _chatViewportWidth) < 0.5) return;
+                _chatViewportWidth = value;
+                OnPropertyChanged();
+                try
+                {
+                    if (LoggingPaths.Enabled)
+                    {
+                        var line = $"{DateTime.Now:O} [UI][ChatWidth] viewport={value:F1}";
+                        System.IO.File.AppendAllText(LoggingPaths.UI, line + Environment.NewLine);
+                    }
+                }
+                catch { }
+            }
+        }
     private readonly MessageContainer _messagesStore = new();
     private DateTime? _lastTimelineDate;
         private const string UpdatesKey = "MainWindow.UI";
@@ -712,7 +733,7 @@ namespace P2PTalk.ViewModels
                 _teardownActions.Add(() => AppServices.Network.ChatMessageDeleted -= chatDeletedHandler);
             }
             catch { }
-            // Received ACKs: mark as Received and stamp DeliveredUtc
+            // Received ACKs: mark as Sent (delivery confirmed) and stamp DeliveredUtc
             try
             {
                 Action<string, Guid> chatAckHandler = (peerUid, id) =>
@@ -722,9 +743,21 @@ namespace P2PTalk.ViewModels
                         var m = Messages.FirstOrDefault(x => x.Id == id);
                         if (m != null)
                         {
-                            m.DeliveryStatus = "Received";
-                            m.DeliveredUtc = DateTime.UtcNow;
-                            try { _messagesStore.UpdateDelivery(peerUid, id, m.DeliveryStatus, m.DeliveredUtc, AppServices.Passphrase); } catch { }
+                            // Only upgrade Pending/Sending to Sent. Do not downgrade Read.
+                            if (!string.Equals(m.DeliveryStatus, "Read", StringComparison.OrdinalIgnoreCase))
+                            {
+                                m.DeliveryStatus = "Sent";
+                            }
+                            if (m.DeliveredUtc == null)
+                            {
+                                m.DeliveredUtc = DateTime.UtcNow;
+                            }
+                            try { _messagesStore.UpdateDelivery(peerUid, id, m.DeliveryStatus, m.DeliveredUtc, AppServices.Passphrase, m.ReadUtc); } catch { }
+                            try { Logger.NetworkLog($"UI-Ack: message marked Sent in UI | peer={peerUid} | id={id}"); } catch { }
+                        }
+                        else
+                        {
+                            try { Logger.NetworkLog($"UI-Ack: message not found in UI message list | peer={peerUid} | id={id}"); } catch { }
                         }
                     });
                 };
@@ -763,6 +796,7 @@ namespace P2PTalk.ViewModels
                                 m.DeliveredUtc = DateTime.UtcNow;
                             }
                         }
+                        try { Logger.NetworkLog($"UI-DeliveryUpdate: peer={peerUid} id={id} status={resolvedStatus} deliveredUtc={(m.DeliveredUtc.HasValue ? m.DeliveredUtc.Value.ToString("o") : "null")} readUtc={(m.ReadUtc.HasValue ? m.ReadUtc.Value.ToString("o") : "null")} "); } catch { }
                         OnPropertyChanged(nameof(Messages));
                     });
                 };
@@ -1054,20 +1088,24 @@ namespace P2PTalk.ViewModels
                 {
                     try
                     {
+                        Logger.NetworkLog($"SendAttempt: peer={recipientUid} id={message.Id} contentLen={message.Content?.Length ?? 0}");
                         var sent = await AppServices.Network.SendChatAsync(recipientUid, message.Id, content, CancellationToken.None);
                         if (sent)
                         {
                             message.DeliveryStatus = "Sent";
                             message.DeliveredUtc = DateTime.UtcNow;
                             try { _messagesStore.UpdateDelivery(recipientUid, message.Id, message.DeliveryStatus, message.DeliveredUtc, AppServices.Passphrase); } catch { }
+                            try { Logger.NetworkLog($"SendResult: Sent | peer={recipientUid} id={message.Id}"); } catch { }
                         }
                         else
                         {
+                            try { Logger.NetworkLog($"SendResult: Queued | peer={recipientUid} id={message.Id}"); } catch { }
                             QueueOutgoingMessage(recipientUid, message, "Contact offline. Message queued for delivery.");
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        try { Logger.NetworkLog($"SendResult: Exception | peer={recipientUid} id={message.Id} ex={ex.Message}"); } catch { }
                         QueueOutgoingMessage(recipientUid, message, "Contact offline. Message queued for delivery.");
                     }
                 });
@@ -1352,37 +1390,39 @@ namespace P2PTalk.ViewModels
                     return;
                 }
 
-                outbound.DeliveryStatus = "Sent";
-                outbound.DeliveredUtc = DateTime.UtcNow;
-                try { _messagesStore.UpdateDelivery(recipientUid, outbound.Id, outbound.DeliveryStatus, outbound.DeliveredUtc, AppServices.Passphrase); } catch { }
+                // Start with Sending status to show spinner initially
+                outbound.DeliveryStatus = "Sending";
+                try { _messagesStore.UpdateDelivery(recipientUid, outbound.Id, outbound.DeliveryStatus, null, AppServices.Passphrase); } catch { }
+                try { Logger.NetworkLog($"SimSend-Start: peer={recipientUid} id={outbound.Id} status=Sending"); } catch { }
 
-                // Simulate remote delivery + read acknowledgements so status pills update during debug scenarios
+                // Simulate realistic delivery progression: Sending → Sent → Received → Read
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        await Task.Delay(200);
-                        var receivedUtc = DateTime.UtcNow;
+                        // Step 1: Mark as Sent (network accepted)
+                        await Task.Delay(100);
+                        var sentUtc = DateTime.UtcNow;
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                         {
-                            outbound.DeliveryStatus = "Received";
-                            if (outbound.DeliveredUtc == null)
-                            {
-                                outbound.DeliveredUtc = receivedUtc;
-                            }
+                            outbound.DeliveryStatus = "Sent";
+                            outbound.DeliveredUtc = sentUtc;
                         });
-                        try { _messagesStore.UpdateDelivery(recipientUid, outbound.Id, "Received", outbound.DeliveredUtc, AppServices.Passphrase); } catch { }
-                        try { AppServices.Events.RaiseOutboundDeliveryUpdated(recipientUid, outbound.Id, "Received", outbound.DeliveredUtc); } catch { }
+                        try { _messagesStore.UpdateDelivery(recipientUid, outbound.Id, "Sent", sentUtc, AppServices.Passphrase); } catch { }
+                        try { AppServices.Events.RaiseOutboundDeliveryUpdated(recipientUid, outbound.Id, "Sent", sentUtc); } catch { }
+                        try { Logger.NetworkLog($"SimSend-Sent: peer={recipientUid} id={outbound.Id} status=Sent"); } catch { }
 
-                        await Task.Delay(600);
+                        // Step 2: Mark as Read (remote read it) - skipping "Received" status
+                        await Task.Delay(1200);
                         var readUtc = DateTime.UtcNow;
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                         {
                             outbound.DeliveryStatus = "Read";
                             outbound.ReadUtc = readUtc;
                         });
-                        try { _messagesStore.UpdateDelivery(recipientUid, outbound.Id, "Read", outbound.DeliveredUtc, AppServices.Passphrase, readUtc); } catch { }
+                        try { _messagesStore.UpdateDelivery(recipientUid, outbound.Id, "Read", sentUtc, AppServices.Passphrase, readUtc); } catch { }
                         try { AppServices.Events.RaiseOutboundDeliveryUpdated(recipientUid, outbound.Id, "Read", readUtc); } catch { }
+                        try { Logger.NetworkLog($"SimSend-Read: peer={recipientUid} id={outbound.Id} status=Read"); } catch { }
                     }
                     catch { }
                 });
@@ -1476,9 +1516,9 @@ namespace P2PTalk.ViewModels
                                        .ToList();
                 foreach (var msg in pendings)
                 {
-                    msg.DeliveryStatus = "Received";
+                    msg.DeliveryStatus = "Sent"; // delivered to simulated contact
                     msg.DeliveredUtc = now;
-                    try { _messagesStore.UpdateDelivery(targetUid, msg.Id, "Received", now, AppServices.Passphrase); } catch { }
+                    try { _messagesStore.UpdateDelivery(targetUid, msg.Id, "Sent", now, AppServices.Passphrase); } catch { }
 
                     var echo = new Message
                     {

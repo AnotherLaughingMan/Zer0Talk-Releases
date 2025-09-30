@@ -9,6 +9,7 @@
         <ListBoxItem Content="Appearance"/>
         <ListBoxItem Content="General"/>
         <ListBoxItem Content="Profile"/>
+        <ListBoxItem Content="Network"/>
         <ListBoxItem Content="Performance"/>
         <ListBoxItem Content="Accessibility"/>
         <ListBoxItem Content="About"/>
@@ -27,7 +28,7 @@
 
   <Grid Grid.Column="2">
       <!-- Profile Panel -->
-      <ScrollViewer x:Name="ProfilePanel" IsVisible="False">
+      <ScrollViewer x:Name="ProfilePanel" IsVisible="True">
         <StackPanel Margin="8" Spacing="16">
           <TextBlock Text="Profile" FontWeight="SemiBold" FontSize="18"/>
 
@@ -210,7 +211,7 @@
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
               <TextBlock Text="Theme" FontWeight="SemiBold"/>
-              <ComboBox SelectedIndex="{Binding ThemeIndex}" Width="180">
+              <ComboBox x:Name="ThemeCombo" SelectedIndex="{Binding ThemeIndex}" Width="180">
                 <ComboBoxItem Content="Dark"/>
                 <ComboBoxItem Content="Light"/>
                 <ComboBoxItem Content="Sandy"/>
@@ -238,7 +239,7 @@
   </ScrollViewer>
 
       <ScrollViewer x:Name="PerformancePanel" IsVisible="False">
-        <StackPanel Margin="8" Spacing="16">
+        <StackPanel x:Name="PerformanceStack" Margin="8" Spacing="16">
           <TextBlock Text="Performance" FontWeight="SemiBold" FontSize="18"/>
           
           <!-- CPU Section (first) -->
@@ -389,8 +390,14 @@
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Retention window (days)" VerticalAlignment="Center"/>
                 <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding DebugLogRetentionDays}" Minimum="0" Maximum="30" Width="80" ShowButtonSpinner="False"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Size cap (MB)" VerticalAlignment="Center"/>
-                <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding DebugLogMaxMegabytes}" Minimum="1" Maximum="512" Width="80" ShowButtonSpinner="False"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Size cap" VerticalAlignment="Center"/>
+                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                  <NumericUpDown Value="{Binding DebugLogSizeValue}" Minimum="1" Maximum="{Binding DebugLogSizeMaxValue}" Width="80" ShowButtonSpinner="False"/>
+                  <ComboBox SelectedItem="{Binding DebugLogSizeUnit}" Width="80" MinWidth="80">
+                    <x:String>KB</x:String>
+                    <x:String>MB</x:String>
+                  </ComboBox>
+                </StackPanel>
               </Grid>
 
               <StackPanel Spacing="4">
@@ -401,6 +408,7 @@
 
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Content="Run Maintenance Now" Command="{Binding RunLogMaintenanceCommand}"/>
+                <Button Content="Clear Error Log" Command="{Binding ClearErrorLogCommand}" Background="{DynamicResource App.Warning}" Foreground="White" ToolTip.Tip="Trim error.log to last 500 entries (emergency cleanup)"/>
               </StackPanel>
             </StackPanel>
           </Border>
@@ -463,6 +471,167 @@
               <TextBlock Text="Acknowledgments" FontWeight="SemiBold" FontSize="16"/>
               <TextBlock Text="Built with Avalonia UI - A cross-platform XAML-based UI framework for .NET" TextWrapping="Wrap" Opacity="0.8"/>
               <TextBlock Text="Special thanks to the open source community for their contributions and support." TextWrapping="Wrap" Opacity="0.8"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Network Panel -->
+      <ScrollViewer x:Name="NetworkPanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="Network" FontWeight="SemiBold" FontSize="18"/>
+
+          <!-- Connection Settings -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Connection" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Port" VerticalAlignment="Center"/>
+                <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding Port}" Minimum="1" Maximum="65535" Width="120" ShowButtonSpinner="False"/>
+                
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Major Node" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="1" Grid.Column="1" IsChecked="{Binding MajorNode}" Content="Enable Major Node (requires port forwarding)"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Relay Settings -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Relay" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Relay Fallback" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding RelayFallbackEnabled}" Content="Enable relay fallback for blocked connections"/>
+                
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Relay Server" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RelayServer}" Watermark="relay.example.com:443" Width="240"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Known Major Nodes -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Known Major Nodes" FontWeight="SemiBold"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBox Text="{Binding NewMajorNode}" Watermark="example.com:26264" Width="240"/>
+                <Button Content="Add" Command="{Binding AddMajorNodeCommand}"/>
+              </StackPanel>
+              <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" MinHeight="120" MaxHeight="200">
+                <ScrollViewer>
+                  <ItemsControl ItemsSource="{Binding KnownMajorNodes}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Grid ColumnDefinitions="*,Auto" Margin="8,4">
+                          <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"/>
+                          <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[UserControl].DataContext.RemoveMajorNodeCommand}" CommandParameter="{Binding}"/>
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <!-- Discovered Peers -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Discovered Peers" FontWeight="SemiBold"/>
+              <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" MinHeight="160" MaxHeight="280">
+                <ScrollViewer>
+                  <ListBox x:Name="DiscoveredPeersList" ItemsSource="{Binding DiscoveredPeers}" SelectedItem="{Binding SelectedDiscoveredPeer}" BorderThickness="0">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <Grid ColumnDefinitions="140,*,Auto" Margin="8,4" HorizontalAlignment="Stretch">
+                          <Grid Grid.Column="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+                            <!-- Globe icon for Major Nodes -->
+                            <TextBlock Grid.Column="0" Classes="icon-mdl2" Text="&#xE774;" Foreground="{DynamicResource App.Accent}" IsVisible="{Binding IsMajorNode}"/>
+                            <!-- UID text with ellipsis -->
+                            <TextBlock Grid.Column="1" Text="{Binding DisplayUID}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DisplayUID}"/>
+                            <!-- Verified badge -->
+                            <Border Grid.Column="2" Width="18" Height="18" CornerRadius="9" Background="{DynamicResource App.Accent}" IsVisible="{Binding PublicKeyVerified}" VerticalAlignment="Center">
+                              <TextBlock Text="✓" Foreground="White" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                          </Grid>
+                          <!-- Public key with ellipsis -->
+                          <TextBlock Grid.Column="1" Text="{Binding PublicKeyDisplay}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PublicKeyDisplay}" VerticalAlignment="Center" Foreground="{DynamicResource App.ForegroundSecondary}"/>
+                          <Button Grid.Column="2" Content="Block" Command="{Binding $parent[UserControl].DataContext.BlockPeerCommand}" CommandParameter="{Binding UID}"/>
+                        </Grid>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </ScrollViewer>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <!-- Network Adapters -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Network Adapters" FontWeight="SemiBold"/>
+              <TextBlock Text="Adapters at the top have priority for outbound connections" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Border Grid.Column="0" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" MinHeight="160" MaxHeight="240">
+                  <ScrollViewer>
+                    <ListBox x:Name="AdaptersList" ItemsSource="{Binding NetworkAdapters}" SelectedItem="{Binding SelectedNetworkAdapter}" BorderThickness="0">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate>
+                          <Border Padding="8,6" Margin="2" CornerRadius="6" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
+                            <Border.Styles>
+                              <Style Selector="Border:listboxitem:selected">
+                                <Setter Property="Background" Value="{DynamicResource App.ItemSelected}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+                              </Style>
+                              <Style Selector="Border:pointerover">
+                                <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+                                <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+                              </Style>
+                            </Border.Styles>
+                            <StackPanel Spacing="2">
+                              <TextBlock Text="{Binding Name}" FontWeight="Medium"/>
+                              <TextBlock Text="{Binding Address}" FontSize="12" Foreground="{DynamicResource App.ForegroundSecondary}"/>
+                              <TextBlock Text="{Binding Status}" FontSize="12" Foreground="{DynamicResource App.ForegroundSecondary}"/>
+                            </StackPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </ScrollViewer>
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Top">
+                  <Button Content="▲" Command="{Binding MoveAdapterUpCommand}" Width="32" Height="32" ToolTip.Tip="Move Up"/>
+                  <Button Content="▼" Command="{Binding MoveAdapterDownCommand}" Width="32" Height="32" ToolTip.Tip="Move Down"/>
+                  <Separator Margin="0,8"/>
+                  <Button Content="Save" Command="{Binding SaveAdapterOrderCommand}" Width="64" ToolTip.Tip="Save adapter priority order"/>
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Blocked Peers -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Blocked Peers" FontWeight="SemiBold"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBox Text="{Binding NewBlockedPeer}" Watermark="peer-uid" Width="240"/>
+                <Button Content="Block" Command="{Binding BlockPeerCommand}"/>
+              </StackPanel>
+              <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" MinHeight="120" MaxHeight="200">
+                <ScrollViewer>
+                  <ListBox ItemsSource="{Binding BlockedPeers}" SelectedItem="{Binding SelectedBlockedPeer}">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <Grid ColumnDefinitions="*,Auto" Margin="8,4">
+                          <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"/>
+                          <Button Grid.Column="1" Content="Unblock" Command="{Binding $parent[UserControl].DataContext.UnblockPeerCommand}" CommandParameter="{Binding}"/>
+                        </Grid>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </ScrollViewer>
+              </Border>
+              <Button Content="Clear All Blocks" Command="{Binding ClearAllBlocksCommand}" HorizontalAlignment="Left"/>
             </StackPanel>
           </Border>
         </StackPanel>

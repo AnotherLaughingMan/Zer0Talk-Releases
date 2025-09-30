@@ -1879,6 +1879,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             }
         }
         catch { }
+   
     }
 
     private static void TrimCaches()
@@ -2176,6 +2177,56 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
         catch { }
     }
+
+    // Network functionality - delegate to NetworkViewModel instance
+    private NetworkViewModel? _networkVm;
+    private NetworkViewModel NetworkVm => _networkVm ??= new NetworkViewModel();
+    
+    // Network properties exposed from NetworkViewModel
+    public int Port { get => NetworkVm.Port; set => NetworkVm.PortText = value.ToString(); }
+    public bool MajorNode { get => NetworkVm.MajorNode; set => NetworkVm.MajorNode = value; }
+    public bool RelayFallbackEnabled { get; set; } // TODO: Implement in NetworkViewModel
+    public string RelayServer { get; set; } = string.Empty; // TODO: Implement in NetworkViewModel
+    public string NewMajorNode { get => NetworkVm.NewMajorNode; set => NetworkVm.NewMajorNode = value; }
+    public string NewBlockedPeer { get; set; } = string.Empty; // TODO: Implement in NetworkViewModel
+
+    // Network collections exposed from NetworkViewModel
+    public System.Collections.ObjectModel.ObservableCollection<string> KnownMajorNodes => NetworkVm.KnownMajorNodes;
+    public System.Collections.ObjectModel.ObservableCollection<string> BlockedPeers => NetworkVm.BlockedPeers;
+    public System.Collections.ObjectModel.ObservableCollection<Peer> DiscoveredPeers => NetworkVm.DiscoveredPeers;
+    public System.Collections.ObjectModel.ObservableCollection<NetworkViewModel.AdapterItem> NetworkAdapters => NetworkVm.Adapters;
+    
+    public Peer? SelectedDiscoveredPeer
+    {
+        get => NetworkVm.SelectedDiscoveredPeer;
+        set => NetworkVm.SelectedDiscoveredPeer = value;
+    }
+    public string? SelectedBlockedPeer
+    {
+        get => NetworkVm.SelectedBlockedPeer;
+        set => NetworkVm.SelectedBlockedPeer = value;
+    }
+    public NetworkViewModel.AdapterItem? SelectedNetworkAdapter 
+    { 
+        get => NetworkVm.SelectedAdapter; 
+        set => NetworkVm.SelectedAdapter = value; 
+    }
+
+    // Network commands exposed from NetworkViewModel
+    public ICommand AddMajorNodeCommand => NetworkVm.AddMajorNodeCommand;
+    public ICommand RemoveMajorNodeCommand => NetworkVm.RemoveMajorNodeCommand;
+    public ICommand BlockPeerCommand => NetworkVm.BlockPeerCommand;
+    public ICommand UnblockPeerCommand => NetworkVm.UnblockPeerCommand;
+    public ICommand ClearAllBlocksCommand => NetworkVm.ClearAllBlocksCommand;
+    public ICommand MoveAdapterUpCommand => NetworkVm.MoveAdapterUpCommand;
+    public ICommand MoveAdapterDownCommand => NetworkVm.MoveAdapterDownCommand;
+    public ICommand SaveAdapterOrderCommand => NetworkVm.SaveAdaptersCommand;
+    
+    // Additional debug properties that were referenced in XAML
+    public int DebugLogSizeValue { get; set; } = 16;
+    public int DebugLogSizeMaxValue { get; set; } = 512;
+    public string DebugLogSizeUnit { get; set; } = "MB";
+    public ICommand? ClearErrorLogCommand { get; set; } // TODO: Implement
 }
 
 internal sealed class LockServiceSingleton

@@ -4,9 +4,11 @@
     - Provides access to Settings, Theme, Network, and other services.
 */
 // TODO[ANCHOR]: AppServices - Global services and passphrase state
+using System;
 using P2PTalk.Containers;
 using System.Linq;
 using Models = ZTalk.Models;
+using P2PTalk.Utilities;
 
 namespace P2PTalk.Services;
 
@@ -180,10 +182,33 @@ public static class AppServices
                 {
                     var mc = new P2PTalk.Containers.MessageContainer();
                     var stamp = System.DateTime.UtcNow;
-                    mc.UpdateDelivery(uid, id, "Received", stamp, Passphrase);
-                    Events.RaiseOutboundDeliveryUpdated(uid, id, "Received", stamp);
+                    var ok = mc.UpdateDelivery(uid, id, "Sent", stamp, Passphrase);
+                    if (!ok)
+                    {
+                        // Try alternate UID forms to tolerate stored key format differences
+                        try
+                        {
+                            string alt = uid.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) ? uid.Substring(4) : ("usr-" + uid);
+                            ok = mc.UpdateDelivery(alt, id, "Sent", stamp, Passphrase);
+                            if (ok) Logger.NetworkLog($"ACK-Rcvd: Fallback Updated delivery Sent using alt UID | peer={alt} | id={id}");
+                        }
+                        catch { }
+                    }
+                    if (ok)
+                    {
+                        Events.RaiseOutboundDeliveryUpdated(uid, id, "Sent", stamp);
+                        Logger.NetworkLog($"ACK-Rcvd: Updated delivery Sent | peer={uid} | id={id}");
+                    }
+                    else
+                    {
+                        // Log if the message wasn't found so we can diagnose mismatched UIDs/IDs
+                        Logger.NetworkLog($"ACK-Rcvd: message not found in store | peer={uid} | id={id}");
+                    }
                 }
-                catch { }
+                catch (System.Exception ex)
+                {
+                    Logger.NetworkLog($"ACK-Rcvd: handler exception | peer={uid} | id={id} | ex={ex.Message}");
+                }
             };
         }
         catch { }
@@ -195,10 +220,31 @@ public static class AppServices
                 {
                     var mc = new P2PTalk.Containers.MessageContainer();
                     var stamp = System.DateTime.UtcNow;
-                    mc.UpdateDelivery(uid, id, "Read", null, Passphrase, readUtc: stamp);
-                    Events.RaiseOutboundDeliveryUpdated(uid, id, "Read", stamp);
+                    var ok = mc.UpdateDelivery(uid, id, "Read", null, Passphrase, readUtc: stamp);
+                    if (!ok)
+                    {
+                        try
+                        {
+                            string alt = uid.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) ? uid.Substring(4) : ("usr-" + uid);
+                            ok = mc.UpdateDelivery(alt, id, "Read", null, Passphrase, readUtc: stamp);
+                            if (ok) Logger.NetworkLog($"ACK-Read: Fallback Updated delivery Read using alt UID | peer={alt} | id={id}");
+                        }
+                        catch { }
+                    }
+                    if (ok)
+                    {
+                        Events.RaiseOutboundDeliveryUpdated(uid, id, "Read", stamp);
+                        Logger.NetworkLog($"ACK-Read: Updated delivery Read | peer={uid} | id={id}");
+                    }
+                    else
+                    {
+                        Logger.NetworkLog($"ACK-Read: message not found in store | peer={uid} | id={id}");
+                    }
                 }
-                catch { }
+                catch (System.Exception ex)
+                {
+                    Logger.NetworkLog($"ACK-Read: handler exception | peer={uid} | id={id} | ex={ex.Message}");
+                }
             };
         }
         catch { }

@@ -1,0 +1,154 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:P2PTalk.ViewModels"
+        x:Class="P2PTalk.Views.LogViewerWindow"
+        x:DataType="vm:LogViewerViewModel"
+        mc:Ignorable="d"
+        Title="Log Viewer"
+        Width="960"
+        Height="640"
+        MinWidth="760"
+        MinHeight="520"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="32"
+        Background="{DynamicResource App.Background}">
+    <Window.DataContext>
+        <vm:LogViewerViewModel />
+    </Window.DataContext>
+
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource App.Background}">
+        <Border Grid.Row="0"
+                Padding="8,6"
+                BorderBrush="{DynamicResource App.Border}"
+                BorderThickness="0 0 0 1"
+                Background="{DynamicResource App.TitleBarBackground}"
+                PointerPressed="DragBar_PointerPressed">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" VerticalAlignment="Center">
+                <TextBlock Grid.Column="0"
+                           Classes="icon-mdl2"
+                           Text="&#xE8A5;"
+                           FontSize="18"
+                           Foreground="{DynamicResource App.TitleBarForeground}"
+                           Margin="0,0,8,0"/>
+                <TextBlock Grid.Column="1"
+                           Text="Log Viewer"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource App.TitleBarForeground}"/>
+                <Button Grid.Column="2"
+                        Classes="icon-button"
+                        ToolTip.Tip="Minimize"
+                        Click="Minimize_Click">
+                    <TextBlock Classes="icon-mdl2" Text="&#xE921;"/>
+                </Button>
+                <Button Grid.Column="3"
+                        Classes="icon-button"
+                        ToolTip.Tip="Close"
+                        Click="Close_Click">
+                    <TextBlock Classes="icon-mdl2" Text="&#xE8BB;"/>
+                </Button>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Background="{DynamicResource App.Background}">
+            <Grid Margin="12" RowDefinitions="Auto,*" RowSpacing="10">
+                <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" VerticalAlignment="Center">
+                        <StackPanel Orientation="Vertical" Spacing="2">
+                            <TextBlock Text="Logs directory" FontSize="12" Opacity="0.7"/>
+                            <TextBlock Text="{Binding CurrentDirectory}"
+                                       Classes="app-trunc"
+                                       ToolTip.Tip="{Binding CurrentDirectory}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshCommand}" MinWidth="90" ToolTip.Tip="Rescan the logs directory"/>
+                        <Button Grid.Column="2" Content="Reload File" Command="{Binding ReloadCommand}" MinWidth="90" ToolTip.Tip="Reload the currently selected log"/>
+                        <Button Grid.Column="3" Content="Trim This Log" Command="{Binding TrimSelectedCommand}" MinWidth="100" ToolTip.Tip="Apply debug maintenance settings to trim this log file" Background="{DynamicResource App.Warning}" Foreground="White"/>
+                        <Button Grid.Column="4" Content="Copy Path" Command="{Binding CopyPathCommand}" MinWidth="90" ToolTip.Tip="Copy the selected log's full path"/>
+                        <Button Grid.Column="5" Content="Open Folder" Command="{Binding OpenFolderCommand}" MinWidth="100" ToolTip.Tip="Open the logs folder in your file explorer"/>
+                        <ToggleSwitch Grid.Column="6"
+                                      Content="Autoscroll"
+                                      IsChecked="{Binding AutoscrollEnabled}"
+                                      VerticalAlignment="Center"
+                                      MinWidth="110"
+                                      ToolTip.Tip="Keep the view pinned to the latest log entries"/>
+                    </Grid>
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Foreground="{DynamicResource App.ForegroundSecondary}"
+                               FontSize="12"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <Grid Grid.Row="1">
+                    <TabControl x:Name="LogTabs"
+                                ItemsSource="{Binding Tabs}"
+                                SelectedItem="{Binding SelectedTab}"
+                                TabStripPlacement="Left"
+                                Background="{DynamicResource App.Background}">
+                        <TabControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LogDocumentViewModel">
+                                <StackPanel Margin="4" Spacing="4">
+                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding Info}"
+                                               FontSize="11"
+                                               Opacity="0.7"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </TabControl.ItemTemplate>
+                        <TabControl.ContentTemplate>
+                            <DataTemplate x:DataType="vm:LogDocumentViewModel">
+                                <Border Background="#101010" BorderThickness="0">
+                                    <Grid RowDefinitions="Auto,*">
+                                        <Border Grid.Row="0"
+                                                Padding="14,10"
+                                                Background="#151515"
+                                                BorderBrush="#202020"
+                                                BorderThickness="0 0 0 1">
+                                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           Foreground="#E0E0E0"
+                                                           FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Info}"
+                                                           Foreground="#B0B0B0"
+                                                           FontSize="12"/>
+                                                <TextBlock Text="Loading..."
+                                                           Foreground="#E0E0E0"
+                                                           FontSize="12"
+                                                           IsVisible="{Binding IsLoading}"/>
+                                            </StackPanel>
+                                        </Border>
+                                        <ScrollViewer x:Name="LogContentScroll"
+                                                      Grid.Row="1"
+                                                      Background="#101010"
+                                                      HorizontalScrollBarVisibility="Auto"
+                                                      VerticalScrollBarVisibility="Auto">
+                                            <TextBlock Text="{Binding Content}"
+                                                       Foreground="#D8D8D8"
+                                                       FontFamily="Consolas"
+                                                       FontSize="13"
+                                                       TextWrapping="NoWrap"/>
+                                        </ScrollViewer>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </TabControl.ContentTemplate>
+                    </TabControl>
+                    <Border Background="#AA000000"
+                            CornerRadius="6"
+                            Padding="20"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding HasTabs, Converter={StaticResource InverseBoolConverter}}">
+                        <StackPanel Spacing="6" HorizontalAlignment="Center">
+                            <TextBlock Text="No log files found" Foreground="{DynamicResource App.ForegroundPrimary}" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Use Refresh to re-scan the logs directory." Foreground="{DynamicResource App.ForegroundSecondary}" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
