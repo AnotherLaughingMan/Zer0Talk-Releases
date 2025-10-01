@@ -2,9 +2,9 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
-using P2PTalk.ViewModels;
+using ZTalk.ViewModels;
 
-namespace P2PTalk.Views
+namespace ZTalk.Views
 {
     public partial class LostPassphraseDialog : Window
     {

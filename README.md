@@ -1,6 +1,6 @@
-# P2PTalk
+# ZTalk
 
-> **Prototype Warning:** P2PTalk is firmly in an **InDev-Prototype** state. Updates land frequently, features shift under your feet, and plenty of things are in active repair at any given moment.
+> **Prototype Warning:** ZTalk is firmly in an **InDev-Prototype** state. Updates land frequently, features shift under your feet, and plenty of things are in active repair at any given moment.
 
 Peer-to-peer messaging experiment for Windows, built with Avalonia (.NET 9) and a service-heavy MVVM architecture. Everything runs locally: encrypted settings, identity sidecars, and contact data live on your machine—no central servers involved.
 
@@ -28,7 +28,9 @@ Peer-to-peer messaging experiment for Windows, built with Avalonia (.NET 9) and 
 dotnet build .\P2PTalk.csproj
 
 # Run
-dotnet run --project .\P2PTalk.csproj
+```bash
+dotnet run --project .\ZTalk.csproj
+```
 ```
 
 ### Requirements
@@ -38,7 +40,7 @@ dotnet run --project .\P2PTalk.csproj
 
 ## Configuration & Data Paths
 
-- Settings: `%AppData%\Roaming\P2PTalk\settings.p2e` (encrypted at rest; auto-migrated from older paths).
+- Settings: `%AppData%\Roaming\ZTalk\settings.p2e` (encrypted at rest; auto-migrated from older paths).
 - Logs: `bin/<Configuration>/net9.0/logs/` (see `Utilities/LoggingPaths`).
 - Publish output: `publish/win-x64-<Variant>/` with timestamped zips.
 

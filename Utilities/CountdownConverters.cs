@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using ZTalk.Models;
-using P2PTalk.ViewModels;
+using ZTalk.ViewModels;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     public sealed class EditCountdownConverter : IMultiValueConverter
     {

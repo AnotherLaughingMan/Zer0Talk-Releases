@@ -10,12 +10,12 @@ using System.Diagnostics;
 
 using Avalonia;
 
-using P2PTalk.Services;
-using P2PTalk.Utilities;
+using ZTalk.Services;
+using ZTalk.Utilities;
 
 using Sodium;
 
-namespace P2PTalk;
+namespace ZTalk;
 
 internal sealed class Program
 {
@@ -33,7 +33,7 @@ internal sealed class Program
         {
             // Ensure error.txt exists as early as possible and mark entry
             StartupLog("Startup.Program.Begin");
-                try { P2PTalk.Utilities.AppDataPaths.MigrateIfNeeded(); } catch { }
+                try { ZTalk.Utilities.AppDataPaths.MigrateIfNeeded(); } catch { }
             // Start 1Hz heartbeat for first 30 seconds
             try
             {
@@ -121,13 +121,13 @@ internal sealed class Program
                 if (string.Equals(a, "--safe-mode", StringComparison.OrdinalIgnoreCase))
                 {
                     App.SafeMode = true;
-                    P2PTalk.Utilities.RuntimeFlags.SafeMode = true;
+                    ZTalk.Utilities.RuntimeFlags.SafeMode = true;
                     StartupLog("Startup.SafeMode.Enabled");
                 }
                 else if (string.Equals(a, "--profile", StringComparison.OrdinalIgnoreCase))
                 {
                     var val = (i + 1) < argv.Length ? argv[i + 1] : null;
-                    P2PTalk.Utilities.AppDataPaths.SetProfileSuffix(val);
+                    ZTalk.Utilities.AppDataPaths.SetProfileSuffix(val);
                     if (!string.IsNullOrWhiteSpace(val)) StartupLog($"Startup.Profile={val}");
                     i++;
                 }
@@ -291,9 +291,9 @@ internal sealed class Program
     {
         try
         {
-            if (!P2PTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
             var line = "[" + DateTime.Now.ToString("O") + "] " + msg;
-            System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.Startup, line + Environment.NewLine);
+            System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Startup, line + Environment.NewLine);
         }
         catch { }
     }

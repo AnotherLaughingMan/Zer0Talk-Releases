@@ -11,11 +11,11 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
-using P2PTalk.ViewModels;
-using P2PTalk.Services;
+using ZTalk.ViewModels;
+using ZTalk.Services;
 using ZTalk.Models;
 
-namespace P2PTalk.Views;
+namespace ZTalk.Views;
 
 public partial class LogViewerWindow : Window
 {

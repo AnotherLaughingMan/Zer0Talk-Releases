@@ -4,7 +4,7 @@
 using System;
 using System.IO;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     public static class Logger
     {
@@ -41,7 +41,7 @@ namespace P2PTalk.Utilities
                         if (dt != null)
                         {
                             var ns = dt.Namespace ?? string.Empty;
-                            if (ns.StartsWith("P2PTalk.Services", StringComparison.OrdinalIgnoreCase))
+                            if (ns.StartsWith("ZTalk.Services", StringComparison.OrdinalIgnoreCase))
                             {
                                 routeToNetwork = true;
                                 break;

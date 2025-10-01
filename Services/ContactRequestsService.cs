@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Models = ZTalk.Models;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public enum ContactRequestResult
     {

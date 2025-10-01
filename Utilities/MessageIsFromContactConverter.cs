@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     /// <summary>
     /// Returns true if the message is from a contact (not from the logged-in user).

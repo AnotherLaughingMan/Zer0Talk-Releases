@@ -4,7 +4,7 @@ using System.IO;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public static class AvatarCache
     {
@@ -77,7 +77,7 @@ namespace P2PTalk.Services
 
         public static string GetCacheDir()
         {
-            return Path.Combine(P2PTalk.Utilities.AppDataPaths.Root, ".cache");
+            return Path.Combine(ZTalk.Utilities.AppDataPaths.Root, ".cache");
         }
 
         public static string GetAvatarPath(string uid)

@@ -7,7 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     // Enforces a lower UI pulse rate when the app is unfocused or minimized, restoring when foregrounded.
     public static class FocusFramerateService

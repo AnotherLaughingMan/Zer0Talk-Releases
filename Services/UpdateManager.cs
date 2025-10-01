@@ -13,7 +13,7 @@ using System.Threading;
 
 using Avalonia.Threading;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public sealed class UpdateManager
     {

@@ -18,11 +18,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 using ZTalk.Models;
 using Models = ZTalk.Models;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class NetworkService : IDisposable
     {
@@ -70,6 +70,18 @@ namespace P2PTalk.Services
     private const int MaxDisplayNameBytes = 128; // reasonable UI cap for display names
     private const int MaxPresenceToken = 8; // 'on','idle','dnd','inv'
     private const int MaxBioBytes = 512; // max UTF-8 bytes for bio payload
+
+    // [RATE-LIMITING] Connection attempt tracking per IP address
+    private class ConnectionAttemptTracker
+    {
+        public int Count { get; set; }
+        public DateTime WindowStart { get; set; }
+        public DateTime LastAttempt { get; set; }
+    }
+    private readonly ConcurrentDictionary<string, ConnectionAttemptTracker> _connectionAttempts = new();
+    private static readonly TimeSpan RateLimitWindow = TimeSpan.FromMinutes(5);
+    private static readonly int MaxConnectionAttemptsPerWindow = 15; // Max 15 connections per 5 minutes per IP
+    private System.Threading.Timer? _rateLimitCleanupTimer;
 
         // Discovery behavior toggle for regression guard
         public enum DiscoveryMode { Normal, BroadcastOnly }
@@ -174,7 +186,7 @@ namespace P2PTalk.Services
         public void StartIfMajorNode(int port, bool majorNode)
         {
             // Global kill-switch for diagnostics mode: no binds, no UDP, no UPnP.
-            if (P2PTalk.Utilities.RuntimeFlags.SafeMode)
+            if (ZTalk.Utilities.RuntimeFlags.SafeMode)
             {
                 try { Logger.Log("NetworkService.StartIfMajorNode suppressed due to SafeMode"); } catch { }
                 return;
@@ -271,7 +283,7 @@ namespace P2PTalk.Services
             if (majorNode)
             {
                 Logger.Log($"Listening on {boundAddr}:{boundPort} (Major Node mode)");
-                WarningRaised?.Invoke("If Windows Firewall prompts, allow P2PTalk for inbound connections on the chosen port.");
+                WarningRaised?.Invoke("If Windows Firewall prompts, allow ZTalk for inbound connections on the chosen port.");
                 _ = Task.Run(async () => { try { await _nat.TryMapPortsAsync(boundPort, boundPort); } catch { } });
                 try { _nat.ConfigureDesiredPorts(boundPort, boundPort); _nat.EnableAutoMapping(true, forceKick: true); } catch { }
             }
@@ -284,7 +296,7 @@ namespace P2PTalk.Services
             _ = AcceptLoop(_cts.Token);
             IsListening = true;
             _majorNodeActive = majorNode;
-            try { P2PTalk.Services.AppServices.Events.RaiseNetworkListeningChanged(true, ListeningPort); } catch { }
+            try { ZTalk.Services.AppServices.Events.RaiseNetworkListeningChanged(true, ListeningPort); } catch { }
             try { ListeningChanged?.Invoke(true, ListeningPort); } catch { }
             // [DISCOVERY] Always start LAN discovery; advertising is no longer gated by Major Node.
             StartLanDiscovery(boundPort);
@@ -306,6 +318,10 @@ namespace P2PTalk.Services
             // Start presence liveness timer
             try { _presenceTimeoutTimer?.Change(Timeout.Infinite, Timeout.Infinite); _presenceTimeoutTimer?.Dispose(); } catch { }
             _presenceTimeoutTimer = new System.Threading.Timer(_ => { try { SweepPresenceTimeouts(); } catch { } }, null, PresenceSweepInterval, PresenceSweepInterval);
+
+            // [TIER-1-BLOCKING] Start rate limit cleanup timer (runs every 10 minutes)
+            try { _rateLimitCleanupTimer?.Change(Timeout.Infinite, Timeout.Infinite); _rateLimitCleanupTimer?.Dispose(); } catch { }
+            _rateLimitCleanupTimer = new System.Threading.Timer(_ => { try { CleanupRateLimitTracking(); } catch { } }, null, TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10));
         }
 
         public void Stop()
@@ -332,7 +348,7 @@ namespace P2PTalk.Services
             _udp = null; _udpTask = null;
             _cts = null; _listener = null; IsListening = false; ListeningPort = null;
             UdpBoundPort = null; UdpBoundAddress = IPAddress.Any;
-            try { P2PTalk.Services.AppServices.Events.RaiseNetworkListeningChanged(false, null); } catch { }
+            try { ZTalk.Services.AppServices.Events.RaiseNetworkListeningChanged(false, null); } catch { }
             try { ListeningChanged?.Invoke(false, null); } catch { }
         }
 
@@ -417,10 +433,17 @@ namespace P2PTalk.Services
         // On success, returns true once an encrypted session is established and registered in _sessions.
         public async Task<bool> ConnectWithRelayFallbackAsync(string peerUid, string hostOrIp, int port, CancellationToken ct)
         {
+            // Block check: Refuse to connect to blocked peers
+            var expectedKey = Trim(peerUid);
+            if (AppServices.Settings.Settings.BlockList?.Contains(expectedKey) == true)
+            {
+                Logger.Log($"Refusing connection attempt to blocked peer: {expectedKey}");
+                return false;
+            }
+            
             // First try the existing direct/NAT path
             try
             {
-                var expectedKey = Trim(peerUid);
                 var beforeKeys = _sessions.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var client = await ConnectWithNatFallbackAsync(hostOrIp, port, ct);
                 if (client != null)
@@ -551,7 +574,7 @@ namespace P2PTalk.Services
                 }
 
                 var secret = dh.DeriveKeyMaterial(peerKey.PublicKey);
-                var info = Encoding.UTF8.GetBytes("p2ptalk-session");
+                var info = Encoding.UTF8.GetBytes("ztalk-session");
                 var prk = Hkdf.DeriveKey(secret, salt: Array.Empty<byte>(), info: info, length: 32 + 32 + 16 + 16);
                 CryptographicOperations.ZeroMemory(secret);
                 var txKey = new byte[32]; var rxKey = new byte[32]; var txBase = new byte[16]; var rxBase = new byte[16];
@@ -572,7 +595,7 @@ namespace P2PTalk.Services
                 try { AppServices.Peers.SetObservedPublicKey(Trim(peerUid), peerPub); } catch { }
                 try { _diag.IncHandshakeOk(); _diag.IncSessionsActive(); } catch { }
                 try { HandshakeCompleted?.Invoke(true, Trim(peerUid), null); } catch { }
-                try { P2PTalk.Services.AppServices.Contacts.SetLastKnownEncrypted(Trim(peerUid), true, P2PTalk.Services.AppServices.Passphrase); } catch { }
+                try { ZTalk.Services.AppServices.Contacts.SetLastKnownEncrypted(Trim(peerUid), true, ZTalk.Services.AppServices.Passphrase); } catch { }
                 SafeNetLog($"connect relay success | peer={peerUid} | server={s.RelayServer}");
 
                 // Announce our identity to bind session to our Ed25519 key
@@ -634,6 +657,14 @@ namespace P2PTalk.Services
 
         private Task HandleInboundFrameAsync(string peerUid, Utilities.AeadTransport transport, byte[] data, CancellationToken ct)
         {
+            // Block check: Reject all incoming frames from blocked peers
+            var normalizedUid = Trim(peerUid);
+            if (AppServices.Settings.Settings.BlockList?.Contains(normalizedUid) == true)
+            {
+                Logger.Log($"Frame from blocked peer rejected: {normalizedUid}");
+                return Task.CompletedTask;
+            }
+            
             if (data[0] == 0xA1)
             {
                 try
@@ -1248,6 +1279,46 @@ namespace P2PTalk.Services
             using var dh = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
             var localPort = (client.Client.LocalEndPoint as IPEndPoint)?.Port ?? 0;
             var remoteEp = (client.Client.RemoteEndPoint as IPEndPoint)?.ToString() ?? "unknown";
+            
+            // [TIER-1-BLOCKING] IP-based blocking and rate limiting
+            var remoteIp = ExtractIpFromEndpoint(remoteEp);
+            if (!string.IsNullOrEmpty(remoteIp))
+            {
+                // Check hardcoded IP range blocklist (highest priority)
+                if (SecurityBlocklistService.IsIpInBlockedRange(remoteIp))
+                {
+                    Logger.Log($"[SECURITY] Connection blocked - IP in hardcoded blocklist range: {remoteIp}");
+                    try { client.Close(); } catch { }
+                    return;
+                }
+
+                // Check geo-blocking
+                var countryCode = SecurityBlocklistService.DeriveCountryCodeFromIp(remoteIp);
+                if (!string.IsNullOrEmpty(countryCode) && 
+                    SecurityBlocklistService.IsCountryBlocked(countryCode, AppServices.Settings.Settings))
+                {
+                    // Already logged inside IsCountryBlocked
+                    try { client.Close(); } catch { }
+                    return;
+                }
+
+                // Check user-configured IP blocklist
+                if (IsIpBlocked(remoteIp))
+                {
+                    Logger.Log($"[BLOCK-IP] Blocked IP attempted connection: {remoteIp}");
+                    try { client.Close(); } catch { }
+                    return;
+                }
+
+                // Check rate limiting
+                if (IsRateLimited(remoteIp))
+                {
+                    Logger.Log($"[RATE-LIMIT] Connection rejected from {remoteIp} - too many attempts");
+                    try { client.Close(); } catch { }
+                    return;
+                }
+            }
+            
             var baseStream = client.GetStream();
             var ns = new CountingStream(baseStream,
                 onRead: n => ReportBytes(localPort, inbound: n, outbound: 0),
@@ -1295,14 +1366,9 @@ namespace P2PTalk.Services
             // Do not treat ECDH-derived UID as identity; defer identity decisions until 0xA1 announce.
             var epNow = (client.Client.RemoteEndPoint as IPEndPoint)?.ToString() ?? string.Empty;
             if (string.IsNullOrEmpty(epNow)) epNow = remoteEp;
-            if (AppServices.Settings.Settings.BlockList?.Contains(epNow) == true)
-            {
-                Logger.Log($"Blocked endpoint attempted connection: {epNow}");
-                client.Close();
-                return;
-            }
+            // Note: Block check by UID happens after identity announcement (0xA1), not at ECDH stage
             var secret = dh.DeriveKeyMaterial(peerKey.PublicKey);
-            var info = Encoding.UTF8.GetBytes("p2ptalk-session");
+            var info = Encoding.UTF8.GetBytes("ztalk-session");
             var prk = Hkdf.DeriveKey(secret, salt: Array.Empty<byte>(), info: info, length: 32 + 32 + 16 + 16);
             CryptographicOperations.ZeroMemory(secret);
             var txKey = new byte[32]; var rxKey = new byte[32]; var txBase = new byte[16]; var rxBase = new byte[16];
@@ -1389,12 +1455,37 @@ namespace P2PTalk.Services
                                         }
                                     }
                                     catch { }
+                                    // [TIER-1-BLOCKING] Check hardcoded security blocklist (highest priority)
+                                    try
+                                    {
+                                        var fingerprint = ComputePublicKeyFingerprint(pub2);
+                                        if (!string.IsNullOrEmpty(fingerprint) && 
+                                            SecurityBlocklistService.IsPublicKeyOnHardcodedBlocklist(fingerprint))
+                                        {
+                                            Logger.Log($"[SECURITY] CRITICAL: Hardcoded blocklist match! Closing connection to {normClaimed2}");
+                                            try { AppServices.Events.RaiseFirewallPrompt($"SECURITY ALERT: Connection from known hostile actor blocked ({normClaimed2})"); } catch { }
+                                            try { client.Close(); } catch { }
+                                            break;
+                                        }
+                                    }
+                                    catch { }
+                                    // [TIER-1-BLOCKING] Check if public key fingerprint is blocked (user-configured)
+                                    try
+                                    {
+                                        if (IsPublicKeyBlocked(pub2))
+                                        {
+                                            Logger.Log($"[BLOCK-PUBKEY] Blocked public key fingerprint attempted connection: {normClaimed2}");
+                                            try { client.Close(); } catch { }
+                                            break;
+                                        }
+                                    }
+                                    catch { }
                                     // Block if this identity is on the block list
                                     try
                                     {
                                         if (AppServices.Settings.Settings.BlockList?.Contains(normClaimed2) == true)
                                         {
-                                            Logger.Log($"Blocked peer attempted connection: {normClaimed2}");
+                                            Logger.Log($"[BLOCK-UID] Blocked peer attempted connection: {normClaimed2}");
                                             try { client.Close(); } catch { }
                                             break;
                                         }
@@ -1612,7 +1703,7 @@ namespace P2PTalk.Services
                         var removed = _sessions.TryRemove(boundUid, out _);
                         try { if (removed) Logger.Log($"[sess] remove | mode=direct | peer={boundUid} | reason=reader-exit | ts={DateTime.UtcNow:o}"); } catch { }
                     }
-                    try { if (!string.IsNullOrEmpty(boundUid)) P2PTalk.Services.AppServices.Contacts.SetLastKnownEncrypted(boundUid, false, P2PTalk.Services.AppServices.Passphrase); } catch { }
+                    try { if (!string.IsNullOrEmpty(boundUid)) ZTalk.Services.AppServices.Contacts.SetLastKnownEncrypted(boundUid, false, ZTalk.Services.AppServices.Passphrase); } catch { }
                     try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
                     try { _transportEndpoints.TryRemove(transport, out _); } catch { }
                     try { _diag.DecSessionsActive(); } catch { }
@@ -1914,9 +2005,16 @@ namespace P2PTalk.Services
 
     private async Task<bool> TrySendEncryptedAsync(string peerUid, byte[] frame, CancellationToken ct)
         {
+            // Block check: Refuse to send messages to blocked peers
+            var key = Trim(peerUid);
+            if (AppServices.Settings.Settings.BlockList?.Contains(key) == true)
+            {
+                Logger.Log($"Refusing to send message to blocked peer: {key}");
+                return false;
+            }
+            
             var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
             Utilities.AeadTransport? tr = null;
-            var key = Trim(peerUid);
             var start = DateTime.UtcNow;
             // Kick off a best-effort connection attempt in the background if we don't already have a session
             var connectStarted = false;
@@ -2067,6 +2165,25 @@ namespace P2PTalk.Services
             catch { }
         }
 
+        // Disconnect an active session with a specific peer (used when blocking)
+        public void DisconnectPeer(string peerUid)
+        {
+            try
+            {
+                var key = Trim(peerUid);
+                if (_sessions.TryRemove(key, out var transport))
+                {
+                    try { transport?.Dispose(); } catch { }
+                    Logger.Log($"Disconnected session with blocked peer: {key}");
+                    SafeNetLog($"session disconnect | peer={key} | reason=blocked");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"Error disconnecting peer {peerUid}: {ex.Message}");
+            }
+        }
+
         // Broadcast current avatar to all active sessions when it changes or sharing toggles on
         public void BroadcastAvatarToActiveSessions()
         {
@@ -2179,6 +2296,127 @@ namespace P2PTalk.Services
 
         private static string Trim(string uid) => uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
 
+        // [TIER-1-BLOCKING] Helper methods for enhanced blocking mechanisms
+
+        // Extract IP address from endpoint string (format: "ip:port")
+        private static string? ExtractIpFromEndpoint(string endpoint)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(endpoint)) return null;
+                var parts = endpoint.Split(':');
+                if (parts.Length < 2) return null;
+                // Handle IPv6 addresses in brackets [::1]:port
+                var ipPart = parts[0].TrimStart('[').TrimEnd(']');
+                return System.Net.IPAddress.TryParse(ipPart, out _) ? ipPart : null;
+            }
+            catch { return null; }
+        }
+
+        // Compute SHA256 fingerprint of public key for blocking
+        private static string ComputePublicKeyFingerprint(byte[] publicKey)
+        {
+            try
+            {
+                using var sha = System.Security.Cryptography.SHA256.Create();
+                var hash = sha.ComputeHash(publicKey);
+                return Convert.ToBase64String(hash);
+            }
+            catch { return string.Empty; }
+        }
+
+        // Check if IP address is blocked
+        private bool IsIpBlocked(string? ipAddress)
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress)) return false;
+            try
+            {
+                return AppServices.Settings.Settings.BlockedIpAddresses?.Contains(ipAddress) == true;
+            }
+            catch { return false; }
+        }
+
+        // Check if public key fingerprint is blocked
+        private bool IsPublicKeyBlocked(byte[] publicKey)
+        {
+            if (publicKey == null || publicKey.Length == 0) return false;
+            try
+            {
+                var fingerprint = ComputePublicKeyFingerprint(publicKey);
+                return !string.IsNullOrEmpty(fingerprint) &&
+                       AppServices.Settings.Settings.BlockedPublicKeyFingerprints?.Contains(fingerprint) == true;
+            }
+            catch { return false; }
+        }
+
+        // Rate limiting check: returns true if IP should be blocked
+        private bool IsRateLimited(string? ipAddress)
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress)) return false;
+            
+            try
+            {
+                var now = DateTime.UtcNow;
+                var tracker = _connectionAttempts.GetOrAdd(ipAddress, _ => new ConnectionAttemptTracker
+                {
+                    Count = 0,
+                    WindowStart = now,
+                    LastAttempt = now
+                });
+
+                // Reset window if expired
+                if ((now - tracker.WindowStart) > RateLimitWindow)
+                {
+                    tracker.Count = 1;
+                    tracker.WindowStart = now;
+                    tracker.LastAttempt = now;
+                    return false;
+                }
+
+                // Increment and check limit
+                tracker.Count++;
+                tracker.LastAttempt = now;
+
+                if (tracker.Count > MaxConnectionAttemptsPerWindow)
+                {
+                    Logger.Log($"[RATE-LIMIT] IP {ipAddress} exceeded connection limit: {tracker.Count} attempts in {(now - tracker.WindowStart).TotalSeconds:F1}s");
+                    return true;
+                }
+
+                return false;
+            }
+            catch { return false; }
+        }
+
+        // Periodic cleanup of old rate limit tracking entries
+        private void CleanupRateLimitTracking()
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var staleThreshold = now - (RateLimitWindow * 2); // Clean up entries older than 2x window
+
+                var staleKeys = _connectionAttempts
+                    .Where(kvp => kvp.Value.LastAttempt < staleThreshold)
+                    .Select(kvp => kvp.Key)
+                    .ToList();
+
+                foreach (var key in staleKeys)
+                {
+                    _connectionAttempts.TryRemove(key, out _);
+                }
+
+                if (staleKeys.Count > 0)
+                {
+                    Logger.Log($"[RATE-LIMIT] Cleaned up {staleKeys.Count} stale tracking entries");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"[RATE-LIMIT] Cleanup error: {ex.Message}");
+            }
+        }
+
         // Expose diagnostics snapshot for UI/monitoring.
 
         // Apply low-latency, resilient socket options suitable for chat traffic.
@@ -2191,6 +2429,9 @@ namespace P2PTalk.Services
         public void Dispose()
         {
             try { Stop(); } catch { }
+            // Dispose timers
+            try { _presenceTimeoutTimer?.Dispose(); } catch { }
+            try { _rateLimitCleanupTimer?.Dispose(); } catch { }
             // Dispose peer connections
             try
             {

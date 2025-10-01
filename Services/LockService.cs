@@ -10,9 +10,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 
-using P2PTalk.Views;
+using ZTalk.Views;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class LockService
     {
@@ -56,7 +56,7 @@ namespace P2PTalk.Services
                     {
                         if (existingMain is Window mw0)
                         {
-                            var view = mw0 as P2PTalk.Views.MainWindow;
+                            var view = mw0 as ZTalk.Views.MainWindow;
                             var overlay = view?.FindControl<Avalonia.Controls.Border>("LockOverlay");
                             if (overlay != null)
                             {
@@ -109,7 +109,7 @@ namespace P2PTalk.Services
                         try { var acc = AppServices.Accounts.LoadAccount(AppServices.Passphrase); AppServices.Identity.LoadFromAccount(acc); } catch { }
                         // Centralized networking: notify config changed and let app-level handler apply.
                         try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
-                        var themeService2 = new P2PTalk.Services.ThemeService();
+                        var themeService2 = new ZTalk.Services.ThemeService();
                         themeService2.SetTheme(AppServices.Settings.Settings.Theme);
                         try { AppServices.PeersClearTransientStatuses(); } catch { }
                         try { AppServices.Contacts.SetAllOffline(); } catch { }
@@ -122,7 +122,7 @@ namespace P2PTalk.Services
                             {
                                 try
                                 {
-                                    var view = existingMain as P2PTalk.Views.MainWindow;
+                                    var view = existingMain as ZTalk.Views.MainWindow;
                                     var overlay = view?.FindControl<Avalonia.Controls.Border>("LockOverlay");
                                     if (overlay != null)
                                     {
@@ -166,7 +166,7 @@ namespace P2PTalk.Services
                 catch (Exception ex)
                 {
                     // If we failed to show unlock, do NOT close other windows; log and bail out
-                    try { P2PTalk.Utilities.Logger.Log($"LockService: failed to show Unlock window: {ex.Message}"); } catch { }
+                    try { ZTalk.Utilities.Logger.Log($"LockService: failed to show Unlock window: {ex.Message}"); } catch { }
                     return;
                 }
 

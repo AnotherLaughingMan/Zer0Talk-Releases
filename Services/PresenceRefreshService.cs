@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class PresenceRefreshService
     {

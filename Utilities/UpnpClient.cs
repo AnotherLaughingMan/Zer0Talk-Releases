@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     // Minimal UPnP IGD discovery and port mapping via SOAP.
     // This is a very small, best-effort client to avoid external dependencies.
@@ -75,7 +75,7 @@ namespace P2PTalk.Utilities
                                       "HOST: 239.255.255.250:1900\r\n" +
                                       "MAN: \"ssdp:discover\"\r\n" +
                                       $"MX: {MxSeconds}\r\n" +
-                                      "USER-AGENT: P2PTalk/1.0 UPnP/1.1 SSDP/1.0\r\n" +
+                                      "USER-AGENT: ZTalk/1.0 UPnP/1.1 SSDP/1.0\r\n" +
                                       $"ST: {st}\r\n\r\n";
                             var data = Encoding.ASCII.GetBytes(req);
                             // send twice with small pause to improve reliability
@@ -129,7 +129,7 @@ namespace P2PTalk.Utilities
                                           "HOST: 239.255.255.250:1900\r\n" +
                                           "MAN: \"ssdp:discover\"\r\n" +
                                           $"MX: {MxSeconds}\r\n" +
-                                          "USER-AGENT: P2PTalk/1.0 UPnP/1.1 SSDP/1.0\r\n" +
+                                          "USER-AGENT: ZTalk/1.0 UPnP/1.1 SSDP/1.0\r\n" +
                                           $"ST: {st}\r\n\r\n";
                                 var data = Encoding.ASCII.GetBytes(req);
                                 await udp1900.SendAsync(data, data.Length, ep2);

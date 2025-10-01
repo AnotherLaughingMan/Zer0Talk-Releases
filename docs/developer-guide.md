@@ -15,7 +15,7 @@ This guide summarizes the day-to-day commands, scripts, and conventions you need
 | Clean previous builds | `dotnet clean` |
 | Debug build | `dotnet build --configuration Debug` |
 | Release build | `dotnet build --configuration Release` |
-| Run the app | `dotnet run --project .\P2PTalk.csproj` |
+| Run the app | `dotnet run --project .\ZTalk.csproj` |
 | Publish (Debug) | `pwsh -File scripts/publish-debug.ps1 -Configuration Debug -Rid win-x64` |
 | Publish (Release single-file) | `pwsh -File scripts/publish-debug.ps1 -Configuration Release -Rid win-x64 -Single` |
 

@@ -9,7 +9,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Markup.Xaml;
 
-namespace P2PTalk.Views.Controls
+namespace ZTalk.Views.Controls
 {
     public partial class SettingsView : UserControl
     {
@@ -22,10 +22,54 @@ namespace P2PTalk.Views.Controls
             EnableDebugPanel();
 #endif
             this.AttachedToVisualTree += (_, __) => WireMenu();
+            this.AttachedToVisualTree += (_, __) => WireDiscoveredPeersList();
 #if DEBUG
             // Inject Debug-only CCD simulation UI
             this.AttachedToVisualTree += (_, __) => AddDebugCcdSimulator();
 #endif
+        }
+        
+        private void WireDiscoveredPeersList()
+        {
+            try
+            {
+                var listBox = this.FindControl<ListBox>("DiscoveredPeersList");
+                if (listBox == null) return;
+                
+                // Update ViewModel's SelectedPeers when ListBox selection changes
+                listBox.SelectionChanged += (_, __) =>
+                {
+                    try
+                    {
+                        if (!(DataContext is ZTalk.ViewModels.SettingsViewModel vm)) return;
+                        
+                        var selected = new System.Collections.Generic.List<ZTalk.Models.Peer>();
+                        if (listBox.SelectedItems != null)
+                        {
+                            foreach (var item in listBox.SelectedItems)
+                            {
+                                if (item is ZTalk.Models.Peer peer)
+                                {
+                                    selected.Add(peer);
+                                }
+                            }
+                        }
+                        
+                        // Get NetworkViewModel and update its SelectedPeers
+                        var netVm = typeof(ZTalk.ViewModels.SettingsViewModel)
+                            .GetField("NetworkVm", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                            ?.GetValue(vm);
+                        
+                        if (netVm != null)
+                        {
+                            var selectedPeersProp = netVm.GetType().GetProperty("SelectedPeers");
+                            selectedPeersProp?.SetValue(netVm, selected);
+                        }
+                    }
+                    catch { }
+                };
+            }
+            catch { }
         }
 
         private void InitializeComponent()
@@ -44,13 +88,13 @@ namespace P2PTalk.Views.Controls
                 UpdatePanels(idx);
                 try
                 {
-                    var s = P2PTalk.Services.AppServices.Settings.Settings;
+                    var s = ZTalk.Services.AppServices.Settings.Settings;
                     var max = HasDebugPanel() ? 9 : 8;
                     if (idx >= 0 && idx <= max && s.LastSettingsMenuIndex != idx)
                     {
                         s.LastSettingsMenuIndex = idx;
                         // Persist asynchronously to avoid UI stalls
-                        _ = System.Threading.Tasks.Task.Run(() => P2PTalk.Services.AppServices.Settings.Save(P2PTalk.Services.AppServices.Passphrase));
+                        _ = System.Threading.Tasks.Task.Run(() => ZTalk.Services.AppServices.Settings.Save(ZTalk.Services.AppServices.Passphrase));
                     }
                 }
                 catch { }
@@ -58,7 +102,7 @@ namespace P2PTalk.Views.Controls
             // Restore last selected menu (default Profile index 2) and update panels
             try
             {
-                var saved = P2PTalk.Services.AppServices.Settings.Settings.LastSettingsMenuIndex;
+                var saved = ZTalk.Services.AppServices.Settings.Settings.LastSettingsMenuIndex;
                 var max = HasDebugPanel() ? 9 : 8;
                 if (saved < 0 || saved > max) saved = Math.Min(2, max);
                 menu.SelectedIndex = saved;
@@ -76,7 +120,7 @@ namespace P2PTalk.Views.Controls
                     try
                     {
                         var combo = this.FindControl<ComboBox>("ThemeCombo");
-                        if (combo != null && DataContext is P2PTalk.ViewModels.SettingsViewModel vm)
+                        if (combo != null && DataContext is ZTalk.ViewModels.SettingsViewModel vm)
                         {
                             // Reapply the VM value to ensure UI reflects saved theme if the control defaulted to 0.
                             combo.SelectedIndex = vm.ThemeIndex;
@@ -164,7 +208,7 @@ namespace P2PTalk.Views.Controls
                 {
                     try
                     {
-                        if (DataContext is P2PTalk.ViewModels.SettingsViewModel vm)
+                        if (DataContext is ZTalk.ViewModels.SettingsViewModel vm)
                         {
                             combo.SelectedIndex = vm.DebugCcdModeIndex;
                             combo.SelectionChanged += (_, __2) => vm.DebugCcdModeIndex = combo.SelectedIndex;

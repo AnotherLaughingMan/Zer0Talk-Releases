@@ -13,9 +13,9 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     // [DISCOVERY] Optional WAN/seed discovery helper: remains as a fallback/diagnostics anchor.
     // LAN discovery is now peer-to-peer and independent of Major Node status.

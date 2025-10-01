@@ -4,7 +4,7 @@ using System.Globalization;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 
-namespace P2PTalk.Utilities;
+namespace ZTalk.Utilities;
 
 public sealed class FirstNonEmptyStringConverter : IMultiValueConverter
 {

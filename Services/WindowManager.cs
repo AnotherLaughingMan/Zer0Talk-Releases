@@ -3,7 +3,7 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     // Centralized helper to enforce singleton behavior for windows.
     public static class WindowManager

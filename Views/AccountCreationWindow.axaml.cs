@@ -4,9 +4,9 @@
 */
 using Avalonia.Controls;
 
-using P2PTalk.ViewModels;
+using ZTalk.ViewModels;
 
-namespace P2PTalk.Views
+namespace ZTalk.Views
 {
     public partial class AccountCreationWindow : Window
     {
@@ -17,7 +17,7 @@ namespace P2PTalk.Views
             var vm = new AccountCreationViewModel();
             DataContext = vm;
             // If no account exists, this is forced onboarding: disable cancel.
-            vm.CanCancel = P2PTalk.Services.AppServices.Accounts.HasAccount();
+            vm.CanCancel = ZTalk.Services.AppServices.Accounts.HasAccount();
             vm.CloseRequested += (_, __) => { _allowClose = true; Close(); };
             this.Closing += (s, e) => { if (!_allowClose) { e.Cancel = true; this.Topmost = true; } };
         }

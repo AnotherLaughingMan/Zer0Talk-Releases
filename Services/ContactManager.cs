@@ -9,11 +9,11 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 
-using P2PTalk.Containers;
+using ZTalk.Containers;
 using ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class ContactManager
     {
@@ -25,7 +25,7 @@ namespace P2PTalk.Services
 
         private string GetPath()
         {
-            return P2PTalk.Utilities.AppDataPaths.Combine(FileName);
+            return ZTalk.Utilities.AppDataPaths.Combine(FileName);
         }
 
         public void Load(string passphrase)
@@ -57,7 +57,7 @@ namespace P2PTalk.Services
                     {
                         Save(passphrase); // persist repairs
                         Logger.Log($"Contacts sanitized: {report}");
-                        P2PTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(report.ToString()), source: "Contacts.Sanitize");
+                        ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(report.ToString()), source: "Contacts.Sanitize");
                     }
                     catch { }
                 }

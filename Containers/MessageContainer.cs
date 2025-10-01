@@ -7,16 +7,16 @@ using System.IO;
 using System.Text.Json;
 
 using ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Containers
+namespace ZTalk.Containers
 {
     public class MessageContainer
     {
         private readonly P2EContainer _p2e = new();
         private static string GetBaseDir()
         {
-            var dir = P2PTalk.Utilities.AppDataPaths.Combine("messages");
+            var dir = ZTalk.Utilities.AppDataPaths.Combine("messages");
             Directory.CreateDirectory(dir);
             return dir;
         }

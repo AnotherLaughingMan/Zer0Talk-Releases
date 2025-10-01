@@ -12,11 +12,11 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-using P2PTalk.Containers;
+using ZTalk.Containers;
 using ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Services;
+namespace ZTalk.Services;
 
 public class SettingsService
 {
@@ -119,7 +119,7 @@ public class SettingsService
 
     private static string GetPath()
     {
-        return P2PTalk.Utilities.AppDataPaths.Combine(FileName);
+        return ZTalk.Utilities.AppDataPaths.Combine(FileName);
     }
 
     // (kept single public GetSettingsPath above)
@@ -254,17 +254,17 @@ public class SettingsService
 
     private static string GetRememberPrefPath()
     {
-        return P2PTalk.Utilities.AppDataPaths.Combine("remember.pref");
+        return ZTalk.Utilities.AppDataPaths.Combine("remember.pref");
     }
 
     private static string GetPassphraseSidecarPath()
     {
-        return P2PTalk.Utilities.AppDataPaths.Combine("passphrase.dpapi");
+        return ZTalk.Utilities.AppDataPaths.Combine("passphrase.dpapi");
     }
 
     private static string GetUnlockWindowJsonPath()
     {
-        return P2PTalk.Utilities.AppDataPaths.Combine("unlock.window.json");
+        return ZTalk.Utilities.AppDataPaths.Combine("unlock.window.json");
     }
 
     private static void TryWriteUnlockJsonRemember(bool remember)

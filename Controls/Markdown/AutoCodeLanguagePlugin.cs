@@ -5,7 +5,7 @@ using System.Linq;
 using Markdown.Avalonia.Plugins;
 using Markdown.Avalonia.SyntaxHigh;
 
-namespace P2PTalk.Controls.Markdown;
+namespace ZTalk.Controls.Markdown;
 
 public sealed class AutoCodeLanguagePlugin : IMdAvPluginRequestAnother
 {
@@ -23,7 +23,7 @@ public sealed class AutoCodeLanguagePlugin : IMdAvPluginRequestAnother
         if (_syntaxHighlight == null)
         {
             System.Diagnostics.Debug.WriteLine("[AutoCodeLanguagePlugin] SyntaxHighlight is null!");
-            try { P2PTalk.Utilities.LoggingPaths.TryWrite(System.IO.Path.Combine(P2PTalk.Utilities.LoggingPaths.LogsDirectory, "syntax-plugin.log"), "SyntaxHighlight is null\n"); } catch {}
+            try { ZTalk.Utilities.LoggingPaths.TryWrite(System.IO.Path.Combine(ZTalk.Utilities.LoggingPaths.LogsDirectory, "syntax-plugin.log"), "SyntaxHighlight is null\n"); } catch {}
             return;
         }
 
@@ -32,17 +32,17 @@ public sealed class AutoCodeLanguagePlugin : IMdAvPluginRequestAnother
         try
         {
             System.IO.Directory.CreateDirectory("logs");
-            P2PTalk.Utilities.LoggingPaths.TryWrite(System.IO.Path.Combine(P2PTalk.Utilities.LoggingPaths.LogsDirectory, "syntax-plugin.log"), $"Setting up Rust alias. Current aliases: {_syntaxHighlight.Aliases.Count}\n");
+            ZTalk.Utilities.LoggingPaths.TryWrite(System.IO.Path.Combine(ZTalk.Utilities.LoggingPaths.LogsDirectory, "syntax-plugin.log"), $"Setting up Rust alias. Current aliases: {_syntaxHighlight.Aliases.Count}\n");
         }
         catch { }
         EnsureAlias(_syntaxHighlight.Aliases, "rust", "avares://ZTalk/Assets/Syntax/Rust.xshd");
         System.Diagnostics.Debug.WriteLine($"[AutoCodeLanguagePlugin] After setup, aliases: {_syntaxHighlight.Aliases.Count}");
-        try { P2PTalk.Utilities.LoggingPaths.TryWrite(System.IO.Path.Combine(P2PTalk.Utilities.LoggingPaths.LogsDirectory, "syntax-plugin.log"), $"After setup, aliases: {_syntaxHighlight.Aliases.Count}\n"); } catch { }
+        try { ZTalk.Utilities.LoggingPaths.TryWrite(System.IO.Path.Combine(ZTalk.Utilities.LoggingPaths.LogsDirectory, "syntax-plugin.log"), $"After setup, aliases: {_syntaxHighlight.Aliases.Count}\n"); } catch { }
         
         foreach (var alias in _syntaxHighlight.Aliases)
         {
             System.Diagnostics.Debug.WriteLine($"[AutoCodeLanguagePlugin] Alias: {alias.Name} -> {alias.XSHD}");
-            try { P2PTalk.Utilities.LoggingPaths.TryWrite(System.IO.Path.Combine(P2PTalk.Utilities.LoggingPaths.LogsDirectory, "syntax-plugin.log"), $"Alias: {alias.Name} -> {alias.XSHD}\n"); } catch { }
+            try { ZTalk.Utilities.LoggingPaths.TryWrite(System.IO.Path.Combine(ZTalk.Utilities.LoggingPaths.LogsDirectory, "syntax-plugin.log"), $"Alias: {alias.Name} -> {alias.XSHD}\n"); } catch { }
         }
     }
 

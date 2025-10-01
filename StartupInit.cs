@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace P2PTalk;
+namespace ZTalk;
 
 internal static class StartupInit
 {
@@ -11,7 +11,7 @@ internal static class StartupInit
         try
         {
             // Earliest marker possible (before Program.Main)
-            P2PTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("Startup.ModuleInit"), source: "Trace");
+            ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("Startup.ModuleInit"), source: "Trace");
         }
         catch { }
     }

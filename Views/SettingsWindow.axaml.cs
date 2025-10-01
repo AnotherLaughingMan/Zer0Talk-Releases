@@ -11,10 +11,10 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 using ZTalk.Models;
-using P2PTalk.Services;
-using P2PTalk.ViewModels;
+using ZTalk.Services;
+using ZTalk.ViewModels;
 
-namespace P2PTalk.Views;
+namespace ZTalk.Views;
 
 public partial class SettingsWindow : Window
 {
@@ -109,7 +109,7 @@ public partial class SettingsWindow : Window
             (e.KeyModifiers & KeyModifiers.Alt) == KeyModifiers.Alt &&
             (e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift)
         {
-            try { new P2PTalk.Services.LockService().Lock(); } catch { }
+            try { new ZTalk.Services.LockService().Lock(); } catch { }
             e.Handled = true;
         }
     }

@@ -11,9 +11,9 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Services;
+namespace ZTalk.Services;
 
 public class LinkPreviewService : IDisposable
 {

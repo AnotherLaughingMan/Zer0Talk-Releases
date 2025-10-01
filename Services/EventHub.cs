@@ -7,7 +7,7 @@ using System;
 
 using ZTalk.Models;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public sealed class EventHub
     {

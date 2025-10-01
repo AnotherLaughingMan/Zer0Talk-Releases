@@ -4,9 +4,9 @@
 */
 using System.IO;
 
-using P2PTalk.Services;
+using ZTalk.Services;
 
-namespace P2PTalk.Containers
+namespace ZTalk.Containers
 {
     public class P2EContainer
     {

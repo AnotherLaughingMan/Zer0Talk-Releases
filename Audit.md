@@ -4,6 +4,10 @@ This document summarizes the project’s scope, context, and a file-by-file inve
 
 ## Context and scope
 
+# ZTalk Workspace Audit
+
+## Project Overview
+
 ZTalk (formerly P2PTalk) is a secure peer-to-peer messaging application built with Avalonia UI and .NET 9. It features encrypted communication, contact management, identity verification, and a desktop interface using MVVM architecture. The app emphasizes local persistence, manual-save settings, and optional NAT traversal for connectivity.
 
 Primary components:
@@ -13,8 +17,8 @@ Primary components:
 - Overlay-based Settings with unsaved-changes flow and toast notifications
 
 ## Root
-- P2PTalk.sln — Solution file for the P2PTalk project.
-- P2PTalk.csproj — Project configuration targeting net9.0 with Avalonia packages.
+- ZTalk.sln — Solution file for the ZTalk project.
+- ZTalk.csproj — Project configuration targeting net9.0 with Avalonia packages.
 - Program.cs — Application entry point.
 - StartupInit.cs — Initialization logic for startup.
 - App.axaml — Avalonia Application XAML (theme resources include).

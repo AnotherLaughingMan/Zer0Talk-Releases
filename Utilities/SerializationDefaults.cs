@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace P2PTalk.Utilities;
+namespace ZTalk.Utilities;
 
 public static class SerializationDefaults
 {

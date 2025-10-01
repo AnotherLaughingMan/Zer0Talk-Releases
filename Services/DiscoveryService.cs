@@ -5,9 +5,9 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     // Orchestrates peer discovery across LAN and WAN without duplicating lower-level logic.
     // Delegates:
@@ -44,7 +44,7 @@ namespace P2PTalk.Services
         public void Start()
         {
             // Honor global SafeMode to avoid network/discovery activity during diagnostics
-            if (P2PTalk.Utilities.RuntimeFlags.SafeMode)
+            if (ZTalk.Utilities.RuntimeFlags.SafeMode)
             {
                 AppendLog("Start suppressed: SafeMode enabled");
                 return;

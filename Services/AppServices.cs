@@ -5,12 +5,12 @@
 */
 // TODO[ANCHOR]: AppServices - Global services and passphrase state
 using System;
-using P2PTalk.Containers;
+using ZTalk.Containers;
 using System.Linq;
 using Models = ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Services;
+namespace ZTalk.Services;
 
 public static class AppServices
 {
@@ -68,7 +68,7 @@ public static class AppServices
     {
         try
         {
-            var mc = new P2PTalk.Containers.MessageContainer();
+            var mc = new ZTalk.Containers.MessageContainer();
             mc.UpdateMessage(peerUid, messageId, newContent, Passphrase);
             // UI: The bound list in MainWindow may not auto-refresh; rely on ViewModel listening to ChatMessageReceived for new only.
             // TODO: Consider raising an event for edits if we add an event channel.
@@ -80,14 +80,14 @@ public static class AppServices
     {
         try
         {
-            var mc = new P2PTalk.Containers.MessageContainer();
+            var mc = new ZTalk.Containers.MessageContainer();
             mc.DeleteMessage(peerUid, messageId, Passphrase);
             try
             {
-                if (P2PTalk.Utilities.LoggingPaths.Enabled)
+                if (ZTalk.Utilities.LoggingPaths.Enabled)
                 {
                     var line = $"[RETENTION] {System.DateTime.Now:O}: Remote delete peer={peerUid} id={messageId}";
-                    System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.Retention, line + System.Environment.NewLine);
+                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Retention, line + System.Environment.NewLine);
                 }
             }
             catch { }
@@ -180,7 +180,7 @@ public static class AppServices
             {
                 try
                 {
-                    var mc = new P2PTalk.Containers.MessageContainer();
+                    var mc = new ZTalk.Containers.MessageContainer();
                     var stamp = System.DateTime.UtcNow;
                     var ok = mc.UpdateDelivery(uid, id, "Sent", stamp, Passphrase);
                     if (!ok)
@@ -218,7 +218,7 @@ public static class AppServices
             {
                 try
                 {
-                    var mc = new P2PTalk.Containers.MessageContainer();
+                    var mc = new ZTalk.Containers.MessageContainer();
                     var stamp = System.DateTime.UtcNow;
                     var ok = mc.UpdateDelivery(uid, id, "Read", null, Passphrase, readUtc: stamp);
                     if (!ok)
@@ -280,9 +280,9 @@ public static class AppServices
         catch { }
 
         // Start regression guard background monitor (skip in SafeMode)
-        try { if (!P2PTalk.Utilities.RuntimeFlags.SafeMode) Guard.Start(); } catch { }
+        try { if (!ZTalk.Utilities.RuntimeFlags.SafeMode) Guard.Start(); } catch { }
         // Start discovery orchestrator (non-invasive; coordinates existing services) (skip in SafeMode)
-        try { if (!P2PTalk.Utilities.RuntimeFlags.SafeMode) Discovery.Start(); } catch { }
+        try { if (!ZTalk.Utilities.RuntimeFlags.SafeMode) Discovery.Start(); } catch { }
 
 #if DEBUG
     try { LogMaintenance.TryStart(); } catch { }

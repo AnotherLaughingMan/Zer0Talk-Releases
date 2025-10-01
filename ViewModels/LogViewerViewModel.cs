@@ -14,9 +14,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.ViewModels;
+namespace ZTalk.ViewModels;
 
 public sealed class LogViewerViewModel : INotifyPropertyChanged, IDisposable
 {
@@ -296,7 +296,7 @@ public sealed class LogViewerViewModel : INotifyPropertyChanged, IDisposable
             StatusMessage = $"Trimming {SelectedTab.DisplayName}...";
             
             var result = await Task.Run(() => 
-                P2PTalk.Services.AppServices.LogMaintenance.TrimSingleLogFile(SelectedTab.FullPath, "log-viewer"));
+                ZTalk.Services.AppServices.LogMaintenance.TrimSingleLogFile(SelectedTab.FullPath, "log-viewer"));
             
             StatusMessage = result;
             

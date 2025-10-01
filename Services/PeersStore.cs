@@ -4,11 +4,11 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 
-using P2PTalk.Containers;
+using ZTalk.Containers;
 using ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class PeersStore
     {
@@ -52,7 +52,7 @@ namespace P2PTalk.Services
 
         private static string GetPath()
         {
-            return P2PTalk.Utilities.AppDataPaths.Combine(FileName);
+            return ZTalk.Utilities.AppDataPaths.Combine(FileName);
         }
     }
 }

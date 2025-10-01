@@ -12,11 +12,11 @@ using System.Text.Json;
 using System.Threading.Tasks;
 
 using ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
 using Sodium;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class AccountManager
     {
@@ -27,7 +27,7 @@ namespace P2PTalk.Services
         public bool HasAccount() => File.Exists(GetPath());
         public string GetPath()
         {
-            return P2PTalk.Utilities.AppDataPaths.Combine(FileName);
+            return ZTalk.Utilities.AppDataPaths.Combine(FileName);
         }
 
         public async Task<string?> EnsureAccountAsync(Func<Task<(string DisplayName, string Username)>> prompt)

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Containers
+namespace ZTalk.Containers
 {
     public class OutboxContainer
     {
@@ -13,7 +13,7 @@ namespace P2PTalk.Containers
 
         private static string GetBaseDir()
         {
-            var dir = P2PTalk.Utilities.AppDataPaths.Combine("outbox");
+            var dir = ZTalk.Utilities.AppDataPaths.Combine("outbox");
             Directory.CreateDirectory(dir);
             return dir;
         }

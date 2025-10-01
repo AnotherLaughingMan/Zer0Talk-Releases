@@ -33,6 +33,25 @@ namespace ZTalk.Models
         // [VERIFY] Result of UID<->PublicKey consistency check (UID recomputed from pub matches this UID). Transient.
         [System.Text.Json.Serialization.JsonIgnore]
         public bool PublicKeyVerified { get; set; }
+        // [BLOCK] Transient UI-only flag indicating if this peer is blocked. Not persisted here (managed by PeerManager).
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool IsBlocked { get; set; }
+        // [GEO] Decorative country code hint for UI display (2-letter ISO code, e.g., "US", "GB"). Not accurate, just a general hint.
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string? CountryCode { get; set; }
+        // [GEO] Timestamp when country code was last determined (for cache expiry)
+        [System.Text.Json.Serialization.JsonIgnore]
+        public System.DateTime? CountryCodeCachedAt { get; set; }
+        // [CACHE] Timestamp when this peer was last seen online (for cache expiry logic)
+        [System.Text.Json.Serialization.JsonIgnore]
+        public System.DateTime? LastSeenOnline { get; set; }
+        // [PUBKEY-CACHE] Cached public key for 30-day retention (security/performance)
+        public byte[]? CachedPublicKey { get; set; }
+        // [PUBKEY-CACHE] Timestamp when public key was cached
+        public System.DateTime? PublicKeyCachedAt { get; set; }
+        // [PUBKEY-CACHE] Flag indicating public key mismatch detected (potential imposter/corruption)
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool PublicKeyMismatch { get; set; }
         // Additional peer properties
     }
 }

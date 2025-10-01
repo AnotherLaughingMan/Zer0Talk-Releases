@@ -7,9 +7,9 @@ using System.Windows.Input;
 
 using Avalonia.Media;
 
-using P2PTalk.Services;
+using ZTalk.Services;
 
-namespace P2PTalk.ViewModels;
+namespace ZTalk.ViewModels;
 
 public class MonitoringViewModel : INotifyPropertyChanged
 {
@@ -270,7 +270,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
         return $"{bytesPerSec:0.#} {units[i]}";
     }
 
-    public void UpdateDiagnostics(P2PTalk.Utilities.NetworkDiagnostics.Snapshot s)
+    public void UpdateDiagnostics(ZTalk.Utilities.NetworkDiagnostics.Snapshot s)
     {
         try
         {

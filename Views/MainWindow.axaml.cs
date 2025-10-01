@@ -24,15 +24,15 @@ using System.Collections.Specialized;
 
 using ZTalk.Models;
 using Models = ZTalk.Models;
-using P2PTalk.Services;
-using P2PTalk.Utilities;
-using P2PTalk.ViewModels;
-using P2PTalk.Views.Controls;
+using ZTalk.Services;
+using ZTalk.Utilities;
+using ZTalk.ViewModels;
+using ZTalk.Views.Controls;
 
-using RelayCommand = P2PTalk.ViewModels.RelayCommand;
+using RelayCommand = ZTalk.ViewModels.RelayCommand;
 
 
-namespace P2PTalk.Views;
+namespace ZTalk.Views;
 
 public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 {
@@ -234,17 +234,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             catch { }
         });
         // Trace restoration intent for audit
-        try { P2PTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Restore] MainWindow: applying LKG layout/selection defaults"), source: "Restore.MainWindow"); } catch { }
+        try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Restore] MainWindow: applying LKG layout/selection defaults"), source: "Restore.MainWindow"); } catch { }
         try { WriteSettingsLog("[Restore] MainWindow: applying LKG layout/selection defaults"); } catch { }
-        try { P2PTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Theme] Restore: disable Windows11 focus adorner for Contacts (no template override)"), source: "Theme.Restore"); } catch { }
+        try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Theme] Restore: disable Windows11 focus adorner for Contacts (no template override)"), source: "Theme.Restore"); } catch { }
         try { WriteThemeLog("[Restore] Theme: Disabled FocusAdorner for ContactsList items and contact-card border (template restored)"); } catch { }
         // Log sovereign UI restorations
         try { WriteThemeLog("[Restore] Theme: Reinforced Win11 selection/highlight override for Contacts scope"); } catch { }
         try { WriteThemeLog("[Restore] Theme: Added presence dot overlay to user avatar and increased avatar size vs contacts"); } catch { }
-        try { P2PTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Theme] Restore: presence dot + avatar sizing applied"), source: "Theme.Restore"); } catch { }
+        try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Theme] Restore: presence dot + avatar sizing applied"), source: "Theme.Restore"); } catch { }
         // Log layout: restored left nav rail button sizing/alignment (top-stack, horizontal center)
         try { WriteLayoutLog("[Restore] Layout: Nav rail 64x56 buttons, icons ~26px, padding 8px, spacing 6px, top-stacked, horizontally centered"); } catch { }
-        try { P2PTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Restore] Layout: Nav rail top-stacked + horizontal centering applied"), source: "Layout.Restore"); } catch { }
+        try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Restore] Layout: Nav rail top-stacked + horizontal centering applied"), source: "Layout.Restore"); } catch { }
         if (AppServices.Settings.Settings.MainWindow is { } s)
         {
             // Restore window layout from sidecar cache (fallback to previous settings values if cache missing)
@@ -259,7 +259,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             try
             {
                 var enabled = AppServices.Settings?.Settings?.BlockScreenCapture ?? true;
-                P2PTalk.Services.ScreenCaptureProtection.SetExcludeFromCapture(this, enabled);
+                ZTalk.Services.ScreenCaptureProtection.SetExcludeFromCapture(this, enabled);
             }
             catch { }
         };
@@ -474,8 +474,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var line = $"{DateTime.Now:O} [UI] {message}{Environment.NewLine}";
-            if (P2PTalk.Utilities.LoggingPaths.Enabled)
-                P2PTalk.Utilities.LoggingPaths.TryWrite(P2PTalk.Utilities.LoggingPaths.UI, line);
+            if (ZTalk.Utilities.LoggingPaths.Enabled)
+                ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, line);
         }
         catch { }
     }
@@ -503,9 +503,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (!P2PTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
             var text = $"{DateTime.Now:O} {category} {message}{Environment.NewLine}";
-            P2PTalk.Utilities.LoggingPaths.TryWrite(P2PTalk.Utilities.LoggingPaths.UI, text);
+            ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, text);
         }
         catch { }
     }
@@ -1287,7 +1287,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (DataContext is not MainWindowViewModel vm) return;
             var contact = vm.SelectedContact ?? vm.Contacts.FirstOrDefault();
             if (contact == null) return;
-            var self = P2PTalk.Services.AppServices.Identity.UID ?? string.Empty;
+            var self = ZTalk.Services.AppServices.Identity.UID ?? string.Empty;
             var msg = new Message
             {
                 Id = Guid.NewGuid(),
@@ -1972,7 +1972,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             // Use fast path to active sessions only
-            P2PTalk.Services.AppServices.Network.BroadcastPresenceToActiveSessions(status);
+            ZTalk.Services.AppServices.Network.BroadcastPresenceToActiveSessions(status);
         }
         catch { }
     }
@@ -2014,7 +2014,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var uid = P2PTalk.Services.AppServices.Identity.UID ?? string.Empty;
+            var uid = ZTalk.Services.AppServices.Identity.UID ?? string.Empty;
             if (string.IsNullOrWhiteSpace(uid)) return;
             var cb = this.Clipboard;
             if (cb != null)
@@ -2159,17 +2159,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void Monitoring_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        P2PTalk.Services.WindowManager.ShowSingleton<MonitoringWindow>();
+        ZTalk.Services.WindowManager.ShowSingleton<MonitoringWindow>();
     }
 
     private void Logs_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        P2PTalk.Services.WindowManager.ShowSingleton<LogViewerWindow>();
+        ZTalk.Services.WindowManager.ShowSingleton<LogViewerWindow>();
     }
 
     private void OpenLogs_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        try { P2PTalk.Services.WindowManager.ShowSingleton<NetworkWindow>()?.SwitchToTab("Logging"); } catch { }
+        try { ZTalk.Services.WindowManager.ShowSingleton<NetworkWindow>()?.SwitchToTab("Logging"); } catch { }
     }
 
     private void Home_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -2184,7 +2184,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            P2PTalk.Services.WindowManager.ShowSingleton<NetworkWindow>()?.Activate();
+            ZTalk.Services.WindowManager.ShowSingleton<NetworkWindow>()?.Activate();
         }
         catch (Exception ex)
         {
@@ -2412,7 +2412,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             var now = DateTime.Now.ToString("O");
             var line = $"TRACE {message} | Source={sourceType} | SelIndex={selectedIndex} Items={itemsCount} @ {now}";
-            try { P2PTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(line), source: "Trace"); } catch { }
+            try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(line), source: "Trace"); } catch { }
         }
         catch { }
     }
@@ -2440,7 +2440,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             catch { }
 
             var now = DateTime.Now.ToString("O");
-            try { P2PTalk.Utilities.ErrorLogger.LogException(ex, source: $"UI.Context {sourceType} [{now}] Sel={selectedIndex}/{itemsCount} uid={selUid} name={selName}"); } catch { }
+            try { ZTalk.Utilities.ErrorLogger.LogException(ex, source: $"UI.Context {sourceType} [{now}] Sel={selectedIndex}/{itemsCount} uid={selUid} name={selName}"); } catch { }
             try { Logger.Log($"ERROR: {ex.Message}"); } catch { }
             try { ErrorLogger.LogException(ex, source: sourceType); } catch { }
         }
@@ -2639,7 +2639,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void Lock_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        try { new P2PTalk.Services.LockService().Lock(); } catch { }
+        try { new ZTalk.Services.LockService().Lock(); } catch { }
     }
 
     private void BoldButton_Click(object? sender, RoutedEventArgs e)
@@ -3138,7 +3138,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 (e.KeyModifiers & KeyModifiers.Alt) == KeyModifiers.Alt &&
                 (e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift)
             {
-                try { new P2PTalk.Services.LockService().Lock(); } catch { }
+                try { new ZTalk.Services.LockService().Lock(); } catch { }
                 e.Handled = true;
             }
 #if DEBUG
@@ -3474,10 +3474,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (!P2PTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
             var path = System.IO.Path.Combine(AppContext.BaseDirectory, "logs", "settings.log");
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            P2PTalk.Utilities.LoggingPaths.TryWrite(path, text);
+            ZTalk.Utilities.LoggingPaths.TryWrite(path, text);
         }
         catch { }
     }
@@ -3487,9 +3487,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (!P2PTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            P2PTalk.Utilities.LoggingPaths.TryWrite(P2PTalk.Utilities.LoggingPaths.Theme, text);
+            ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.Theme, text);
         }
         catch { }
     }
@@ -3499,10 +3499,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (!P2PTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
             var path = System.IO.Path.Combine(AppContext.BaseDirectory, "logs", "layout.log");
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            P2PTalk.Utilities.LoggingPaths.TryWrite(path, text);
+            ZTalk.Utilities.LoggingPaths.TryWrite(path, text);
         }
         catch { }
     }
@@ -3588,7 +3588,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 var msg = "[Guard] Nav rail layout corrected to 64x56 buttons, Padding 8,0, Spacing 6, centered, icons ~26px";
                 try { WriteLayoutLog(msg); } catch { }
-                try { P2PTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(msg), source: "Layout.Guard"); } catch { }
+                try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(msg), source: "Layout.Guard"); } catch { }
             }
         }
         catch { }
@@ -3603,7 +3603,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (DataContext is not MainWindowViewModel vm) return;
             var c = vm.SelectedContact;
             if (c?.IsSimulated != true) return;
-            try { P2PTalk.Services.AppServices.Contacts.SetPresence(c.UID, status, System.TimeSpan.FromSeconds(60), Models.PresenceSource.Manual); } catch { }
+            try { ZTalk.Services.AppServices.Contacts.SetPresence(c.UID, status, System.TimeSpan.FromSeconds(60), Models.PresenceSource.Manual); } catch { }
             c.Presence = status;
         }
         catch { }

@@ -4,7 +4,7 @@
 */
 using System;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     using System.Buffers;
     using System.Collections.Generic;
@@ -14,9 +14,9 @@ namespace P2PTalk.Services
     using System.Text;
     using System.Text.Json;
 
-    using P2PTalk.Containers;
+    using ZTalk.Containers;
     using ZTalk.Models;
-    using P2PTalk.Utilities;
+    using ZTalk.Utilities;
 
     public class RetentionService
     {
@@ -25,13 +25,13 @@ namespace P2PTalk.Services
         {
             try
             {
-                var dir = P2PTalk.Utilities.AppDataPaths.Combine("messages");
+                var dir = ZTalk.Utilities.AppDataPaths.Combine("messages");
                 if (!System.IO.Directory.Exists(dir)) return;
 
                 var known = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
                 try
                 {
-                    foreach (var c in P2PTalk.Services.AppServices.Contacts.Contacts)
+                    foreach (var c in ZTalk.Services.AppServices.Contacts.Contacts)
                     {
                         if (c?.UID is string uid && !string.IsNullOrWhiteSpace(uid))
                         {
@@ -70,13 +70,13 @@ namespace P2PTalk.Services
         {
             try
             {
-                var dir = P2PTalk.Utilities.AppDataPaths.Combine("outbox");
+                var dir = ZTalk.Utilities.AppDataPaths.Combine("outbox");
                 if (!System.IO.Directory.Exists(dir)) return;
 
                 var known = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
                 try
                 {
-                    foreach (var c in P2PTalk.Services.AppServices.Contacts.Contacts)
+                    foreach (var c in ZTalk.Services.AppServices.Contacts.Contacts)
                     {
                         if (c?.UID is string uid && !string.IsNullOrWhiteSpace(uid))
                         {
@@ -501,8 +501,8 @@ namespace P2PTalk.Services
             try
             {
                 var line = $"[RETENTION] {DateTime.Now:O}: {message}";
-                if (P2PTalk.Utilities.LoggingPaths.Enabled)
-                    File.AppendAllText(P2PTalk.Utilities.LoggingPaths.Retention, line + Environment.NewLine);
+                if (ZTalk.Utilities.LoggingPaths.Enabled)
+                    File.AppendAllText(ZTalk.Utilities.LoggingPaths.Retention, line + Environment.NewLine);
             }
             catch { }
         }
@@ -530,7 +530,7 @@ namespace P2PTalk.Services
             try
             {
                 var norm = Trim(uid);
-                var list = P2PTalk.Services.AppServices.Contacts.Contacts;
+                var list = ZTalk.Services.AppServices.Contacts.Contacts;
                 var c = list.FirstOrDefault(x => string.Equals(Trim(x.UID), norm, StringComparison.OrdinalIgnoreCase));
                 return c?.IsSimulated == true;
             }

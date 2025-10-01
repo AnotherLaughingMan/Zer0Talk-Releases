@@ -9,7 +9,7 @@ using Konscious.Security.Cryptography;
 
 using Sodium;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class EncryptionService
     {

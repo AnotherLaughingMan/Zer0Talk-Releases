@@ -3,7 +3,7 @@
 */
 using System;
 using System.Text.Json.Serialization;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
 namespace ZTalk.Models
 {

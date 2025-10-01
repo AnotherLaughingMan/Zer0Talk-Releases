@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace P2PTalk.Utilities;
+namespace ZTalk.Utilities;
 
 /// <summary>
 /// Returns true when the bound value (PresenceStatus) string matches the converter parameter (case-insensitive).

@@ -1,4 +1,6 @@
 <!--
+    DEPRECATED: Use Settings > Network instead. This window is kept for reference only.
+    
     Context: Network and Peers management UI.
     - "Network" tab shows local port, TCP/UDP/NAT status, and Major Node toggle with warnings.
     - "Peers" tab lists only Discovered Peers.
@@ -9,12 +11,12 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="clr-namespace:P2PTalk.ViewModels"
+    xmlns:vm="clr-namespace:ZTalk.ViewModels"
     xmlns:i="using:Avalonia.Input"
-    xmlns:c="clr-namespace:P2PTalk.Controls"
+    xmlns:c="clr-namespace:ZTalk.Controls"
     xmlns:m="clr-namespace:ZTalk.Models"
     xmlns:sys="clr-namespace:System;assembly=System.Runtime"
-        x:Class="P2PTalk.Views.NetworkWindow"
+        x:Class="ZTalk.Views.NetworkWindow"
     Title="Network Settings"
     Width="520" Height="360"
     MinWidth="480" MinHeight="320"

@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 
-namespace P2PTalk.ViewModels
+namespace ZTalk.ViewModels
 {
     public sealed class ChatTimelineDateHeader
     {

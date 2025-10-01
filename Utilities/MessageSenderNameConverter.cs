@@ -1,9 +1,9 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using P2PTalk.Services;
+using ZTalk.Services;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     // Maps a message SenderUID to a display label:
     // - "You" when sender is the local user

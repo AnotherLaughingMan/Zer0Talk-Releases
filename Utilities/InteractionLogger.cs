@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     public static class InteractionLogger
     {

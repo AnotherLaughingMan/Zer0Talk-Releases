@@ -10,11 +10,11 @@ using System.Security.Cryptography;
 using System.Text;
 
 using ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
 using Sodium;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class IdentityService
     {

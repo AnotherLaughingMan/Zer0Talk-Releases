@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     public static class UrlLauncher
     {

@@ -4,7 +4,7 @@
 using System;
 using System.Security.Cryptography;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     public static class Hkdf
     {

@@ -10,9 +10,9 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     // Minimal NAT traversal helper. Real hole punching requires a rendezvous/mediator.
     public class NatTraversalService : IDisposable
@@ -306,8 +306,8 @@ namespace P2PTalk.Services
                 // Preemptively delete any stale entries to avoid conflicts
                 try { await _upnp.DeletePortMappingAsync(tcpPort, "TCP"); } catch { }
                 try { await _upnp.DeletePortMappingAsync(udpPort, "UDP"); } catch { }
-                var okTcp = await _upnp.AddPortMappingAsync(tcpPort, tcpPort, "TCP", localIp, "P2PTalk TCP");
-                var okUdp = await _upnp.AddPortMappingAsync(udpPort, udpPort, "UDP", localIp, "P2PTalk UDP");
+                var okTcp = await _upnp.AddPortMappingAsync(tcpPort, tcpPort, "TCP", localIp, "ZTalk TCP");
+                var okUdp = await _upnp.AddPortMappingAsync(udpPort, udpPort, "UDP", localIp, "ZTalk UDP");
 
                 // If both failed, try alternates if any
                 if (!okTcp && !okUdp)
@@ -320,8 +320,8 @@ namespace P2PTalk.Services
                             Logger.Log($"Retry UPnP mapping via alternate service: {svc}");
                             try { await _upnp.DeletePortMappingAsync(tcpPort, "TCP"); } catch { }
                             try { await _upnp.DeletePortMappingAsync(udpPort, "UDP"); } catch { }
-                            okTcp = okTcp || await _upnp.AddPortMappingAsync(tcpPort, tcpPort, "TCP", localIp, "P2PTalk TCP");
-                            okUdp = okUdp || await _upnp.AddPortMappingAsync(udpPort, udpPort, "UDP", localIp, "P2PTalk UDP");
+                            okTcp = okTcp || await _upnp.AddPortMappingAsync(tcpPort, tcpPort, "TCP", localIp, "ZTalk TCP");
+                            okUdp = okUdp || await _upnp.AddPortMappingAsync(udpPort, udpPort, "UDP", localIp, "ZTalk UDP");
                             if (okTcp || okUdp) break;
                         }
                     }
@@ -382,7 +382,7 @@ namespace P2PTalk.Services
                     try { udp.Client.Bind(new IPEndPoint(IPAddress.Any, 0)); } catch { }
                 }
                 udp.Client.ReceiveTimeout = 1500;
-                var payload = System.Text.Encoding.ASCII.GetBytes("p2ptalk-punch");
+                var payload = System.Text.Encoding.ASCII.GetBytes("ztalk-punch");
                 await udp.SendAsync(payload, payload.Length, peerPublicEndpoint);
                 Logger.Log($"NAT: Sent UDP punch to {peerPublicEndpoint}");
                 Status = "Attempting punch";

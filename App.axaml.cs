@@ -12,15 +12,15 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-using P2PTalk.Services;
-using P2PTalk.Utilities;
-using P2PTalk.Views;
-using P2PTalk.Containers;
+using ZTalk.Services;
+using ZTalk.Utilities;
+using ZTalk.Views;
+using ZTalk.Containers;
 using System.IO;
 
 using Sodium;
 
-namespace P2PTalk;
+namespace ZTalk;
 
 public partial class App : Application
 {
@@ -54,7 +54,7 @@ public partial class App : Application
     private static bool _networkInitScheduled;
     private static void ScheduleDelayedNetworkInit()
     {
-        if (SafeMode || P2PTalk.Utilities.RuntimeFlags.SafeMode)
+        if (SafeMode || ZTalk.Utilities.RuntimeFlags.SafeMode)
         {
             try { TryWriteErrorTxt("Init.Network.Skipped.SafeMode", null); } catch { }
             return;
@@ -68,15 +68,15 @@ public partial class App : Application
             {
                 await System.Threading.Tasks.Task.Delay(1500);
                 try { TryWriteErrorTxt("Init.Network.Start.Begin", null); } catch { }
-                var s = P2PTalk.Services.AppServices.Settings.Settings;
+                var s = ZTalk.Services.AppServices.Settings.Settings;
                 try
                 {
-                    if (SafeMode || P2PTalk.Utilities.RuntimeFlags.SafeMode)
+                    if (SafeMode || ZTalk.Utilities.RuntimeFlags.SafeMode)
                     {
                         try { TryWriteErrorTxt("Init.Network.Start.Suppressed.SafeMode", null); } catch { }
                         return;
                     }
-                    P2PTalk.Services.AppServices.Network.StartIfMajorNode(s.Port, s.MajorNode);
+                    ZTalk.Services.AppServices.Network.StartIfMajorNode(s.Port, s.MajorNode);
                     try { TryWriteErrorTxt("Init.Network.Start.Done", null); } catch { }
                 }
                 catch (Exception exNet)
@@ -108,8 +108,8 @@ public partial class App : Application
     {
         try
         {
-            if (ex is null) P2PTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(header), source: "Trace");
-            else P2PTalk.Utilities.ErrorLogger.LogException(ex, source: header);
+            if (ex is null) ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(header), source: "Trace");
+            else ZTalk.Utilities.ErrorLogger.LogException(ex, source: header);
         }
         catch { }
     }
@@ -118,12 +118,12 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Ensure AppData root is migrated (P2PTalk -> ZTalk) before any storage access
-            try { P2PTalk.Utilities.AppDataPaths.MigrateIfNeeded(); } catch { }
+            // Ensure AppData root is migrated (old name -> ZTalk) before any storage access
+            try { ZTalk.Utilities.AppDataPaths.MigrateIfNeeded(); } catch { }
             // Clean legacy transient cache under old root if present
             try
             {
-                var legacyCache = System.IO.Path.Combine(P2PTalk.Utilities.AppDataPaths.OldRoot, ".cache");
+                var legacyCache = System.IO.Path.Combine(ZTalk.Utilities.AppDataPaths.OldRoot, ".cache");
                 if (System.IO.Directory.Exists(legacyCache))
                 {
                     try { System.IO.Directory.Delete(legacyCache, true); } catch { }
@@ -131,7 +131,7 @@ public partial class App : Application
             }
             catch { }
             // Mirror App.SafeMode to RuntimeFlags early to ensure service singletons respect it
-            try { P2PTalk.Utilities.RuntimeFlags.SafeMode = SafeMode; } catch { }
+            try { ZTalk.Utilities.RuntimeFlags.SafeMode = SafeMode; } catch { }
             // Capture first-chance exceptions for diagnostics around click crashes
             try
             {
@@ -149,7 +149,7 @@ public partial class App : Application
             {
                 Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (s, e) =>
                 {
-                    P2PTalk.Utilities.ErrorLogger.LogException(e.Exception, source: "UIThread.UnhandledException");
+                    ZTalk.Utilities.ErrorLogger.LogException(e.Exception, source: "UIThread.UnhandledException");
                     TryWriteErrorTxt("UIThread.UnhandledException", e.Exception);
                     e.Handled = true; // do not crash; log silently
                 };
@@ -165,7 +165,7 @@ public partial class App : Application
                     {
                         if (e.ExceptionObject is Exception ex)
                         {
-                            P2PTalk.Utilities.ErrorLogger.LogException(ex, source: "AppDomain.UnhandledException");
+                            ZTalk.Utilities.ErrorLogger.LogException(ex, source: "AppDomain.UnhandledException");
                             TryWriteErrorTxt("AppDomain.UnhandledException", ex);
                         }
                         else
@@ -179,7 +179,7 @@ public partial class App : Application
                 {
                     try
                     {
-                        P2PTalk.Utilities.ErrorLogger.LogException(e.Exception, source: "TaskScheduler.UnobservedTaskException");
+                        ZTalk.Utilities.ErrorLogger.LogException(e.Exception, source: "TaskScheduler.UnobservedTaskException");
                         TryWriteErrorTxt("TaskScheduler.UnobservedTaskException", e.Exception);
                         e.SetObserved();
                     }
@@ -194,7 +194,7 @@ public partial class App : Application
                 // Create/append a startup trace so error.txt is guaranteed to exist next to the executable
                 try { TryWriteErrorTxt("App.Started", null); } catch { }
                 // Log graceful exit path too
-                try { desktop.Exit += (_, __) => { try { P2PTalk.Services.AppServices.Shutdown(); } catch { } try { TryWriteErrorTxt("App.Exit", null); } catch { } }; } catch { }
+                try { desktop.Exit += (_, __) => { try { ZTalk.Services.AppServices.Shutdown(); } catch { } try { TryWriteErrorTxt("App.Exit", null); } catch { } }; } catch { }
 #if DEBUG
                 // Lightweight heartbeat (10s) already; keep it
                 try
@@ -211,7 +211,7 @@ public partial class App : Application
                 // Prepare transient cache folder and ensure it is cleaned on startup
                 try
                 {
-                    var cacheDir = System.IO.Path.Combine(P2PTalk.Utilities.AppDataPaths.Root, ".cache");
+                    var cacheDir = System.IO.Path.Combine(ZTalk.Utilities.AppDataPaths.Root, ".cache");
                     if (System.IO.Directory.Exists(cacheDir))
                     {
                         try { System.IO.Directory.Delete(cacheDir, true); } catch { }
@@ -236,7 +236,7 @@ public partial class App : Application
                 try { TryWriteErrorTxt("Init.WAN.Events", null); } catch { }
                 AppServices.Crawler.DiscoveredChanged += peers => AppServices.Peers.SetDiscovered(peers);
                 // [WAN] Only start WAN/seed crawler when internet is available; skip otherwise. Suppress in SafeMode.
-                if (!P2PTalk.Utilities.RuntimeFlags.SafeMode)
+                if (!ZTalk.Utilities.RuntimeFlags.SafeMode)
                 {
                     try
                     {
@@ -342,7 +342,7 @@ public partial class App : Application
                                 {
                                     try
                                     {
-                                        if (P2PTalk.Utilities.RuntimeFlags.SafeMode)
+                                        if (ZTalk.Utilities.RuntimeFlags.SafeMode)
                                         {
                                             try { TryWriteErrorTxt("NetworkConfigChanged.Suppressed.SafeMode", null); } catch { }
                                             return;
@@ -368,7 +368,7 @@ public partial class App : Application
                                             var vm = mw.DataContext as ViewModels.MainWindowViewModel;
                                             if (vm != null)
                                             {
-                                                vm.PortAlertText = "Port is in use. Open Network (globe) -> change Port -> re-run P2PTalk.";
+                                                vm.PortAlertText = "Port is in use. Open Network (globe) -> change Port -> re-run ZTalk.";
                                                 vm.PortAlertVisible = true;
                                             }
                                         }
@@ -376,8 +376,8 @@ public partial class App : Application
                                         // Log to network.log (centralized log location)
                                             try
                                             {
-                                                if (P2PTalk.Utilities.LoggingPaths.Enabled)
-                                                    System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.Network, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] PORT {msg}\n");
+                                                if (ZTalk.Utilities.LoggingPaths.Enabled)
+                                                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Network, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] PORT {msg}\n");
                                             }
                                             catch { }
                                     }
@@ -465,7 +465,7 @@ public partial class App : Application
                                 {
                                     try
                                     {
-                                        if (P2PTalk.Utilities.RuntimeFlags.SafeMode)
+                                        if (ZTalk.Utilities.RuntimeFlags.SafeMode)
                                         {
                                             try { TryWriteErrorTxt("NetworkConfigChanged.Suppressed.SafeMode", null); } catch { }
                                             return;
@@ -486,7 +486,7 @@ public partial class App : Application
                                 try { TryWriteErrorTxt("Migration.Messages.Begin", null); } catch { }
                                 try
                                 {
-                                    var dir = P2PTalk.Utilities.AppDataPaths.Combine("messages");
+                                    var dir = ZTalk.Utilities.AppDataPaths.Combine("messages");
                                     if (Directory.Exists(dir))
                                     {
                                         var mc = new MessageContainer();
@@ -606,7 +606,7 @@ public partial class App : Application
                             {
                                 try
                                 {
-                                    if (P2PTalk.Utilities.RuntimeFlags.SafeMode)
+                                    if (ZTalk.Utilities.RuntimeFlags.SafeMode)
                                     {
                                         try { TryWriteErrorTxt("NetworkConfigChanged.Suppressed.SafeMode", null); } catch { }
                                         return;
@@ -626,7 +626,7 @@ public partial class App : Application
                             try { TryWriteErrorTxt("Migration.Messages.Begin", null); } catch { }
                             try
                             {
-                                var dir = P2PTalk.Utilities.AppDataPaths.Combine("messages");
+                                var dir = ZTalk.Utilities.AppDataPaths.Combine("messages");
                                 if (Directory.Exists(dir))
                                 {
                                     var mc = new MessageContainer();
@@ -656,7 +656,7 @@ public partial class App : Application
             }
             catch (Exception ex)
             {
-                try { P2PTalk.Utilities.ErrorLogger.LogException(ex, source: "App.OnFrameworkInitializationCompleted"); } catch { }
+                try { ZTalk.Utilities.ErrorLogger.LogException(ex, source: "App.OnFrameworkInitializationCompleted"); } catch { }
                 try { TryWriteErrorTxt("App.OnFrameworkInitializationCompleted", ex); } catch { }
                 // Gracefully shutdown to avoid a hung transparent window
                 try { desktop.Shutdown(); } catch { }

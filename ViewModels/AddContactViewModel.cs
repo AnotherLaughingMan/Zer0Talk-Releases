@@ -4,10 +4,10 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
-using P2PTalk.Services;
+using ZTalk.Services;
 using Models = ZTalk.Models;
 
-namespace P2PTalk.ViewModels
+namespace ZTalk.ViewModels
 {
     public class AddContactViewModel : INotifyPropertyChanged
     {

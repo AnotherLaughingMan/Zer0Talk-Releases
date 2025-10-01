@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace P2PTalk.Controls;
+namespace ZTalk.Controls;
 
 public partial class PresenceDndIcon : UserControl
 {

@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     public static class AppDataPaths
     {
@@ -91,7 +91,7 @@ namespace P2PTalk.Utilities
 
                 try
                 {
-                    var flag = Path.Combine(newDir, "migrated.from.p2ptalk.txt");
+                    var flag = Path.Combine(newDir, "migrated.from.ZTalk.txt");
                     File.WriteAllText(flag, $"Migrated {DateTime.UtcNow:O} from '{OldRootName}' to '{NewRootName}'.");
                 }
                 catch { }

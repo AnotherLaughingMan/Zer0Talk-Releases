@@ -18,7 +18,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class DialogService
     {
@@ -367,8 +367,8 @@ namespace P2PTalk.Services
         {
             try
             {
-                if (P2PTalk.Utilities.LoggingPaths.Enabled)
-                    System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} {line}{Environment.NewLine}");
+                if (ZTalk.Utilities.LoggingPaths.Enabled)
+                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} {line}{Environment.NewLine}");
             }
             catch { }
         }
@@ -430,7 +430,7 @@ namespace P2PTalk.Services
             {
                 try
                 {
-                    var dir = P2PTalk.Utilities.AppDataPaths.Root;
+                    var dir = ZTalk.Utilities.AppDataPaths.Root;
                     Directory.CreateDirectory(dir);
                     IStorageFolder? start = null;
                     try { start = await dialog.StorageProvider.TryGetFolderFromPathAsync(dir); } catch { }

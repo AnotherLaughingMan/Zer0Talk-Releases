@@ -7,7 +7,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     public sealed class CountingStream : Stream
     {

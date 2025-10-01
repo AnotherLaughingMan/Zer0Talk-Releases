@@ -39,7 +39,7 @@ ZTalk is a peer-to-peer messaging prototype built on Avalonia (.NET 9) and struc
 
 | Service | Responsibility | Notables |
 | --- | --- | --- |
-| `SettingsService` | Secure storage of user configuration, passphrases, and DPAPI sidecars. | Encrypts to `%AppData%\Roaming\P2PTalk\settings.p2e`. |
+| `SettingsService` | Secure storage of user configuration, passphrases, and DPAPI sidecars. | Encrypts to `%AppData%\Roaming\ZTalk\settings.p2e`. |
 | `IdentityService` | Maintains local identity records, verified badges, and avatar linkage. | Works with `AvatarCache` and `UidToAvatarConverter`. |
 | `NetworkService` | Manages sockets, discovery, NAT traversal, and peer lifecycle. | Interfaces with `PeerManager`, `PeerCrawler`, `NatTraversalService`. |
 | `LockService` | Controls unlock overlay, blur behavior, and shutdown gating. | Avoids re-instantiating `MainWindow` by reusing the same shell. |
@@ -50,7 +50,7 @@ ZTalk is a peer-to-peer messaging prototype built on Avalonia (.NET 9) and struc
 
 ## Assets & Resources
 
-- **Icons** live in `Assets/Icons/` and are wired through `P2PTalk.csproj` as Avalonia
+- **Icons** live in `Assets/Icons/` and are wired through `ZTalk.csproj` as Avalonia
   resources. Replace the developer placeholders (`Icon.ico`, `Special/Encrypted.ico`,
   `Status/*.ico`) with production artwork when available.
 - **Avatars** reside in `Assets/Avatars/` and map to peers via converters.

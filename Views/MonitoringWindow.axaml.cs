@@ -10,10 +10,10 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
-using P2PTalk.Services;
-using P2PTalk.ViewModels;
+using ZTalk.Services;
+using ZTalk.ViewModels;
 
-namespace P2PTalk.Views;
+namespace ZTalk.Views;
 
 public partial class MonitoringWindow : Window, IDisposable
 {
@@ -78,7 +78,7 @@ public partial class MonitoringWindow : Window, IDisposable
         }
 
         // Surface network stack logs (SSDP/UPnP/etc.) in the Monitoring log for diagnostics
-        try { P2PTalk.Utilities.Logger.LineLogged += OnLoggerLine; } catch { }
+        try { ZTalk.Utilities.Logger.LineLogged += OnLoggerLine; } catch { }
 
         // EVENT-DRIVEN STATUS UPDATES
         // Switch NAT/ports/discovery and diagnostics summary to event-driven updates instead of the refresh loop.
@@ -387,7 +387,7 @@ public partial class MonitoringWindow : Window, IDisposable
     protected override void OnClosed(EventArgs e)
     {
         // Unsubscribe from all events to avoid leaks and callbacks after close.
-        try { P2PTalk.Utilities.Logger.LineLogged -= OnLoggerLine; } catch { }
+        try { ZTalk.Utilities.Logger.LineLogged -= OnLoggerLine; } catch { }
         try { AppServices.Nat.Changed -= OnStatusEvent; } catch { }
         try { AppServices.Discovery.Changed -= OnStatusEvent; } catch { }
         try { AppServices.Network.ListeningChanged -= OnNetworkListeningChanged; } catch { }

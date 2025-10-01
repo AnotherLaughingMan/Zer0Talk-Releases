@@ -16,7 +16,7 @@ using Avalonia.Styling;
 
 using ZTalk.Models;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class ThemeService
     {

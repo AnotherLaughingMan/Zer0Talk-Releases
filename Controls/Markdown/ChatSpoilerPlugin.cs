@@ -13,7 +13,7 @@ using Markdown.Avalonia;
 using Markdown.Avalonia.Parsers;
 using Markdown.Avalonia.Plugins;
 
-namespace P2PTalk.Controls.Markdown;
+namespace ZTalk.Controls.Markdown;
 
 public sealed class ChatSpoilerPlugin : IMdAvPlugin
 {

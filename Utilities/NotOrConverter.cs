@@ -4,7 +4,7 @@ using System.Globalization;
 
 using Avalonia.Data.Converters;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     // Returns true only when all boolean inputs are false; otherwise false.
     // Useful for IsVisible bindings where the element should appear only if

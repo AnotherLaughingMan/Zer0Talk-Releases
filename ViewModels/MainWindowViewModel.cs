@@ -18,13 +18,13 @@ using System.Windows.Input;
 
 using Avalonia.Media;
 
-using P2PTalk.Containers;
+using ZTalk.Containers;
 using ZTalk.Models;
 using Models = ZTalk.Models;
-using P2PTalk.Services;
-using P2PTalk.Utilities;
+using ZTalk.Services;
+using ZTalk.Utilities;
 
-namespace P2PTalk.ViewModels
+namespace ZTalk.ViewModels
 {
     public class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
@@ -41,7 +41,7 @@ namespace P2PTalk.ViewModels
             }
         }
 
-        public string PrototypeBadgeText => P2PTalk.AppInfo.PrototypeBadgeText;
+        public string PrototypeBadgeText => ZTalk.AppInfo.PrototypeBadgeText;
 
         public ObservableCollection<Contact> Contacts { get; } = new();
         public ObservableCollection<Message> Messages { get; } = new();
@@ -92,10 +92,10 @@ namespace P2PTalk.ViewModels
             var v = System.Threading.Interlocked.Increment(ref _selectionFreezeCount);
             try
             {
-                if (P2PTalk.Utilities.LoggingPaths.Enabled)
+                if (ZTalk.Utilities.LoggingPaths.Enabled)
                 {
                     var line = $"{DateTime.Now:O} [UI] Freeze begin: reason=context/hover count={v}";
-                    System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
+                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
                 }
             }
             catch { }
@@ -108,10 +108,10 @@ namespace P2PTalk.ViewModels
                 _selectionFreezeCount = 0;
                 try
                 {
-                    if (P2PTalk.Utilities.LoggingPaths.Enabled)
+                    if (ZTalk.Utilities.LoggingPaths.Enabled)
                     {
                         var line = $"{DateTime.Now:O} [UI] Freeze end";
-                        System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
+                        System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
                     }
                 }
                 catch { }
@@ -204,12 +204,12 @@ namespace P2PTalk.ViewModels
                             catch { }
                             try
                             {
-                                if (P2PTalk.Utilities.LoggingPaths.Enabled)
+                                if (ZTalk.Utilities.LoggingPaths.Enabled)
                                 {
                                     var frozen = IsSelectionFrozen ? "true" : "false";
                                     var preserved = (!string.IsNullOrWhiteSpace(prevUid) && string.Equals(prevUid, SelectedContact?.UID, StringComparison.OrdinalIgnoreCase)) ? "true" : "false";
                                     var line = $"{DateTime.Now:O} [UI] Contacts refresh (debounced): items={Contacts.Count} selPrev={prevUid ?? "none"} selNow={SelectedContact?.UID ?? "none"} preserved={preserved} frozen={frozen}";
-                                    System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
+                                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
                                 }
                             }
                             catch { }
@@ -582,9 +582,9 @@ namespace P2PTalk.ViewModels
             {
                 try
                 {
-                    if (!P2PTalk.Utilities.LoggingPaths.Enabled) return;
+                    if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
                     var line = $"[RETENTION] {DateTime.Now:O}: User delete {reason} peer={peerUid} id={messageId}";
-                    System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.Retention, line + Environment.NewLine);
+                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Retention, line + Environment.NewLine);
                 }
                 catch { }
             }
@@ -855,7 +855,7 @@ namespace P2PTalk.ViewModels
                 if (_portAlertVisible != value)
                 {
                     _portAlertVisible = value; OnPropertyChanged();
-                    try { if (P2PTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][PortAlert] {(value ? "Show" : "Hide")}: '{_portAlertText}'{Environment.NewLine}"); } catch { }
+                    try { if (ZTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][PortAlert] {(value ? "Show" : "Hide")}: '{_portAlertText}'{Environment.NewLine}"); } catch { }
                     // [PORT-ALERT] Auto-hide after a short delay when shown
                     if (value) StartPortAlertAutoHide(TimeSpan.FromSeconds(8));
                 }
@@ -1265,7 +1265,7 @@ namespace P2PTalk.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    try { P2PTalk.Utilities.ErrorLogger.LogException(ex, source: "UI.LinkPreviewFetch"); } catch { }
+                    try { ZTalk.Utilities.ErrorLogger.LogException(ex, source: "UI.LinkPreviewFetch"); } catch { }
                 }
                 finally
                 {
@@ -1937,7 +1937,7 @@ namespace P2PTalk.ViewModels
             catch (Exception ex)
             {
                 ErrorMessage = "Burn failed. Check logs for details.";
-                try { P2PTalk.Utilities.ErrorLogger.LogException(ex, source: "UI.BurnConversation"); } catch { }
+                try { ZTalk.Utilities.ErrorLogger.LogException(ex, source: "UI.BurnConversation"); } catch { }
             }
         }
 

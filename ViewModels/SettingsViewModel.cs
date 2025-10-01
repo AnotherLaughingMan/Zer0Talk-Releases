@@ -13,10 +13,10 @@ using Avalonia.Media;
 
 using ZTalk.Models;
 using Models = ZTalk.Models;
-using P2PTalk.Services;
-using P2PTalk.Utilities;
+using ZTalk.Services;
+using ZTalk.Utilities;
 
-namespace P2PTalk.ViewModels;
+namespace ZTalk.ViewModels;
 
 public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 {
@@ -518,7 +518,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
     // About panel properties
     public string AppName => "ZTalk";
-    public string AppVersion => P2PTalk.AppInfo.Version;
+    public string AppVersion => ZTalk.AppInfo.Version;
     public string AvaloniaVersion
     {
         get
@@ -659,7 +659,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             {
                 _backgroundFramerateFps = v;
                 OnPropertyChanged();
-                try { P2PTalk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
+                try { ZTalk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
                 try { WritePerformanceLog($"Change BackgroundFramerateFps={_backgroundFramerateFps}"); } catch { }
             }
         }
@@ -1411,7 +1411,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             try { ApplyGpuModeImmediate(s.DisableGpuAcceleration); } catch { }
             try { ApplyFpsThrottleImmediate(s.FpsThrottle); } catch { }
             try { ApplyRefreshRateThrottleImmediate(s.RefreshRateThrottle); } catch { }
-            try { P2PTalk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
+            try { ZTalk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
             try { ApplyCcdAffinityImmediate(s.CcdAffinityIndex); } catch { }
             // Apply theme + theme engine live
             try { _themeService.SetTheme(s.Theme); _themeService.ApplyThemeEngine(s.UiFontFamily, s.UiScale); } catch { }
@@ -1439,7 +1439,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                     Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime life)
                 {
                     foreach (var w in life.Windows.OfType<Window>())
-                        P2PTalk.Services.ScreenCaptureProtection.SetExcludeFromCapture(w, BlockScreenCapture);
+                        ZTalk.Services.ScreenCaptureProtection.SetExcludeFromCapture(w, BlockScreenCapture);
                 }
             }
             catch { }
@@ -1475,13 +1475,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     }
 
     // Lightweight UI logging
-    private static bool UiLoggingEnabled => P2PTalk.Utilities.LoggingPaths.Enabled;
+    private static bool UiLoggingEnabled => ZTalk.Utilities.LoggingPaths.Enabled;
     private static void WriteUiLog(string line)
     {
         try
         {
             if (!UiLoggingEnabled) return;
-            System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} {line}{Environment.NewLine}");
+            System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} {line}{Environment.NewLine}");
         }
         catch { }
     }
@@ -2012,13 +2012,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
         catch { }
     }
-    private static bool AccessibilityLoggingEnabled => P2PTalk.Utilities.LoggingPaths.Enabled;
+    private static bool AccessibilityLoggingEnabled => ZTalk.Utilities.LoggingPaths.Enabled;
     private static void WriteAccessibilityLog(string line)
     {
         try
         {
             if (!AccessibilityLoggingEnabled) return;
-            System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.Debug, $"[ACCESS] {DateTime.Now:O} {line}{Environment.NewLine}");
+            System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Debug, $"[ACCESS] {DateTime.Now:O} {line}{Environment.NewLine}");
         }
         catch { }
     }
@@ -2094,19 +2094,19 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     }
     private static string GetContactsPath()
     {
-    return P2PTalk.Utilities.AppDataPaths.Combine("contacts.p2e");
+    return ZTalk.Utilities.AppDataPaths.Combine("contacts.p2e");
     }
     private static string GetMessagesPath()
     {
-    return P2PTalk.Utilities.AppDataPaths.Combine("messages.p2e");
+    return ZTalk.Utilities.AppDataPaths.Combine("messages.p2e");
     }
     private static string GetPeersPath()
     {
-    return P2PTalk.Utilities.AppDataPaths.Combine("peers.p2e");
+    return ZTalk.Utilities.AppDataPaths.Combine("peers.p2e");
     }
     private static string GetThemesFolder()
     {
-    return P2PTalk.Utilities.AppDataPaths.Combine("Themes");
+    return ZTalk.Utilities.AppDataPaths.Combine("Themes");
     }
 
     private async Task PurgeAllMessagesAsync()
@@ -2173,7 +2173,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             // Do not clear passphrase; simply lock the app.
             try { Logger.Log("User logout requested (lock only; passphrase retained)"); } catch { }
             try { CloseRequested?.Invoke(this, EventArgs.Empty); } catch { }
-            try { new P2PTalk.Services.LockService().Lock(); } catch { }
+            try { new ZTalk.Services.LockService().Lock(); } catch { }
         }
         catch { }
     }
@@ -2185,6 +2185,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Network properties exposed from NetworkViewModel
     public int Port { get => NetworkVm.Port; set => NetworkVm.PortText = value.ToString(); }
     public bool MajorNode { get => NetworkVm.MajorNode; set => NetworkVm.MajorNode = value; }
+    public bool EnableGeoBlocking { get => NetworkVm.EnableGeoBlocking; set => NetworkVm.EnableGeoBlocking = value; }
+    public string GeoBlockingStatus => NetworkVm.GeoBlockingStatus;
     public bool RelayFallbackEnabled { get; set; } // TODO: Implement in NetworkViewModel
     public string RelayServer { get; set; } = string.Empty; // TODO: Implement in NetworkViewModel
     public string NewMajorNode { get => NetworkVm.NewMajorNode; set => NetworkVm.NewMajorNode = value; }
@@ -2217,7 +2219,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand RemoveMajorNodeCommand => NetworkVm.RemoveMajorNodeCommand;
     public ICommand BlockPeerCommand => NetworkVm.BlockPeerCommand;
     public ICommand UnblockPeerCommand => NetworkVm.UnblockPeerCommand;
+    public ICommand BlockSelectedPeersCommand => NetworkVm.BlockSelectedPeersCommand;
+    public ICommand UnblockSelectedPeersCommand => NetworkVm.UnblockSelectedPeersCommand;
     public ICommand ClearAllBlocksCommand => NetworkVm.ClearAllBlocksCommand;
+    public ICommand RefreshPeersCommand => NetworkVm.RefreshPeersCommand;
     public ICommand MoveAdapterUpCommand => NetworkVm.MoveAdapterUpCommand;
     public ICommand MoveAdapterDownCommand => NetworkVm.MoveAdapterDownCommand;
     public ICommand SaveAdapterOrderCommand => NetworkVm.SaveAdaptersCommand;
@@ -2231,9 +2236,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
 internal sealed class LockServiceSingleton
 {
-    private LockServiceSingleton() { Service = new P2PTalk.Services.LockService(); }
+    private LockServiceSingleton() { Service = new ZTalk.Services.LockService(); }
     public static LockServiceSingleton Instance { get; } = new LockServiceSingleton();
-    public P2PTalk.Services.LockService Service { get; }
+    public ZTalk.Services.LockService Service { get; }
     public void LockNow() => Service.Lock();
 }
 
@@ -2252,15 +2257,19 @@ public class NetworkViewModel : INotifyPropertyChanged
         Port = s.Port;
         PortText = s.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
         MajorNode = s.MajorNode;
+        EnableGeoBlocking = s.EnableGeoBlocking;
     RetryNatVerificationCommand = new RelayCommand(async _ => { try { await AppServices.Nat.RetryVerificationAsync(); } catch { } });
         SaveCommand = new RelayCommand(async _ => await SaveAsync(showToast: true, close: false), _ => Port >= 1 && Port <= 65535);
         CloseApplyCommand = new RelayCommand(async _ => await SaveAsync(showToast: false, close: true), _ => Port >= 1 && Port <= 65535);
         CancelCommand = new RelayCommand(_ => { DiscardNetworkChanges(); CloseRequested?.Invoke(this, EventArgs.Empty); });
         BlockPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.Block(uid); RefreshLists(); } });
         UnblockPeerCommand = new RelayCommand(p => { if (p is string uid) ConfirmUnblock(uid); });
+        BlockSelectedPeersCommand = new RelayCommand(_ => BlockSelectedPeers());
+        UnblockSelectedPeersCommand = new RelayCommand(_ => UnblockSelectedPeers());
         TrustPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.SetTrusted(uid, true); RefreshLists(); } });
         UntrustPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.SetTrusted(uid, false); RefreshLists(); } });
         ClearAllBlocksCommand = new RelayCommand(_ => ConfirmClearAll());
+        RefreshPeersCommand = new RelayCommand(_ => RefreshLists());
         AddMajorNodeCommand = new RelayCommand(_ => AddMajorNode(), _ => !string.IsNullOrWhiteSpace(NewMajorNode));
         RemoveMajorNodeCommand = new RelayCommand(n => { if (n is string s) RemoveMajorNode(s); });
         RefreshLists();
@@ -2284,7 +2293,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             });
             AppServices.Events.NatChanged += () => _uiThrottled?.Invoke();
             AppServices.Events.NetworkListeningChanged += (_, __) => _uiThrottled?.Invoke();
-            AppServices.Events.PeersChanged += () => _uiThrottled?.Invoke();
+            AppServices.Events.PeersChanged += () => { _uiThrottled?.Invoke(); Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshLists()); };
             _uiPulseHandler = () => _uiThrottled?.Invoke();
             AppServices.Events.UiPulse += _uiPulseHandler;
             try { AppServices.Nat.Changed += () => _uiThrottled?.Invoke(); } catch { }
@@ -2341,13 +2350,29 @@ public class NetworkViewModel : INotifyPropertyChanged
                 try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
                 if (_majorNode)
                 {
-                    InfoMessage = "If prompted, allow P2PTalk through Windows Firewall for inbound connections.";
+                    InfoMessage = "If prompted, allow ZTalk through Windows Firewall for inbound connections.";
                 }
             }
         }
     }
 
+    // [SECURITY] Geo-blocking settings
+    private bool _enableGeoBlocking;
+    public bool EnableGeoBlocking
+    {
+        get => _enableGeoBlocking;
+        set
+        {
+            if (_enableGeoBlocking != value)
+            {
+                _enableGeoBlocking = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(GeoBlockingStatus));
+            }
+        }
+    }
 
+    public string GeoBlockingStatus => SecurityBlocklistService.GetGeoBlockingStatus(_settings.Settings);
 
     private void ApplyNetworkChangeLiveIfNeeded()
     {
@@ -2359,9 +2384,12 @@ public class NetworkViewModel : INotifyPropertyChanged
     public ICommand CloseApplyCommand { get; }
     public ICommand BlockPeerCommand { get; }
     public ICommand UnblockPeerCommand { get; }
+    public ICommand BlockSelectedPeersCommand { get; }
+    public ICommand UnblockSelectedPeersCommand { get; }
     public ICommand TrustPeerCommand { get; }
     public ICommand UntrustPeerCommand { get; }
     public ICommand ClearAllBlocksCommand { get; }
+    public ICommand RefreshPeersCommand { get; }
     public ICommand MoveAdapterUpCommand { get; }
     public ICommand MoveAdapterDownCommand { get; }
     public ICommand SaveAdaptersCommand { get; }
@@ -2372,6 +2400,18 @@ public class NetworkViewModel : INotifyPropertyChanged
     private System.Collections.ObjectModel.ObservableCollection<Peer> _discoveredPeers = new();
     public System.Collections.ObjectModel.ObservableCollection<Peer> DiscoveredPeers { get => _discoveredPeers; private set { _discoveredPeers = value; OnPropertyChanged(); } }
     public Peer? SelectedDiscoveredPeer { get; set; }
+    
+    // Track selected peers for multi-select operations
+    private System.Collections.Generic.List<Peer> _selectedPeers = new();
+    public System.Collections.Generic.List<Peer> SelectedPeers 
+    { 
+        get => _selectedPeers; 
+        set 
+        { 
+            _selectedPeers = value; 
+            OnPropertyChanged(); 
+        } 
+    }
     private System.Collections.ObjectModel.ObservableCollection<string> _blockedPeers = new();
     public System.Collections.ObjectModel.ObservableCollection<string> BlockedPeers { get => _blockedPeers; private set { _blockedPeers = value; OnPropertyChanged(); } }
     public string? SelectedBlockedPeer { get; set; }
@@ -2485,12 +2525,13 @@ public class NetworkViewModel : INotifyPropertyChanged
             var s = _settings.Settings;
             s.Port = Port;
             s.MajorNode = MajorNode;
+            s.EnableGeoBlocking = EnableGeoBlocking;
             _settings.Save(AppServices.Passphrase);
             // Networking lifecycle is handled by app-level service; notify via centralized event
             AppServices.Events.RaiseNetworkConfigChanged();
             if (s.MajorNode)
             {
-                InfoMessage = "If prompted, allow P2PTalk through Windows Firewall for inbound connections.";
+                InfoMessage = "If prompted, allow ZTalk through Windows Firewall for inbound connections.";
             }
             if (showToast)
             {
@@ -2763,10 +2804,162 @@ public class NetworkViewModel : INotifyPropertyChanged
     private void RefreshLists()
     {
         var peers = _peerManager.Peers.ToList();
-        DiscoveredPeers = new System.Collections.ObjectModel.ObservableCollection<Peer>(peers);
         var blocked = (_settings.Settings.BlockList ?? new System.Collections.Generic.List<string>()).ToList();
+        var now = System.DateTime.UtcNow;
+        
+        // Set IsBlocked property on each peer and assign country codes from IP address with caching
+        foreach (var peer in peers)
+        {
+            peer.IsBlocked = blocked.Contains(peer.UID);
+            
+            // Update LastSeenOnline if peer has public key (connected)
+            if (peer.PublicKey != null && peer.PublicKey.Length > 0)
+            {
+                peer.LastSeenOnline = now;
+            }
+            
+            // Derive country code from IP address with 30-minute cache after offline
+            // Only show country if peer is connected (has public key) or cache is still valid
+            var cacheExpired = peer.CountryCodeCachedAt == null || 
+                               (peer.LastSeenOnline != null && (now - peer.LastSeenOnline.Value).TotalMinutes > 30);
+            
+            if (string.IsNullOrEmpty(peer.CountryCode) || cacheExpired)
+            {
+                if (peer.PublicKey != null && peer.PublicKey.Length > 0)
+                {
+                    // Peer is connected, derive country code
+                    peer.CountryCode = GetCountryCodeFromIp(peer.Address);
+                    peer.CountryCodeCachedAt = now;
+                }
+                else
+                {
+                    // Peer not connected yet or cache expired, show placeholder
+                    peer.CountryCode = "⚪"; // Empty grey circle placeholder
+                    peer.CountryCodeCachedAt = null;
+                }
+            }
+        }
+        
+        DiscoveredPeers = new System.Collections.ObjectModel.ObservableCollection<Peer>(peers);
         BlockedPeers = new System.Collections.ObjectModel.ObservableCollection<string>(blocked);
         KnownMajorNodes = new System.Collections.ObjectModel.ObservableCollection<string>((_settings.Settings.KnownMajorNodes ?? new System.Collections.Generic.List<string>()).ToList());
+    }
+    
+    private static string GetCountryCodeFromIp(string ipAddress)
+    {
+        // Derive country flag emoji from IP address using simple heuristics
+        // This is a decorative hint based on IP range patterns, not accurate geolocation
+        try
+        {
+            if (string.IsNullOrWhiteSpace(ipAddress)) return "🌍";
+            
+            // Extract IP if address contains port (e.g. "192.168.1.100:5000")
+            string addressPart = ipAddress;
+            if (ipAddress.Contains(':'))
+            {
+                var parts = ipAddress.Split(':');
+                if (parts.Length > 0) addressPart = parts[0];
+            }
+            
+            // Parse IP address
+            if (!System.Net.IPAddress.TryParse(addressPart, out var ip)) return "🌍";
+            
+            var bytes = ip.GetAddressBytes();
+            if (bytes.Length != 4) return "🌍"; // Only support IPv4 for now
+            
+            var firstOctet = bytes[0];
+            var secondOctet = bytes[1];
+            
+            // Private/Local networks - show desktop PC emoji for same-network peers (check first!)
+            if (firstOctet == 10) return "\U0001F5A5\uFE0F"; // 10.x.x.x - Desktop PC
+            if (firstOctet == 192 && secondOctet == 168) return "\U0001F5A5\uFE0F"; // 192.168.x.x - Desktop PC
+            if (firstOctet == 172 && secondOctet >= 16 && secondOctet <= 31) return "\U0001F5A5\uFE0F"; // 172.16-31.x.x - Desktop PC
+            if (firstOctet == 127) return "\U0001F4BB"; // Localhost - Laptop
+            
+            // Simple heuristic based on common IP range patterns (not accurate, just decorative)
+            // US: Large portions of early allocations
+            if (firstOctet >= 3 && firstOctet <= 38) return "🇺🇸";
+            if (firstOctet >= 40 && firstOctet <= 50) return "🇺🇸";
+            if (firstOctet >= 63 && firstOctet <= 76) return "��";
+            
+            // EU regions
+            if (firstOctet >= 77 && firstOctet <= 95) return "��"; // UK
+            if (firstOctet >= 141 && firstOctet <= 145) return "🇩🇪"; // Germany
+            if (firstOctet >= 151 && firstOctet <= 155) return "🇫🇷"; // France
+            if (firstOctet >= 185 && firstOctet <= 188) return "🇳🇱"; // Netherlands
+            
+            // Asia-Pacific
+            if (firstOctet >= 202 && firstOctet <= 203) return "��"; // China
+            if (firstOctet >= 210 && firstOctet <= 211) return "��"; // Japan
+            if (firstOctet >= 119 && firstOctet <= 125) return "��"; // Japan
+            if (firstOctet >= 1 && firstOctet <= 2) return "�🇳"; // China
+            if (firstOctet >= 58 && firstOctet <= 61) return "🇨🇳"; // China
+            if (firstOctet >= 112 && firstOctet <= 115) return "🇰🇷"; // South Korea
+            if (firstOctet == 49 || firstOctet == 50) return "��"; // South Korea
+            if (firstOctet >= 103) return "🇮�"; // India
+            if (firstOctet >= 139 && firstOctet <= 140) return "🇮🇳"; // India
+            
+            // Americas
+            if (firstOctet >= 177 && firstOctet <= 181) return "🇧�"; // Brazil
+            if (firstOctet >= 200 && firstOctet <= 201) return "��"; // Brazil
+            if (firstOctet >= 142 && firstOctet <= 143) return "🇨�"; // Canada
+            if (firstOctet >= 206 && firstOctet <= 209) return "🇨🇦"; // Canada
+            
+            // Oceania
+            if (firstOctet >= 27 && firstOctet <= 29) return "🇦🇺"; // Australia
+            if (firstOctet >= 101 && firstOctet <= 103) return "🇦🇺"; // Australia
+            
+            // Default: derive from hash for consistency per IP
+            var hash = Math.Abs(ipAddress.GetHashCode());
+            var flags = new[] { "🇺🇸", "🇬🇧", "🇨🇦", "🇩🇪", "🇫🇷", "🇯🇵", "🇦🇺", "🇧🇷", "🇮🇳", "🇨🇳", "🇰🇷", "🇪🇸", "🇮🇹", "🇳🇱", "🇸🇪", "🇨🇭" };
+            return flags[hash % flags.Length];
+        }
+        catch
+        {
+            return "🌍"; // Unknown/Error
+        }
+    }
+    
+    private void BlockSelectedPeers()
+    {
+        // Block all peers in SelectedPeers list
+        if (SelectedPeers == null || SelectedPeers.Count == 0) return;
+        
+        var uidsToBlock = SelectedPeers.Select(p => p.UID).ToList();
+        foreach (var uid in uidsToBlock)
+        {
+            try
+            {
+                _peerManager.Block(uid);
+            }
+            catch { }
+        }
+        
+        SelectedPeers.Clear();
+        
+        // Ensure UI update happens on UI thread
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshLists());
+    }
+    
+    private void UnblockSelectedPeers()
+    {
+        // Unblock all peers in SelectedPeers list
+        if (SelectedPeers == null || SelectedPeers.Count == 0) return;
+        
+        var uidsToUnblock = SelectedPeers.Select(p => p.UID).ToList();
+        foreach (var uid in uidsToUnblock)
+        {
+            try
+            {
+                _peerManager.Unblock(uid);
+            }
+            catch { }
+        }
+        
+        SelectedPeers.Clear();
+        
+        // Ensure UI update happens on UI thread
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshLists());
     }
 
     private static bool TryParseHostPort(string input, out string host, out int port)
@@ -2794,7 +2987,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             KnownMajorNodes.Add(entry);
             NewMajorNode = string.Empty;
             // Optionally restart crawler for immediacy
-            if (!P2PTalk.Utilities.RuntimeFlags.SafeMode) AppServices.Crawler.Start();
+            if (!ZTalk.Utilities.RuntimeFlags.SafeMode) AppServices.Crawler.Start();
         }
     }
 
@@ -2805,7 +2998,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         {
             _settings.Save(AppServices.Passphrase);
             KnownMajorNodes.Remove(node);
-            if (!P2PTalk.Utilities.RuntimeFlags.SafeMode) AppServices.Crawler.Start();
+            if (!ZTalk.Utilities.RuntimeFlags.SafeMode) AppServices.Crawler.Start();
         }
     }
 

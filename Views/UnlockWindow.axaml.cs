@@ -11,10 +11,10 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 
-using P2PTalk.Utilities;
-using P2PTalk.ViewModels;
+using ZTalk.Utilities;
+using ZTalk.ViewModels;
 
-namespace P2PTalk.Views
+namespace ZTalk.Views
 {
     public partial class UnlockWindow : Window
     {
@@ -52,7 +52,7 @@ namespace P2PTalk.Views
                     {
                         if (vm.RememberPassphrase)
                         {
-                            if (P2PTalk.Services.AppServices.Settings.TryGetRememberedPassphrase(out var stored) && !string.IsNullOrEmpty(stored))
+                            if (ZTalk.Services.AppServices.Settings.TryGetRememberedPassphrase(out var stored) && !string.IsNullOrEmpty(stored))
                             {
                                 vm.Passphrase = stored;
                                 tb.Text = stored;
@@ -87,7 +87,7 @@ namespace P2PTalk.Views
                     var token = cts.Token;
                     tb.Text = text;
                     border.IsVisible = true;
-                    try { if (P2PTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] Show: '{text}'{Environment.NewLine}"); } catch { }
+                    try { if (ZTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] Show: '{text}'{Environment.NewLine}"); } catch { }
                     // Trigger fade-in via transitions
                     border.Opacity = 1.0;
                     await System.Threading.Tasks.Task.Delay(1600, token);
@@ -97,7 +97,7 @@ namespace P2PTalk.Views
                         await System.Threading.Tasks.Task.Delay(180, token);
                         if (!token.IsCancellationRequested)
                             border.IsVisible = false;
-                        try { if (P2PTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(P2PTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] Auto-hide{Environment.NewLine}"); } catch { }
+                        try { if (ZTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] Auto-hide{Environment.NewLine}"); } catch { }
                     }
                 }
                 catch (OperationCanceledException)
@@ -138,14 +138,14 @@ namespace P2PTalk.Views
             {
                 try
                 {
-                    var enabled = P2PTalk.Services.AppServices.Settings?.Settings?.BlockScreenCapture ?? true;
-                    P2PTalk.Services.ScreenCaptureProtection.SetExcludeFromCapture(this, enabled);
+                    var enabled = ZTalk.Services.AppServices.Settings?.Settings?.BlockScreenCapture ?? true;
+                    ZTalk.Services.ScreenCaptureProtection.SetExcludeFromCapture(this, enabled);
                 }
                 catch { }
             };
             // Log spacing/layout correction (debug builds only via LoggingPaths policy)
-            try { P2PTalk.Utilities.LoggingPaths.TryWrite(P2PTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.layout spacing=12px buttons updated\n"); } catch { }
-            try { P2PTalk.Utilities.LoggingPaths.TryWrite(P2PTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.toggles labels=restored\n"); } catch { }
+            try { ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.layout spacing=12px buttons updated\n"); } catch { }
+            try { ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.toggles labels=restored\n"); } catch { }
             this.Closing += (s, e) =>
             {
                 if (!_allowClose)
@@ -161,12 +161,12 @@ namespace P2PTalk.Views
             try
             {
                 var tb = this.FindControl<TextBox>("PassphraseTextBox");
-                var remember = P2PTalk.Services.AppServices.Settings.GetRememberPreference();
+                var remember = ZTalk.Services.AppServices.Settings.GetRememberPreference();
                 if (remember)
                 {
-                    if (P2PTalk.Services.AppServices.Settings.TryGetRememberedPassphrase(out var stored) && !string.IsNullOrEmpty(stored))
+                    if (ZTalk.Services.AppServices.Settings.TryGetRememberedPassphrase(out var stored) && !string.IsNullOrEmpty(stored))
                     {
-                        if (DataContext is P2PTalk.ViewModels.UnlockViewModel uvm)
+                        if (DataContext is ZTalk.ViewModels.UnlockViewModel uvm)
                         {
                             uvm.Passphrase = stored;
                             uvm.RememberPassphrase = true;
@@ -176,7 +176,7 @@ namespace P2PTalk.Views
                 }
                 else
                 {
-                    if (DataContext is P2PTalk.ViewModels.UnlockViewModel uvm)
+                    if (DataContext is ZTalk.ViewModels.UnlockViewModel uvm)
                     {
                         uvm.Passphrase = string.Empty;
                         uvm.RememberPassphrase = false;
@@ -203,14 +203,14 @@ namespace P2PTalk.Views
 
         private async void LostPassphrase_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
-            try { P2PTalk.Utilities.LoggingPaths.TryWrite(P2PTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.launch lostpassphrase.dialog\n"); } catch { }
+            try { ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.launch lostpassphrase.dialog\n"); } catch { }
             var dlg = new LostPassphraseDialog
             {
                 Topmost = true,
                 DataContext = this.DataContext // share same VM for recovery operations
             };
             await dlg.ShowDialog(this);
-            try { P2PTalk.Utilities.LoggingPaths.TryWrite(P2PTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.returnFrom lostpassphrase.dialog\n"); } catch { }
+            try { ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.returnFrom lostpassphrase.dialog\n"); } catch { }
         }
 
         private void CloseApp_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -220,7 +220,7 @@ namespace P2PTalk.Views
             try
             {
                 // Ensure we don't consider this as an unlock; clear passphrase.
-                try { P2PTalk.Services.AppServices.Passphrase = string.Empty; } catch { }
+                try { ZTalk.Services.AppServices.Passphrase = string.Empty; } catch { }
                 // Close this window and shut down the application lifetime
                 Close();
                 if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime life)
@@ -266,7 +266,7 @@ namespace P2PTalk.Views
 
         private string GetStatePath()
         {
-            var dir = P2PTalk.Utilities.AppDataPaths.Root;
+            var dir = ZTalk.Utilities.AppDataPaths.Root;
             Directory.CreateDirectory(dir);
             return Path.Combine(dir, "unlock.window.json");
         }

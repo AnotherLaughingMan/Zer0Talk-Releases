@@ -4,7 +4,7 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Layout;
 
-namespace P2PTalk.Utilities
+namespace ZTalk.Utilities
 {
     public sealed class SenderAlignmentConverter : IMultiValueConverter
     {

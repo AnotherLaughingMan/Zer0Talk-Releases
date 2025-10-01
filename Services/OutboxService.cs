@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using P2PTalk.Containers;
+using ZTalk.Containers;
 using ZTalk.Models;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class OutboxService
     {

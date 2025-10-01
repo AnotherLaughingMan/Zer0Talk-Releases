@@ -8,9 +8,9 @@ using System.Linq;
 
 using ZTalk.Models;
 using Models = ZTalk.Models;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     public class PeerManager
     {
@@ -164,7 +164,30 @@ namespace P2PTalk.Services
                 p = new Peer { UID = uid, Address = uid, Port = 0, IsTrusted = false };
                 Peers.Add(p);
             }
+            
+            // [CACHE] Check cached public key for mismatch detection (30-day cache)
+            p.PublicKeyMismatch = false; // Reset flag by default
+            if (p.CachedPublicKey != null && p.CachedPublicKey.Length > 0 && p.PublicKeyCachedAt.HasValue)
+            {
+                var cacheAge = System.DateTime.UtcNow - p.PublicKeyCachedAt.Value;
+                if (cacheAge.TotalDays < 30) // Cache valid for 30 days
+                {
+                    // Compare incoming key with cached key
+                    if (!publicKey.SequenceEqual(p.CachedPublicKey))
+                    {
+                        p.PublicKeyMismatch = true;
+                        SafeLogNetError($"[SECURITY] Public key mismatch detected for {uid}! Possible imposter or key rotation.");
+                        SafeLogNetError($"  Cached key: {Convert.ToHexStringLower(p.CachedPublicKey)}");
+                        SafeLogNetError($"  New key: {Convert.ToHexStringLower(publicKey)}");
+                    }
+                }
+            }
+            
+            // Update current public key and refresh cache
             p.PublicKey = publicKey;
+            p.CachedPublicKey = (byte[])publicKey.Clone();
+            p.PublicKeyCachedAt = System.DateTime.UtcNow;
+            
             try
             {
                 var claimed = IdentityService.ComputeUidFromPublicKey(publicKey);
@@ -206,6 +229,9 @@ namespace P2PTalk.Services
                 }
             }
             catch { }
+            
+            // Persist peer data including cached public key
+            try { AppServices.PeersStore.Save(Peers, AppServices.Passphrase); } catch { }
             Changed?.Invoke();
         }
 
@@ -364,8 +390,57 @@ namespace P2PTalk.Services
             if (!list.Contains(uid))
             {
                 list.Add(uid);
+                
+                // [TIER-1-BLOCKING] Also block public key fingerprint and optionally IP
+                var peer = Peers.FirstOrDefault(p => string.Equals(NormalizeUid(p.UID), uid, StringComparison.OrdinalIgnoreCase));
+                if (peer != null)
+                {
+                    // Block public key fingerprint if available
+                    if (peer.PublicKey != null && peer.PublicKey.Length > 0)
+                    {
+                        try
+                        {
+                            using var sha = System.Security.Cryptography.SHA256.Create();
+                            var hash = sha.ComputeHash(peer.PublicKey);
+                            var fingerprint = Convert.ToBase64String(hash);
+                            
+                            _settings.Settings.BlockedPublicKeyFingerprints ??= new();
+                            if (!_settings.Settings.BlockedPublicKeyFingerprints.Contains(fingerprint))
+                            {
+                                _settings.Settings.BlockedPublicKeyFingerprints.Add(fingerprint);
+                                Utilities.Logger.Log($"[BLOCK-PUBKEY] Added public key fingerprint to blocklist for {uid}");
+                            }
+                        }
+                        catch { }
+                    }
+                    
+                    // Optionally block IP address if it's not a local network address
+                    if (!string.IsNullOrWhiteSpace(peer.Address) && 
+                        System.Net.IPAddress.TryParse(peer.Address, out var ip))
+                    {
+                        var bytes = ip.GetAddressBytes();
+                        bool isLocal = bytes.Length == 4 && 
+                                      (bytes[0] == 10 || 
+                                       bytes[0] == 127 ||
+                                       (bytes[0] == 192 && bytes[1] == 168) ||
+                                       (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31));
+                        
+                        if (!isLocal)
+                        {
+                            _settings.Settings.BlockedIpAddresses ??= new();
+                            if (!_settings.Settings.BlockedIpAddresses.Contains(peer.Address))
+                            {
+                                _settings.Settings.BlockedIpAddresses.Add(peer.Address);
+                                Utilities.Logger.Log($"[BLOCK-IP] Added IP address to blocklist: {peer.Address}");
+                            }
+                        }
+                    }
+                }
+                
                 _settings.Save(AppServices.Passphrase);
-                Peers = Peers.Where(p => !string.Equals(NormalizeUid(p.UID), uid, StringComparison.OrdinalIgnoreCase)).ToList();
+                // Terminate any active session with this peer
+                try { AppServices.Network.DisconnectPeer(uid); } catch { }
+                // Don't remove peer from list - just mark as blocked via Changed event and RefreshLists
                 Changed?.Invoke();
             }
         }
@@ -376,6 +451,34 @@ namespace P2PTalk.Services
             var list = _settings.Settings.BlockList ??= new();
             if (list.Remove(uid))
             {
+                // [TIER-1-BLOCKING] Also remove from enhanced blocklists
+                var peer = Peers.FirstOrDefault(p => string.Equals(NormalizeUid(p.UID), uid, StringComparison.OrdinalIgnoreCase));
+                if (peer != null)
+                {
+                    // Remove public key fingerprint
+                    if (peer.PublicKey != null && peer.PublicKey.Length > 0)
+                    {
+                        try
+                        {
+                            using var sha = System.Security.Cryptography.SHA256.Create();
+                            var hash = sha.ComputeHash(peer.PublicKey);
+                            var fingerprint = Convert.ToBase64String(hash);
+                            _settings.Settings.BlockedPublicKeyFingerprints?.Remove(fingerprint);
+                            Utilities.Logger.Log($"[UNBLOCK-PUBKEY] Removed public key fingerprint from blocklist for {uid}");
+                        }
+                        catch { }
+                    }
+                    
+                    // Remove IP address
+                    if (!string.IsNullOrWhiteSpace(peer.Address))
+                    {
+                        if (_settings.Settings.BlockedIpAddresses?.Remove(peer.Address) == true)
+                        {
+                            Utilities.Logger.Log($"[UNBLOCK-IP] Removed IP address from blocklist: {peer.Address}");
+                        }
+                    }
+                }
+                
                 _settings.Save(AppServices.Passphrase);
                 Changed?.Invoke();
             }

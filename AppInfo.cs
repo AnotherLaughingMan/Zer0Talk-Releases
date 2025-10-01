@@ -1,4 +1,4 @@
-namespace P2PTalk;
+namespace ZTalk;
 
 public static class AppInfo
 {

@@ -1,4 +1,6 @@
 /*
+    DEPRECATED: Use Settings > Network instead. This window is kept for reference only.
+    
     Network window code-behind: persists window state and tab selection.
     - Hosts Network and Peers tabs; Topmost is persisted in AppSettings.
 */
@@ -16,10 +18,10 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using ZTalk.Models;
-using P2PTalk.Services;
-using P2PTalk.ViewModels;
+using ZTalk.Services;
+using ZTalk.ViewModels;
 
-namespace P2PTalk.Views;
+namespace ZTalk.Views;
 
 public partial class NetworkWindow : Window
 {
@@ -50,7 +52,7 @@ public partial class NetworkWindow : Window
             _uiPulseHandler = () => throttled();
             AppServices.Events.UiPulse += _uiPulseHandler;
             // Subscribe to global log stream so the Logging tab updates in real time, independent of Save/tab selection.
-            P2PTalk.Utilities.Logger.LineLogged += OnLineLogged;
+            ZTalk.Utilities.Logger.LineLogged += OnLineLogged;
             // Horizontal wheel scroll support for the Logging tab
             this.Opened += (_, __) =>
             {
@@ -72,7 +74,7 @@ public partial class NetworkWindow : Window
         {
             try { AppServices.Updates.UnregisterUi(UpdatesKey + ".blink"); } catch { }
             try { if (_uiPulseHandler != null) AppServices.Events.UiPulse -= _uiPulseHandler; } catch { }
-            try { P2PTalk.Utilities.Logger.LineLogged -= OnLineLogged; } catch { }
+            try { ZTalk.Utilities.Logger.LineLogged -= OnLineLogged; } catch { }
         };
         // Global lock hotkey for this window
         this.AddHandler(InputElement.KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
@@ -82,7 +84,7 @@ public partial class NetworkWindow : Window
 
     private void OpenMonitoring_Click(object? sender, RoutedEventArgs e)
     {
-        try { P2PTalk.Services.WindowManager.ShowSingleton<MonitoringWindow>(); } catch { }
+        try { ZTalk.Services.WindowManager.ShowSingleton<MonitoringWindow>(); } catch { }
     }
 
     // Horizontal wheel handler for Logging tab
@@ -164,7 +166,7 @@ public partial class NetworkWindow : Window
             (e.KeyModifiers & KeyModifiers.Alt) == KeyModifiers.Alt &&
             (e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift)
         {
-            try { new P2PTalk.Services.LockService().Lock(); } catch { }
+            try { new ZTalk.Services.LockService().Lock(); } catch { }
             e.Handled = true;
         }
     }
@@ -372,7 +374,7 @@ public partial class NetworkWindow : Window
         catch { }
     }
 
-    private P2PTalk.ViewModels.NetworkViewModel.AdapterItem? GetItemAt(ListBox lb, Point pos)
+    private ZTalk.ViewModels.NetworkViewModel.AdapterItem? GetItemAt(ListBox lb, Point pos)
     {
         try
         {

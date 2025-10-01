@@ -8,16 +8,16 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using P2PTalk.Utilities;
+using ZTalk.Utilities;
 
-namespace P2PTalk.Services
+namespace ZTalk.Services
 {
     internal static class LayoutCache
     {
         private static readonly object _gate = new();
         private static string GetPath()
         {
-            var path = Path.Combine(P2PTalk.Utilities.AppDataPaths.Root, "window_state.json");
+            var path = Path.Combine(ZTalk.Utilities.AppDataPaths.Root, "window_state.json");
             return path;
         }
 

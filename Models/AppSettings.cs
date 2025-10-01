@@ -39,6 +39,8 @@ public class AppSettings
     public int Port { get; set; } = 26264;
     public bool MajorNode { get; set; }
     public System.Collections.Generic.List<string> BlockList { get; set; } = new(); // UIDs
+    public System.Collections.Generic.List<string> BlockedPublicKeyFingerprints { get; set; } = new(); // SHA256 Base64 hashes of blocked public keys
+    public System.Collections.Generic.List<string> BlockedIpAddresses { get; set; } = new(); // IP addresses (v4/v6)
     public System.Collections.Generic.List<string> KnownMajorNodes { get; set; } = new(); // "host:port"
     // Ordered list of preferred adapter IDs (NetworkInterface.Id)
     public System.Collections.Generic.List<string> AdapterPriorityIds { get; set; } = new();
@@ -98,6 +100,11 @@ public class AppSettings
     public bool BlockScreenCapture { get; set; } = true;
     // Privacy: show/hide public keys on profiles (default hidden)
     public bool ShowPublicKeys { get; set; }
+
+    // Security: Geo-blocking settings (pre-emptive defense against known hostile regions)
+    public bool EnableGeoBlocking { get; set; } = true; // Default enabled for safety
+    public System.Collections.Generic.List<string> BlockedCountryCodes { get; set; } = new(); // ISO 3166-1 alpha-2 codes
+    public bool LogGeoBlockEvents { get; set; } = true; // Log when connections are geo-blocked
 
     // UI: remember last selected Settings menu index (0..8 when debug panel is visible)
     public int LastSettingsMenuIndex { get; set; } = 2;
