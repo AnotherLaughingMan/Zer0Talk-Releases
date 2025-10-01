@@ -2273,7 +2273,6 @@ public class NetworkViewModel : INotifyPropertyChanged
         AddMajorNodeCommand = new RelayCommand(_ => AddMajorNode(), _ => !string.IsNullOrWhiteSpace(NewMajorNode));
         RemoveMajorNodeCommand = new RelayCommand(n => { if (n is string s) RemoveMajorNode(s); });
         RefreshLists();
-        _peerManager.Changed += () => RefreshLists();
 
         LoadAdapters();
         MoveAdapterUpCommand = new RelayCommand(_ => MoveAdapter(-1), _ => SelectedAdapter != null);
