@@ -552,8 +552,8 @@ namespace ZTalk.ViewModels
                     if (msg == null) return;
                     var isOwn = IsOwnMessage(msg);
                     var prompt = isOwn
-                        ? "Are you sure you want to delete this message? This will delete it for both you and the recipient."
-                        : "Delete this message locally? The sender will not be notified.";
+                        ? "Are you sure you want to delete this message? This will permanently delete it for both you and the recipient. This action cannot be undone."
+                        : "Delete this message locally? The sender will not be notified. This action cannot be undone.";
                     var ok = await AppServices.Dialogs.ConfirmAsync("Delete Message", prompt, "Delete", "Cancel");
                     if (!ok) return;
                     // Remove from UI first (user-deleted should be treated as truly deleted)
@@ -570,8 +570,7 @@ namespace ZTalk.ViewModels
                     // Undo toast (brief window)
                     try
                     {
-                        await AppServices.Dialogs.ShowInfoAsync("Message deleted", "Undo is available for a few seconds.", dismissAfterMs: 2200);
-                        // NOTE: Implementing interactive undo requires a custom toast with a button. Placeholder for now.
+                        await AppServices.Dialogs.ShowCenteredToastAsync("Message Deleted");
                     }
                     catch { }
                 }

@@ -91,6 +91,67 @@ namespace ZTalk.Services
             });
         }
 
+        // Centered toast for chat area notifications
+        public async Task ShowCenteredToastAsync(string message, int dismissAfterMs = 1500)
+        {
+            var lifetime = Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            if (lifetime?.MainWindow is not Window owner) return;
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                try { WriteUiLog($"[Toast][Centered] Showing: '{message}' - will auto-dismiss in {dismissAfterMs}ms"); } catch { }
+                
+                var border = new Border
+                {
+                    Padding = new Thickness(16, 8),
+                    CornerRadius = new CornerRadius(6),
+                    Background = (Avalonia.Media.IBrush?)Application.Current?.FindResource("App.Surface"),
+                    BorderBrush = (Avalonia.Media.IBrush?)Application.Current?.FindResource("App.Border"),
+                    BorderThickness = new Thickness(1),
+                    Child = new TextBlock 
+                    { 
+                        Text = message, 
+                        FontWeight = Avalonia.Media.FontWeight.Medium,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+                    }
+                };
+
+                var toast = new Window
+                {
+                    CanResize = false,
+                    Width = 200,
+                    Height = 50,
+                    ShowInTaskbar = false,
+                    ShowActivated = false,
+                    SystemDecorations = SystemDecorations.None,
+                    Background = null,
+                    Content = border,
+                    WindowStartupLocation = WindowStartupLocation.Manual,
+                    Topmost = true,
+                    IsHitTestVisible = false,
+                    ExtendClientAreaToDecorationsHint = true,
+                    ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
+                    ExtendClientAreaTitleBarHeightHint = 32
+                };
+
+                try
+                {
+                    // Position in top-center of owner window
+                    var p = owner.Position;
+                    var sz = owner.Bounds;
+                    toast.Position = new PixelPoint(p.X + (int)(sz.Width - 200) / 2, p.Y + 120);
+                }
+                catch { }
+
+                // Show non-modally, then auto-dismiss
+                toast.Show(owner);
+                try { await Task.Delay(dismissAfterMs); } catch { }
+                try { toast.Close(); } catch { }
+                try { WriteUiLog($"[Toast][Centered] Closed: '{message}'"); } catch { }
+            });
+
+        }
+
         // Simple text prompt dialog returning edited text or null if cancelled
         public async Task<string?> PromptAsync(string title, string initialText)
         {
