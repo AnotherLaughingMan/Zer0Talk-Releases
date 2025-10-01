@@ -2269,7 +2269,11 @@ public class NetworkViewModel : INotifyPropertyChanged
         TrustPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.SetTrusted(uid, true); RefreshLists(); } });
         UntrustPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.SetTrusted(uid, false); RefreshLists(); } });
         ClearAllBlocksCommand = new RelayCommand(_ => ConfirmClearAll());
-        RefreshPeersCommand = new RelayCommand(_ => RefreshLists());
+        RefreshPeersCommand = new RelayCommand(_ => { 
+            try { ZTalk.Utilities.Logger.Log("[NetworkViewModel] Manual refresh peers triggered"); } catch { }
+            try { AppServices.Discovery.Restart(); } catch { }
+            RefreshLists(); 
+        });
         AddMajorNodeCommand = new RelayCommand(_ => AddMajorNode(), _ => !string.IsNullOrWhiteSpace(NewMajorNode));
         RemoveMajorNodeCommand = new RelayCommand(n => { if (n is string s) RemoveMajorNode(s); });
         RefreshLists();
@@ -2292,7 +2296,14 @@ public class NetworkViewModel : INotifyPropertyChanged
             });
             AppServices.Events.NatChanged += () => _uiThrottled?.Invoke();
             AppServices.Events.NetworkListeningChanged += (_, __) => _uiThrottled?.Invoke();
-            AppServices.Events.PeersChanged += () => { _uiThrottled?.Invoke(); Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshLists()); };
+            AppServices.Events.PeersChanged += () => { 
+                try { ZTalk.Utilities.Logger.Log("[NetworkViewModel] PeersChanged event received"); } catch { }
+                _uiThrottled?.Invoke(); 
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
+                    try { ZTalk.Utilities.Logger.Log("[NetworkViewModel] RefreshLists called from PeersChanged"); } catch { }
+                    RefreshLists();
+                }); 
+            };
             _uiPulseHandler = () => _uiThrottled?.Invoke();
             AppServices.Events.UiPulse += _uiPulseHandler;
             try { AppServices.Nat.Changed += () => _uiThrottled?.Invoke(); } catch { }
@@ -2802,6 +2813,7 @@ public class NetworkViewModel : INotifyPropertyChanged
 
     private void RefreshLists()
     {
+        try { ZTalk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Found {_peerManager.Peers.Count} peers"); } catch { }
         var peers = _peerManager.Peers.ToList();
         var blocked = (_settings.Settings.BlockList ?? new System.Collections.Generic.List<string>()).ToList();
         var now = System.DateTime.UtcNow;
@@ -2842,6 +2854,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         DiscoveredPeers = new System.Collections.ObjectModel.ObservableCollection<Peer>(peers);
         BlockedPeers = new System.Collections.ObjectModel.ObservableCollection<string>(blocked);
         KnownMajorNodes = new System.Collections.ObjectModel.ObservableCollection<string>((_settings.Settings.KnownMajorNodes ?? new System.Collections.Generic.List<string>()).ToList());
+        try { ZTalk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Updated UI with {peers.Count} discovered peers"); } catch { }
     }
     
     private static string GetCountryCodeFromIp(string ipAddress)
