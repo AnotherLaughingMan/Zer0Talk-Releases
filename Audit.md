@@ -1,10 +1,8 @@
-# P2PTalk Workspace Audit
+# ZTalk Workspace Audit
 
-This document summarizes the project’s scope, context, and a file-by-file inventory with concise roles to help onboard and align contributors.
+This document summarizes the project's scope, context, and a file-by-file inventory with concise roles to help onboard and align contributors.
 
 ## Context and scope
-
-# ZTalk Workspace Audit
 
 ## Project Overview
 
@@ -31,7 +29,7 @@ Primary components:
 - Directory.Build.props — Build properties for the project.
 - GlobalSuppressions.cs — Global code analysis suppressions.
 - lint-report.json — Lint report output.
-- P2PTalk.code-workspace — VS Code workspace configuration.
+- ZTalk.code-workspace — VS Code workspace configuration.
 - .editorconfig — Editor configuration for code style.
 
 ## .github
