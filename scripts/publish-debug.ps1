@@ -14,6 +14,17 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = Split-Path -Parent $scriptDir
 $proj = Join-Path $root 'ZTalk.csproj'
 $publishDir = Join-Path $root 'publish'
+
+# Extract version from project file for artifact naming
+$versionLine = Get-Content $proj | Where-Object { $_ -match '<InformationalVersion>([^<]+)</InformationalVersion>' }
+if ($versionLine -and $Matches[1]) {
+  $version = $Matches[1]
+} else {
+  # Fallback: try Version property
+  $versionLine = Get-Content $proj | Where-Object { $_ -match '<Version>([^<]+)</Version>' }
+  $version = if ($versionLine -and $Matches[1]) { $Matches[1] } else { '0.0.1.unknown' }
+}
+
 $fdDir = Join-Path $publishDir "$Rid-$Configuration"           # framework-dependent
 $scDir = Join-Path $publishDir "$Rid-$Configuration-sc"        # self-contained
 $singleDir = Join-Path $publishDir "$Rid-$Configuration-single" # single-file (optional)
@@ -42,12 +53,12 @@ if ($NoZip) {
     exit 0
 }
 
-# Zip both outputs with timestamped filenames
-$zip1 = Join-Path $publishDir "ZTalk-$Rid-$Configuration-$stamp.zip"
-$zip2 = Join-Path $publishDir "ZTalk-$Rid-$Configuration-sc-$stamp.zip"
-${legacy1} = Join-Path $publishDir "ZTalk-$Rid-$Configuration.zip"
-${legacy2} = Join-Path $publishDir "ZTalk-$Rid-$Configuration-sc.zip"
-${legacySingle} = Join-Path $publishDir "ZTalk-$Rid-$Configuration-single.zip"
+# Zip both outputs with versioned and timestamped filenames
+$zip1 = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration-$stamp.zip"
+$zip2 = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration-sc-$stamp.zip"
+${legacy1} = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration.zip"
+${legacy2} = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration-sc.zip"
+${legacySingle} = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration-single.zip"
 
 # Remove existing zips with a brief retry in case another process has the file open
 foreach ($zip in @($zip1, $zip2)) {
@@ -73,7 +84,7 @@ if (Test-Path ${legacySingle}) {
 }
 
 Write-Host "\n=== Zipping artifacts ==="
-function Try-Zip($src, $dst) {
+function Invoke-Zip($src, $dst) {
     try {
         Compress-Archive -Path $src -DestinationPath $dst -Force -ErrorAction Stop
         return $true
@@ -91,8 +102,8 @@ function Try-Zip($src, $dst) {
     }
 }
 
-$ok1 = Try-Zip (Join-Path $fdDir '*') $zip1
-$ok2 = Try-Zip (Join-Path $scDir '*') $zip2
+Invoke-Zip (Join-Path $fdDir '*') $zip1 | Out-Null
+Invoke-Zip (Join-Path $scDir '*') $zip2 | Out-Null
 
 # Optionally build single-file artifact for this configuration
 if ($Single) {
@@ -100,23 +111,24 @@ if ($Single) {
     if (Test-Path $singleDir) { Remove-Item -Recurse -Force $singleDir }
     dotnet publish $proj -c $Configuration -r $Rid -p:PublishSingleFile=true -p:SelfContained=true -p:EnableCompressionInSingleFile=true -o $singleDir --nologo
 
-    $singleZip = Join-Path $publishDir "ZTalk-$Rid-$Configuration-single-$stamp.zip"
+    $singleZip = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration-single-$stamp.zip"
     if (Test-Path $singleZip) {
         $removed = $false
         try { Remove-Item -Force $singleZip -ErrorAction Stop; $removed = $true } catch { }
         if (-not $removed) { Start-Sleep -Milliseconds 750; try { Remove-Item -Force $singleZip -ErrorAction Stop; $removed = $true } catch { } }
     }
-    Try-Zip (Join-Path $singleDir '*') $singleZip | Out-Null
+    Invoke-Zip (Join-Path $singleDir '*') $singleZip | Out-Null
 }
 
-Get-ChildItem $publishDir -Filter "ZTalk-$Rid-$Configuration*.zip" |
+Get-ChildItem $publishDir -Filter "ZTalk-v$version-$Rid-$Configuration*.zip" |
 Select-Object Name, @{n = 'SizeMB'; e = { [math]::Round($_.Length / 1MB, 2) } } |
 Format-Table -AutoSize
 
 Write-Host "\nDone. Artifacts in: $publishDir"
+Write-Host "Version: $version"
 
 # Prune older zips for this RID/Configuration (keep latest $keepCount for each variant)
-foreach ($pattern in @("ZTalk-$Rid-$Configuration-*.zip", "ZTalk-$Rid-$Configuration-sc-*.zip", "ZTalk-$Rid-$Configuration-single-*.zip")) {
+foreach ($pattern in @("ZTalk-v$version-$Rid-$Configuration-*.zip", "ZTalk-v$version-$Rid-$Configuration-sc-*.zip", "ZTalk-v$version-$Rid-$Configuration-single-*.zip")) {
     $files = Get-ChildItem $publishDir -Filter $pattern | Sort-Object LastWriteTime -Descending
     if ($files.Count -gt $keepCount) {
         $toDelete = $files | Select-Object -Skip $keepCount

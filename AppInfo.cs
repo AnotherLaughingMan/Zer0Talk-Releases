@@ -1,10 +1,16 @@
 using System;
+using System.Reflection;
+using System.Linq;
 
 namespace ZTalk;
 
 public static class AppInfo
 {
-    public const string Version = "0.0.1.57"; // Increment version for version control update
+    // Auto-generated version from assembly metadata  
+    public static readonly string Version = 
+        Assembly.GetExecutingAssembly()
+            .GetCustomAttributes<AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion ?? "0.0.1.58";
     public const string PrototypeTag = "InDev-Prototype";
 
     public static string PrototypeBadgeText => $"{PrototypeTag} v{Version}";
@@ -25,10 +31,10 @@ public static class AppInfo
             if (parts.Length >= 4)
             {
                 return (
-                    int.Parse(parts[0]), 
-                    int.Parse(parts[1]), 
-                    int.Parse(parts[2]), 
-                    int.Parse(parts[3])
+                    int.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture), 
+                    int.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture), 
+                    int.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture), 
+                    int.Parse(parts[3], System.Globalization.CultureInfo.InvariantCulture)
                 );
             }
         }

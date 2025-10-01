@@ -10,21 +10,33 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $proj = Join-Path $repoRoot 'ZTalk.csproj'
 $publishDir = Join-Path $repoRoot 'publish'
+
+# Extract version from project file for artifact naming
+$versionLine = Get-Content $proj | Where-Object { $_ -match '<InformationalVersion>([^<]+)</InformationalVersion>' }
+if ($versionLine -and $Matches[1]) {
+  $version = $Matches[1]
+} else {
+  # Fallback: try Version property
+  $versionLine = Get-Content $proj | Where-Object { $_ -match '<Version>([^<]+)</Version>' }
+  $version = if ($versionLine -and $Matches[1]) { $Matches[1] } else { '0.0.1.unknown' }
+}
+
 $singleDir = Join-Path $publishDir "$Rid-Release-single"
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$singleZip = Join-Path $publishDir "ZTalk-$Rid-Release-single-$stamp.zip"
-$legacySingleZip = Join-Path $publishDir "ZTalk-$Rid-Release-single.zip"
+$singleZip = Join-Path $publishDir "ZTalk-v$version-$Rid-Release-single-$stamp.zip"
+$legacySingleZip = Join-Path $publishDir "ZTalk-v$version-$Rid-Release-single.zip"
 $keepCount = $KeepZips
 
 Write-Host "Project: $proj"
+Write-Host "Version: $version"
 if (-not (Test-Path $proj)) { throw "Project file not found: $proj" }
 
 New-Item -ItemType Directory -Force -Path $publishDir | Out-Null
 
-function Show-Header($text) { Write-Host "`n=== $text ===" }
+function Write-Header($text) { Write-Host "`n=== $text ===" }
 
 function Invoke-PublishScript([string]$Configuration) {
-  Show-Header "Publish $Configuration (FD + SC)"
+  Write-Header "Publish $Configuration (FD + SC)"
   pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'publish-debug.ps1') -Configuration $Configuration -Rid $Rid -KeepZips $KeepZips | Write-Host
 }
 
@@ -47,7 +59,7 @@ function Publish-SingleFile {
     [string]$LegacyZipPath
   )
 
-  Show-Header $Header
+  Write-Header $Header
 
   if (Test-Path $OutputDir) { Remove-Item -Recurse -Force $OutputDir }
   foreach ($artifact in @($ZipPath, $LegacyZipPath) | Where-Object { $_ }) {
@@ -63,7 +75,7 @@ function Publish-SingleFile {
 }
 
 # Proactively prune any legacy P2PTalk-named artifacts left from pre-rename runs
-Show-Header "Prune legacy P2PTalk artifacts"
+Write-Header "Prune legacy P2PTalk artifacts"
 $legacyFiles = Get-ChildItem -Path $publishDir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'P2PTalk' }
 if ($legacyFiles) {
   foreach ($f in $legacyFiles) {
@@ -79,20 +91,20 @@ Invoke-PublishScript -Configuration 'Debug'
 # 3b) Optionally publish Debug single-file (timestamped)
 if ($IncludeDebugSingle) {
   $dbgSingleDir = Join-Path $publishDir "$Rid-Debug-single"
-  $dbgSingleZip = Join-Path $publishDir "ZTalk-$Rid-Debug-single-$stamp.zip"
-  $dbgLegacySingle = Join-Path $publishDir "ZTalk-$Rid-Debug-single.zip"
-  Publish-SingleFile -Configuration 'Debug' -OutputDir $dbgSingleDir -ZipPath $dbgSingleZip -LegacyZipPath $dbgLegacySingle -Header "Publish Debug single-file (standalone)" -Pattern "ZTalk-$Rid-Debug-single-*.zip"
+  $dbgSingleZip = Join-Path $publishDir "ZTalk-v$version-$Rid-Debug-single-$stamp.zip"
+  $dbgLegacySingle = Join-Path $publishDir "ZTalk-v$version-$Rid-Debug-single.zip"
+  Publish-SingleFile -Configuration 'Debug' -OutputDir $dbgSingleDir -ZipPath $dbgSingleZip -LegacyZipPath $dbgLegacySingle -Header "Publish Debug single-file (standalone)" -Pattern "ZTalk-v$version-$Rid-Debug-single-*.zip"
 }
 
 # 4) Publish Release (FD + SC)
 Invoke-PublishScript -Configuration 'Release'
 
 # 5) Publish Release single-file self-contained executable
-Publish-SingleFile -Configuration 'Release' -OutputDir $singleDir -ZipPath $singleZip -LegacyZipPath $legacySingleZip -Header "Publish Release single-file (standalone)" -Pattern "ZTalk-$Rid-Release-single-*.zip"
+Publish-SingleFile -Configuration 'Release' -OutputDir $singleDir -ZipPath $singleZip -LegacyZipPath $legacySingleZip -Header "Publish Release single-file (standalone)" -Pattern "ZTalk-v$version-$Rid-Release-single-*.zip"
 
 # Summary table
-Show-Header "Alpha Strike summary"
-Get-ChildItem $publishDir -Filter "ZTalk-$Rid-*.zip" |
+Write-Header "Alpha Strike summary"
+Get-ChildItem $publishDir -Filter "ZTalk-v$version-$Rid-*.zip" |
 Sort-Object LastWriteTime -Descending |
 Select-Object Name, @{n = 'SizeMB'; e = { [math]::Round($_.Length / 1MB, 2) } } |
 Format-Table -AutoSize
