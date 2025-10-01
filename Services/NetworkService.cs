@@ -57,6 +57,10 @@ namespace ZTalk.Services
     private static readonly TimeSpan AutoConnectBackoff = TimeSpan.FromSeconds(15);
     private volatile int _autoConnSweepRunning;
 
+    // [VERSION-CONTROL] Version tracking and mismatch detection
+    private readonly ConcurrentDictionary<string, string> _peerVersions = new(StringComparer.OrdinalIgnoreCase);
+    public event Action<string, string, string>? VersionMismatchDetected; // (peerUid, ourVersion, theirVersion)
+
     // Avatar receive throttling (avoid network/disk churn)
     private readonly ConcurrentDictionary<string, DateTime> _avatarLastAcceptedUtc = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _avatarLastSignature = new(StringComparer.OrdinalIgnoreCase);
@@ -678,7 +682,21 @@ namespace ZTalk.Services
                     int sigLen = data[idx++];
                     if (sigLen != 64 || data.Length < idx + sigLen) return Task.CompletedTask;
                     var sig = new byte[sigLen];
-                    Buffer.BlockCopy(data, idx, sig, 0, sigLen);
+                    Buffer.BlockCopy(data, idx, sig, 0, sigLen); idx += sigLen;
+                    
+                    // Parse version information (optional for backward compatibility)
+                    string? peerVersion = null;
+                    if (data.Length > idx)
+                    {
+                        int versionLen = data[idx++];
+                        if (versionLen > 0 && data.Length >= idx + versionLen)
+                        {
+                            var versionBytes = new byte[versionLen];
+                            Buffer.BlockCopy(data, idx, versionBytes, 0, versionLen);
+                            peerVersion = Encoding.UTF8.GetString(versionBytes);
+                        }
+                    }
+                    
                     if (!_handshakePeerKeys.TryGetValue(transport, out var peerSpki) || peerSpki == null || peerSpki.Length == 0)
                     {
                         Logger.Log("Identity announce received but missing handshake key; ignoring");
@@ -692,6 +710,24 @@ namespace ZTalk.Services
                     var claimedUid = IdentityService.ComputeUidFromPublicKey(pub);
                     var normClaimed = Trim(claimedUid);
                     var normSession = Trim(peerUid);
+                    
+                    // Store peer version and check compatibility
+                    if (!string.IsNullOrEmpty(peerVersion))
+                    {
+                        _peerVersions[normClaimed] = peerVersion;
+                        
+                        // Check for version mismatch
+                        if (!AppInfo.IsVersionCompatible(AppInfo.Version, peerVersion))
+                        {
+                            Logger.Log($"Version mismatch detected: peer {normClaimed} version {peerVersion}, our version {AppInfo.Version}");
+                            VersionMismatchDetected?.Invoke(normClaimed, AppInfo.Version, peerVersion);
+                        }
+                        else
+                        {
+                            Logger.Log($"Peer {normClaimed} version {peerVersion} is compatible with our version {AppInfo.Version}");
+                        }
+                    }
+                    
                     if (!string.Equals(normClaimed, normSession, StringComparison.OrdinalIgnoreCase))
                     {
                         try
@@ -1167,7 +1203,13 @@ namespace ZTalk.Services
                             if (string.IsNullOrWhiteSpace(p.Address) || p.Port <= 0) continue;
                             if (_autoConnLastAttempt.TryGetValue(uid, out var last) && (now - last) < AutoConnectBackoff) continue;
                             _autoConnLastAttempt[uid] = now;
-                            try { await ConnectWithRelayFallbackAsync(uid, p.Address!, p.Port, CancellationToken.None); } catch { }
+                            try { 
+                                Logger.Log($"[AutoConnect] Attempting connection to {uid} at {p.Address}:{p.Port}");
+                                var connected = await ConnectWithRelayFallbackAsync(uid, p.Address!, p.Port, CancellationToken.None); 
+                                Logger.Log($"[AutoConnect] Connection to {uid} result: {connected}");
+                            } catch (Exception ex) { 
+                                Logger.Log($"[AutoConnect] Connection to {uid} failed: {ex.Message}");
+                            }
                         }
                         catch { }
                     }
@@ -1372,7 +1414,23 @@ namespace ZTalk.Services
             var prk = Hkdf.DeriveKey(secret, salt: Array.Empty<byte>(), info: info, length: 32 + 32 + 16 + 16);
             CryptographicOperations.ZeroMemory(secret);
             var txKey = new byte[32]; var rxKey = new byte[32]; var txBase = new byte[16]; var rxBase = new byte[16];
+            
+            // [COLLISION-DETECTION] For simultaneous connections, determine initiator role deterministically 
+            // by comparing ECDH public keys (prevents both sides thinking they're initiator)
+            var ourPub = dh.PublicKey.ExportSubjectPublicKeyInfo();
+            var actualIsInitiator = isInitiator;
             if (isInitiator)
+            {
+                // If we initiated but their public key is lexicographically smaller, we should act as responder
+                var comparison = CompareBytes(ourPub, peerPub);
+                if (comparison > 0)
+                {
+                    actualIsInitiator = false;
+                    Logger.Log($"[COLLISION] Outbound connection demoted to responder role due to key comparison: {remoteEp}");
+                }
+            }
+            
+            if (actualIsInitiator)
             {
                 Buffer.BlockCopy(prk, 0, txKey, 0, 32); Buffer.BlockCopy(prk, 32, rxKey, 0, 32);
                 Buffer.BlockCopy(prk, 64, txBase, 0, 16); Buffer.BlockCopy(prk, 80, rxBase, 0, 16);
@@ -1933,8 +1991,21 @@ namespace ZTalk.Services
             {
                 var pub = _identity.PublicKey; // 32 bytes Ed25519
                 var sig = _identity.Sign(myDhSpki); // sign our ECDH SPKI bytes
-                var frame = new byte[1 + 1 + pub.Length + 1 + sig.Length];
-                int i = 0; frame[i++] = 0xA1; frame[i++] = (byte)pub.Length; Buffer.BlockCopy(pub, 0, frame, i, pub.Length); i += pub.Length; frame[i++] = (byte)sig.Length; Buffer.BlockCopy(sig, 0, frame, i, sig.Length);
+                var versionBytes = Encoding.UTF8.GetBytes(AppInfo.Version);
+                
+                // Frame: [0xA1][pub_len][pub][sig_len][sig][version_len][version]
+                var frame = new byte[1 + 1 + pub.Length + 1 + sig.Length + 1 + versionBytes.Length];
+                int i = 0; 
+                frame[i++] = 0xA1; 
+                frame[i++] = (byte)pub.Length; 
+                Buffer.BlockCopy(pub, 0, frame, i, pub.Length); 
+                i += pub.Length; 
+                frame[i++] = (byte)sig.Length; 
+                Buffer.BlockCopy(sig, 0, frame, i, sig.Length);
+                i += sig.Length;
+                frame[i++] = (byte)versionBytes.Length;
+                Buffer.BlockCopy(versionBytes, 0, frame, i, versionBytes.Length);
+                
                 await transport.WriteAsync(frame, ct);
             }
             catch (Exception ex)
@@ -2424,6 +2495,18 @@ namespace ZTalk.Services
         {
             try { s.NoDelay = true; } catch { }
             try { s.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true); } catch { }
+        }
+
+        // Lexicographic comparison of byte arrays for deterministic collision resolution
+        private static int CompareBytes(byte[] a, byte[] b)
+        {
+            var minLen = Math.Min(a.Length, b.Length);
+            for (int i = 0; i < minLen; i++)
+            {
+                var result = a[i].CompareTo(b[i]);
+                if (result != 0) return result;
+            }
+            return a.Length.CompareTo(b.Length);
         }
 
         public void Dispose()

@@ -103,6 +103,33 @@ public static class AppServices
         try { Network.WarningRaised += msg => Events.RaiseFirewallPrompt(msg); } catch { }
         try
         {
+            Network.VersionMismatchDetected += (peerUid, ourVersion, theirVersion) =>
+            {
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        var contact = Contacts.Contacts.FirstOrDefault(c => string.Equals(c.UID, peerUid, System.StringComparison.OrdinalIgnoreCase));
+                        var peerDisplay = contact?.DisplayName ?? peerUid;
+                        var message = $"Version compatibility warning:\n\n" +
+                                    $"Peer: {peerDisplay}\n" +
+                                    $"Their version: {theirVersion}\n" +
+                                    $"Your version: {ourVersion}\n\n" +
+                                    $"Communication may be unreliable due to version differences. " +
+                                    $"Consider updating to the same version.";
+                        
+                        await Dialogs.ShowInfoAsync("Version Mismatch Detected", message, 8000);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Logger.NetworkLog($"Version mismatch notification error: {ex.Message}");
+                    }
+                });
+            };
+        }
+        catch { }
+        try
+        {
             Network.ListeningChanged += (on, port) =>
             {
                 try { Events.RaiseNetworkListeningChanged(on, port); } catch { }

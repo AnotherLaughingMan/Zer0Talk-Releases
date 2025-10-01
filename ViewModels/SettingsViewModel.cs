@@ -2814,7 +2814,12 @@ public class NetworkViewModel : INotifyPropertyChanged
     private void RefreshLists()
     {
         try { ZTalk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Found {_peerManager.Peers.Count} peers"); } catch { }
-        var peers = _peerManager.Peers.ToList();
+        var allPeers = _peerManager.Peers.ToList();
+        
+        // Filter out simulated contacts from discovered peers - they shouldn't appear in the network discovery list
+        var peers = allPeers.Where(p => !IsSimulatedContact(p.UID)).ToList();
+        try { ZTalk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Filtered to {peers.Count} non-simulated peers (removed {allPeers.Count - peers.Count} simulated contacts)"); } catch { }
+        
         var blocked = (_settings.Settings.BlockList ?? new System.Collections.Generic.List<string>()).ToList();
         var now = System.DateTime.UtcNow;
         
@@ -2857,6 +2862,18 @@ public class NetworkViewModel : INotifyPropertyChanged
         try { ZTalk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Updated UI with {peers.Count} discovered peers"); } catch { }
     }
     
+    // Check if a peer UID corresponds to a simulated contact (should not appear in discovered peers)
+    private static bool IsSimulatedContact(string uid)
+    {
+        try
+        {
+            var contacts = ZTalk.Services.AppServices.Contacts.Contacts;
+            var contact = contacts.FirstOrDefault(c => string.Equals(c.UID, uid, StringComparison.OrdinalIgnoreCase));
+            return contact?.IsSimulated == true;
+        }
+        catch { return false; }
+    }
+
     private static string GetCountryCodeFromIp(string ipAddress)
     {
         // Derive country flag emoji from IP address using simple heuristics
