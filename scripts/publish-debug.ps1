@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 # Resolve project root based on this script's location
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = Split-Path -Parent $scriptDir
-$proj = Join-Path $root 'P2PTalk.csproj'
+$proj = Join-Path $root 'ZTalk.csproj'
 $publishDir = Join-Path $root 'publish'
 $fdDir = Join-Path $publishDir "$Rid-$Configuration"           # framework-dependent
 $scDir = Join-Path $publishDir "$Rid-$Configuration-sc"        # self-contained

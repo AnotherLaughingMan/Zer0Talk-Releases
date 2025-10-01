@@ -8,7 +8,7 @@ $PSNativeCommandUseErrorActionPreference = $true
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$proj = Join-Path $repoRoot 'P2PTalk.csproj'
+$proj = Join-Path $repoRoot 'ZTalk.csproj'
 $publishDir = Join-Path $repoRoot 'publish'
 $singleDir = Join-Path $publishDir "$Rid-Release-single"
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
