@@ -23,14 +23,12 @@ Peer-to-peer messaging experiment for Windows, built with Avalonia (.NET 9) and 
 
 ## Getting Started
 
-```powershell
+```bash
 # Build
 dotnet build .\ZTalk.csproj
 
 # Run
-```bash
 dotnet run --project .\ZTalk.csproj
-```
 ```
 
 ### Requirements
