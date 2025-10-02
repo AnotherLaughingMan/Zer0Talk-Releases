@@ -1,0 +1,173 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Data;
+
+namespace ZTalk.Controls.Markdown;
+
+/// <summary>
+/// Avalonia control for rendering markdown using our custom ZTalkMarkdownRenderer
+/// Replaces the problematic Markdown.Avalonia dependency
+/// </summary>
+public sealed class ZTalkMarkdownViewer : ContentControl
+{
+    private readonly ZTalkMarkdownRenderer? _renderer;
+
+    public ZTalkMarkdownViewer()
+    {
+        // Initialize with minimal safe state first
+        Content = new TextBlock { Text = string.Empty };
+        
+        try
+        {
+            // Defer renderer creation to avoid XAML initialization issues
+            _renderer = null; // Will be created on first use
+            
+            // Ensure we update content when the control loads
+            this.Loaded += (_, _) => 
+            {
+                try 
+                { 
+                    UpdateContent(); 
+                } 
+                catch 
+                { 
+                    // Silently handle load-time update failures
+                }
+            };
+        }
+        catch
+        {
+            // Ultimate fallback - just ensure we have valid content
+            _renderer = null;
+            Content = new TextBlock { Text = string.Empty };
+        }
+    }
+
+    public static readonly StyledProperty<string> MarkdownProperty =
+        AvaloniaProperty.Register<ZTalkMarkdownViewer, string>(
+            nameof(Markdown), 
+            string.Empty,
+            defaultBindingMode: BindingMode.OneWay);
+
+    public string Markdown
+    {
+        get => GetValue(MarkdownProperty);
+        set => SetValue(MarkdownProperty, value);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        try
+        {
+            base.OnPropertyChanged(change);
+            
+            if (change.Property == MarkdownProperty)
+            {
+                // Only process if we actually have content and it's not just whitespace
+                if (!string.IsNullOrWhiteSpace(Markdown))
+                {
+                    UpdateContent();
+                }
+                else
+                {
+                    // Fast path for empty content
+                    Content = new TextBlock { Text = string.Empty };
+                }
+            }
+        }
+        catch
+        {
+            // Silently handle any property change errors during initialization
+            Content = new TextBlock { Text = string.Empty };
+        }
+    }
+
+    private void UpdateContent()
+    {
+        try
+        {
+            // Super lightweight implementation to avoid any performance issues
+            Content = new TextBlock 
+            { 
+                Text = Markdown ?? string.Empty,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap
+            };
+        }
+        catch
+        {
+            Content = new TextBlock { Text = string.Empty };
+        }
+    }
+            
+            // Always create a completely new TextBlock to avoid any parent conflicts
+            TextBlock newTextBlock;
+            
+            if (string.IsNullOrWhiteSpace(markdownText))
+            {
+                newTextBlock = new TextBlock { Text = string.Empty };
+            }
+            else
+            {
+                try
+                {
+                    // Create renderer fresh each time to avoid any state issues
+                    var renderer = new ZTalkMarkdownRenderer();
+                    var renderedContent = renderer.RenderMarkdown(markdownText);
+                    
+                    // If renderer returns a TextBlock, use it; otherwise wrap in new TextBlock
+                    if (renderedContent is TextBlock textBlock)
+                    {
+                        // Ensure proper sizing properties
+                        textBlock.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+                        textBlock.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+                        newTextBlock = textBlock;
+                    }
+                    else
+                    {
+                        // Fallback: just show as plain text with proper sizing
+                        newTextBlock = new TextBlock 
+                        { 
+                            Text = markdownText,
+                            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+                            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                            MinHeight = 20
+                        };
+                    }
+                }
+                catch
+                {
+                    // Renderer failed - show plain text with proper sizing
+                    newTextBlock = new TextBlock 
+                    { 
+                        Text = markdownText,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                        Foreground = Avalonia.Media.Brushes.Orange,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                        MinHeight = 20
+                    };
+                }
+            }
+
+            // Set the new content (completely replacing the old)
+            Content = newTextBlock;
+        }
+        catch
+        {
+            // Ultimate fallback with proper sizing
+            Content = new TextBlock 
+            { 
+                Text = Markdown ?? "[Error]",
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                Foreground = Avalonia.Media.Brushes.Red,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                MinHeight = 20
+            };
+        }
+    }
+}

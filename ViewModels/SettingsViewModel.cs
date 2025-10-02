@@ -405,7 +405,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         CloseApplyCommand = new RelayCommand(async _ => await SaveAsync(showToast: false, close: true), _ => true);
         CancelCommand = new RelayCommand(_ => { DiscardChanges(); CloseRequested?.Invoke(this, EventArgs.Empty); });
     PurgeStoredPassphraseCommand = new RelayCommand(_ => PurgeStoredPassphrase(), _ => true);
-    PurgeAllMessagesCommand = new RelayCommand(async _ => await PurgeAllMessagesAsync(), _ => !IsPurgingAllMessages);
+    PurgeAllMessagesCommand = new RelayCommand(async _ => await PurgeAllMessagesAsync(), _ => CanPurgeAllMessages);
         LogoutCommand = new RelayCommand(_ => Logout(), _ => true);
         CopyUidCommand = new RelayCommand(async _ => await CopyUidAsync(), _ => !string.IsNullOrWhiteSpace(UID));
         ChooseAvatarCommand = new RelayCommand(async _ => await ChooseAvatarAsync(), _ => true);
@@ -2042,6 +2042,28 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             }
         }
     }
+
+    private string _purgeConfirmText = string.Empty;
+    public string PurgeConfirmText
+    {
+        get => _purgeConfirmText;
+        set
+        {
+            if (_purgeConfirmText != value)
+            {
+                _purgeConfirmText = value;
+                OnPropertyChanged();
+                if (PurgeAllMessagesCommand is RelayCommand relay)
+                {
+                    relay.RaiseCanExecuteChanged();
+                }
+            }
+        }
+    }
+
+    public bool CanPurgeAllMessages => !IsPurgingAllMessages && 
+        string.Equals(PurgeConfirmText?.Trim(), "PURGE-ALL-DATA", StringComparison.Ordinal);
+
     private string _deleteConfirmText = string.Empty;
     public string DeleteConfirmText { get => _deleteConfirmText; set { _deleteConfirmText = value; OnPropertyChanged(); (DeleteAccountCommand as RelayCommand)?.RaiseCanExecuteChanged(); } }
     public string GeneratedDeleteCode { get; private set; } = GenerateDeleteCode();
@@ -2111,17 +2133,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
     private async Task PurgeAllMessagesAsync()
     {
-        if (IsPurgingAllMessages) return;
+        if (IsPurgingAllMessages || !CanPurgeAllMessages) return;
 
         try
         {
-            var confirmed = await AppServices.Dialogs.ConfirmAsync(
-                "Purge all messages",
-                "This will permanently delete every message you've ever sent or received, including pending outbox items. The data will be securely wiped from disk and cannot be recovered.",
-                "Purge Messages",
-                "Cancel");
-
-            if (!confirmed) return;
 
             IsPurgingAllMessages = true;
 

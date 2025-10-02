@@ -10,10 +10,10 @@
     xmlns:util="clr-namespace:ZTalk.Utilities"
     xmlns:c="clr-namespace:ZTalk.Controls"
     xmlns:cm="clr-namespace:ZTalk.Controls.Markdown"
-    xmlns:md="clr-namespace:Markdown.Avalonia;assembly=Markdown.Avalonia"
+
     xmlns:avedit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
     xmlns:ctb="clr-namespace:ColorTextBlock.Avalonia;assembly=ColorTextBlock.Avalonia"
-    xmlns:mde="clr-namespace:Markdown.Avalonia.SyntaxHigh.Extensions;assembly=Markdown.Avalonia.SyntaxHigh"
+
     x:Class="ZTalk.Views.MainWindow"
     x:Name="RootWindow"
     x:DataType="vm:MainWindowViewModel"
@@ -101,67 +101,7 @@
             <Setter Property="Padding" Value="0" />
         </Style>
 
-        <Style Selector="md|MarkdownScrollViewer.message-markdown">
-            <Setter Property="Margin" Value="0" />
-            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
-            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
-        </Style>
-        <Style Selector="md|MarkdownScrollViewer.message-markdown ScrollContentPresenter">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Padding" Value="0" />
-        </Style>
-        <Style Selector="md|MarkdownScrollViewer.message-markdown ContentPresenter">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="md|MarkdownScrollViewer.message-markdown TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource App.Foreground}" />
-        </Style>
-        <Style Selector="md|MarkdownScrollViewer.message-markdown Border.CodeBlock">
-            <Setter Property="Background" Value="#FF1E1E1E" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="8,8,8,8" />
-        </Style>
-        <Style Selector="md|MarkdownScrollViewer.message-markdown TextBlock.CodeBlock">
-            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, 'Courier New', monospace" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
-        <Style Selector="md|MarkdownScrollViewer.message-markdown .CodeBlock avedit|TextEditor">
-            <Setter Property="Background" Value="#FF1E1E1E" />
-            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, 'Courier New', monospace" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Padding" Value="10,8" />
-            <Setter Property="SyntaxHighlighting" Value="{mde:SyntaxHighlightWrapper MarkdownSyntaxBaseForeground}" />
-        </Style>
-        <Style Selector="md|MarkdownScrollViewer.message-markdown .CodeBlock ctb|CTextBlock">
-            <Setter Property="FontFamily" Value="Cascadia Code, Consolas, 'Courier New', monospace" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Margin" Value="0" />
-        </Style>
-        <Style Selector="md|MarkdownScrollViewer.message-markdown .CodeBlock Label.LangInfo">
-            <Setter Property="Foreground" Value="#FFFFFF" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="8,4" />
-            <Setter Property="Margin" Value="0,0,8,0" />
-            <Setter Property="HorizontalAlignment" Value="Right" />
-            <Setter Property="VerticalAlignment" Value="Top" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-        <Style Selector="md|MarkdownScrollViewer.message-markdown .CodeBlock Button.CopyButton">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="4,2" />
-            <Setter Property="Margin" Value="0,0,0,4" />
-        </Style>
-        <Style Selector="md|MarkdownScrollViewer.message-markdown .CodeBlock Button.CopyButton TextBlock">
-            <Setter Property="Text" Value="Copy" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
+        <!-- Obsolete Markdown.Avalonia styles removed -->
         <Style Selector="TextBlock.spoiler-placeholder">
             <Setter Property="Foreground" Value="{DynamicResource App.Accent}" />
             <Setter Property="Opacity" Value="0.94" />
@@ -700,17 +640,14 @@
                                                             </Button>
                                                         </StackPanel>
                                                     </Grid>
-                                                    <md:MarkdownScrollViewer Classes="message-markdown"
-                                                                             Markdown="{Binding RenderedContent}"
-                                                                             IsVisible="{Binding Content, Converter={StaticResource StringNotNullOrEmptyConverter}}"
-                                                                             SizeChanged="MessageContent_SizeChanged">
-                                                        <md:MarkdownScrollViewer.Plugins>
-                                                            <md:MdAvPlugins>
-                                                                <cm:AutoCodeLanguagePlugin />
-                                                                <cm:ChatSpoilerPlugin />
-                                                            </md:MdAvPlugins>
-                                                        </md:MarkdownScrollViewer.Plugins>
-                                                    </md:MarkdownScrollViewer>
+                                                    <Grid>
+                                                        <cm:ZTalkMarkdownViewer Markdown="{Binding RenderedContent}"
+                                                                              IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig}" />
+                                                        <TextBlock Text="{Binding RenderedContent}"
+                                                                   TextWrapping="Wrap"
+                                                                   Margin="8"
+                                                                   IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig, Converter={StaticResource InverseBoolConverter}}" />
+                                                    </Grid>
                                                     <Button Classes="message-link-preview"
                                                             Content="{Binding LinkPreview}"
                                                             Command="{Binding $parent[v:MainWindow].DataContext.OpenLinkCommand}"

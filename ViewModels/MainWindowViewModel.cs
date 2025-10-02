@@ -333,6 +333,14 @@ namespace ZTalk.ViewModels
         private string _errorMessage = string.Empty;
         public string ErrorMessage { get => _errorMessage; set { _errorMessage = value; OnPropertyChanged(); } }
 
+        // Toggle to enable the new Markdig-based renderer (safe default: false)
+        private bool _useMarkdig = false;
+        public bool UseMarkdig
+        {
+            get => _useMarkdig;
+            set { if (_useMarkdig != value) { _useMarkdig = value; OnPropertyChanged(); } }
+        }
+
         public MainWindowViewModel()
         {
             // Prefer Display Name for visual identity; never show raw username unless no display name exists

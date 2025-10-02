@@ -736,7 +736,18 @@
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
               <TextBlock Text="Delete Account" FontWeight="SemiBold" FontSize="16"/>
-              <TextBlock Text="Once you delete your account, there is no going back. This will permanently delete your account and remove your data from our servers." TextWrapping="Wrap" Opacity="0.8"/>
+              
+              <!-- Information First - What will happen -->
+              <StackPanel Spacing="4" Opacity="0.8">
+                <TextBlock Text="What happens when you delete your account:" FontWeight="SemiBold"/>
+                <TextBlock Text="• All your messages will be permanently deleted" TextWrapping="Wrap"/>
+                <TextBlock Text="• Your contact list will be removed" TextWrapping="Wrap"/>
+                <TextBlock Text="• Your profile information will be erased" TextWrapping="Wrap"/>
+                <TextBlock Text="• You will be removed from all conversations" TextWrapping="Wrap"/>
+                <TextBlock Text="• This action cannot be undone" TextWrapping="Wrap" FontWeight="Medium"/>
+              </StackPanel>
+              
+              <TextBlock Text="Once you delete your account, there is no going back. This will permanently delete your account and wipe all local data from this device." TextWrapping="Wrap" Opacity="0.8"/>
               <TextBlock Text="Please type the following code to confirm:" Opacity="0.8"/>
               <Border CornerRadius="4" Padding="8" BorderBrush="{DynamicResource App.BorderBrush}" BorderThickness="1" Width="320" HorizontalAlignment="Left">
                 <TextBlock Text="{Binding GeneratedDeleteCode}" FontFamily="Consolas" FontWeight="Medium" HorizontalAlignment="Center"/>
@@ -750,8 +761,22 @@
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
               <TextBlock Text="Purge All Messages" FontWeight="SemiBold" FontSize="16" Foreground="#C0392B"/>
+              
+              <!-- Information First - What will happen -->
+              <StackPanel Spacing="4" Opacity="0.8">
+                <TextBlock Text="What happens when you purge all messages:" FontWeight="SemiBold"/>
+                <TextBlock Text="• Every conversation will be permanently deleted" TextWrapping="Wrap"/>
+                <TextBlock Text="• All pending outbox messages will be removed" TextWrapping="Wrap"/>
+                <TextBlock Text="• Encrypted archives will be securely overwritten" TextWrapping="Wrap"/>
+                <TextBlock Text="• Recovery will be impossible" TextWrapping="Wrap" FontWeight="Medium"/>
+                <TextBlock Text="• This action cannot be undone" TextWrapping="Wrap" FontWeight="Medium"/>
+              </StackPanel>
+              
               <TextBlock Text="Securely delete every conversation and pending message from this device. This process overwrites the encrypted archives before removal making recovery impossible." TextWrapping="Wrap" Opacity="0.85"/>
               <TextBlock Text="Use this if you're decommissioning the device or need a clean slate." TextWrapping="Wrap" Opacity="0.75"/>
+              
+              <TextBlock Text="Type 'PURGE-ALL-DATA' to confirm:" Opacity="0.8"/>
+              <TextBox Text="{Binding PurgeConfirmText}" Watermark="Type: PURGE-ALL-DATA" HorizontalAlignment="Left" Width="320"/>
               <Button Content="Purge All Messages" Command="{Binding PurgeAllMessagesCommand}" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium" Background="#B00020" Foreground="White"/>
             </StackPanel>
           </Border>
@@ -765,19 +790,7 @@
             </StackPanel>
           </Border>
 
-          <!-- Additional Warnings -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
-            <StackPanel Spacing="12">
-              <TextBlock Text="What happens when you delete your account?" FontWeight="SemiBold"/>
-              <StackPanel Spacing="4" Opacity="0.8">
-                <TextBlock Text="• All your messages will be permanently deleted" TextWrapping="Wrap"/>
-                <TextBlock Text="• Your contact list will be removed" TextWrapping="Wrap"/>
-                <TextBlock Text="• Your profile information will be erased" TextWrapping="Wrap"/>
-                <TextBlock Text="• You will be removed from all conversations" TextWrapping="Wrap"/>
-                <TextBlock Text="• This action cannot be undone" TextWrapping="Wrap"/>
-              </StackPanel>
-            </StackPanel>
-          </Border>
+
         </StackPanel>
       </ScrollViewer>
 

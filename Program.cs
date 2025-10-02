@@ -7,6 +7,9 @@
 // TODO[ANCHOR]: Program - Defer settings/theme until after unlock/account creation
 using System;
 using System.Diagnostics;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Threading;
 
 using Avalonia;
 
@@ -21,12 +24,82 @@ internal sealed class Program
 {
     private static System.Threading.Timer? _hbTimer;
     private static int _hbCount;
+    private static Mutex? _singleInstanceMutex;
+    
+    // Windows API for bringing existing window to front
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+    
+    private const int SW_RESTORE = 9;
+    
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
     [STAThread]
     public static void Main(string[] args)
     {
+        // Single-instance enforcement: prevent multiple ZTalk instances
+        try
+        {
+            var mutexName = "Global\\ZTalk_SingleInstance_" + Environment.UserName;
+            _singleInstanceMutex = new Mutex(true, mutexName, out bool createdNew);
+            
+            if (!createdNew)
+            {
+                // Another instance is already running
+                Console.WriteLine("ZTalk is already running. Only one instance is allowed.");
+                StartupLog("Startup.SingleInstance.AlreadyRunning");
+                
+                // Try to find and focus the existing window
+                try
+                {
+                    var processes = Process.GetProcessesByName("ZTalk");
+                    if (processes.Length == 0)
+                    {
+                        // Look for dotnet processes running ZTalk
+                        processes = Process.GetProcesses()
+                            .Where(p => p.ProcessName.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+                            .Where(p => 
+                            {
+                                try
+                                {
+                                    return p.MainModule?.FileName?.Contains("ZTalk", StringComparison.OrdinalIgnoreCase) == true ||
+                                           p.MainWindowTitle?.Contains("ZTalk", StringComparison.OrdinalIgnoreCase) == true;
+                                }
+                                catch { return false; }
+                            })
+                            .ToArray();
+                    }
+                    
+                    var existingProcess = processes.FirstOrDefault(p => p.Id != Environment.ProcessId);
+                    if (existingProcess != null)
+                    {
+                        // Bring the existing window to front
+                        try
+                        {
+                            if (existingProcess.MainWindowHandle != IntPtr.Zero)
+                            {
+                                ShowWindow(existingProcess.MainWindowHandle, SW_RESTORE);
+                                SetForegroundWindow(existingProcess.MainWindowHandle);
+                            }
+                        }
+                        catch { }
+                    }
+                }
+                catch { }
+                
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            StartupLog($"Startup.SingleInstance.Error: {ex.Message}");
+            // Continue anyway - don't let mutex issues block startup
+        }
+
         // Global exception logging: capture unhandled exceptions from UI and background threads.
         // Silent, non-intrusive logging to error.txt in the working directory.
         try
@@ -105,7 +178,12 @@ internal sealed class Program
                     StartupLog(info);
                 }
                 catch { }
-                finally { ErrorLogger.FlushNow(); }
+                finally 
+                { 
+                    ErrorLogger.FlushNow();
+                    // Release single-instance mutex
+                    try { _singleInstanceMutex?.ReleaseMutex(); _singleInstanceMutex?.Dispose(); } catch { }
+                }
             };
             AppDomain.CurrentDomain.DomainUnload += (s, e) => ErrorLogger.FlushNow();
         }

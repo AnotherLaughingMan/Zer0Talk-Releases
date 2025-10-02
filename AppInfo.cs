@@ -6,11 +6,9 @@ namespace ZTalk;
 
 public static class AppInfo
 {
-    // Auto-generated version from assembly metadata  
-    public static readonly string Version = 
-        Assembly.GetExecutingAssembly()
-            .GetCustomAttributes<AssemblyInformationalVersionAttribute>()
-            .FirstOrDefault()?.InformationalVersion ?? "0.0.1.58";
+    // Clean version string - no git hashes or extra metadata
+    // Using const instead of assembly metadata to avoid ThisAssembly.AssemblyInfo injecting git hashes
+    public const string Version = "0.0.1.58";
     public const string PrototypeTag = "InDev-Prototype";
 
     public static string PrototypeBadgeText => $"{PrototypeTag} v{Version}";
