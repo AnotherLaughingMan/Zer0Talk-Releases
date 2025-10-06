@@ -35,31 +35,10 @@
 
   <Border Grid.Row="1" Padding="12" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
     <Grid>
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="*"/>
-      </Grid.RowDefinitions>
-      <!-- Tiny toast at top-right -->
-      <Border x:Name="UnlockToast" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,0,0,8"
-              Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6"
-              Padding="8,4" IsVisible="False" Opacity="0.0" IsHitTestVisible="False">
-        <Border.Transitions>
-          <Transitions>
-            <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>
-          </Transitions>
-        </Border.Transitions>
-        <TextBlock x:Name="UnlockToastText" Text="" FontSize="11"/>
-      </Border>
-      <StackPanel Grid.Row="1" Spacing="10">
-      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
-  <!-- [TRUNC-OPTIN] Prevent header text from overflowing in narrow DPI scenarios. -->
-  <TextBlock Classes="app-trunc" Text="Enter passphrase to unlock" FontWeight="SemiBold"/>
-        <!-- Toggle with restored external label for clarity -->
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-          <TextBlock Text="On top" VerticalAlignment="Center"/>
-          <ToggleSwitch IsChecked="{Binding $parent[Window].Topmost, Mode=TwoWay}" ToolTip.Tip="Keep this window on top of other windows"/>
-        </StackPanel>
-      </Grid>
+      <!-- Main content area -->
+      <StackPanel Spacing="10">
+      <!-- [TRUNC-OPTIN] Prevent header text from overflowing in narrow DPI scenarios. -->
+      <TextBlock Classes="app-trunc" Text="Enter passphrase to unlock" FontWeight="SemiBold" Margin="0,0,0,4"/>
   <TextBox x:Name="PassphraseTextBox" PasswordChar="•" Watermark="Passphrase" Text="{Binding Passphrase, Mode=TwoWay}"/>
       <!-- Remember passphrase with external label to avoid content truncation on small scales -->
       <StackPanel Orientation="Horizontal" Spacing="6">
@@ -89,6 +68,58 @@
         </StackPanel>
       </Border>
       </StackPanel>
+      
+      <!-- Overlay Toast - No layout reflow -->
+      <Border x:Name="UnlockToast" 
+              ZIndex="1000"
+              HorizontalAlignment="Center" 
+              VerticalAlignment="Top" 
+              Margin="0,-40,0,0"
+              Background="{DynamicResource App.Surface}" 
+              BorderBrush="{DynamicResource App.Accent}" 
+              BorderThickness="2" 
+              CornerRadius="8"
+              Padding="12,8" 
+              IsVisible="False" 
+              Opacity="0.0"
+              BoxShadow="0 4 16 2 #40000000"
+              MinWidth="280"
+              MaxWidth="360">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Opacity" Duration="0:0:0.2"/>
+            <ThicknessTransition Property="Margin" Duration="0:0:0.25" Easing="CubicEaseOut"/>
+          </Transitions>
+        </Border.Transitions>
+        <Grid ColumnDefinitions="Auto,*,Auto">
+          <!-- Icon -->
+          <TextBlock x:Name="UnlockToastIcon" 
+                     Grid.Column="0" 
+                     Classes="icon-mdl2" 
+                     Text="&#xE946;" 
+                     FontSize="16" 
+                     VerticalAlignment="Center"
+                     Margin="0,0,8,0"/>
+          <!-- Message -->
+          <TextBlock x:Name="UnlockToastText" 
+                     Grid.Column="1" 
+                     Text="" 
+                     FontSize="13" 
+                     TextWrapping="Wrap"
+                     VerticalAlignment="Center"/>
+          <!-- Dismiss Button -->
+          <Button x:Name="UnlockToastDismiss"
+                  Grid.Column="2" 
+                  Content="×" 
+                  FontSize="18"
+                  FontWeight="Bold"
+                  Padding="8,0"
+                  Margin="8,0,0,0"
+                  MinWidth="0"
+                  VerticalAlignment="Center"
+                  ToolTip.Tip="Dismiss"/>
+        </Grid>
+      </Border>
     </Grid>
   </Border>
   </Grid>

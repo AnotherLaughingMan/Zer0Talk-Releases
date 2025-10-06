@@ -1,5 +1,83 @@
 # ZTalk - Bugs Discovered and Fixed
 
+## Critical Issues Resolved
+
+### 0. **CRITICAL: Markdown Rendering Crashes App on Startup**
+**Status:** ✅ FIXED  
+**Discovery Date:** October 5, 2025  
+**Priority:** CRITICAL  
+**Root Cause:** Corrupt/problematic markdown in message archive caused unhandled exceptions during app startup  
+
+**Symptoms:**
+- App crashes immediately on startup when corrupt markdown exists in messages
+- Crash loop: App → Load messages → Crash → Login screen → Repeat
+- Only recovery: Manually delete corrupt message from `AppData/Roaming/ZTalk/messages/`
+- User completely locked out of app
+
+**Technical Details:**
+- No error handling in markdown parsing pipeline
+- Parser exceptions propagated to UI thread causing app crash
+- Renderer failures crashed during message list loading
+- Single corrupt message could prevent entire app from starting
+- No fallback strategy for malformed markdown
+
+**Fix Applied:**
+- **3-Layer Error Handling**: Viewer → Parser → Renderer
+- **ZTalkMarkdownViewer**: Triple try-catch with fallback to plain text
+- **MarkdownParser**: Per-block error isolation, never throws exceptions
+- **MarkdownRenderer**: Per-block rendering, always returns valid Control
+- **Error Logging**: All errors logged to `markdown-errors.log` for diagnosis
+- **Graceful Degradation**: Corrupt blocks show as plain text or error indicators
+
+**Code Changes:**
+```csharp
+// Viewer: Multi-layer defense
+try {
+    var document = Parser.Parse(text); // Layer 1
+    try {
+        Content = Renderer.Render(document); // Layer 2
+    } catch { Content = FallbackText; }
+} catch { Content = FallbackText; }
+
+// Parser: Never throws, always returns Document
+try {
+    return ConvertBlocks(markdigDoc);
+} catch {
+    return new Document { Blocks = [] }; // Safe empty
+}
+
+// Renderer: Per-block isolation
+foreach (var block in document.Blocks) {
+    try {
+        container.Children.Add(RenderBlock(block));
+    } catch {
+        container.Children.Add(ErrorIndicator); // Continue
+    }
+}
+```
+
+**Stress Tests Added:**
+- ✅ 1000 asterisks (extreme length)
+- ✅ Unclosed bold/code/links (malformed)
+- ✅ Deeply nested formatting
+- ✅ Empty/whitespace strings
+- ✅ Special characters (HTML/JavaScript)
+- ✅ Mixed corrupt content
+
+**Verification:**
+- All stress tests pass (15/15 including 6 new crash prevention tests)
+- App starts successfully with corrupt markdown in archive
+- Corrupt messages fall back to plain text (no crash)
+- Error log captures details without blocking app
+- Users can delete problematic messages normally
+
+**Impact:** 
+- **Before**: Users locked out of app, manual file editing required
+- **After**: App always starts, corrupt messages show as plain text
+- **User Experience**: No data loss, no manual recovery, app remains stable
+
+---
+
 ## Major Issues Resolved
 
 ### 1. **Peer List Never Updates in Real-Time** 

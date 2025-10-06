@@ -73,9 +73,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     // Verification popup state
     private Window? _verifyReqPopup;
     private string? _verifyReqUid;
+
     public MainWindow()
     {
         InitializeComponent();
+#if DEBUG
+        // Show/hide Logs button based on logging enabled state (initial load)
+        try
+        {
+            var logsButton = this.FindControl<Button>("LogsButton");
+            if (logsButton != null)
+            {
+                logsButton.IsVisible = ZTalk.Utilities.LoggingPaths.Enabled;
+            }
+        }
+        catch { }
+#endif
         try
         {
             // Pre-layout collapse of diagnostics column to prevent initial flash of an empty right panel.
@@ -132,6 +145,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             this.Opened += (_, __) => AttachFlickerWatchers();
             this.Opened += (_, __) => InitializeMessageInputSizing();
+            this.Opened += (_, __) => InitializeMarkdownToolbar();
             this.Activated += (_, __) => WriteUiCategory("[Window]", "Activated");
             this.Deactivated += (_, __) => WriteUiCategory("[Window]", "Deactivated");
         }
@@ -271,7 +285,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             input.AddHandler(InputElement.KeyDownEvent, OnMessageInputKeyDown, RoutingStrategies.Tunnel);
         }
 
-        // Global lock hotkey: Ctrl+Alt+Shift+L
+        // Global lock hotkey: Use HotkeyManager for centralized hotkey handling
+        RegisterLockHotkey();
         this.AddHandler(InputElement.KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
 
         // Diagnostics refresh via NAT/listening/peers events and centralized UI pulse; add a local keep-alive as fallback.
@@ -2637,9 +2652,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void Lock_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void Lock_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        try { new ZTalk.Services.LockService().Lock(); } catch { }
+        // Accident-proofing: show confirmation dialog when clicking the button
+        // (hotkey usage bypasses this confirmation)
+        try
+        {
+            var confirmed = await AppServices.Dialogs.ConfirmAsync(
+                "Lock & Log Out",
+                "Are you sure you want to lock and log out?\n\nYou'll need to re-enter your passphrase to unlock.",
+                "Lock & Log Out",
+                "Cancel");
+            
+            if (confirmed)
+            {
+                try { new ZTalk.Services.LockService().Lock(); } catch { }
+            }
+        }
+        catch
+        {
+            // If dialog fails, don't lock
+        }
     }
 
     private void BoldButton_Click(object? sender, RoutedEventArgs e)
@@ -2701,6 +2734,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     if (input != null)
                     {
                         AdjustMessageInputHeight(input);
+                        // Add context menu with Clear option
+                        input.ContextMenu = CreateMessageInputContextMenu(input);
                     }
                 }
                 catch { }
@@ -2847,6 +2882,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
         }
         catch { }
+    }
+
+
+
+
+
+
+
+    private ContextMenu CreateMessageInputContextMenu(TextBox input)
+    {
+        var menu = new ContextMenu();
+        
+        var clearItem = new MenuItem
+        {
+            Header = "Clear",
+            Icon = new TextBlock { Text = "🗑️" }
+        };
+        clearItem.Click += async (s, e) =>
+        {
+            input.Text = string.Empty;
+            try
+            {
+                await AppServices.Dialogs.ShowCenteredToastAsync("Input cleared", 1500);
+            }
+            catch { }
+        };
+        
+        menu.Items.Add(clearItem);
+        return menu;
     }
 
     private void ApplyInlineFormatting(string prefix, string suffix, string placeholder, object? source)
@@ -3129,18 +3193,76 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
+    private void RegisterLockHotkey()
+    {
+        try
+        {
+            var settings = AppServices.Settings.Settings;
+            var key = (Key)settings.LockHotkeyKey;
+            var modifiers = (KeyModifiers)settings.LockHotkeyModifiers;
+
+            HotkeyManager.Instance.Register(
+                "app.lock",
+                key,
+                modifiers,
+                () =>
+                {
+                    try { new ZTalk.Services.LockService().Lock(); }
+                    catch (Exception ex) { Logger.Log($"Lock hotkey error: {ex.Message}"); }
+                },
+                "Lock Application");
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"Failed to register lock hotkey: {ex.Message}");
+        }
+
+        // Register Clear Input hotkey
+        try
+        {
+            var settings = AppServices.Settings.Settings;
+            var key = (Key)settings.ClearInputHotkeyKey;
+            var modifiers = (KeyModifiers)settings.ClearInputHotkeyModifiers;
+
+            HotkeyManager.Instance.Register(
+                "app.clearInput",
+                key,
+                modifiers,
+                () =>
+                {
+                    try
+                    {
+                        var input = GetMessageInput();
+                        if (input != null && !string.IsNullOrEmpty(input.Text))
+                        {
+                            Dispatcher.UIThread.InvokeAsync(async () =>
+                            {
+                                input.Text = string.Empty;
+                                try
+                                {
+                                    await AppServices.Dialogs.ShowCenteredToastAsync("Input cleared", 1500);
+                                }
+                                catch { }
+                            });
+                        }
+                    }
+                    catch (Exception ex) { Logger.Log($"Clear input hotkey error: {ex.Message}"); }
+                },
+                "Clear Message Input");
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"Failed to register clear input hotkey: {ex.Message}");
+        }
+    }
+
     private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
     {
         try
         {
-            if (e.Key == Key.L &&
-                (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control &&
-                (e.KeyModifiers & KeyModifiers.Alt) == KeyModifiers.Alt &&
-                (e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift)
-            {
-                try { new ZTalk.Services.LockService().Lock(); } catch { }
-                e.Handled = true;
-            }
+            // Use HotkeyManager for consistent global hotkey handling
+            if (HotkeyManager.Instance.HandleKeyEvent(e))
+                return;
 #if DEBUG
             if (e.Key == Key.N &&
                 (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control &&
@@ -3767,11 +3889,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             // Reset transient UI states on open: hide lingering toasts and banners
             try { SettingsProxy.ResetTransientUi(); } catch { }
             // Create view on demand to avoid early DataContext casts during window init
-            if (host.Content is not SettingsView view)
+            SettingsView? view;
+            if (host.Content is not SettingsView existingView)
             {
                 view = new SettingsView();
                 view.DataContext = SettingsProxy;
                 host.Content = view;
+            }
+            else
+            {
+                view = existingView;
             }
             // Only focus the view when it's newly shown and safe (no context menu / not frozen)
             bool safeToFocus = true;
@@ -3787,8 +3914,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
             try { _settingsVm?.SyncThemeFromPersisted(); } catch { }
             try { _settingsVm?.SyncProfileFromPersisted(); } catch { }
+            // Always switch to the requested section if provided, ensuring reliable navigation
             if (!string.IsNullOrWhiteSpace(section))
+            {
                 view.SwitchToTab(section);
+            }
         }
         catch { }
     }
@@ -3860,6 +3990,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 var host = this.FindControl<ContentControl>("InlineSettingsHost");
                 if (host != null) host.Content = null;
+            }
+            catch { }
+            // Notify MainWindowViewModel that settings may have changed
+            try
+            {
+                if (DataContext is MainWindowViewModel vm) vm.RefreshSettingsDependentProperties();
             }
             catch { }
         }
@@ -4367,6 +4503,132 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 _scrollViewer.Offset = new Vector(current.X, targetY);
             }
             catch { }
+        }
+    }
+
+    // Floating Markdown Toolbar (Discord-style)
+    private System.Threading.CancellationTokenSource? _toolbarUpdateCts;
+    private DateTime _lastToolbarUpdate = DateTime.MinValue;
+
+    private void InitializeMarkdownToolbar()
+    {
+        try
+        {
+            var input = GetMessageInput();
+            var popup = this.FindControl<Popup>("MarkdownToolbarPopup");
+            
+            if (input == null || popup == null) return;
+
+            // Show toolbar when text is selected (throttled to prevent freeze)
+            input.AddHandler(InputElement.PointerReleasedEvent, (s, e) =>
+            {
+                try
+                {
+                    // Throttle to prevent excessive updates
+                    var now = DateTime.UtcNow;
+                    if ((now - _lastToolbarUpdate).TotalMilliseconds < 100)
+                    {
+                        return;
+                    }
+                    _lastToolbarUpdate = now;
+
+                    _toolbarUpdateCts?.Cancel();
+                    _toolbarUpdateCts = new System.Threading.CancellationTokenSource();
+                    var token = _toolbarUpdateCts.Token;
+
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            if (!token.IsCancellationRequested)
+                            {
+                                UpdateMarkdownToolbarVisibility(input, popup);
+                            }
+                        }
+                        catch { }
+                    }, DispatcherPriority.Background);
+                }
+                catch { }
+            }, RoutingStrategies.Tunnel);
+
+            // Hide toolbar when selection is lost
+            input.AddHandler(InputElement.PointerPressedEvent, (s, e) =>
+            {
+                try
+                {
+                    popup.IsOpen = false;
+                }
+                catch { }
+            }, RoutingStrategies.Tunnel);
+
+            // Handle keyboard selection (Shift+Arrow keys) - throttled
+            input.AddHandler(InputElement.KeyUpEvent, (s, e) =>
+            {
+                try
+                {
+                    if (e.KeyModifiers == KeyModifiers.Shift)
+                    {
+                        // Throttle to prevent excessive updates
+                        var now = DateTime.UtcNow;
+                        if ((now - _lastToolbarUpdate).TotalMilliseconds < 100)
+                        {
+                            return;
+                        }
+                        _lastToolbarUpdate = now;
+
+                        _toolbarUpdateCts?.Cancel();
+                        _toolbarUpdateCts = new System.Threading.CancellationTokenSource();
+                        var token = _toolbarUpdateCts.Token;
+
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            try
+                            {
+                                if (!token.IsCancellationRequested)
+                                {
+                                    UpdateMarkdownToolbarVisibility(input, popup);
+                                }
+                            }
+                            catch { }
+                        }, DispatcherPriority.Background);
+                    }
+                }
+                catch { }
+            }, RoutingStrategies.Tunnel);
+
+            // Hide on focus loss
+            input.LostFocus += (s, e) =>
+            {
+                try
+                {
+                    popup.IsOpen = false;
+                }
+                catch { }
+            };
+        }
+        catch { }
+    }
+
+    private void UpdateMarkdownToolbarVisibility(TextBox input, Popup popup)
+    {
+        try
+        {
+            var hasSelection = input.SelectionStart != input.SelectionEnd;
+            
+            if (hasSelection)
+            {
+                // Show toolbar above selected text
+                popup.IsOpen = true;
+            }
+            else
+            {
+                // Hide toolbar when no selection
+                popup.IsOpen = false;
+            }
+        }
+        catch
+        {
+            popup.IsOpen = false;
         }
     }
 

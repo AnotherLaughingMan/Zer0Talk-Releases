@@ -161,14 +161,13 @@ public partial class NetworkWindow : Window
 
     private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.L &&
-            (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control &&
-            (e.KeyModifiers & KeyModifiers.Alt) == KeyModifiers.Alt &&
-            (e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift)
+        try
         {
-            try { new ZTalk.Services.LockService().Lock(); } catch { }
-            e.Handled = true;
+            // Use HotkeyManager for consistent global hotkey handling
+            if (HotkeyManager.Instance.HandleKeyEvent(e))
+                return;
         }
+        catch { }
     }
 
     // [DRAGBAR] Begin moving window on left-click; ignore clicks on interactive controls; no double-click handling here.

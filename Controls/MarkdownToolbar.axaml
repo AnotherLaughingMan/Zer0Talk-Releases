@@ -1,0 +1,79 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ZTalk.Controls.MarkdownToolbar">
+    
+    <Border Background="#2B2B2B"
+            BorderBrush="#3E3E3E"
+            BorderThickness="1"
+            CornerRadius="8"
+            BoxShadow="0 4 12 2 #33000000"
+            Padding="6">
+        <StackPanel Orientation="Horizontal" Spacing="2">
+            <!-- Bold Button -->
+            <Button Classes="icon-button"
+                    Click="BoldButton_Click"
+                    ToolTip.Tip="Bold (Ctrl+B)"
+                    Width="32"
+                    Height="32">
+                <TextBlock Text="B" FontWeight="Bold" FontSize="14"/>
+            </Button>
+            
+            <!-- Italic Button -->
+            <Button Classes="icon-button"
+                    Click="ItalicButton_Click"
+                    ToolTip.Tip="Italic (Ctrl+I)"
+                    Width="32"
+                    Height="32">
+                <TextBlock Text="I" FontStyle="Italic" FontSize="14"/>
+            </Button>
+            
+            <!-- Strikethrough Button -->
+            <Button Classes="icon-button"
+                    Click="StrikeButton_Click"
+                    ToolTip.Tip="Strikethrough (Ctrl+Shift+S)"
+                    Width="32"
+                    Height="32">
+                <TextBlock Text="S" TextDecorations="Strikethrough" FontSize="14"/>
+            </Button>
+            
+            <!-- Separator -->
+            <Border Width="1"
+                    Height="24"
+                    Background="#3E3E3E"
+                    Margin="4,0"/>
+            
+            <!-- Code Button -->
+            <Button Classes="icon-button"
+                    Click="CodeButton_Click"
+                    ToolTip.Tip="Inline code (Ctrl+E)"
+                    Width="32"
+                    Height="32">
+                <TextBlock Text="&lt;/&gt;" FontFamily="Consolas" FontSize="11"/>
+            </Button>
+            
+            <!-- Link Button -->
+            <Button Classes="icon-button"
+                    Click="LinkButton_Click"
+                    ToolTip.Tip="Insert link (Ctrl+K)"
+                    Width="32"
+                    Height="32">
+                <TextBlock Text="🔗" FontSize="14"/>
+            </Button>
+            
+            <!-- Separator -->
+            <Border Width="1"
+                    Height="24"
+                    Background="#3E3E3E"
+                    Margin="4,0"/>
+            
+            <!-- Spoiler Button -->
+            <Button Classes="icon-button"
+                    Click="SpoilerButton_Click"
+                    ToolTip.Tip="Spoiler"
+                    Width="32"
+                    Height="32">
+                <TextBlock Text="||" FontSize="14"/>
+            </Button>
+        </StackPanel>
+    </Border>
+</UserControl>

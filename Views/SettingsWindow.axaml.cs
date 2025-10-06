@@ -104,14 +104,25 @@ public partial class SettingsWindow : Window
 
     private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.L &&
-            (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control &&
-            (e.KeyModifiers & KeyModifiers.Alt) == KeyModifiers.Alt &&
-            (e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift)
+        // Use HotkeyManager for consistent global hotkey handling
+        try
         {
-            try { new ZTalk.Services.LockService().Lock(); } catch { }
-            e.Handled = true;
+            if (HotkeyManager.Instance.HandleKeyEvent(e))
+                return;
         }
+        catch { }
+    }
+
+    private void LockHotkey_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        try
+        {
+            if (DataContext is SettingsViewModel vm)
+            {
+                vm.StartCapturingLockHotkey();
+            }
+        }
+        catch { }
     }
 
     protected override void OnClosed(EventArgs e)

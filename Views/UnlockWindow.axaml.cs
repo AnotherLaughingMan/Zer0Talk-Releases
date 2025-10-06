@@ -56,14 +56,34 @@ namespace ZTalk.Views
                             {
                                 vm.Passphrase = stored;
                                 tb.Text = stored;
-                                    TryShowUnlockToast("Passphrase prefilled (Save Passphrase is on)");
+                                TryShowUnlockToast("Passphrase loaded from secure storage", "\uE73E" /* Checkmark icon */);
+                            }
+                            else
+                            {
+                                TryShowUnlockToast("Remember Passphrase enabled - Passphrase will be saved after successful unlock", "\uE7BA" /* Warning icon */);
                             }
                         }
                         else
                         {
+                            // Security: flush stored passphrase from secure storage when toggled off
+                            try
+                            {
+                                ZTalk.Services.AppServices.Settings.ClearRememberedPassphrase();
+                            }
+                            catch { }
+                            
                             vm.Passphrase = string.Empty;
                             tb.Text = string.Empty;
+                            TryShowUnlockToast("Passphrase cleared and flushed from secure storage", "\uE946" /* Info icon */);
                         }
+                    }
+                }
+                else if (e.PropertyName == nameof(UnlockViewModel.ErrorMessage))
+                {
+                    var vm = _vm;
+                    if (vm != null && !string.IsNullOrWhiteSpace(vm.ErrorMessage))
+                    {
+                        TryShowUnlockToast(vm.ErrorMessage, "\uE783" /* Error icon */);
                     }
                 }
             }
@@ -71,7 +91,7 @@ namespace ZTalk.Views
         }
         
             private System.Threading.CancellationTokenSource? _unlockToastCts;
-            private async void TryShowUnlockToast(string text)
+            private async void TryShowUnlockToast(string text, string icon = "\uE946" /* Info icon */)
             {
                 var previous = System.Threading.Interlocked.Exchange(ref _unlockToastCts, null);
                 try { previous?.Cancel(); } catch { }
@@ -83,20 +103,45 @@ namespace ZTalk.Views
                 {
                     var border = this.FindControl<Border>("UnlockToast");
                     var tb = this.FindControl<TextBlock>("UnlockToastText");
+                    var iconTb = this.FindControl<TextBlock>("UnlockToastIcon");
+                    var dismissBtn = this.FindControl<Button>("UnlockToastDismiss");
                     if (border == null || tb == null) return;
                     var token = cts.Token;
+                    
+                    // Set content
                     tb.Text = text;
+                    if (iconTb != null) iconTb.Text = icon;
+                    
+                    // Wire dismiss button
+                    if (dismissBtn != null)
+                    {
+                        dismissBtn.Click -= DismissToast_Click;
+                        dismissBtn.Click += DismissToast_Click;
+                    }
+                    
                     border.IsVisible = true;
                     try { if (ZTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] Show: '{text}'{Environment.NewLine}"); } catch { }
-                    // Trigger fade-in via transitions
-                    border.Opacity = 1.0;
-                    await System.Threading.Tasks.Task.Delay(1600, token);
+                    
+                    // Slide down animation (from Margin="0,-40,0,0" to "0,8,0,0")
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                    {
+                        border.Margin = new Avalonia.Thickness(0, 8, 0, 0);
+                        border.Opacity = 1.0;
+                    });
+                    
+                    // Display for 3 seconds (better readability)
+                    await System.Threading.Tasks.Task.Delay(3000, token);
                     if (!token.IsCancellationRequested)
                     {
+                        // Fade out
                         border.Opacity = 0.0;
-                        await System.Threading.Tasks.Task.Delay(180, token);
+                        await System.Threading.Tasks.Task.Delay(200, token);
                         if (!token.IsCancellationRequested)
+                        {
                             border.IsVisible = false;
+                            // Reset position for next show
+                            border.Margin = new Avalonia.Thickness(0, -40, 0, 0);
+                        }
                         try { if (ZTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] Auto-hide{Environment.NewLine}"); } catch { }
                     }
                 }
@@ -113,6 +158,27 @@ namespace ZTalk.Views
                     }
                     cts.Dispose();
                 }
+            }
+            
+            private void DismissToast_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+            {
+                try
+                {
+                    var cts = _unlockToastCts;
+                    if (cts != null)
+                    {
+                        cts.Cancel();
+                    }
+                    var border = this.FindControl<Border>("UnlockToast");
+                    if (border != null)
+                    {
+                        border.Opacity = 0.0;
+                        border.IsVisible = false;
+                        border.Margin = new Avalonia.Thickness(0, -40, 0, 0);
+                    }
+                    try { if (ZTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] User dismissed{Environment.NewLine}"); } catch { }
+                }
+                catch { }
             }
 
         private void OnVmCloseRequested(object? sender, EventArgs e)
@@ -283,7 +349,6 @@ namespace ZTalk.Views
                 if (s.Width is double w && w > 0) Width = w;
                 if (s.Height is double h && h > 0) Height = h;
                 if (s.X is double x && s.Y is double y) Position = new Avalonia.PixelPoint((int)x, (int)y);
-                if (s.Topmost is bool tm) this.Topmost = tm; // restore On Top preference
                 if (DataContext is UnlockViewModel vm && s.RememberPreference is bool rp) vm.RememberPassphrase = rp; // restore remember preference
             }
             catch { }
@@ -303,8 +368,7 @@ namespace ZTalk.Views
                     Height = Height,
                     X = Position.X,
                     Y = Position.Y,
-                    RememberPreference = (DataContext as UnlockViewModel)?.RememberPassphrase ?? existing?.RememberPreference,
-                    Topmost = this.Topmost
+                    RememberPreference = (DataContext as UnlockViewModel)?.RememberPassphrase ?? existing?.RememberPreference
                 };
                 var json = JsonSerializer.Serialize(s, SerializationDefaults.Indented);
                 File.WriteAllText(path, json);
@@ -319,7 +383,6 @@ namespace ZTalk.Views
             public double? X { get; set; }
             public double? Y { get; set; }
             public bool? RememberPreference { get; set; }
-            public bool? Topmost { get; set; }
         }
     }
 }

@@ -42,6 +42,14 @@ public class SettingsService
                 Settings = CreateDefaultSettings();
                 Save(passphrase);
                 Logger.Log($"Created encrypted settings at: {path}");
+                
+                // Sync logging state with settings after creation (Debug builds only)
+                try
+                {
+                    ZTalk.Utilities.LoggingPaths.SyncWithSettings();
+                }
+                catch { }
+                
                 return;
             }
 
@@ -62,6 +70,13 @@ public class SettingsService
             var json = System.Text.Encoding.UTF8.GetString(bytes);
             var loaded = JsonSerializer.Deserialize<AppSettings>(json) ?? throw new InvalidDataException("Invalid settings content");
             Settings = loaded;
+            
+            // Sync logging state with settings after load (Debug builds only)
+            try
+            {
+                ZTalk.Utilities.LoggingPaths.SyncWithSettings();
+            }
+            catch { }
 
             // Migration: bump legacy default port 5555 to new default 26264 unless explicitly changed by user.
             try

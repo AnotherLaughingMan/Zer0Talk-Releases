@@ -211,41 +211,67 @@ namespace ZTalk.Services
             var dialog = new Window
             {
                 Title = title,
-                // 16:9-ish sizing
-                Width = 560,
-                Height = 315,
+                Width = 420,
+                Height = 180,
                 CanResize = false,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 ExtendClientAreaToDecorationsHint = true,
                 ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
-                ExtendClientAreaTitleBarHeightHint = 32,
-                Content = new StackPanel
-                {
-                    Margin = new Avalonia.Thickness(16),
-                    Children =
-                    {
-                        new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                        new StackPanel
-                        {
-                            Orientation = Avalonia.Layout.Orientation.Horizontal,
-                            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-                            Spacing = 8,
-                            Children =
-                            {
-                                new Button { Content = cancelText, IsDefault = false, IsCancel = true },
-                                new Button { Content = confirmText, IsDefault = true }
-                            }
-                        }
-                    }
-                }
+                ExtendClientAreaTitleBarHeightHint = 32
             };
 
-            bool result = false;
-            if (dialog.Content is StackPanel sp && sp.Children.Count >= 2 && sp.Children[1] is StackPanel buttons)
+            var cancelBtn = new Button 
+            { 
+                Content = cancelText, 
+                IsDefault = false, 
+                IsCancel = true,
+                MinWidth = 90,
+                Padding = new Avalonia.Thickness(12, 6)
+            };
+            
+            var confirmBtn = new Button 
+            { 
+                Content = confirmText, 
+                IsDefault = true,
+                MinWidth = 120,
+                Padding = new Avalonia.Thickness(12, 6)
+            };
+
+            var grid = new Grid
             {
-                if (buttons.Children[0] is Button cancelBtn) cancelBtn.Click += (_, __) => { result = false; dialog.Close(); };
-                if (buttons.Children[1] is Button okBtn) okBtn.Click += (_, __) => { result = true; dialog.Close(); };
-            }
+                RowDefinitions = new RowDefinitions("*,Auto"),
+                Margin = new Avalonia.Thickness(20, 16, 20, 16)
+            };
+
+            var messageBlock = new TextBlock 
+            { 
+                Text = message, 
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+                Margin = new Avalonia.Thickness(0, 8, 0, 0)
+            };
+            Grid.SetRow(messageBlock, 0);
+
+            var buttonGrid = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+                Margin = new Avalonia.Thickness(0, 16, 0, 0)
+            };
+            Grid.SetRow(buttonGrid, 1);
+
+            Grid.SetColumn(cancelBtn, 0);
+            Grid.SetColumn(confirmBtn, 2);
+            buttonGrid.Children.Add(cancelBtn);
+            buttonGrid.Children.Add(confirmBtn);
+
+            grid.Children.Add(messageBlock);
+            grid.Children.Add(buttonGrid);
+            dialog.Content = grid;
+
+            bool result = false;
+            cancelBtn.Click += (_, __) => { result = false; dialog.Close(); };
+            confirmBtn.Click += (_, __) => { result = true; dialog.Close(); };
+            
             await dialog.ShowDialog(owner);
             return result;
         }

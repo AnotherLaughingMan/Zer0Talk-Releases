@@ -137,6 +137,7 @@ namespace ZTalk.Views.Controls
         {
             var profile = this.FindControl<ScrollViewer>("ProfilePanel");
             var general = this.FindControl<ScrollViewer>("GeneralPanel");
+            var hotkeys = this.FindControl<ScrollViewer>("HotkeysPanel");
             var appearance = this.FindControl<ScrollViewer>("AppearancePanel");
             var network = this.FindControl<ScrollViewer>("NetworkPanel");
             var logout = this.FindControl<ScrollViewer>("LogoutPanel");
@@ -146,23 +147,30 @@ namespace ZTalk.Views.Controls
             var danger = this.FindControl<ScrollViewer>("DangerPanel");
             var debugPanel = this.FindControl<ScrollViewer>("DebugPanel");
             // Don't return early if only network panel is missing - allow other panels to show
-            if (profile == null || general == null || appearance == null || logout == null || performance == null || accessibility == null || about == null || danger == null) return;
+            if (profile == null || general == null || hotkeys == null || appearance == null || logout == null || performance == null || accessibility == null || about == null || danger == null) return;
             var hasDebug = HasDebugPanel() && debugPanel != null;
-            var maxIndex = hasDebug ? 10 : 9;
+            var maxIndex = hasDebug ? 11 : 10;
             if (index < 0) index = 0;
             if (index > maxIndex) index = maxIndex;
-            // Order: Appearance(0), General(1), Profile(2), Network(3), Performance(4), Accessibility(5), Debug(6*), About(7/8), Danger Zone(8/9), Logout(9/10)
+            // Order: Appearance(0), General(1), Hotkeys(2), Profile(3), Network(4), Performance(5), Accessibility(6), Debug(7*), About(8/9), Danger Zone(9/10), Logout(10/11)
             appearance.IsVisible = index == 0;
             general.IsVisible = index == 1;
-            profile.IsVisible = index == 2;
-            if (network != null) network.IsVisible = index == 3;
-            performance.IsVisible = index == 4;
-            accessibility.IsVisible = index == 5;
+            hotkeys.IsVisible = index == 2;
+            profile.IsVisible = index == 3;
+            if (network != null) network.IsVisible = index == 4;
+            performance.IsVisible = index == 5;
+            accessibility.IsVisible = index == 6;
             if (debugPanel != null)
-                debugPanel.IsVisible = hasDebug && index == 6;
-            about.IsVisible = index == (hasDebug ? 7 : 6);
-            danger.IsVisible = index == (hasDebug ? 8 : 7);
-            logout.IsVisible = index == (hasDebug ? 9 : 8);
+                debugPanel.IsVisible = hasDebug && index == 7;
+            about.IsVisible = index == (hasDebug ? 8 : 7);
+            danger.IsVisible = index == (hasDebug ? 9 : 8);
+            logout.IsVisible = index == (hasDebug ? 10 : 9);
+            
+            // Wire hotkey capture when Hotkeys panel is shown
+            if (index == 2)
+            {
+                WireHotkeyCapture();
+            }
         }
 
         
@@ -226,6 +234,55 @@ namespace ZTalk.Views.Controls
         }
 #endif
 
+        private void WireHotkeyCapture()
+        {
+            try
+            {
+                var hotkeyBox = this.FindControl<Border>("LockHotkeyBox");
+                if (hotkeyBox == null) return;
+
+                // Remove previous handlers to avoid duplicates
+                hotkeyBox.PointerPressed -= OnLockHotkeyBoxPressed;
+                hotkeyBox.PointerPressed += OnLockHotkeyBoxPressed;
+            }
+            catch { }
+
+            try
+            {
+                var clearInputBox = this.FindControl<Border>("ClearInputHotkeyBox");
+                if (clearInputBox == null) return;
+
+                // Remove previous handlers to avoid duplicates
+                clearInputBox.PointerPressed -= OnClearInputHotkeyBoxPressed;
+                clearInputBox.PointerPressed += OnClearInputHotkeyBoxPressed;
+            }
+            catch { }
+        }
+
+        private void OnLockHotkeyBoxPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+        {
+            try
+            {
+                if (DataContext is ZTalk.ViewModels.SettingsViewModel vm)
+                {
+                    vm.StartCapturingLockHotkey();
+                }
+            }
+            catch { }
+        }
+
+        private void OnClearInputHotkeyBoxPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+        {
+            try
+            {
+                if (DataContext is ZTalk.ViewModels.SettingsViewModel vm)
+                {
+                    vm.StartCapturingClearInputHotkey();
+                }
+            }
+            catch { }
+        }
+
         // [API] Back-compat with callers that used tab-based implementation.
         // Maps common section names to the left menu selection.
         public void SwitchToTab(string header)
@@ -240,17 +297,18 @@ namespace ZTalk.Views.Controls
                 {
                     "appearance" => 0,
                     "general" => 1,
-                    "profile" => 2,
-                    "network" => 3,
-                    "performance" => 4,
-                    "accessibility" => 5,
-                    "debug" => hasDebug ? 6 : -1,
-                    "debug tools" => hasDebug ? 6 : -1,
-                    "about" => hasDebug ? 7 : 6,
-                    "danger" => hasDebug ? 8 : 7,
-                    "danger zone" => hasDebug ? 8 : 7,
-                    "logout" => hasDebug ? 9 : 8,
-                    _ => 2 // default to Profile
+                    "hotkeys" => 2,
+                    "profile" => 3,
+                    "network" => 4,
+                    "performance" => 5,
+                    "accessibility" => 6,
+                    "debug" => hasDebug ? 7 : -1,
+                    "debug tools" => hasDebug ? 7 : -1,
+                    "about" => hasDebug ? 8 : 7,
+                    "danger" => hasDebug ? 9 : 8,
+                    "danger zone" => hasDebug ? 9 : 8,
+                    "logout" => hasDebug ? 10 : 9,
+                    _ => 3 // default to Profile
                 };
                 var menu = this.FindControl<ListBox>("MenuList");
                 if (menu != null)
@@ -274,7 +332,7 @@ namespace ZTalk.Views.Controls
                 {
                     var item = new ListBoxItem { Content = "Debug Tools" };
                     _debugMenuItem = item;
-                    var insertIndex = Math.Min(6, list.Count); // Insert after Accessibility (index 5)
+                    var insertIndex = Math.Min(7, list.Count); // Insert after Accessibility (index 6)
                     list.Insert(insertIndex, item);
                 }
             }

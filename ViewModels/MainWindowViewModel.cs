@@ -333,8 +333,8 @@ namespace ZTalk.ViewModels
         private string _errorMessage = string.Empty;
         public string ErrorMessage { get => _errorMessage; set { _errorMessage = value; OnPropertyChanged(); } }
 
-        // Toggle to enable the new Markdig-based renderer (safe default: false)
-        private bool _useMarkdig = false;
+        // Toggle to enable the new Markdig-based renderer (enabled: true)
+        private bool _useMarkdig = true;
         public bool UseMarkdig
         {
             get => _useMarkdig;
@@ -978,9 +978,24 @@ namespace ZTalk.ViewModels
             }
         }
 
+        // Settings proxy for UI bindings
+        public bool ShowPublicKeys => AppServices.Settings?.Settings?.ShowPublicKeys ?? false;
+
+        /// <summary>
+        /// Called when settings are saved to refresh properties that depend on AppSettings.
+        /// </summary>
+        public void RefreshSettingsDependentProperties()
+        {
+            OnPropertyChanged(nameof(ShowPublicKeys));
+        }
+
         // Full profile UI state
         private bool _isFullProfileOpen;
         public bool IsFullProfileOpen { get => _isFullProfileOpen; set { if (_isFullProfileOpen != value) { _isFullProfileOpen = value; OnPropertyChanged(); } } }
+
+        // Selected previous name for contact profile dropdown
+        private DisplayNameRecord? _selectedContactPreviousName;
+        public DisplayNameRecord? SelectedContactPreviousName { get => _selectedContactPreviousName; set { if (_selectedContactPreviousName != value) { _selectedContactPreviousName = value; OnPropertyChanged(); } } }
 
         // Editable fields for simulated contacts
         private string _editableDisplayName = string.Empty;

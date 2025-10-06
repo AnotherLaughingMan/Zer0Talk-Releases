@@ -111,7 +111,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(ThemeIndex),
         nameof(RememberPassphrase),
         nameof(UiFontFamily),
-        nameof(UiScale),
+        nameof(Language),
         nameof(DefaultPresenceIndex),
         nameof(AutoLockEnabled),
         nameof(AutoLockMinutes),
@@ -119,6 +119,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(LockBlurRadius),
         nameof(BlockScreenCapture),
         nameof(ShowPublicKeys),
+        nameof(ShowKeyboardFocus),
+        nameof(EnhancedKeyboardNavigation),
+        nameof(LockHotkeyDisplay),
+        nameof(ClearInputHotkeyDisplay),
         nameof(CcdAffinityIndex),
         nameof(DisableGpuAcceleration),
         nameof(FpsThrottle),
@@ -131,7 +135,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(EnableDebugLogAutoTrim),
         nameof(DebugUiLogMaxLines),
         nameof(DebugLogRetentionDays),
-        nameof(DebugLogMaxMegabytes)
+        nameof(DebugLogMaxMegabytes),
+        nameof(EnableLogging)
     };
 
     private bool _saveToastVisible;
@@ -193,6 +198,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _baseDebugUiLogMaxLines;
     private int _baseDebugLogRetentionDays;
     private int _baseDebugLogMaxMegabytes;
+    private bool _enableLogging;
+    private bool _baseEnableLogging;
     private string _logMaintenanceStatus = "Log maintenance hasn't run yet.";
     private DateTime? _lastLogMaintenanceUtc;
 
@@ -261,7 +268,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private string _baseAvatarSig = string.Empty;
     private bool _baseRememberPassphrase;
     private string? _baseUiFontFamily; // Theme Engine baseline
-    private double _baseUiScale;
+    private string _baseLanguage = "English (US)";
     // Baseline: General additions
     private int _baseDefaultPresenceIndex;
     private bool _baseAutoLockEnabled;
@@ -270,6 +277,12 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _baseLockBlurRadius;
     private bool _baseBlockScreenCapture;
     private bool _baseShowPublicKeys;
+    private Avalonia.Input.Key _baseLockHotkeyKey;
+    private Avalonia.Input.KeyModifiers _baseLockHotkeyModifiers;
+    // Accessibility properties removed - these are OS-level settings that the app cannot control
+    // High Contrast, Reduce Motion, Cursor settings must be configured through Windows Settings
+    private bool _baseShowKeyboardFocus;
+    private bool _baseEnhancedKeyboardNavigation;
     private bool _suppressThemeBinding = true;
 
     public SettingsViewModel()
@@ -343,14 +356,41 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             RememberPassphrase = settings.RememberPassphrase;
 
             UiFontFamily = string.IsNullOrWhiteSpace(settings.UiFontFamily) ? null : settings.UiFontFamily;
-            UiScale = settings.UiScale <= 0 ? 1.0 : settings.UiScale;
+            Language = string.IsNullOrWhiteSpace(settings.Language) ? "English (US)" : settings.Language;
             LockBlurRadius = ClampRange(settings.LockBlurRadius, 0, 10);
+            ShowKeyboardFocus = settings.ShowKeyboardFocus;
+            EnhancedKeyboardNavigation = settings.EnhancedKeyboardNavigation;
             DefaultPresenceIndex = PresenceToIndex(settings.Status);
             AutoLockEnabled = settings.AutoLockEnabled;
             AutoLockMinutes = Math.Max(0, settings.AutoLockMinutes);
             LockOnMinimize = settings.LockOnMinimize;
             BlockScreenCapture = settings.BlockScreenCapture;
             ShowPublicKeys = settings.ShowPublicKeys;
+
+            // Load hotkey settings (with validation to ensure valid enum values)
+            try
+            {
+                _lockHotkeyKey = (Avalonia.Input.Key)settings.LockHotkeyKey;
+                _lockHotkeyModifiers = (Avalonia.Input.KeyModifiers)settings.LockHotkeyModifiers;
+            }
+            catch
+            {
+                // Fallback to defaults if invalid
+                _lockHotkeyKey = Avalonia.Input.Key.L;
+                _lockHotkeyModifiers = Avalonia.Input.KeyModifiers.Control;
+            }
+            
+            try
+            {
+                _clearInputHotkeyKey = (Avalonia.Input.Key)settings.ClearInputHotkeyKey;
+                _clearInputHotkeyModifiers = (Avalonia.Input.KeyModifiers)settings.ClearInputHotkeyModifiers;
+            }
+            catch
+            {
+                // Fallback to defaults if invalid
+                _clearInputHotkeyKey = Avalonia.Input.Key.Q;
+                _clearInputHotkeyModifiers = Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift;
+            }
 
             CcdAffinityIndex = ClampRange(settings.CcdAffinityIndex, 0, 3);
             DisableGpuAcceleration = settings.DisableGpuAcceleration;
@@ -365,6 +405,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             DebugUiLogMaxLines = ClampRange(settings.DebugUiLogMaxLines <= 0 ? 1000 : settings.DebugUiLogMaxLines, 100, 20000);
             DebugLogRetentionDays = settings.DebugLogRetentionDays < 0 ? 0 : (settings.DebugLogRetentionDays > 30 ? 30 : settings.DebugLogRetentionDays);
             DebugLogMaxMegabytes = ClampRange(settings.DebugLogMaxMegabytes <= 0 ? 16 : settings.DebugLogMaxMegabytes, 1, 512);
+            EnableLogging = settings.EnableLogging;
 
             var themeIndex = settings.Theme switch
             {
@@ -422,7 +463,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
         catch { }
 
-        try { _themeService.ApplyThemeEngine(UiFontFamily, UiScale); }
+        try { _themeService.ApplyThemeEngine(UiFontFamily, 1.0); }
         catch { }
         try { StartOrUpdateResourceMonitors(); }
         catch { }
@@ -468,7 +509,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             ThemeIndex = _baseThemeIndex;
             RememberPassphrase = _baseRememberPassphrase;
             UiFontFamily = string.IsNullOrWhiteSpace(s.UiFontFamily) ? null : s.UiFontFamily;
-            UiScale = s.UiScale <= 0 ? 1.0 : s.UiScale;
             LockBlurRadius = ClampRange(s.LockBlurRadius, 0, 10);
             DefaultPresenceIndex = PresenceToIndex(s.Status);
             AutoLockEnabled = s.AutoLockEnabled;
@@ -480,6 +520,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             DebugUiLogMaxLines = ClampRange(s.DebugUiLogMaxLines <= 0 ? 1000 : s.DebugUiLogMaxLines, 100, 20000);
             DebugLogRetentionDays = s.DebugLogRetentionDays < 0 ? 0 : (s.DebugLogRetentionDays > 30 ? 30 : s.DebugLogRetentionDays);
             DebugLogMaxMegabytes = ClampRange(s.DebugLogMaxMegabytes <= 0 ? 16 : s.DebugLogMaxMegabytes, 1, 512);
+            EnableLogging = s.EnableLogging;
 
             CcdAffinityIndex = ClampRange(s.CcdAffinityIndex, 0, 3);
             DisableGpuAcceleration = s.DisableGpuAcceleration;
@@ -1201,6 +1242,21 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    private string _language = "English (US)";
+    public string Language
+    {
+        get => _language;
+        set
+        {
+            if (_language != value)
+            {
+                _language = value;
+                OnPropertyChanged();
+                try { LogSettingsEvent($"Language changed to {_language}"); } catch { }
+            }
+        }
+    }
+
     // Sync ThemeIndex from persisted settings without marking Unsaved.
     // Useful on overlay open when settings may have been loaded in the background.
     public void SyncThemeFromPersisted()
@@ -1370,7 +1426,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.BlockScreenCapture = BlockScreenCapture;
             // Theme Engine persistence
             s.UiFontFamily = UiFontFamily;
-            s.UiScale = UiScale;
+            // Language persistence
+            s.Language = string.IsNullOrWhiteSpace(Language) ? "English (US)" : Language;
             // General additions
             s.Status = IndexToPresence(DefaultPresenceIndex);
             s.AutoLockEnabled = AutoLockEnabled;
@@ -1378,10 +1435,19 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.LockOnMinimize = LockOnMinimize;
             s.LockBlurRadius = ClampRange(LockBlurRadius, 0, 10);
             s.ShowPublicKeys = ShowPublicKeys;
+            // Persist accessibility settings
+            s.ShowKeyboardFocus = ShowKeyboardFocus;
+            s.EnhancedKeyboardNavigation = EnhancedKeyboardNavigation;
+            // Persist hotkey settings
+            s.LockHotkeyKey = (int)_lockHotkeyKey;
+            s.LockHotkeyModifiers = (int)_lockHotkeyModifiers;
+            s.ClearInputHotkeyKey = (int)_clearInputHotkeyKey;
+            s.ClearInputHotkeyModifiers = (int)_clearInputHotkeyModifiers;
             s.EnableDebugLogAutoTrim = EnableDebugLogAutoTrim;
             s.DebugUiLogMaxLines = DebugUiLogMaxLines;
             s.DebugLogRetentionDays = DebugLogRetentionDays;
             s.DebugLogMaxMegabytes = DebugLogMaxMegabytes;
+            s.EnableLogging = EnableLogging;
             // Apply staged Security change: RememberPassphrase
             if (RememberPassphrase != s.RememberPassphrase)
             {
@@ -1414,7 +1480,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             try { ZTalk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
             try { ApplyCcdAffinityImmediate(s.CcdAffinityIndex); } catch { }
             // Apply theme + theme engine live
-            try { _themeService.SetTheme(s.Theme); _themeService.ApplyThemeEngine(s.UiFontFamily, s.UiScale); } catch { }
+            try { _themeService.SetTheme(s.Theme); _themeService.ApplyThemeEngine(s.UiFontFamily, 1.0); } catch { }
+            // Apply accessibility settings immediately
+            // Accessibility settings removed - these are OS-level settings
             // Persist profile-related items
             try
             {
@@ -1441,6 +1509,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                     foreach (var w in life.Windows.OfType<Window>())
                         ZTalk.Services.ScreenCaptureProtection.SetExcludeFromCapture(w, BlockScreenCapture);
                 }
+            }
+            catch { }
+
+            // Update hotkey registration if changed
+            try
+            {
+                HotkeyManager.Instance.UpdateKeyBinding("app.lock", _lockHotkeyKey, _lockHotkeyModifiers);
+                HotkeyManager.Instance.UpdateKeyBinding("app.clearInput", _clearInputHotkeyKey, _clearInputHotkeyModifiers);
             }
             catch { }
 
@@ -1486,6 +1562,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    // ApplyAccessibilitySettings removed - all settings were OS-level (High Contrast, Reduce Motion, Cursor)
+    // These cannot be controlled by the application and must be configured through Windows Settings
 
     private static void LogSettingsEvent(string line)
     {
@@ -1569,7 +1647,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (!string.Equals(_baseAvatarSig, GetAvatarSignature(_avatarBytes), StringComparison.Ordinal)) return true;
             if (_baseRememberPassphrase != _rememberPassphrase) return true;
             if (!string.Equals(_baseUiFontFamily ?? string.Empty, UiFontFamily ?? string.Empty, StringComparison.Ordinal)) return true;
-            if (Math.Abs(_baseUiScale - _uiScale) > 0.0001) return true;
+            if (!string.Equals(_baseLanguage ?? "English (US)", Language ?? "English (US)", StringComparison.Ordinal)) return true;
             if (_baseDefaultPresenceIndex != _defaultPresenceIndex) return true;
             if (_baseAutoLockEnabled != _autoLockEnabled) return true;
             if (_baseAutoLockMinutes != _autoLockMinutes) return true;
@@ -1577,6 +1655,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseLockBlurRadius != _lockBlurRadius) return true;
             if (_baseBlockScreenCapture != _blockScreenCapture) return true;
             if (_baseShowPublicKeys != _showPublicKeys) return true;
+            if (_baseLockHotkeyKey != _lockHotkeyKey || _baseLockHotkeyModifiers != _lockHotkeyModifiers) return true;
+            if (_baseShowKeyboardFocus != _showKeyboardFocus) return true;
+            if (_baseEnhancedKeyboardNavigation != _enhancedKeyboardNavigation) return true;
             if (_baseCcdAffinityIndex != _ccdAffinityIndex) return true;
             if (_baseDisableGpuAcceleration != _disableGpuAcceleration) return true;
             if (_baseFpsThrottle != _fpsThrottle) return true;
@@ -1590,6 +1671,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseDebugUiLogMaxLines != _debugUiLogMaxLines) return true;
             if (_baseDebugLogRetentionDays != _debugLogRetentionDays) return true;
             if (_baseDebugLogMaxMegabytes != _debugLogMaxMegabytes) return true;
+            if (_baseEnableLogging != _enableLogging) return true;
             return false;
         }
         catch
@@ -1634,7 +1716,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseAvatarSig = GetAvatarSignature(_avatarBytes);
             _baseRememberPassphrase = _rememberPassphrase;
         _baseUiFontFamily = UiFontFamily;
-        _baseUiScale = UiScale;
+            _baseLanguage = Language ?? "English (US)";
             _baseDefaultPresenceIndex = _defaultPresenceIndex;
             _baseAutoLockEnabled = _autoLockEnabled;
             _baseAutoLockMinutes = _autoLockMinutes;
@@ -1651,10 +1733,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseLockBlurRadius = _lockBlurRadius;
             _baseBlockScreenCapture = _blockScreenCapture;
             _baseShowPublicKeys = _showPublicKeys;
+            _baseLockHotkeyKey = _lockHotkeyKey;
+            _baseLockHotkeyModifiers = _lockHotkeyModifiers;
+            _baseShowKeyboardFocus = _showKeyboardFocus;
+            _baseEnhancedKeyboardNavigation = _enhancedKeyboardNavigation;
             _baseEnableDebugLogAutoTrim = _enableDebugLogAutoTrim;
             _baseDebugUiLogMaxLines = _debugUiLogMaxLines;
             _baseDebugLogRetentionDays = _debugLogRetentionDays;
             _baseDebugLogMaxMegabytes = _debugLogMaxMegabytes;
+            _baseEnableLogging = _enableLogging;
             HasUnsavedChanges = false;
         }
         catch { }
@@ -1671,8 +1758,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Theme Engine properties
     private string? _uiFontFamily;
     public string? UiFontFamily { get => _uiFontFamily; set { if (_uiFontFamily != value) { _uiFontFamily = value; OnPropertyChanged(); } } }
-    private double _uiScale = 1.0;
-    public double UiScale { get => _uiScale; set { var v = value; if (v < 0.5) v = 0.5; if (v > 3.0) v = 3.0; if (Math.Abs(_uiScale - v) > 0.0001) { _uiScale = v; OnPropertyChanged(); } } }
+    
+    // UI Scaling removed - use OS-level display scaling instead
+    // DO NOT re-add: RenderTransform scaling causes unsolvable layout/window sizing issues,
+    // content clipping, and buttons disappearing off-screen. Use Windows Display Settings or
+    // equivalent OS accessibility features for proper DPI/scaling support.
 
     // Privacy
     private bool _blockScreenCapture;
@@ -1687,6 +1777,269 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         get => _showPublicKeys;
         set { if (_showPublicKeys != value) { _showPublicKeys = value; OnPropertyChanged(); } }
     }
+
+    // Accessibility - OS-controlled settings removed (High Contrast, Reduce Motion, Cursor Blink/Width)
+    // These must be configured through Windows Settings > Accessibility
+    private bool _showKeyboardFocus = true;
+    private bool _enhancedKeyboardNavigation = true;
+
+    public bool ShowKeyboardFocus
+    {
+        get => _showKeyboardFocus;
+        set { if (_showKeyboardFocus != value) { _showKeyboardFocus = value; OnPropertyChanged(); } }
+    }
+    public bool EnhancedKeyboardNavigation
+    {
+        get => _enhancedKeyboardNavigation;
+        set { if (_enhancedKeyboardNavigation != value) { _enhancedKeyboardNavigation = value; OnPropertyChanged(); } }
+    }
+
+    // Hotkey configuration
+    private Avalonia.Input.Key _lockHotkeyKey = Avalonia.Input.Key.L;
+    private Avalonia.Input.KeyModifiers _lockHotkeyModifiers = Avalonia.Input.KeyModifiers.Control;
+    private bool _isCapturingLockHotkey;
+
+    private Avalonia.Input.Key _clearInputHotkeyKey = Avalonia.Input.Key.Q;
+    private Avalonia.Input.KeyModifiers _clearInputHotkeyModifiers = Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift;
+    private bool _isCapturingClearInputHotkey;
+
+    public string LockHotkeyDisplay => HotkeyManager.FormatKeyBinding(_lockHotkeyKey, _lockHotkeyModifiers);
+    public bool IsCapturingLockHotkey
+    {
+        get => _isCapturingLockHotkey;
+        set
+        {
+            if (_isCapturingLockHotkey != value)
+            {
+                _isCapturingLockHotkey = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public string ClearInputHotkeyDisplay => HotkeyManager.FormatKeyBinding(_clearInputHotkeyKey, _clearInputHotkeyModifiers);
+    public bool IsCapturingClearInputHotkey
+    {
+        get => _isCapturingClearInputHotkey;
+        set
+        {
+            if (_isCapturingClearInputHotkey != value)
+            {
+                _isCapturingClearInputHotkey = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private bool IsReservedHotkey(Avalonia.Input.Key key, Avalonia.Input.KeyModifiers modifiers)
+    {
+        // Block Ctrl+Alt+Delete (system reserved)
+        if (key == Avalonia.Input.Key.Delete && 
+            (modifiers & Avalonia.Input.KeyModifiers.Control) == Avalonia.Input.KeyModifiers.Control &&
+            (modifiers & Avalonia.Input.KeyModifiers.Alt) == Avalonia.Input.KeyModifiers.Alt)
+        {
+            return true;
+        }
+
+        // Block common text editor shortcuts (Ctrl+Letter combinations)
+        if ((modifiers & Avalonia.Input.KeyModifiers.Control) == Avalonia.Input.KeyModifiers.Control &&
+            modifiers != (Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift) &&
+            modifiers != (Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Alt))
+        {
+            // Block Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z, Ctrl+Y, Ctrl+A, Ctrl+S, Ctrl+F, Ctrl+H, Ctrl+N, Ctrl+O, Ctrl+P, Ctrl+W, Ctrl+T
+            if (key == Avalonia.Input.Key.C || key == Avalonia.Input.Key.V || key == Avalonia.Input.Key.X ||
+                key == Avalonia.Input.Key.Z || key == Avalonia.Input.Key.Y || key == Avalonia.Input.Key.A ||
+                key == Avalonia.Input.Key.S || key == Avalonia.Input.Key.F || key == Avalonia.Input.Key.H ||
+                key == Avalonia.Input.Key.N || key == Avalonia.Input.Key.O || key == Avalonia.Input.Key.P ||
+                key == Avalonia.Input.Key.W || key == Avalonia.Input.Key.T || key == Avalonia.Input.Key.B ||
+                key == Avalonia.Input.Key.I || key == Avalonia.Input.Key.U || key == Avalonia.Input.Key.K)
+            {
+                return true;
+            }
+        }
+
+        // Block Alt+F4 (close window)
+        if (key == Avalonia.Input.Key.F4 && 
+            (modifiers & Avalonia.Input.KeyModifiers.Alt) == Avalonia.Input.KeyModifiers.Alt)
+        {
+            return true;
+        }
+
+        // Block Win+L (system lock)
+        if (key == Avalonia.Input.Key.L && 
+            (modifiers & Avalonia.Input.KeyModifiers.Meta) == Avalonia.Input.KeyModifiers.Meta)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public void StartCapturingLockHotkey()
+    {
+        IsCapturingLockHotkey = true;
+        try
+        {
+            // Attach a key down handler to the main window
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime life)
+            {
+                var mainWindow = life.MainWindow;
+                if (mainWindow != null)
+                {
+                    // Remove previous handler if any
+                    mainWindow.KeyDown -= OnCaptureKeyDown;
+                    mainWindow.KeyDown += OnCaptureKeyDown;
+                }
+            }
+        }
+        catch { IsCapturingLockHotkey = false; }
+    }
+
+    public void StartCapturingClearInputHotkey()
+    {
+        IsCapturingClearInputHotkey = true;
+        try
+        {
+            // Attach a key down handler to the main window
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime life)
+            {
+                var mainWindow = life.MainWindow;
+                if (mainWindow != null)
+                {
+                    // Remove previous handler if any
+                    mainWindow.KeyDown -= OnCaptureClearInputKeyDown;
+                    mainWindow.KeyDown += OnCaptureClearInputKeyDown;
+                }
+            }
+        }
+        catch { IsCapturingClearInputHotkey = false; }
+    }
+
+    private void OnCaptureKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        try
+        {
+            if (!IsCapturingLockHotkey) return;
+
+            // Ignore modifier-only keys
+            if (e.Key == Avalonia.Input.Key.LeftCtrl || e.Key == Avalonia.Input.Key.RightCtrl ||
+                e.Key == Avalonia.Input.Key.LeftAlt || e.Key == Avalonia.Input.Key.RightAlt ||
+                e.Key == Avalonia.Input.Key.LeftShift || e.Key == Avalonia.Input.Key.RightShift ||
+                e.Key == Avalonia.Input.Key.LWin || e.Key == Avalonia.Input.Key.RWin)
+            {
+                return;
+            }
+
+            // Check if hotkey is reserved
+            if (IsReservedHotkey(e.Key, e.KeyModifiers))
+            {
+                _ = ShowSaveToastAsync("This hotkey is reserved by the system or conflicts with common text editor shortcuts.", 2500);
+                IsCapturingLockHotkey = false;
+                return;
+            }
+
+            // Check if trying to set to the default value (Ctrl+L)
+            bool isSettingToDefault = (e.Key == Avalonia.Input.Key.L && e.KeyModifiers == Avalonia.Input.KeyModifiers.Control);
+
+            // Check for conflicts (but allow setting to default even if it conflicts with itself)
+            if (!isSettingToDefault && HotkeyManager.Instance.HasConflict(e.Key, e.KeyModifiers, "app.lock"))
+            {
+                // Show error and don't accept
+                _ = ShowSaveToastAsync("Hotkey conflict! This combination is already in use.", 2000);
+                IsCapturingLockHotkey = false;
+                return;
+            }
+
+            // Accept the new hotkey
+            _lockHotkeyKey = e.Key;
+            _lockHotkeyModifiers = e.KeyModifiers;
+            OnPropertyChanged(nameof(LockHotkeyDisplay));
+            IsCapturingLockHotkey = false;
+
+            // Unregister from window
+            if (sender is Window w)
+            {
+                w.KeyDown -= OnCaptureKeyDown;
+            }
+
+            e.Handled = true;
+        }
+        catch
+        {
+            IsCapturingLockHotkey = false;
+        }
+    }
+
+    private void OnCaptureClearInputKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        try
+        {
+            if (!IsCapturingClearInputHotkey) return;
+
+            // Ignore modifier-only keys
+            if (e.Key == Avalonia.Input.Key.LeftCtrl || e.Key == Avalonia.Input.Key.RightCtrl ||
+                e.Key == Avalonia.Input.Key.LeftAlt || e.Key == Avalonia.Input.Key.RightAlt ||
+                e.Key == Avalonia.Input.Key.LeftShift || e.Key == Avalonia.Input.Key.RightShift ||
+                e.Key == Avalonia.Input.Key.LWin || e.Key == Avalonia.Input.Key.RWin)
+            {
+                return;
+            }
+
+            // Check if hotkey is reserved
+            if (IsReservedHotkey(e.Key, e.KeyModifiers))
+            {
+                _ = ShowSaveToastAsync("This hotkey is reserved by the system or conflicts with common text editor shortcuts.", 2500);
+                IsCapturingClearInputHotkey = false;
+                return;
+            }
+
+            // Check if trying to set to the default value (Ctrl+Shift+Q)
+            bool isSettingToDefault = (e.Key == Avalonia.Input.Key.Q && 
+                                       e.KeyModifiers == (Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift));
+
+            // Check for conflicts (but allow setting to default even if it conflicts with itself)
+            if (!isSettingToDefault && HotkeyManager.Instance.HasConflict(e.Key, e.KeyModifiers, "app.clearInput"))
+            {
+                // Show error and don't accept
+                _ = ShowSaveToastAsync("Hotkey conflict! This combination is already in use.", 2000);
+                IsCapturingClearInputHotkey = false;
+                return;
+            }
+
+            // Accept the new hotkey
+            _clearInputHotkeyKey = e.Key;
+            _clearInputHotkeyModifiers = e.KeyModifiers;
+            OnPropertyChanged(nameof(ClearInputHotkeyDisplay));
+            IsCapturingClearInputHotkey = false;
+
+            // Unregister from window
+            if (sender is Window w)
+            {
+                w.KeyDown -= OnCaptureClearInputKeyDown;
+            }
+
+            e.Handled = true;
+        }
+        catch
+        {
+            IsCapturingClearInputHotkey = false;
+        }
+    }
+
+    public ICommand ResetLockHotkeyCommand => new RelayCommand(_ =>
+    {
+        _lockHotkeyKey = Avalonia.Input.Key.L;
+        _lockHotkeyModifiers = Avalonia.Input.KeyModifiers.Control;
+        OnPropertyChanged(nameof(LockHotkeyDisplay));
+    }, _ => true);
+
+    public ICommand ResetClearInputHotkeyCommand => new RelayCommand(_ =>
+    {
+        _clearInputHotkeyKey = Avalonia.Input.Key.Q;
+        _clearInputHotkeyModifiers = Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift;
+        OnPropertyChanged(nameof(ClearInputHotkeyDisplay));
+    }, _ => true);
+
     public bool EnableDebugLogAutoTrim
     {
         get => _enableDebugLogAutoTrim;
@@ -1699,6 +2052,47 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             }
         }
     }
+
+    public bool EnableLogging
+    {
+        get => _enableLogging;
+        set
+        {
+            if (_enableLogging != value)
+            {
+                _enableLogging = value;
+                OnPropertyChanged();
+                // Update LoggingPaths immediately when toggle changes
+                try
+                {
+                    ZTalk.Utilities.LoggingPaths.SetEnabled(value);
+                }
+                catch { }
+                // Update Logs button visibility in MainWindow
+#if DEBUG
+                try
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                            var mainWindow = desktop?.Windows?.OfType<Views.MainWindow>().FirstOrDefault();
+                            var logsButton = mainWindow?.FindControl<Avalonia.Controls.Button>("LogsButton");
+                            if (logsButton != null)
+                            {
+                                logsButton.IsVisible = value;
+                            }
+                        }
+                        catch { }
+                    });
+                }
+                catch { }
+#endif
+            }
+        }
+    }
+
     public int DebugUiLogMaxLines
     {
         get => _debugUiLogMaxLines;

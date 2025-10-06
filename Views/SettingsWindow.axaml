@@ -218,11 +218,11 @@
                                 <TextBox Watermark="e.g. Segoe UI, Inter, 'JetBrains Mono'" Text="{Binding UiFontFamily, Mode=TwoWay}"/>
                                 <TextBlock Text="Leave blank to use default platform font." FontSize="11" Opacity="0.6"/>
                             </StackPanel>
+                            <!-- UI Scaling removed: OS-level scaling should be used instead (Windows Display Settings, etc.) -->
+                            <!-- DO NOT re-add UI scaling - RenderTransform causes severe layout/window sizing issues -->
                             <StackPanel>
-                                <TextBlock Text="UI Scale"/>
-                                <Slider Minimum="0.75" Maximum="2.0" SmallChange="0.05" LargeChange="0.25" Value="{Binding UiScale, Mode=TwoWay}"/>
-                                <TextBlock Text="{Binding UiScale, StringFormat=Current Scale: {0:F2}x}" FontSize="11"/>
-                                <TextBlock Text="Scaling placeholder: full layout adoption pending future refactor." FontSize="11" Opacity="0.6"/>
+                                <TextBlock Text="UI Scaling" FontWeight="SemiBold"/>
+                                <TextBlock Text="Use your operating system's display scaling settings (Windows Display Settings > Scale and layout) to adjust UI size." FontSize="11" Opacity="0.75" TextWrapping="Wrap"/>
                             </StackPanel>
                             <Border Padding="8" CornerRadius="6" Classes="card">
                                 <TextBlock TextWrapping="Wrap" FontSize="11" Opacity="0.75"

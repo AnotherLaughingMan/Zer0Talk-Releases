@@ -166,7 +166,23 @@ namespace ZTalk.Services
                 newDisplayName = newDisplayName?.Trim() ?? string.Empty;
                 if (string.IsNullOrEmpty(newDisplayName) || string.Equals(c.DisplayName, newDisplayName, StringComparison.Ordinal))
                     return false;
+                
+                // Track display name history
+                if (c.DisplayNameHistory == null)
+                {
+                    c.DisplayNameHistory = new System.Collections.Generic.List<DisplayNameRecord>();
+                    // Add current name as first historical entry if not already tracked
+                    if (!string.IsNullOrWhiteSpace(c.DisplayName))
+                    {
+                        c.DisplayNameHistory.Add(new DisplayNameRecord { Name = c.DisplayName, ChangedAtUtc = System.DateTime.UtcNow });
+                    }
+                }
+                
+                // Add new name to history
+                c.DisplayNameHistory.Add(new DisplayNameRecord { Name = newDisplayName, ChangedAtUtc = System.DateTime.UtcNow });
+                c.DisplayNameChangeCount++;
                 c.DisplayName = newDisplayName;
+                
                 Save(passphrase);
                 Changed?.Invoke();
                 return true;

@@ -57,6 +57,38 @@ namespace ZTalk.Utilities
                 try { Directory.CreateDirectory(_logsDir); } catch { }
             }
         }
+        
+        // Called by SettingsService after settings are loaded to sync logging state with user preference
+        public static void SyncWithSettings()
+        {
+#if DEBUG
+            try
+            {
+                var settings = ZTalk.Services.AppServices.Settings?.Settings;
+                if (settings != null)
+                {
+                    _enabled = settings.EnableLogging;
+                    if (_enabled && !string.IsNullOrEmpty(_logsDir))
+                    {
+                        try { Directory.CreateDirectory(_logsDir); } catch { }
+                    }
+                }
+            }
+            catch { }
+#endif
+        }
+
+        // Allow runtime toggling of logging (Debug builds only)
+        public static void SetEnabled(bool enabled)
+        {
+#if DEBUG
+            _enabled = enabled;
+            if (_enabled && !string.IsNullOrEmpty(_logsDir))
+            {
+                try { Directory.CreateDirectory(_logsDir); } catch { }
+            }
+#endif
+        }
 
         private static string PathFor(string fileName) => Path.Combine(LogsDirectory, fileName);
 

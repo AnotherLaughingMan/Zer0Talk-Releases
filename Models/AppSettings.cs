@@ -114,4 +114,23 @@ public class AppSettings
     public int DebugUiLogMaxLines { get; set; } = 1000;
     public int DebugLogRetentionDays { get; set; } = 1;
     public int DebugLogMaxMegabytes { get; set; } = 16;
+    // Debug-only: toggle logging on/off (default off for performance)
+    public bool EnableLogging { get; set; } = false;
+
+    // Hotkey configuration (stores Key enum value as int and KeyModifiers as int for serialization)
+    public int LockHotkeyKey { get; set; } = 68; // Default: Key.L = 68
+    public int LockHotkeyModifiers { get; set; } = 1; // Default: KeyModifiers.Control = 1
+    public int ClearInputHotkeyKey { get; set; } = 82; // Default: Key.Q = 82
+    public int ClearInputHotkeyModifiers { get; set; } = 5; // Default: Ctrl+Shift = 5
+
+    // Localization: selected UI language (future expansion)
+    public string Language { get; set; } = "English (US)";
+
+    // Accessibility settings
+    public bool ReduceMotion { get; set; }
+    public bool HighContrastMode { get; set; }
+    public int CursorBlinkRate { get; set; } = 530; // milliseconds (Windows default)
+    public double CursorWidth { get; set; } = 1.0; // multiplier
+    public bool ShowKeyboardFocus { get; set; } = true;
+    public bool EnhancedKeyboardNavigation { get; set; } = true;
 }

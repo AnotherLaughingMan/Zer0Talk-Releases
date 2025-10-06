@@ -5,9 +5,10 @@
              x:DataType="vm:SettingsViewModel">
   <Grid ColumnDefinitions="200,1,*">
     <Border Grid.Column="0" Background="{DynamicResource App.Surface}" BorderThickness="0">
-      <ListBox x:Name="MenuList" SelectedIndex="2" BorderThickness="0">
+      <ListBox x:Name="MenuList" SelectedIndex="0" BorderThickness="0">
         <ListBoxItem Content="Appearance"/>
         <ListBoxItem Content="General"/>
+        <ListBoxItem Content="Hotkeys"/>
         <ListBoxItem Content="Profile"/>
         <ListBoxItem Content="Network"/>
         <ListBoxItem Content="Performance"/>
@@ -27,8 +28,230 @@
   <Border Grid.Column="1" Background="{DynamicResource App.Border}" IsHitTestVisible="False"/>
 
   <Grid Grid.Column="2">
+      <!-- Appearance Panel -->
+      <ScrollViewer x:Name="AppearancePanel" IsVisible="True">
+        <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="Appearance" FontWeight="SemiBold" FontSize="18"/>
+          
+          <!-- Theme Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Theme" FontWeight="SemiBold"/>
+              <ComboBox x:Name="ThemeCombo" SelectedIndex="{Binding ThemeIndex}" Width="180">
+                <ComboBoxItem Content="Dark"/>
+                <ComboBoxItem Content="Light"/>
+                <ComboBoxItem Content="Sandy"/>
+                <ComboBoxItem Content="Butter"/>
+              </ComboBox>
+            </StackPanel>
+          </Border>
+
+          <!-- Font Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Font" FontWeight="SemiBold"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Family:" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding UiFontFamily}" Width="200" Watermark="Enter font family name"/>
+              </StackPanel>
+              <!-- UI Scaling removed: OS-level scaling should be used instead (Windows Display Settings, etc.) -->
+              <!-- DO NOT re-add UI scaling - RenderTransform scaling causes severe layout issues, content clipping, -->
+              <!-- and window sizing problems that cannot be reliably solved. Use OS accessibility features instead. -->
+              <TextBlock Text="For UI scaling, use your operating system's display scaling settings." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Language Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left" BorderBrush="{DynamicResource App.Accent}" BorderThickness="2">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Language" FontWeight="SemiBold"/>
+              <ComboBox SelectedItem="{Binding Language}" Width="200" HorizontalAlignment="Left">
+                <x:String>English (US)</x:String>
+              </ComboBox>
+              <TextBlock Text="Additional languages will be added in future updates." FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- General Panel -->
+      <ScrollViewer x:Name="GeneralPanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="General" FontWeight="SemiBold" FontSize="18"/>
+
+          <!-- Presence -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Default Presence" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
+                <TextBlock Text="Status:" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="1" SelectedIndex="{Binding DefaultPresenceIndex}" Width="150">
+                  <ComboBoxItem Content="Online"/>
+                  <ComboBoxItem Content="Away"/>
+                  <ComboBoxItem Content="Busy"/>
+                  <ComboBoxItem Content="Offline"/>
+                </ComboBox>
+              </Grid>
+              <TextBlock Text="Offline is automatic only and cannot be selected." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Auto-Lock -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Auto-Lock" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="Enable Auto-Lock" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding AutoLockEnabled}"/>
+                <TextBlock Grid.Row="0" Grid.Column="3" Text="Minutes" VerticalAlignment="Center"/>
+                <NumericUpDown Grid.Row="0" Grid.Column="4" Value="{Binding AutoLockMinutes}" Minimum="0" Maximum="1440" Width="64" ShowButtonSpinner="False" IsEnabled="{Binding AutoLockEnabled}"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="Lock on minimize" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="1" Grid.Column="0" IsChecked="{Binding LockOnMinimize}"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Lock Blur Radius -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Lock Blur Radius" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="280,Auto" ColumnSpacing="12">
+                <Slider Grid.Column="0" Value="{Binding LockBlurRadius}" Minimum="0" Maximum="10" Width="280"/>
+    <Border Grid.Column="1"
+                        BorderBrush="{DynamicResource App.Border}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+      Padding="6,0"
+                        MinWidth="48"
+      Height="28"
+                        HorizontalAlignment="Left">
+                  <TextBlock Text="{Binding LockBlurRadius}" VerticalAlignment="Center"/>
+                </Border>
+              </Grid>
+              <TextBlock Text="Controls blur strength while locked. 0 = no blur, 10 = maximum." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Privacy -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Privacy" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
+                <TextBlock Grid.Column="1" Text="Block screen capture" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding BlockScreenCapture}"/>
+              </Grid>
+              <TextBlock Text="Windows-only; older/legacy capture tools may not honor this." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+            </StackPanel>
+          </Border>
+
+          <!-- Key Visibility -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Key Visibility" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
+                <TextBlock Grid.Column="1" Text="Show public keys on profiles" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowPublicKeys}"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Hotkeys Panel -->
+      <ScrollViewer x:Name="HotkeysPanel" IsVisible="False">
+        <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="Hotkeys" FontWeight="SemiBold" FontSize="18"/>
+          
+          <TextBlock Text="Customize keyboard shortcuts" Opacity="0.7" FontSize="13"/>
+          <TextBlock Text="Click a hotkey field and press your desired key combination. Conflicting assignments will be rejected." 
+                     TextWrapping="Wrap" Opacity="0.7" FontSize="12"/>
+
+          <!-- Lock Hotkey -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Lock Application" FontWeight="SemiBold"/>
+              <TextBlock Text="Quickly lock the app to protect your privacy" 
+                         Opacity="0.7" FontSize="12"/>
+              <Grid ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="8">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Hotkey" VerticalAlignment="Center"/>
+                <Border Grid.Row="0" Grid.Column="1" 
+                        x:Name="LockHotkeyBox"
+                        BorderBrush="{DynamicResource App.Border}" 
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Background="{DynamicResource App.Background}"
+                        Padding="12,8"
+                        Cursor="Hand">
+                  <Grid>
+                    <TextBlock Text="{Binding LockHotkeyDisplay}" 
+                               FontFamily="Consolas"
+                               FontWeight="Medium"
+                               VerticalAlignment="Center"
+                               IsVisible="{Binding !IsCapturingLockHotkey}"/>
+                    <TextBlock Text="Press keys..." 
+                               Opacity="0.5"
+                               IsVisible="{Binding IsCapturingLockHotkey}"
+                               VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+                <Button Grid.Row="1" Grid.Column="1" 
+                        Content="Reset to Default (Ctrl+L)" 
+                        Command="{Binding ResetLockHotkeyCommand}"
+                        HorizontalAlignment="Left"
+                        Padding="10,6"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- Clear Input Hotkey -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Clear Message Input" FontWeight="SemiBold"/>
+              <TextBlock Text="Instantly clear all text in the message input box" 
+                         Opacity="0.7" FontSize="12"/>
+              <Grid ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="8">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Hotkey" VerticalAlignment="Center"/>
+                <Border Grid.Row="0" Grid.Column="1" 
+                        x:Name="ClearInputHotkeyBox"
+                        BorderBrush="{DynamicResource App.Border}" 
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Background="{DynamicResource App.Background}"
+                        Padding="12,8"
+                        Cursor="Hand">
+                  <Grid>
+                    <TextBlock Text="{Binding ClearInputHotkeyDisplay}" 
+                               FontFamily="Consolas"
+                               FontWeight="Medium"
+                               VerticalAlignment="Center"
+                               IsVisible="{Binding !IsCapturingClearInputHotkey}"/>
+                    <TextBlock Text="Press keys..." 
+                               Opacity="0.5"
+                               IsVisible="{Binding IsCapturingClearInputHotkey}"
+                               VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+                <Button Grid.Row="1" Grid.Column="1" 
+                        Content="Reset to Default (Ctrl+Shift+Q)" 
+                        Command="{Binding ResetClearInputHotkeyCommand}"
+                        HorizontalAlignment="Left"
+                        Padding="10,6"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border CornerRadius="8" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="4">
+              <TextBlock Text="💡 Tips" FontWeight="SemiBold" FontSize="13"/>
+              <TextBlock TextWrapping="Wrap" FontSize="12" Opacity="0.75"
+                         Text="Avoid system hotkeys like Alt+F4, Ctrl+C, Win+L, etc. Common safe combinations use Ctrl, Ctrl+Shift, or Ctrl+Alt with function keys or letters."/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
       <!-- Profile Panel -->
-      <ScrollViewer x:Name="ProfilePanel" IsVisible="True">
+      <ScrollViewer x:Name="ProfilePanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
           <TextBlock Text="Profile" FontWeight="SemiBold" FontSize="18"/>
 
@@ -118,125 +341,6 @@
           </Border>
         </StackPanel>
       </ScrollViewer>
-
-      <!-- General Panel -->
-      <ScrollViewer x:Name="GeneralPanel" IsVisible="False">
-        <StackPanel Margin="8" Spacing="16">
-          <TextBlock Text="General" FontWeight="SemiBold" FontSize="18"/>
-
-          <!-- Presence -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
-            <StackPanel Spacing="8">
-              <TextBlock Text="Default Presence" FontWeight="SemiBold"/>
-              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
-                <TextBlock Text="Status:" VerticalAlignment="Center"/>
-                <ComboBox Grid.Column="1" SelectedIndex="{Binding DefaultPresenceIndex}" Width="150">
-                  <ComboBoxItem Content="Online"/>
-                  <ComboBoxItem Content="Away"/>
-                  <ComboBoxItem Content="Busy"/>
-                  <ComboBoxItem Content="Offline"/>
-                </ComboBox>
-              </Grid>
-              <TextBlock Text="Offline is automatic only and cannot be selected." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
-            </StackPanel>
-          </Border>
-
-          <!-- Auto-Lock -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
-            <StackPanel Spacing="8">
-              <TextBlock Text="Auto-Lock" FontWeight="SemiBold"/>
-              <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="Enable Auto-Lock" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding AutoLockEnabled}"/>
-                <TextBlock Grid.Row="0" Grid.Column="3" Text="Minutes" VerticalAlignment="Center"/>
-                <NumericUpDown Grid.Row="0" Grid.Column="4" Value="{Binding AutoLockMinutes}" Minimum="0" Maximum="1440" Width="64" ShowButtonSpinner="False" IsEnabled="{Binding AutoLockEnabled}"/>
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="Lock on minimize" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Row="1" Grid.Column="0" IsChecked="{Binding LockOnMinimize}"/>
-              </Grid>
-            </StackPanel>
-          </Border>
-
-          <!-- Lock Blur Radius -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
-            <StackPanel Spacing="8">
-              <TextBlock Text="Lock Blur Radius" FontWeight="SemiBold"/>
-              <Grid ColumnDefinitions="280,Auto" ColumnSpacing="12">
-                <Slider Grid.Column="0" Value="{Binding LockBlurRadius}" Minimum="0" Maximum="10" Width="280"/>
-    <Border Grid.Column="1"
-                        BorderBrush="{DynamicResource App.Border}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-      Padding="6,0"
-                        MinWidth="48"
-      Height="28"
-                        HorizontalAlignment="Left">
-                  <TextBlock Text="{Binding LockBlurRadius}" VerticalAlignment="Center"/>
-                </Border>
-              </Grid>
-              <TextBlock Text="Controls blur strength while locked. 0 = no blur, 10 = maximum." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
-            </StackPanel>
-          </Border>
-
-          <!-- Privacy -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
-            <StackPanel Spacing="8">
-              <TextBlock Text="Privacy" FontWeight="SemiBold"/>
-              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
-                <TextBlock Grid.Column="1" Text="Block screen capture" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding BlockScreenCapture}"/>
-              </Grid>
-              <TextBlock Text="Windows-only; older/legacy capture tools may not honor this." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
-            </StackPanel>
-          </Border>
-
-          <!-- Key Visibility -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
-            <StackPanel Spacing="8">
-              <TextBlock Text="Key Visibility" FontWeight="SemiBold"/>
-              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
-                <TextBlock Grid.Column="1" Text="Show public keys on profiles" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowPublicKeys}"/>
-              </Grid>
-            </StackPanel>
-          </Border>
-        </StackPanel>
-      </ScrollViewer>
-
-      <!-- Appearance Panel -->
-      <ScrollViewer x:Name="AppearancePanel" IsVisible="False">
-        <StackPanel Margin="8" Spacing="16">
-          <TextBlock Text="Appearance" FontWeight="SemiBold" FontSize="18"/>
-          
-          <!-- Theme Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
-            <StackPanel Spacing="12">
-              <TextBlock Text="Theme" FontWeight="SemiBold"/>
-              <ComboBox x:Name="ThemeCombo" SelectedIndex="{Binding ThemeIndex}" Width="180">
-                <ComboBoxItem Content="Dark"/>
-                <ComboBoxItem Content="Light"/>
-                <ComboBoxItem Content="Sandy"/>
-                <ComboBoxItem Content="Butter"/>
-              </ComboBox>
-            </StackPanel>
-          </Border>
-
-          <!-- Font Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
-            <StackPanel Spacing="12">
-              <TextBlock Text="Font" FontWeight="SemiBold"/>
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Family:" VerticalAlignment="Center"/>
-                <TextBox Text="{Binding UiFontFamily}" Width="200" Watermark="Enter font family name"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Scale:" VerticalAlignment="Center"/>
-                <Slider Value="{Binding UiScale}" Minimum="0.5" Maximum="3.0" Width="150" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding UiScale, StringFormat={}{0:F1}x}" VerticalAlignment="Center" Width="40"/>
-              </StackPanel>
-            </StackPanel>
-          </Border>
-        </StackPanel>
-  </ScrollViewer>
 
       <ScrollViewer x:Name="PerformancePanel" IsVisible="False">
         <StackPanel x:Name="PerformanceStack" Margin="8" Spacing="16">
@@ -335,21 +439,75 @@
         <StackPanel Margin="8" Spacing="16">
           <TextBlock Text="Accessibility" FontWeight="SemiBold" FontSize="18"/>
           
-          <!-- Display Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <!-- OS-Level Accessibility Settings -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Display" FontWeight="SemiBold"/>
-              <TextBlock Text="UI Scale and Font settings can be adjusted in the Appearance section." FontSize="14" Foreground="{DynamicResource App.SecondaryText}"/>
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Current Scale:" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding UiScale, StringFormat={}{0:F1}x}" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                <TextBlock Text="(Adjust in Appearance tab)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              <TextBlock Text="Accessibility Settings" FontWeight="SemiBold"/>
+              <TextBlock Text="Most accessibility features are controlled by your operating system:" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+              <StackPanel Spacing="6" Margin="12,8,0,0">
+                <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                  <Run Text="• Display Scaling:" FontWeight="SemiBold"/> Windows Display Settings > Scale and layout
+                </TextBlock>
+                <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                  <Run Text="• High Contrast:" FontWeight="SemiBold"/> Windows Settings > Accessibility > Contrast themes
+                </TextBlock>
+                <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                  <Run Text="• Animations:" FontWeight="SemiBold"/> Windows Settings > Accessibility > Visual effects
+                </TextBlock>
+                <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                  <Run Text="• Cursor Size:" FontWeight="SemiBold"/> Windows Settings > Accessibility > Mouse pointer and touch
+                </TextBlock>
+                <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                  <Run Text="• Text Cursor:" FontWeight="SemiBold"/> Windows Settings > Accessibility > Text cursor
+                </TextBlock>
               </StackPanel>
             </StackPanel>
           </Border>
 
+
+
+          <!-- Keyboard Navigation Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Keyboard Navigation" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding ShowKeyboardFocus}"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="Show keyboard focus indicators" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="1" Grid.Column="0" IsChecked="{Binding EnhancedKeyboardNavigation}"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="Enhanced keyboard navigation" VerticalAlignment="Center"/>
+              </Grid>
+              
+              <Border Background="{DynamicResource App.SecondaryBackground}" CornerRadius="6" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="Navigation Keys:" FontWeight="SemiBold" FontSize="13"/>
+                  <StackPanel Spacing="4">
+                    <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                      <Run Text="• Tab" FontWeight="SemiBold"/> – Move forward between controls
+                    </TextBlock>
+                    <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                      <Run Text="• Shift+Tab" FontWeight="SemiBold"/> – Move backward between controls
+                    </TextBlock>
+                    <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                      <Run Text="• Space/Enter" FontWeight="SemiBold"/> – Activate buttons and toggles
+                    </TextBlock>
+                    <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                      <Run Text="• Arrow Keys" FontWeight="SemiBold"/> – Navigate within lists, menus, and dropdowns
+                    </TextBlock>
+                    <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                      <Run Text="• Esc" FontWeight="SemiBold"/> – Close dialogs and overlays
+                    </TextBlock>
+                    <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                      <Run Text="• Ctrl+L" FontWeight="SemiBold"/> – Lock application (customizable in Hotkeys)
+                    </TextBlock>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+              <TextBlock Text="All windows and panels support full keyboard navigation. Focus indicators will highlight the active control." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+
           <!-- Font Rendering Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
               <TextBlock Text="Font Rendering" FontWeight="SemiBold"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
@@ -357,14 +515,7 @@
                 <TextBlock Text="{Binding OsFontSmoothingEnabled, StringFormat='{}{0}'}" VerticalAlignment="Center" FontWeight="SemiBold"/>
                 <TextBlock Text="(System setting)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
-            </StackPanel>
-          </Border>
-
-          <!-- Keyboard Navigation Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
-            <StackPanel Spacing="12">
-              <TextBlock Text="Keyboard Navigation" FontWeight="SemiBold"/>
-              <TextBlock Text="Use Tab to navigate between controls, Space/Enter to activate buttons." FontSize="14" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+              <TextBlock Text="Font smoothing is controlled by your operating system. Change it in your OS display settings." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
         </StackPanel>
@@ -373,6 +524,30 @@
       <ScrollViewer x:Name="DebugPanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
           <TextBlock Text="Debug Tools" FontWeight="SemiBold" FontSize="18"/>
+
+          <!-- Logging Toggle -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left" Background="{DynamicResource App.Surface}" BorderBrush="#FFA500" BorderThickness="2">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Logging" FontWeight="SemiBold"/>
+              
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Text="Enable logging" VerticalAlignment="Center"/>
+                <ToggleSwitch IsChecked="{Binding EnableLogging}"/>
+              </StackPanel>
+              
+              <Border Background="#33FFA500" Padding="12" CornerRadius="4">
+                <StackPanel Spacing="4">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Classes="icon-mdl2" Text="&#xE7BA;" FontSize="16" Foreground="#FFA500" VerticalAlignment="Center"/>
+                    <TextBlock Text="Performance Warning" FontWeight="SemiBold" Foreground="#FFA500"/>
+                  </StackPanel>
+                  <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                    Logging causes significant performance degradation. Only enable when actively tracking down problems or debugging issues. Disable immediately after troubleshooting is complete.
+                  </TextBlock>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </Border>
 
           <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
@@ -485,13 +660,28 @@
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
               <TextBlock Text="Connection" FontWeight="SemiBold"/>
-              <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820">
+                <Run Text="Port:"/>
+                <Run Text="The port number ZTalk uses for P2P connections. Default is 26264. Changing this requires restarting the application."/>
+              </TextBlock>
+              <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Port" VerticalAlignment="Center"/>
-                <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding Port}" Minimum="1" Maximum="65535" Width="120" ShowButtonSpinner="False"/>
+                <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding Port}" Minimum="1" Maximum="65535" Width="120" ShowButtonSpinner="False" HorizontalAlignment="Left"/>
                 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Major Node" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Row="1" Grid.Column="1" IsChecked="{Binding MajorNode}" Content="Enable Major Node (requires port forwarding)"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Dedicated Peer Node" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="1" Grid.Column="1" IsChecked="{Binding MajorNode}" Content="Enable as dedicated peer node (requires port forwarding)"/>
               </Grid>
+              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820" Margin="0,4,0,0">
+                <Run Text="Dedicated Peer Node Setup:"/>
+                <LineBreak/>
+                <Run Text="1. Forward your router's external port (default 26264) to this computer's internal IP and port."/>
+                <LineBreak/>
+                <Run Text="2. Enable this option to advertise your node as publicly accessible."/>
+                <LineBreak/>
+                <Run Text="3. Other peers will be able to connect directly to you, improving network stability and discovery."/>
+                <LineBreak/>
+                <Run Text="4. Your node will help relay connection information for peers behind restrictive NATs."/>
+              </TextBlock>
             </StackPanel>
           </Border>
 
@@ -509,10 +699,10 @@
             </StackPanel>
           </Border>
 
-          <!-- Known Major Nodes -->
+          <!-- Known Dedicated Peer Nodes -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Known Major Nodes" FontWeight="SemiBold"/>
+              <TextBlock Text="Known Dedicated Peer Nodes" FontWeight="SemiBold"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBox Text="{Binding NewMajorNode}" Watermark="example.com:26264" Width="240"/>
                 <Button Content="Add" Command="{Binding AddMajorNodeCommand}"/>
@@ -538,7 +728,10 @@
           <Border CornerRadius="8" Padding="16" Width="920" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,4">
-                <TextBlock Grid.Column="0" Text="Discovered Peers" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2">
+                  <TextBlock Text="Discovered Peers" FontWeight="SemiBold"/>
+                  <TextBlock Text="(locations are estimated and not even remotely accurate)" FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
+                </StackPanel>
                 <Button Grid.Column="1" Content="Block Selected" Command="{Binding BlockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
                 <Button Grid.Column="2" Content="Unblock Selected" Command="{Binding UnblockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
                 <Button Grid.Column="3" Command="{Binding RefreshPeersCommand}" Padding="8,4" ToolTip.Tip="Refresh Peer List" FontFamily="Segoe MDL2 Assets" FontSize="14" Content="&#xE72C;"/>
@@ -638,7 +831,7 @@
                                        Margin="3,0,0,0"
                                        Foreground="{DynamicResource App.ForegroundSecondary}"/>
                             
-                            <!-- Major Node indicator -->
+                            <!-- Dedicated Peer Node indicator -->
                             <TextBlock Grid.Column="4" 
                                        Classes="icon-mdl2" 
                                        Text="&#xE774;" 
@@ -647,7 +840,7 @@
                                        FontSize="14"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
-                                       ToolTip.Tip="Major Node"/>
+                                       ToolTip.Tip="Dedicated Peer Node"/>
                             
                             <!-- Block Status indicator -->
                             <Grid Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center">

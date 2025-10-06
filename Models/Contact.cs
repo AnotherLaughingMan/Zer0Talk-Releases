@@ -21,6 +21,9 @@ namespace ZTalk.Models
         // Count of how many times this contact changed their display name (if known)
         private int _displayNameChangeCount;
         public int DisplayNameChangeCount { get => _displayNameChangeCount; set { if (_displayNameChangeCount != value) { _displayNameChangeCount = value; OnPropertyChanged(nameof(DisplayNameChangeCount)); } } }
+        // Full history of display name changes with timestamps
+        private System.Collections.Generic.List<DisplayNameRecord>? _displayNameHistory;
+        public System.Collections.Generic.List<DisplayNameRecord>? DisplayNameHistory { get => _displayNameHistory; set { if (_displayNameHistory != value) { _displayNameHistory = value; OnPropertyChanged(nameof(DisplayNameHistory)); } } }
         [JsonIgnore]
         public string DisplayUID => TrimPrefix(UID);
         // Local-only trust flag for UI hints; contacts store may ignore it, but we keep it for convenience.

@@ -240,7 +240,7 @@
                     <Button Classes="icon-button" ToolTip.Tip="Monitoring" Click="Monitoring_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE9D2;" FontSize="26"/>
                     </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Logs" Click="Logs_Click">
+                    <Button x:Name="LogsButton" Classes="icon-button" ToolTip.Tip="Logs" Click="Logs_Click" IsVisible="False">
                         <TextBlock Classes="icon-mdl2" Text="&#xE8A5;" FontSize="26"/>
                     </Button>
                     <Button Classes="icon-button" ToolTip.Tip="Network Settings" Click="Network_Click">
@@ -354,7 +354,7 @@
                                         <ContextMenu.DataContext>
                                             <Binding />
                                         </ContextMenu.DataContext>
-                                        <MenuItem Header="Open full profile"
+                                        <MenuItem Header="View Profile"
                                                   Command="{Binding $parent[v:MainWindow].DataContext.ShowFullProfileCommand}"
                                                   CommandParameter="{Binding UID}">
                                             <MenuItem.Icon>
@@ -860,6 +860,17 @@
                         </Grid>
                     </Grid>
                 </Border>
+                
+                <!-- Floating Markdown Toolbar (Discord-style, shows on text selection) -->
+                <Popup x:Name="MarkdownToolbarPopup"
+                       PlacementTarget="{Binding #MessageInput}"
+                       Placement="Top"
+                       VerticalOffset="-8"
+                       IsLightDismissEnabled="False"
+                       IsOpen="False">
+                    <c:MarkdownToolbar x:Name="MarkdownFloatingToolbar"
+                                       TargetTextBox="{Binding #MessageInput}"/>
+                </Popup>
             </Grid>
             <!-- Close BodyGrid before overlays to keep hierarchy balanced -->
         </Grid>
@@ -871,8 +882,9 @@
             <Border HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16" CornerRadius="10"
                     Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                     PointerPressed="FullProfileContent_PointerPressed">
-                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12" MinWidth="360">
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="12" MinWidth="480" MaxWidth="540">
+                    <!-- Header with Avatar -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                         <Border Width="56" Height="56" CornerRadius="28" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
                             <Grid>
                                 <TextBlock Classes="icon-mdl2" Text="&#xE77B;" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.6"/>
@@ -893,18 +905,16 @@
                                         <Image Width="12" Height="12" Source="avares://ZTalk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Idle}"/>
                                         <Image Width="12" Height="12" Source="avares://ZTalk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=DoNotDisturb}"/>
                                         <Ellipse Width="12" Height="12" Stroke="#888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" Fill="Transparent" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Invisible}"/>
-                                        <!-- Presence: Offline -->
                                         <Ellipse Width="12" Height="12" Fill="Transparent" Stroke="#888888" StrokeThickness="1.8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Offline}"/>
                                     </Grid>
                                 </Border>
                             </Grid>
                         </Border>
-                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                        <StackPanel Spacing="4" VerticalAlignment="Center">
                             <TextBlock Text="{Binding SelectedContact.DisplayName}" FontSize="16" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding SelectedContact.DisplayUID}" FontSize="12" Opacity="0.7"/>
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <!-- Verification shield in profile card -->
-                                <c:VerifiedBadge Width="18" Height="18" VerticalAlignment="Center">
+                                <c:VerifiedBadge Width="16" Height="16" VerticalAlignment="Center">
                                     <c:VerifiedBadge.IsVisible>
                                         <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
                                             <Binding Path="SelectedContact.PublicKeyVerified"/>
@@ -914,49 +924,71 @@
                                     </c:VerifiedBadge.IsVisible>
                                 </c:VerifiedBadge>
                                 <Border Background="#DA7C19" CornerRadius="4" Padding="4,1" IsVisible="{Binding SelectedContact.IsSimulated}">
-                                    <TextBlock Text="Sim" Foreground="White"/>
+                                    <TextBlock Text="Sim" Foreground="White" FontSize="11"/>
                                 </Border>
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- Presence / status row (text only; visual badge overlays avatar) -->
-                    <StackPanel Grid.Row="1" Spacing="6">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="Presence:" Opacity="0.8"/>
-                            <TextBlock Text="{Binding SelectedContact.Presence}"/>
+                    <!-- Profile Card (matching user profile layout) -->
+                    <Border Grid.Row="1" Background="{DynamicResource App.CardBackground}" CornerRadius="8" Padding="16">
+                        <StackPanel Spacing="16">
+                            <!-- Identity Section -->
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Identity" FontWeight="SemiBold"/>
+                                <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Display Name" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedContact.DisplayName}" VerticalAlignment="Center"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="UID" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding SelectedContact.DisplayUID}" VerticalAlignment="Center"/>
+                                        <Button Click="CopyContactUid_Click" CommandParameter="{Binding SelectedContact.UID}" ToolTip.Tip="Copy UID" Padding="6,2" MinWidth="0">
+                                            <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
+                                        </Button>
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Presence" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedContact.Presence}" VerticalAlignment="Center"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Prev. Name" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                        <ComboBox ItemsSource="{Binding SelectedContact.DisplayNameHistory}" SelectedItem="{Binding SelectedContactPreviousName}" Width="220">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Name}"/>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                        <Border BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="12" Padding="8,2">
+                                            <TextBlock Text="{Binding SelectedContact.DisplayNameChangeCount, StringFormat=Changes {0}}"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Public Key row, visible only when enabled in General -->
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Public Key" VerticalAlignment="Center" IsVisible="{Binding ShowPublicKeys}"/>
+                                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowPublicKeys}">
+                                        <TextBlock Text="{Binding SelectedContactPublicKeyHex}" TextTrimming="CharacterEllipsis" Width="240" FontFamily="Consolas"/>
+                                        <Button Click="CopySelectedContactKey_Click" ToolTip.Tip="Copy Public Key" Padding="6,2" MinWidth="0">
+                                            <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Separator -->
+                            <Border BorderBrush="{DynamicResource App.Border}" BorderThickness="0,1,0,0"/>
+
+                            <!-- About Section -->
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="About" FontWeight="SemiBold"/>
+                                <Grid ColumnDefinitions="140,*" ColumnSpacing="12">
+                                    <TextBlock Grid.Column="0" Text="Bio" VerticalAlignment="Top"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding SelectedContact.Bio}" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                                </Grid>
+                            </StackPanel>
                         </StackPanel>
-                        <!-- Bio -->
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="Bio:" Opacity="0.8" VerticalAlignment="Top"/>
-                            <TextBlock Text="{Binding SelectedContact.Bio}" TextWrapping="Wrap" MaxWidth="440"/>
-                        </StackPanel>
-                        <!-- Name change count (if non-zero) -->
-                        <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding SelectedContact.DisplayNameChangeCount, Converter={StaticResource GreaterThanZeroConverter}}">
-                            <TextBlock Text="Name Changes:" Opacity="0.8"/>
-                            <TextBlock Text="{Binding SelectedContact.DisplayNameChangeCount}"/>
-                        </StackPanel>
-                        <!-- Public Key (respects SettingsProxy.ShowPublicKeys) with verification shield, truncation, and tight copy button -->
-                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" IsVisible="{Binding $parent[v:MainWindow].SettingsProxy.ShowPublicKeys}">
-                            <TextBlock Grid.Column="0" Text="Public Key:" Opacity="0.8" VerticalAlignment="Center"/>
-                            <!-- 16x16 verified shield shown only when verified (uses global converter policy) -->
-                            <c:VerifiedBadge Grid.Column="1" Width="18" Height="18" Margin="6,0,0,0" VerticalAlignment="Center">
-                                <c:VerifiedBadge.IsVisible>
-                                    <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
-                                        <Binding Path="SelectedContact.PublicKeyVerified"/>
-                                        <Binding Path="SelectedContact.IsVerified"/>
-                                        <Binding Path="SelectedContact.IsSimulated"/>
-                                    </MultiBinding>
-                                </c:VerifiedBadge.IsVisible>
-                            </c:VerifiedBadge>
-                            <TextBlock Grid.Column="2" Classes="app-trunc" FontFamily="Consolas" VerticalAlignment="Center" Margin="8,0,0,0"
-                                       Text="{Binding SelectedContactPublicKeyHex}" TextWrapping="NoWrap" MaxWidth="420"/>
-                            <Button Grid.Column="3" Classes="icon-button" ToolTip.Tip="Copy public key" Click="CopySelectedContactKey_Click" VerticalAlignment="Center" Margin="2,0,0,0">
-                                <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
-                            </Button>
-                        </Grid>
-                        <!-- Verification row removed: replaced by showing Bio above when available -->
-                    </StackPanel>
+                    </Border>
 
                     <!-- Editable display name for simulated contacts only -->
                     <StackPanel Grid.Row="2" Spacing="6" IsVisible="{Binding IsSelectedContactSimulated}">
