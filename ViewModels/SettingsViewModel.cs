@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -87,6 +88,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _vramUsageLimitMb;
     private bool _enforceRamLimit;
     private bool _enforceVramLimit;
+    // Audio settings
+    private double _mainVolume = 1.0;
+    private double _notificationVolume = 0.8;
+    private double _chatVolume = 0.7;
     private int _baseVramUsageLimitMb;
     // Baseline for dirty tracking
     private int _baseCcdAffinityIndex;
@@ -97,6 +102,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _baseRamUsageLimitMb;
     private bool _baseEnforceRamLimit;
     private bool _baseEnforceVramLimit;
+    private double _baseMainVolume;
+    private double _baseNotificationVolume;
+    private double _baseChatVolume;
     private bool _suppressDirtyCheck = true;
     private bool _hasUnsavedChanges;
     private bool _unsavedWarningVisible;
@@ -139,7 +147,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(DebugUiLogMaxLines),
         nameof(DebugLogRetentionDays),
         nameof(DebugLogMaxMegabytes),
-        nameof(EnableLogging)
+        nameof(EnableLogging),
+        nameof(MainVolume),
+        nameof(NotificationVolume),
+        nameof(ChatVolume)
     };
 
     private bool _saveToastVisible;
@@ -558,6 +569,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             VramUsageLimitMb = Math.Max(0, s.VramUsageLimitMb);
             EnforceRamLimit = s.EnforceRamLimit;
             EnforceVramLimit = s.EnforceVramLimit;
+            MainVolume = Math.Clamp(s.MainVolume, 0.0, 1.0);
+            NotificationVolume = Math.Clamp(s.NotificationVolume, 0.0, 1.0);
+            ChatVolume = Math.Clamp(s.ChatVolume, 0.0, 1.0);
 
             try
             {
@@ -789,6 +803,53 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             }
         }
     }
+
+    // Audio volume settings (0.0 to 1.0)
+    public double MainVolume
+    {
+        get => _mainVolume;
+        set
+        {
+            var v = Math.Clamp(value, 0.0, 1.0);
+            if (Math.Abs(_mainVolume - v) > 0.001)
+            {
+                _mainVolume = v;
+                OnPropertyChanged();
+                try { AppServices.AudioNotifications.MainVolume = (float)v; } catch { }
+            }
+        }
+    }
+
+    public double NotificationVolume
+    {
+        get => _notificationVolume;
+        set
+        {
+            var v = Math.Clamp(value, 0.0, 1.0);
+            if (Math.Abs(_notificationVolume - v) > 0.001)
+            {
+                _notificationVolume = v;
+                OnPropertyChanged();
+                try { AppServices.AudioNotifications.NotificationVolume = (float)v; } catch { }
+            }
+        }
+    }
+
+    public double ChatVolume
+    {
+        get => _chatVolume;
+        set
+        {
+            var v = Math.Clamp(value, 0.0, 1.0);
+            if (Math.Abs(_chatVolume - v) > 0.001)
+            {
+                _chatVolume = v;
+                OnPropertyChanged();
+                try { AppServices.AudioNotifications.ChatVolume = (float)v; } catch { }
+            }
+        }
+    }
+
     private static int ClampRange(int value, int min, int max) => value < min ? min : (value > max ? max : value);
     private void DetectCpuGpuCapabilities()
     {
@@ -1450,6 +1511,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.VramUsageLimitMb = Math.Max(0, VramUsageLimitMb);
             s.EnforceRamLimit = EnforceRamLimit;
             s.EnforceVramLimit = EnforceVramLimit;
+            s.MainVolume = Math.Clamp(MainVolume, 0.0, 1.0);
+            s.NotificationVolume = Math.Clamp(NotificationVolume, 0.0, 1.0);
+            s.ChatVolume = Math.Clamp(ChatVolume, 0.0, 1.0);
             s.BlockScreenCapture = BlockScreenCapture;
             // Theme Engine persistence
             s.UiFontFamily = UiFontFamily;
@@ -1727,6 +1791,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseVramUsageLimitMb != _vramUsageLimitMb) return true;
             if (_baseEnforceRamLimit != _enforceRamLimit) return true;
             if (_baseEnforceVramLimit != _enforceVramLimit) return true;
+            if (Math.Abs(_baseMainVolume - _mainVolume) > 0.001) return true;
+            if (Math.Abs(_baseNotificationVolume - _notificationVolume) > 0.001) return true;
+            if (Math.Abs(_baseChatVolume - _chatVolume) > 0.001) return true;
             if (_baseEnableDebugLogAutoTrim != _enableDebugLogAutoTrim) return true;
             if (_baseDebugUiLogMaxLines != _debugUiLogMaxLines) return true;
             if (_baseDebugLogRetentionDays != _debugLogRetentionDays) return true;
@@ -1790,6 +1857,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseVramUsageLimitMb = _vramUsageLimitMb;
             _baseEnforceRamLimit = _enforceRamLimit;
             _baseEnforceVramLimit = _enforceVramLimit;
+            _baseMainVolume = _mainVolume;
+            _baseNotificationVolume = _notificationVolume;
+            _baseChatVolume = _chatVolume;
             _baseLockBlurRadius = _lockBlurRadius;
             _baseBlockScreenCapture = _blockScreenCapture;
             _baseShowPublicKeys = _showPublicKeys;
@@ -2691,7 +2761,23 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public System.Collections.ObjectModel.ObservableCollection<Peer> DiscoveredPeers => NetworkVm.DiscoveredPeers;
     public System.Collections.ObjectModel.ObservableCollection<NetworkViewModel.AdapterItem> NetworkAdapters => NetworkVm.Adapters;
     
-    public Peer? SelectedDiscoveredPeer
+    // IP Blocking Properties (proxied from NetworkViewModel)
+    public System.Collections.ObjectModel.ObservableCollection<IpEntryWithCountry> BadActorIps => NetworkVm.BadActorIps;
+    public System.Collections.ObjectModel.ObservableCollection<IpEntryWithCountry> IpRanges => NetworkVm.IpRanges;
+    public string NewBadActorIp { get => NetworkVm.NewBadActorIp; set => NetworkVm.NewBadActorIp = value; }
+    public string NewIpRange { get => NetworkVm.NewIpRange; set => NetworkVm.NewIpRange = value; }
+    public string IpBlockingStats => NetworkVm.IpBlockingStats;
+    
+    public IpEntryWithCountry? SelectedBadActorIp
+    {
+        get => NetworkVm.SelectedBadActorIp;
+        set => NetworkVm.SelectedBadActorIp = value;
+    }
+    public IpEntryWithCountry? SelectedIpRange 
+    {
+        get => NetworkVm.SelectedIpRange;
+        set => NetworkVm.SelectedIpRange = value;
+    }    public Peer? SelectedDiscoveredPeer
     {
         get => NetworkVm.SelectedDiscoveredPeer;
         set => NetworkVm.SelectedDiscoveredPeer = value;
@@ -2719,6 +2805,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand MoveAdapterUpCommand => NetworkVm.MoveAdapterUpCommand;
     public ICommand MoveAdapterDownCommand => NetworkVm.MoveAdapterDownCommand;
     public ICommand SaveAdapterOrderCommand => NetworkVm.SaveAdaptersCommand;
+    
+    // IP Blocking commands exposed from NetworkViewModel
+    public ICommand AddBadActorIpCommand => NetworkVm.AddBadActorIpCommand;
+    public ICommand RemoveBadActorIpCommand => NetworkVm.RemoveBadActorIpCommand;
+    public ICommand AddIpRangeCommand => NetworkVm.AddIpRangeCommand;
+    public ICommand RemoveIpRangeCommand => NetworkVm.RemoveIpRangeCommand;
+    public ICommand ImportIpListCommand => NetworkVm.ImportIpListCommand;
+    public ICommand ExportIpListCommand => NetworkVm.ExportIpListCommand;
     
     // Additional debug properties that were referenced in XAML
     public int DebugLogSizeValue { get; set; } = 16;
@@ -2769,7 +2863,17 @@ public class NetworkViewModel : INotifyPropertyChanged
         });
         AddMajorNodeCommand = new RelayCommand(_ => AddMajorNode(), _ => !string.IsNullOrWhiteSpace(NewMajorNode));
         RemoveMajorNodeCommand = new RelayCommand(n => { if (n is string s) RemoveMajorNode(s); });
+        
+        // IP Blocking Commands
+        AddBadActorIpCommand = new RelayCommand(_ => AddBadActorIp(), _ => !string.IsNullOrWhiteSpace(NewBadActorIp));
+        RemoveBadActorIpCommand = new RelayCommand(ip => { if (ip is IpEntryWithCountry entry) RemoveBadActorIp(entry.IpOrRange); });
+        AddIpRangeCommand = new RelayCommand(_ => AddIpRange(), _ => !string.IsNullOrWhiteSpace(NewIpRange));
+        RemoveIpRangeCommand = new RelayCommand(range => { if (range is IpEntryWithCountry entry) RemoveIpRange(entry.IpOrRange); });
+        ImportIpListCommand = new RelayCommand(async _ => await ImportIpListAsync());
+        ExportIpListCommand = new RelayCommand(async _ => await ExportIpListAsync());
+        
         RefreshLists();
+        RefreshIpLists();
 
         LoadAdapters();
         MoveAdapterUpCommand = new RelayCommand(_ => MoveAdapter(-1), _ => SelectedAdapter != null);
@@ -2899,6 +3003,14 @@ public class NetworkViewModel : INotifyPropertyChanged
     public ICommand ClearLogCommand { get; }
     public ICommand CopyAllCommand { get; }
     public ICommand CopySelectedCommand { get; }
+    
+    // IP Blocking Commands
+    public ICommand AddBadActorIpCommand { get; }
+    public ICommand RemoveBadActorIpCommand { get; }
+    public ICommand AddIpRangeCommand { get; }
+    public ICommand RemoveIpRangeCommand { get; }
+    public ICommand ImportIpListCommand { get; }
+    public ICommand ExportIpListCommand { get; }
 
     private System.Collections.ObjectModel.ObservableCollection<Peer> _discoveredPeers = new();
     public System.Collections.ObjectModel.ObservableCollection<Peer> DiscoveredPeers { get => _discoveredPeers; private set { _discoveredPeers = value; OnPropertyChanged(); } }
@@ -2918,6 +3030,32 @@ public class NetworkViewModel : INotifyPropertyChanged
     private System.Collections.ObjectModel.ObservableCollection<string> _blockedPeers = new();
     public System.Collections.ObjectModel.ObservableCollection<string> BlockedPeers { get => _blockedPeers; private set { _blockedPeers = value; OnPropertyChanged(); } }
     public string? SelectedBlockedPeer { get; set; }
+    
+    // IP Blocking Properties
+    private System.Collections.ObjectModel.ObservableCollection<IpEntryWithCountry> _badActorIps = new();
+    public System.Collections.ObjectModel.ObservableCollection<IpEntryWithCountry> BadActorIps { get => _badActorIps; private set { _badActorIps = value; OnPropertyChanged(); } }
+    public IpEntryWithCountry? SelectedBadActorIp { get; set; }
+    
+    private string _newBadActorIp = string.Empty;
+    public string NewBadActorIp { get => _newBadActorIp; set { _newBadActorIp = value; OnPropertyChanged(); (AddBadActorIpCommand as RelayCommand)?.RaiseCanExecuteChanged(); } }
+    
+    private System.Collections.ObjectModel.ObservableCollection<IpEntryWithCountry> _ipRanges = new();
+    public System.Collections.ObjectModel.ObservableCollection<IpEntryWithCountry> IpRanges { get => _ipRanges; private set { _ipRanges = value; OnPropertyChanged(); } }
+    public IpEntryWithCountry? SelectedIpRange { get; set; }
+    
+    private string _newIpRange = string.Empty;
+    public string NewIpRange { get => _newIpRange; set { _newIpRange = value; OnPropertyChanged(); (AddIpRangeCommand as RelayCommand)?.RaiseCanExecuteChanged(); } }
+    
+
+    
+    public string IpBlockingStats
+    {
+        get
+        {
+            var (individual, custom, ranges) = AppServices.IpBlocking.GetBlockingStats();
+            return $"{individual + custom} IPs, {ranges} ranges";
+        }
+    }
 
     private System.Collections.ObjectModel.ObservableCollection<string> _knownMajorNodes = new();
     public System.Collections.ObjectModel.ObservableCollection<string> KnownMajorNodes { get => _knownMajorNodes; private set { _knownMajorNodes = value; OnPropertyChanged(); } }
@@ -3551,6 +3689,191 @@ public class NetworkViewModel : INotifyPropertyChanged
             RefreshLists();
         }
     }
+
+    #region IP Blocking Methods
+
+    private void AddBadActorIp()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(NewBadActorIp)) return;
+            
+            AppServices.IpBlocking.AddBadActorIp(NewBadActorIp.Trim());
+            NewBadActorIp = string.Empty;
+            RefreshIpLists();
+            ZTalk.Utilities.Logger.Log($"[IP-BLOCK] Added bad actor IP via UI: {NewBadActorIp}");
+        }
+        catch (Exception ex)
+        {
+            _ = AppServices.Dialogs.ShowInfoAsync("Add IP Error", ex.Message);
+        }
+    }
+
+    private void RemoveBadActorIp(string ip)
+    {
+        try
+        {
+            AppServices.IpBlocking.RemoveBadActorIp(ip);
+            RefreshIpLists();
+            ZTalk.Utilities.Logger.Log($"[IP-BLOCK] Removed bad actor IP via UI: {ip}");
+        }
+        catch (Exception ex)
+        {
+            _ = AppServices.Dialogs.ShowInfoAsync("Remove IP Error", ex.Message);
+        }
+    }
+
+    private void AddIpRange()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(NewIpRange)) return;
+            
+            AppServices.IpBlocking.AddBlockedIpRange(NewIpRange.Trim());
+            NewIpRange = string.Empty;
+            RefreshIpLists();
+            ZTalk.Utilities.Logger.Log($"[IP-BLOCK] Added IP range via UI: {NewIpRange}");
+        }
+        catch (Exception ex)
+        {
+            _ = AppServices.Dialogs.ShowInfoAsync("Add IP Range Error", ex.Message);
+        }
+    }
+
+    private void RemoveIpRange(string range)
+    {
+        try
+        {
+            AppServices.IpBlocking.RemoveBlockedIpRange(range);
+            RefreshIpLists();
+            ZTalk.Utilities.Logger.Log($"[IP-BLOCK] Removed IP range via UI: {range}");
+        }
+        catch (Exception ex)
+        {
+            _ = AppServices.Dialogs.ShowInfoAsync("Remove IP Range Error", ex.Message);
+        }
+    }
+
+    private async Task ImportIpListAsync()
+    {
+        try
+        {
+            // Check multiple possible locations for IP block lists
+            var appDataPath = ZTalk.Utilities.AppDataPaths.Combine("security", "ip-blocklist.txt");
+            var desktopPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ip-blocklist.txt");
+            var downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "ip-blocklist.txt");
+            
+            string? foundPath = null;
+            if (System.IO.File.Exists(appDataPath)) foundPath = appDataPath;
+            else if (System.IO.File.Exists(desktopPath)) foundPath = desktopPath;
+            else if (System.IO.File.Exists(downloadsPath)) foundPath = downloadsPath;
+            
+            if (foundPath != null)
+            {
+                var imported = await AppServices.IpBlocking.ImportIpListFromFileAsync(foundPath);
+                RefreshIpLists();
+                await AppServices.Dialogs.ShowInfoAsync("Import Complete", $"Imported {imported} IP addresses and ranges from:\n{foundPath}");
+            }
+            else
+            {
+                // Ensure the security directory exists
+                var securityDir = ZTalk.Utilities.AppDataPaths.Combine("security");
+                Directory.CreateDirectory(securityDir);
+                
+                await AppServices.Dialogs.ShowInfoAsync("Import IP Block Lists", 
+                    "To import IP block lists:\n\n" +
+                    "1. Download from security providers:\n" +
+                    "   • Spamhaus DROP/EDROP lists\n" +
+                    "   • FireHOL comprehensive lists\n" +
+                    "   • abuse.ch malware/botnet IPs\n" +
+                    "   • Commercial threat intelligence\n\n" +
+                    "2. Save the file as 'ip-blocklist.txt' in:\n" +
+                    $"   {appDataPath}\n" +
+                    "   OR on your Desktop\n" +
+                    "   OR in your Downloads folder\n\n" +
+                    "3. Click Import again\n\n" +
+                    "Format: One IP/CIDR per line, # for comments");
+            }
+        }
+        catch (Exception ex)
+        {
+            await AppServices.Dialogs.ShowInfoAsync("Import Error", ex.Message);
+        }
+    }
+
+    private async Task ExportIpListAsync()
+    {
+        try
+        {
+            // Create security directory if it doesn't exist
+            var securityDir = ZTalk.Utilities.AppDataPaths.Combine("security");
+            Directory.CreateDirectory(securityDir);
+            
+            // Export with timestamp
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm");
+            var exportPath = Path.Combine(securityDir, $"ztalk-ip-blocklist-{timestamp}.txt");
+            
+            await AppServices.IpBlocking.ExportIpListToFileAsync(exportPath);
+            await AppServices.Dialogs.ShowInfoAsync("Export Complete", 
+                $"IP block list exported to:\n{exportPath}\n\n" +
+                "You can share this file or use it as backup.");
+        }
+        catch (Exception ex)
+        {
+            await AppServices.Dialogs.ShowInfoAsync("Export Error", ex.Message);
+        }
+    }
+
+
+
+    private void RefreshIpLists()
+    {
+        try
+        {
+            var settings = _settings.Settings;
+            
+            BadActorIps.Clear();
+            if (settings.BlockedIpAddresses != null)
+            {
+                foreach (var ip in settings.BlockedIpAddresses)
+                {
+                    var countryCode = IpCountryDetector.DetectCountryCode(ip);
+                    var countryName = IpCountryDetector.GetCountryName(countryCode);
+                    BadActorIps.Add(new IpEntryWithCountry { IpOrRange = ip, CountryCode = countryCode, CountryName = countryName });
+                }
+            }
+            if (settings.CustomBadActorIps != null)
+            {
+                foreach (var ip in settings.CustomBadActorIps)
+                {
+                    var countryCode = IpCountryDetector.DetectCountryCode(ip);
+                    var countryName = IpCountryDetector.GetCountryName(countryCode);
+                    BadActorIps.Add(new IpEntryWithCountry { IpOrRange = ip, CountryCode = countryCode, CountryName = countryName });
+                }
+            }
+            
+            IpRanges.Clear();
+            if (settings.BlockedIpRanges != null)
+            {
+                foreach (var range in settings.BlockedIpRanges)
+                {
+                    var countryCode = IpCountryDetector.DetectCountryCode(range);
+                    var countryName = IpCountryDetector.GetCountryName(countryCode);
+                    IpRanges.Add(new IpEntryWithCountry { IpOrRange = range, CountryCode = countryCode, CountryName = countryName });
+                }
+            }
+            
+            OnPropertyChanged(nameof(IpBlockingStats));
+        }
+        catch (Exception ex)
+        {
+            ZTalk.Utilities.Logger.Log($"[IP-BLOCK] Error refreshing IP lists: {ex.Message}");
+        }
+    }
+
+
+
+    #endregion
 
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

@@ -156,6 +156,91 @@
             </StackPanel>
           </Border>
 
+          <!-- Audio Settings -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="Audio" FontWeight="SemiBold"/>
+              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                <Run Text="Configure volume levels for different types of sounds. Main Volume acts as a master control, while individual channels allow fine-tuning of specific sound categories."/>
+              </TextBlock>
+              
+              <Grid ColumnDefinitions="120,*,60" RowDefinitions="Auto,Auto,Auto" RowSpacing="12" ColumnSpacing="12">
+                <!-- Main Volume -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Main Volume" VerticalAlignment="Center"/>
+                <Slider Grid.Row="0" Grid.Column="1" 
+                        Minimum="0" Maximum="1" 
+                        Value="{Binding MainVolume, Mode=TwoWay}"
+                        TickFrequency="0.1" IsSnapToTickEnabled="False"
+                        ToolTip.Tip="Overall volume control for all sounds"/>
+                <Border Grid.Row="0" Grid.Column="2" 
+                        BorderBrush="{DynamicResource App.Border}" 
+                        BorderThickness="1" 
+                        CornerRadius="4" 
+                        Padding="6,0" 
+                        MinWidth="48" 
+                        Height="28" 
+                        HorizontalAlignment="Center">
+                  <TextBlock Text="{Binding MainVolume, StringFormat='{}{0:P0}'}" 
+                             VerticalAlignment="Center" 
+                             HorizontalAlignment="Center"
+                             FontFamily="Consolas" 
+                             FontSize="11"/>
+                </Border>
+                
+                <!-- Notification Volume -->
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Notifications" VerticalAlignment="Center"/>
+                <Slider Grid.Row="1" Grid.Column="1" 
+                        Minimum="0" Maximum="1" 
+                        Value="{Binding NotificationVolume, Mode=TwoWay}"
+                        TickFrequency="0.1" IsSnapToTickEnabled="False"
+                        ToolTip.Tip="Volume for general notifications and alerts"/>
+                <Border Grid.Row="1" Grid.Column="2" 
+                        BorderBrush="{DynamicResource App.Border}" 
+                        BorderThickness="1" 
+                        CornerRadius="4" 
+                        Padding="6,0" 
+                        MinWidth="48" 
+                        Height="28" 
+                        HorizontalAlignment="Center">
+                  <TextBlock Text="{Binding NotificationVolume, StringFormat='{}{0:P0}'}" 
+                             VerticalAlignment="Center" 
+                             HorizontalAlignment="Center"
+                             FontFamily="Consolas" 
+                             FontSize="11"/>
+                </Border>
+                
+                <!-- Chat Volume -->
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Chat Sounds" VerticalAlignment="Center"/>
+                <Slider Grid.Row="2" Grid.Column="1" 
+                        Minimum="0" Maximum="1" 
+                        Value="{Binding ChatVolume, Mode=TwoWay}"
+                        TickFrequency="0.1" IsSnapToTickEnabled="False"
+                        ToolTip.Tip="Volume for chat messages, calls, and voice notes"/>
+                <Border Grid.Row="2" Grid.Column="2" 
+                        BorderBrush="{DynamicResource App.Border}" 
+                        BorderThickness="1" 
+                        CornerRadius="4" 
+                        Padding="6,0" 
+                        MinWidth="48" 
+                        Height="28" 
+                        HorizontalAlignment="Center">
+                  <TextBlock Text="{Binding ChatVolume, StringFormat='{}{0:P0}'}" 
+                             VerticalAlignment="Center" 
+                             HorizontalAlignment="Center"
+                             FontFamily="Consolas" 
+                             FontSize="11"/>
+                </Border>
+              </Grid>
+              
+              <TextBlock Text="💡 Effective volume = Main Volume × Channel Volume" 
+                         FontSize="11" 
+                         Foreground="{DynamicResource App.SecondaryText}" 
+                         Opacity="0.75" 
+                         FontStyle="Italic" 
+                         Margin="0,4,0,0"/>
+            </StackPanel>
+          </Border>
+
           <!-- System Tray -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
@@ -968,6 +1053,104 @@
                   <Button Content="Save" Command="{Binding SaveAdapterOrderCommand}" Width="64" ToolTip.Tip="Save adapter priority order"/>
                 </StackPanel>
               </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- IP Blocking Section -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="16">
+              <TextBlock Text="Bad-Actor IP Blocking" FontWeight="SemiBold" FontSize="16"/>
+              
+              <!-- Status and Controls -->
+              <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                  <TextBlock Grid.Column="0" Text="{Binding IpBlockingStats}" VerticalAlignment="Center" FontSize="12" Opacity="0.8"/>
+                  <Button Grid.Column="1" Content="Import" Command="{Binding ImportIpListCommand}" Padding="8,4" FontSize="12"/>
+                  <Button Grid.Column="2" Content="Export" Command="{Binding ExportIpListCommand}" Padding="8,4" FontSize="12"/>
+                </Grid>
+              </StackPanel>
+              
+              <!-- Manual IP Addition -->
+              <StackPanel Spacing="8">
+                <TextBlock Text="Add Individual IPs" FontWeight="Medium"/>
+                <Grid ColumnDefinitions="200,Auto" ColumnSpacing="8">
+                  <TextBox Grid.Column="0" Text="{Binding NewBadActorIp}" Watermark="e.g., 192.168.1.100" VerticalAlignment="Center"/>
+                  <Button Grid.Column="1" Content="Add IP" Command="{Binding AddBadActorIpCommand}" VerticalAlignment="Center"/>
+                </Grid>
+              </StackPanel>
+              
+              <!-- CIDR Range Addition -->
+              <StackPanel Spacing="8">
+                <TextBlock Text="Add IP Ranges (CIDR)" FontWeight="Medium"/>
+                <Grid ColumnDefinitions="200,Auto" ColumnSpacing="8">
+                  <TextBox Grid.Column="0" Text="{Binding NewIpRange}" Watermark="e.g., 192.168.1.0/24" VerticalAlignment="Center"/>
+                  <Button Grid.Column="1" Content="Add Range" Command="{Binding AddIpRangeCommand}" VerticalAlignment="Center"/>
+                </Grid>
+              </StackPanel>
+              
+              <!-- Current Block Lists -->
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                <!-- Individual IPs -->
+                <StackPanel Grid.Column="0" Spacing="8">
+                  <TextBlock Text="Blocked IPs" FontWeight="Medium"/>
+                  <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Height="160">
+                    <ScrollViewer>
+                      <ListBox ItemsSource="{Binding BadActorIps}" SelectedItem="{Binding SelectedBadActorIp}" BorderThickness="0" Background="Transparent">
+                        <ListBox.ItemTemplate>
+                          <DataTemplate>
+                            <Grid ColumnDefinitions="*,Auto,Auto" Margin="4,2" ToolTip.Tip="{Binding CountryName}">
+                              <TextBlock Grid.Column="0" Text="{Binding IpOrRange}" VerticalAlignment="Center" FontFamily="Consolas" FontSize="11"/>
+                              <Border Grid.Column="1" Background="{DynamicResource App.AccentBackground}" CornerRadius="3" Padding="4,1" Margin="4,0">
+                                <TextBlock Text="{Binding CountryCode}" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource App.AccentForeground}"/>
+                              </Border>
+                              <Button Grid.Column="2" Content="✕" Command="{Binding $parent[UserControl].DataContext.RemoveBadActorIpCommand}" 
+                                      CommandParameter="{Binding}" Width="20" Height="20" FontSize="10" Padding="0"/>
+                            </Grid>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                    </ScrollViewer>
+                  </Border>
+                </StackPanel>
+                
+                <!-- IP Ranges -->
+                <StackPanel Grid.Column="1" Spacing="8">
+                  <TextBlock Text="Blocked Ranges" FontWeight="Medium"/>
+                  <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Height="160">
+                    <ScrollViewer>
+                      <ListBox ItemsSource="{Binding IpRanges}" SelectedItem="{Binding SelectedIpRange}" BorderThickness="0" Background="Transparent">
+                        <ListBox.ItemTemplate>
+                          <DataTemplate>
+                            <Grid ColumnDefinitions="*,Auto,Auto" Margin="4,2" ToolTip.Tip="{Binding CountryName}">
+                              <TextBlock Grid.Column="0" Text="{Binding IpOrRange}" VerticalAlignment="Center" FontFamily="Consolas" FontSize="11"/>
+                              <Border Grid.Column="1" Background="{DynamicResource App.AccentBackground}" CornerRadius="3" Padding="4,1" Margin="4,0">
+                                <TextBlock Text="{Binding CountryCode}" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource App.AccentForeground}"/>
+                              </Border>
+                              <Button Grid.Column="2" Content="✕" Command="{Binding $parent[UserControl].DataContext.RemoveIpRangeCommand}" 
+                                      CommandParameter="{Binding}" Width="20" Height="20" FontSize="10" Padding="0"/>
+                            </Grid>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                    </ScrollViewer>
+                  </Border>
+                </StackPanel>
+              </Grid>
+              
+              <!-- Information Text -->
+              <TextBlock TextWrapping="Wrap" FontSize="11" Opacity="0.75" MaxWidth="820">
+                <Run Text="IP blocking helps protect against known bad actors and hostile infrastructure."/>
+                <LineBreak/>
+                <Run Text="• Individual IPs: Block specific IP addresses"/>
+                <LineBreak/>
+                <Run Text="• CIDR Ranges: Block entire network ranges (e.g., 192.168.1.0/24 blocks all IPs 192.168.1.1-254)"/>
+                <LineBreak/>
+                <Run Text="• Import: Place 'ip-blocklist.txt' in %APPDATA%\ZTalk\security\, Desktop, or Downloads"/>
+                <LineBreak/>
+                <Run Text="• Sources: Spamhaus, FireHOL, abuse.ch, commercial threat intelligence, etc."/>
+                <LineBreak/>
+                <Run Text="• Export: Backup your block lists with timestamps"/>
+              </TextBlock>
             </StackPanel>
           </Border>
 
