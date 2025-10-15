@@ -121,6 +121,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(ShowPublicKeys),
         nameof(ShowKeyboardFocus),
         nameof(EnhancedKeyboardNavigation),
+        nameof(ShowInSystemTray),
+        nameof(MinimizeToTray),
+        nameof(RunOnStartup),
         nameof(LockHotkeyDisplay),
         nameof(ClearInputHotkeyDisplay),
         nameof(CcdAffinityIndex),
@@ -283,6 +286,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // High Contrast, Reduce Motion, Cursor settings must be configured through Windows Settings
     private bool _baseShowKeyboardFocus;
     private bool _baseEnhancedKeyboardNavigation;
+    private bool _baseShowInSystemTray;
+    private bool _baseMinimizeToTray;
+    private bool _baseRunOnStartup;
     private bool _suppressThemeBinding = true;
 
     public SettingsViewModel()
@@ -366,6 +372,24 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             LockOnMinimize = settings.LockOnMinimize;
             BlockScreenCapture = settings.BlockScreenCapture;
             ShowPublicKeys = settings.ShowPublicKeys;
+            ShowInSystemTray = settings.ShowInSystemTray;
+            MinimizeToTray = settings.MinimizeToTray;
+            RunOnStartup = settings.RunOnStartup;
+
+            // Verify Windows startup registry matches saved setting
+            try
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    var actuallyEnabled = WindowsStartupManager.IsRunOnStartupEnabled();
+                    if (actuallyEnabled != RunOnStartup)
+                    {
+                        // Settings and registry mismatch - sync registry to match settings
+                        WindowsStartupManager.ApplyStartupSetting(RunOnStartup);
+                    }
+                }
+            }
+            catch { }
 
             // Load hotkey settings (with validation to ensure valid enum values)
             try
@@ -516,6 +540,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             LockOnMinimize = s.LockOnMinimize;
             ShowPublicKeys = s.ShowPublicKeys;
             BlockScreenCapture = s.BlockScreenCapture;
+            ShowInSystemTray = s.ShowInSystemTray;
+            MinimizeToTray = s.MinimizeToTray;
+            RunOnStartup = s.RunOnStartup;
             EnableDebugLogAutoTrim = s.EnableDebugLogAutoTrim;
             DebugUiLogMaxLines = ClampRange(s.DebugUiLogMaxLines <= 0 ? 1000 : s.DebugUiLogMaxLines, 100, 20000);
             DebugLogRetentionDays = s.DebugLogRetentionDays < 0 ? 0 : (s.DebugLogRetentionDays > 30 ? 30 : s.DebugLogRetentionDays);
@@ -1435,6 +1462,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.LockOnMinimize = LockOnMinimize;
             s.LockBlurRadius = ClampRange(LockBlurRadius, 0, 10);
             s.ShowPublicKeys = ShowPublicKeys;
+            // Persist system tray settings
+            s.ShowInSystemTray = ShowInSystemTray;
+            s.MinimizeToTray = MinimizeToTray;
+            s.RunOnStartup = RunOnStartup;
             // Persist accessibility settings
             s.ShowKeyboardFocus = ShowKeyboardFocus;
             s.EnhancedKeyboardNavigation = EnhancedKeyboardNavigation;
@@ -1511,6 +1542,32 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 }
             }
             catch { }
+            // Apply system tray settings immediately
+            try
+            {
+                if (ShowInSystemTray)
+                {
+                    AppServices.TrayIcon.Initialize();
+                    AppServices.TrayIcon.SetVisible(true);
+                }
+                else
+                {
+                    AppServices.TrayIcon.SetVisible(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                try { Utilities.Logger.Log($"Failed to apply tray icon settings: {ex.Message}"); } catch { }
+            }
+            // Apply Windows startup setting
+            try
+            {
+                WindowsStartupManager.ApplyStartupSetting(RunOnStartup);
+            }
+            catch (Exception ex)
+            {
+                try { Utilities.Logger.Log($"Failed to apply startup setting: {ex.Message}"); } catch { }
+            }
 
             // Update hotkey registration if changed
             try
@@ -1658,6 +1715,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseLockHotkeyKey != _lockHotkeyKey || _baseLockHotkeyModifiers != _lockHotkeyModifiers) return true;
             if (_baseShowKeyboardFocus != _showKeyboardFocus) return true;
             if (_baseEnhancedKeyboardNavigation != _enhancedKeyboardNavigation) return true;
+            if (_baseShowInSystemTray != _showInSystemTray) return true;
+            if (_baseMinimizeToTray != _minimizeToTray) return true;
+            if (_baseRunOnStartup != _runOnStartup) return true;
             if (_baseCcdAffinityIndex != _ccdAffinityIndex) return true;
             if (_baseDisableGpuAcceleration != _disableGpuAcceleration) return true;
             if (_baseFpsThrottle != _fpsThrottle) return true;
@@ -1737,6 +1797,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseLockHotkeyModifiers = _lockHotkeyModifiers;
             _baseShowKeyboardFocus = _showKeyboardFocus;
             _baseEnhancedKeyboardNavigation = _enhancedKeyboardNavigation;
+            _baseShowInSystemTray = _showInSystemTray;
+            _baseMinimizeToTray = _minimizeToTray;
+            _baseRunOnStartup = _runOnStartup;
             _baseEnableDebugLogAutoTrim = _enableDebugLogAutoTrim;
             _baseDebugUiLogMaxLines = _debugUiLogMaxLines;
             _baseDebugLogRetentionDays = _debugLogRetentionDays;
@@ -1776,6 +1839,27 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     {
         get => _showPublicKeys;
         set { if (_showPublicKeys != value) { _showPublicKeys = value; OnPropertyChanged(); } }
+    }
+
+    // System Tray settings
+    private bool _showInSystemTray;
+    private bool _minimizeToTray;
+    private bool _runOnStartup;
+
+    public bool ShowInSystemTray
+    {
+        get => _showInSystemTray;
+        set { if (_showInSystemTray != value) { _showInSystemTray = value; OnPropertyChanged(); } }
+    }
+    public bool MinimizeToTray
+    {
+        get => _minimizeToTray;
+        set { if (_minimizeToTray != value) { _minimizeToTray = value; OnPropertyChanged(); } }
+    }
+    public bool RunOnStartup
+    {
+        get => _runOnStartup;
+        set { if (_runOnStartup != value) { _runOnStartup = value; OnPropertyChanged(); } }
     }
 
     // Accessibility - OS-controlled settings removed (High Contrast, Reduce Motion, Cursor Blink/Width)

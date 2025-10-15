@@ -61,17 +61,34 @@ function Publish-SingleFile {
 
   Write-Header $Header
 
-  if (Test-Path $OutputDir) { Remove-Item -Recurse -Force $OutputDir }
+  if (Test-Path $OutputDir) { 
+    try {
+      Remove-Item -Recurse -Force $OutputDir -ErrorAction Stop
+      Start-Sleep -Milliseconds 200
+    } catch {
+      Write-Host "Warning: Could not fully remove output directory: $OutputDir"
+    }
+  }
   foreach ($artifact in @($ZipPath, $LegacyZipPath) | Where-Object { $_ }) {
     if (Test-Path $artifact) {
       try { Remove-Item -Force $artifact -ErrorAction Stop } catch { Write-Host "Warning: Could not remove legacy artifact: $artifact" }
     }
   }
 
-  dotnet publish $proj -c $Configuration -r $Rid -p:PublishSingleFile=true -p:SelfContained=true -p:EnableCompressionInSingleFile=true -o $OutputDir --nologo
-  Compress-Archive -Path (Join-Path $OutputDir '*') -DestinationPath $ZipPath -Force
-
-  Remove-OldZips $Pattern
+  $publishResult = dotnet publish $proj -c $Configuration -r $Rid -p:PublishSingleFile=true -p:SelfContained=true -p:EnableCompressionInSingleFile=true -o $OutputDir --nologo 2>&1
+  $publishResult | Write-Host
+  
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "Error: dotnet publish failed with exit code $LASTEXITCODE"
+    return
+  }
+  
+  if (Test-Path $OutputDir) {
+    Compress-Archive -Path (Join-Path $OutputDir '*') -DestinationPath $ZipPath -Force
+    Remove-OldZips $Pattern
+  } else {
+    Write-Host "Error: Output directory not found after publish: $OutputDir"
+  }
 }
 
 # Proactively prune any legacy P2PTalk-named artifacts left from pre-rename runs
@@ -90,10 +107,14 @@ Invoke-PublishScript -Configuration 'Debug'
 
 # 3b) Optionally publish Debug single-file (timestamped)
 if ($IncludeDebugSingle) {
-  $dbgSingleDir = Join-Path $publishDir "$Rid-Debug-single"
-  $dbgSingleZip = Join-Path $publishDir "ZTalk-v$version-$Rid-Debug-single-$stamp.zip"
-  $dbgLegacySingle = Join-Path $publishDir "ZTalk-v$version-$Rid-Debug-single.zip"
-  Publish-SingleFile -Configuration 'Debug' -OutputDir $dbgSingleDir -ZipPath $dbgSingleZip -LegacyZipPath $dbgLegacySingle -Header "Publish Debug single-file (standalone)" -Pattern "ZTalk-v$version-$Rid-Debug-single-*.zip"
+  try {
+    $dbgSingleDir = Join-Path $publishDir "$Rid-Debug-single"
+    $dbgSingleZip = Join-Path $publishDir "ZTalk-v$version-$Rid-Debug-single-$stamp.zip"
+    $dbgLegacySingle = Join-Path $publishDir "ZTalk-v$version-$Rid-Debug-single.zip"
+    Publish-SingleFile -Configuration 'Debug' -OutputDir $dbgSingleDir -ZipPath $dbgSingleZip -LegacyZipPath $dbgLegacySingle -Header "Publish Debug single-file (standalone)" -Pattern "ZTalk-v$version-$Rid-Debug-single-*.zip"
+  } catch {
+    Write-Host "Warning: Debug single-file build encountered an issue but continuing..."
+  }
 }
 
 # 4) Publish Release (FD + SC)

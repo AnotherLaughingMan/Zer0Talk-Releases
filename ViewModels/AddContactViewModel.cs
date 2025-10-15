@@ -83,6 +83,17 @@ namespace ZTalk.ViewModels
                     {
                         AppServices.Peers.IncludeContacts();
                         Status = "Simulated contact added.";
+                        
+                        // Force immediate contact list refresh to ensure UI updates
+                        try
+                        {
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            {
+                                try { AppServices.Contacts.NotifyChanged(); } catch { }
+                            }, Avalonia.Threading.DispatcherPriority.Background);
+                        }
+                        catch { }
+                        
                         CloseRequested?.Invoke(true);
                     }
                     else

@@ -15,6 +15,7 @@ using System.Text.Json;
 using ZTalk.Containers;
 using ZTalk.Models;
 using ZTalk.Utilities;
+using Avalonia.Input;
 
 namespace ZTalk.Services;
 
@@ -22,6 +23,9 @@ public class SettingsService
 {
     private readonly P2EContainer _container;
     private const string FileName = "settings.p2e";
+    private const int LegacyLockHotkeyKey = 68;
+    private const int LegacyClearInputHotkeyKey = 82;
+    private const int ValidModifierMask = (int)(KeyModifiers.Control | KeyModifiers.Alt | KeyModifiers.Shift | KeyModifiers.Meta);
     public AppSettings Settings { get; private set; } = new();
     public string GetSettingsPath() => GetPath();
 
@@ -40,6 +44,7 @@ public class SettingsService
                 // First launch: create encrypted container with explicit defaults
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 Settings = CreateDefaultSettings();
+                NormalizeHotkeySettings(Settings);
                 Save(passphrase);
                 Logger.Log($"Created encrypted settings at: {path}");
                 
@@ -70,6 +75,11 @@ public class SettingsService
             var json = System.Text.Encoding.UTF8.GetString(bytes);
             var loaded = JsonSerializer.Deserialize<AppSettings>(json) ?? throw new InvalidDataException("Invalid settings content");
             Settings = loaded;
+            var hotkeysNormalized = NormalizeHotkeySettings(Settings);
+            if (hotkeysNormalized)
+            {
+                try { Save(passphrase); } catch { }
+            }
             
             // Sync logging state with settings after load (Debug builds only)
             try
@@ -309,7 +319,7 @@ public class SettingsService
 
     private static AppSettings CreateDefaultSettings()
     {
-        return new AppSettings
+        var settings = new AppSettings
         {
             // Explicit defaults; stored only inside the encrypted container
             DisplayName = string.Empty,
@@ -338,5 +348,53 @@ public class SettingsService
             DebugLogRetentionDays = 1,
             DebugLogMaxMegabytes = 16,
         };
+        NormalizeHotkeySettings(settings);
+        return settings;
+    }
+
+    private static bool NormalizeHotkeySettings(AppSettings settings)
+    {
+        var changed = false;
+
+    static bool HasValidModifiers(int modifiers) => (modifiers & ~ValidModifierMask) == 0;
+
+        if (!Enum.IsDefined(typeof(Key), settings.LockHotkeyKey) || settings.LockHotkeyKey == (int)Key.None)
+        {
+            settings.LockHotkeyKey = AppSettings.DefaultLockHotkeyKey;
+            changed = true;
+        }
+
+        if (!HasValidModifiers(settings.LockHotkeyModifiers))
+        {
+            settings.LockHotkeyModifiers = AppSettings.DefaultLockHotkeyModifiers;
+            changed = true;
+        }
+
+        if (!Enum.IsDefined(typeof(Key), settings.ClearInputHotkeyKey) || settings.ClearInputHotkeyKey == (int)Key.None)
+        {
+            settings.ClearInputHotkeyKey = AppSettings.DefaultClearInputHotkeyKey;
+            changed = true;
+        }
+
+        if (!HasValidModifiers(settings.ClearInputHotkeyModifiers))
+        {
+            settings.ClearInputHotkeyModifiers = AppSettings.DefaultClearInputHotkeyModifiers;
+            changed = true;
+        }
+
+        // Legacy builds stored ASCII codes for default hotkeys; migrate them back to the intended bindings.
+        if (settings.LockHotkeyKey == LegacyLockHotkeyKey && settings.LockHotkeyModifiers == AppSettings.DefaultLockHotkeyModifiers)
+        {
+            settings.LockHotkeyKey = AppSettings.DefaultLockHotkeyKey;
+            changed = true;
+        }
+
+        if (settings.ClearInputHotkeyKey == LegacyClearInputHotkeyKey && settings.ClearInputHotkeyModifiers == AppSettings.DefaultClearInputHotkeyModifiers)
+        {
+            settings.ClearInputHotkeyKey = AppSettings.DefaultClearInputHotkeyKey;
+            changed = true;
+        }
+
+        return changed;
     }
 }

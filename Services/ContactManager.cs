@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.Json;
 
 using ZTalk.Containers;
+using System.Diagnostics;
 using ZTalk.Models;
 using ZTalk.Utilities;
 
@@ -20,6 +21,8 @@ namespace ZTalk.Services
         private const string FileName = "contacts.p2e";
         private readonly P2EContainer _container = new();
         private readonly List<Contact> _contacts = new();
+        // Protect concurrent save/read of the contacts list when persisting asynchronously
+        private readonly object _saveLock = new();
         public IReadOnlyList<Contact> Contacts => _contacts;
         public event Action? Changed;
 
@@ -117,16 +120,34 @@ namespace ZTalk.Services
         {
             try
             {
-                var json = JsonSerializer.Serialize(_contacts, SerializationDefaults.Indented);
-                var bytes = Encoding.UTF8.GetBytes(json);
-                var path = GetPath();
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                _container.SaveFile(path, bytes, passphrase);
-                Logger.Log($"Contacts saved: {path} ({bytes.Length} bytes before encryption)");
+                lock (_saveLock)
+                {
+                    var json = JsonSerializer.Serialize(_contacts, SerializationDefaults.Indented);
+                    var bytes = Encoding.UTF8.GetBytes(json);
+                    var path = GetPath();
+                    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                    var sw = Stopwatch.StartNew();
+                    try
+                    {
+                        if (Utilities.LoggingPaths.Enabled)
+                            ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Contacts] Save start size={bytes.Length}\n");
+                    }
+                    catch { }
+                    _container.SaveFile(path, bytes, passphrase);
+                    sw.Stop();
+                    Logger.Log($"Contacts saved: {path} ({bytes.Length} bytes before encryption)");
+                    try
+                    {
+                        if (Utilities.LoggingPaths.Enabled)
+                            ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Contacts] Save complete size={bytes.Length} elapsedMs={sw.ElapsedMilliseconds}\n");
+                    }
+                    catch { }
+                }
             }
             catch (Exception ex)
             {
                 Logger.Log($"Contacts save failed: {ex.Message}");
+                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Contacts] Save FAILED: {ex.Message}\n"); } catch { }
             }
         }
 
@@ -135,11 +156,25 @@ namespace ZTalk.Services
             contact.UID = NormalizeUid(contact.UID);
             if (string.IsNullOrWhiteSpace(contact.UID)) return false;
             if (string.IsNullOrWhiteSpace(contact.DisplayName)) contact.DisplayName = contact.UID;
-            if (_contacts.Any(c => string.Equals(c.UID, contact.UID, StringComparison.OrdinalIgnoreCase))) return false;
-            _contacts.Add(contact);
-            Save(passphrase);
+            lock (_saveLock)
+            {
+                if (_contacts.Any(c => string.Equals(c.UID, contact.UID, StringComparison.OrdinalIgnoreCase))) return false;
+                _contacts.Add(contact);
+            }
+            // Notify UI immediately so the new contact appears without waiting for disk I/O.
             Changed?.Invoke();
+            // Persist asynchronously to avoid blocking UI while encrypting/writing to disk.
+            _ = System.Threading.Tasks.Task.Run(() =>
+            {
+                try { Save(passphrase); } catch { }
+            });
             return true;
+        }
+
+        // Force trigger the Changed event (for external UI refresh when needed)
+        public void NotifyChanged()
+        {
+            Changed?.Invoke();
         }
 
         public bool RemoveContact(string uid, string passphrase)

@@ -80,7 +80,7 @@
                                         <!-- Port row -->
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <TextBlock Text="Port:"/>
-                                            <TextBox Text="{Binding PortText, Mode=TwoWay}" Width="120" ToolTip.Tip="{Binding TcpStatus}"/>
+                                            <TextBox Text="{Binding Port, Mode=TwoWay}" Width="120" ToolTip.Tip="{Binding TcpStatus}"/>
                                         </StackPanel>
                                         <!-- [TRUNC] Status rows: switch rows to Grids so value cells can star-size and truncate with ellipses. -->
                                         <StackPanel Spacing="4">

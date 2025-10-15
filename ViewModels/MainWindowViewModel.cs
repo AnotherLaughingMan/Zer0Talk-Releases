@@ -172,7 +172,14 @@ namespace ZTalk.ViewModels
                                 else
                                 {
                                     if (existing.Presence != kv.Value.Presence)
+                                    {
+                                        var previousPresence = existing.Presence;
                                         existing.Presence = kv.Value.Presence;
+                                        if (kv.Value.Presence == PresenceStatus.Online && previousPresence != PresenceStatus.Online)
+                                        {
+                                            HandleContactCameOnline(existing.UID);
+                                        }
+                                    }
                                     if (!string.Equals(existing.DisplayName, kv.Value.DisplayName, StringComparison.Ordinal))
                                     {
                                         existing.DisplayName = kv.Value.DisplayName;
@@ -321,8 +328,41 @@ namespace ZTalk.ViewModels
     public ICommand SimulateInviteCommand { get; }
     public ICommand ClearInvitesCommand { get; }
 
-    private bool _hasPendingInvites;
-    public bool HasPendingInvites { get => _hasPendingInvites; private set { if (_hasPendingInvites != value) { _hasPendingInvites = value; OnPropertyChanged(); } } }
+        private bool _hasPendingInvites;
+        public bool HasPendingInvites { get => _hasPendingInvites; private set { if (_hasPendingInvites != value) { _hasPendingInvites = value; OnPropertyChanged(); } } }
+
+        // Aggregated notification badge (invites + notices) shown in nav rail
+        private int _notificationCount;
+        public int NotificationCount
+        {
+            get => _notificationCount;
+            private set
+            {
+                if (_notificationCount != value)
+                {
+                    _notificationCount = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(NotificationBadgeText));
+                    OnPropertyChanged(nameof(NotificationBadgeVisible));
+                }
+            }
+        }
+
+        public string NotificationBadgeText
+        {
+            get
+            {
+                if (NotificationCount <= 0) return string.Empty;
+                return NotificationCount > 99 ? "99+" : NotificationCount.ToString();
+            }
+        }
+
+        public bool NotificationBadgeVisible => NotificationCount > 0;
+
+        // Optimistic-cleared origins: when the user clears/rejects invites we immediately hide them
+        // from the badge until the authoritative services reconcile. Stored as trimmed UIDs.
+        private readonly HashSet<string> _optimisticClearedOrigins = new(StringComparer.OrdinalIgnoreCase);
+        private readonly object _optimisticClearedLock = new();
 
         // Live avatar image from IdentityService
         private Avalonia.Media.IImage? _identityAvatarImage;
@@ -343,9 +383,7 @@ namespace ZTalk.ViewModels
 
         public MainWindowViewModel()
         {
-            // Prefer Display Name for visual identity; never show raw username unless no display name exists
-            try { LoggedInUsername = !string.IsNullOrWhiteSpace(AppServices.Settings.Settings.DisplayName) ? AppServices.Settings.Settings.DisplayName : (!string.IsNullOrWhiteSpace(AppServices.Identity.Username) ? AppServices.Identity.Username : "User"); }
-            catch { LoggedInUsername = "User"; }
+            RefreshLoggedInUsername();
             Messages.CollectionChanged += Messages_CollectionChanged;
             _teardownActions.Add(() => Messages.CollectionChanged -= Messages_CollectionChanged);
             // Reflect current identity (display name + avatar) and react to changes
@@ -365,6 +403,25 @@ namespace ZTalk.ViewModels
             AppServices.Contacts.Changed += contactsChangedHandler;
             _teardownActions.Add(() => AppServices.Contacts.Changed -= contactsChangedHandler);
             SelectedContact = Contacts.Count > 0 ? Contacts[0] : null;
+
+            // Notification aggregation: subscribe to pending invites and notices
+            try
+            {
+                Action pendingChanged = () => { Avalonia.Threading.Dispatcher.UIThread.Post(() => { RefreshHasPendingInvites(); }); };
+                AppServices.ContactRequests.PendingChanged += pendingChanged;
+                _teardownActions.Add(() => AppServices.ContactRequests.PendingChanged -= pendingChanged);
+            }
+            catch { }
+            try
+            {
+                Action noticesChanged = () => { Avalonia.Threading.Dispatcher.UIThread.Post(() => { RefreshHasPendingInvites(); }); };
+                AppServices.Notifications.NoticesChanged += noticesChanged;
+                _teardownActions.Add(() => AppServices.Notifications.NoticesChanged -= noticesChanged);
+            }
+            catch { }
+
+            // Ensure initial badge state
+            RefreshHasPendingInvites();
 
             SendCommand = new RelayCommand(_ => SendMessage(), _ => CanSend());
             AddContactCommand = new RelayCommand(_ => AddContact(), _ => CanAddContact());
@@ -471,7 +528,34 @@ namespace ZTalk.ViewModels
             DismissPortAlertCommand = new RelayCommand(_ => { _portAlertCts?.Cancel(); PortAlertVisible = false; });
             ToggleDiagnosticsSensitiveCommand = new RelayCommand(_ => { DiagnosticsSensitive = !DiagnosticsSensitive; NotifyDiagnostics(); });
             SimulateInviteCommand = new RelayCommand(_ => { try { AppServices.ContactRequests.SimulateInboundRequest(); HasPendingInvites = AppServices.ContactRequests.PendingInboundRequests.Count > 0; } catch { } });
-            ClearInvitesCommand = new RelayCommand(_ => { try { AppServices.ContactRequests.ClearAllPendingInbound(); HasPendingInvites = false; } catch { } });
+            ClearInvitesCommand = new RelayCommand(_ =>
+            {
+                try
+                {
+                    // Capture current pending inbound requests and their origins
+                    var pending = AppServices.ContactRequests.PendingInboundRequests.ToList();
+                    var rawOrigins = pending.Select(p => p.Uid).Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+                    var origins = rawOrigins.SelectMany(o => ExpandOriginForms(o)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                    // Optimistically mark these origins as cleared so UI updates immediately
+                    lock (_optimisticClearedLock)
+                    {
+                        foreach (var o in origins) _optimisticClearedOrigins.Add(o);
+                    }
+                    // Clear UI and service pending list immediately
+                    try { AppServices.ContactRequests.ClearAllPendingInbound(); } catch { }
+                    // Remove related notices so aggregated badge reflects optimistic clear
+                    try { AppServices.Notifications.RemoveNoticesForOrigins(origins); } catch { }
+                    // Refresh local flags
+                    RefreshHasPendingInvites();
+                }
+                catch { }
+            });
+
+            // Aggregation helpers: compute counts and manage optimistic clears
+            // (kept as instance methods so other UI code can call them directly)
+            // See RefreshHasPendingInvites() implementation below.
+
+        
 
             EditMessageCommand = new RelayCommand(async p =>
             {
@@ -631,14 +715,27 @@ namespace ZTalk.ViewModels
                         SenderPublicKey = Array.Empty<byte>(),
                     };
                     var selectedUid = SelectedContact?.UID ?? string.Empty;
+                    var display = ResolveContactDisplayName(senderUid);
+                    var isSelfOnline = IsSelfOnline();
                     if (string.Equals(TrimUidPrefix(selectedUid), senderUid, StringComparison.OrdinalIgnoreCase))
                     {
                         Avalonia.Threading.Dispatcher.UIThread.Post(() => Messages.Add(msg));
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                         {
                             OnPropertyChanged(nameof(IsChatEncrypted));
-                            MarkMessagesAsRead(new[] { msg });
+                            if (isSelfOnline)
+                            {
+                                MarkMessagesAsRead(new[] { msg });
+                            }
                         });
+                        if (!isSelfOnline)
+                        {
+                            PublishMessageNotification(senderUid, display, msg, incoming: true, unread: true);
+                        }
+                    }
+                    else
+                    {
+                        PublishMessageNotification(senderUid, display, msg, incoming: true, unread: true);
                     }
                     _messagesStore.StoreMessage(senderUid, msg, AppServices.Passphrase);
                 };
@@ -906,13 +1003,11 @@ namespace ZTalk.ViewModels
             _ = AppServices.Dialogs.ShowInfoAsync("Messages purged", details, dismissAfterMs: 3000);
         }
 
-        private void RefreshIdentityBindings()
+    private void RefreshIdentityBindings()
         {
             try
             {
-                // Display name updates
-                var dn = AppServices.Identity.DisplayName;
-                if (!string.IsNullOrWhiteSpace(dn)) LoggedInUsername = dn;
+        RefreshLoggedInUsername();
                 // Notify UID change so bindings like LoggedInUidShort refresh
                 OnPropertyChanged(nameof(LoggedInUidShort));
                 // Also notify LoggedInUidFull so name header MultiBinding re-evaluates post-unlock
@@ -923,6 +1018,22 @@ namespace ZTalk.ViewModels
                 else { using var ms = new System.IO.MemoryStream(bytes); IdentityAvatarImage = new Avalonia.Media.Imaging.Bitmap(ms); }
             }
             catch { }
+        }
+
+        private void RefreshLoggedInUsername()
+        {
+            try
+            {
+                var identity = AppServices.Identity;
+                var settings = AppServices.Settings.Settings;
+                string? label = identity.DisplayName;
+                if (string.IsNullOrWhiteSpace(label)) label = settings?.DisplayName;
+                if (string.IsNullOrWhiteSpace(label)) label = identity.Username;
+                if (string.IsNullOrWhiteSpace(label)) label = identity.UID;
+                if (string.IsNullOrWhiteSpace(label)) label = "User";
+                LoggedInUsername = label;
+            }
+            catch { LoggedInUsername = "User"; }
         }
 
         // Display-friendly identity string for headers: prefer DisplayName; show username+UID only in inspection/adding contexts
@@ -1100,6 +1211,8 @@ namespace ZTalk.ViewModels
                 try { _messagesStore.StoreMessage(recipientUid, message, AppServices.Passphrase); } catch { }
                 OutgoingMessage = string.Empty;
 
+                MaybeCreateOutgoingMessageNotice(contact, message);
+
                 if (contact.IsSimulated)
                 {
                     HandleSimulatedSend(contact, message, content);
@@ -1192,6 +1305,278 @@ namespace ZTalk.ViewModels
                     RebuildTimeline();
                     break;
             }
+        }
+
+        /// <summary>
+        /// Recompute the aggregated notification count (invites + notices), de-duping by origin
+        /// and respecting any optimistic-cleared origins so the UI can update immediately.
+        /// Safe to call from any thread; UI updates are marshalled to the UI thread.
+        /// </summary>
+        public void RefreshHasPendingInvites()
+        {
+            try
+            {
+                var invites = AppServices.ContactRequests.PendingInboundRequests.ToList();
+                var notices = AppServices.Notifications.Notices.ToList();
+
+                var inviteOrigins = new HashSet<string>(invites.Where(p => !string.IsNullOrWhiteSpace(p.Uid)).Select(p => TrimUidPrefix(p.Uid!)), StringComparer.OrdinalIgnoreCase);
+                var noticeOrigins = new HashSet<string>(notices.Where(n => !string.IsNullOrWhiteSpace(n.OriginUid)).Select(n => TrimUidPrefix(n.OriginUid!)), StringComparer.OrdinalIgnoreCase);
+
+                // Exclude any optimistic-cleared origins so the UI reflects immediate user intent
+                lock (_optimisticClearedLock)
+                {
+                    foreach (var o in _optimisticClearedOrigins) { inviteOrigins.Remove(o); noticeOrigins.Remove(o); }
+                }
+
+                // Build unique origin set (union of invites and notice origins)
+                var uniqueOrigins = new HashSet<string>(inviteOrigins, StringComparer.OrdinalIgnoreCase);
+                foreach (var o in noticeOrigins) uniqueOrigins.Add(o);
+
+                // Orphan notices (no origin) still count toward the badge
+                var orphanNotices = notices.Count(n => string.IsNullOrWhiteSpace(n.OriginUid));
+
+                var total = uniqueOrigins.Count + orphanNotices;
+
+                // Marshal property updates to UI thread
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    try
+                    {
+                        NotificationCount = total;
+                        HasPendingInvites = inviteOrigins.Count > 0;
+                    }
+                    catch { }
+                }, Avalonia.Threading.DispatcherPriority.Send);
+
+                // Prune optimistic-cleared origins that are now settled (no invites or notices remain)
+                lock (_optimisticClearedLock)
+                {
+                    var toRemove = _optimisticClearedOrigins.Where(o => !inviteOrigins.Contains(o) && !noticeOrigins.Contains(o)).ToList();
+                    foreach (var r in toRemove) _optimisticClearedOrigins.Remove(r);
+                }
+            }
+            catch { }
+        }
+
+        public void AddOptimisticCleared(string origin)
+        {
+            if (string.IsNullOrWhiteSpace(origin)) return;
+            var o = TrimUidPrefix(origin);
+            lock (_optimisticClearedLock) { _optimisticClearedOrigins.Add(o); }
+            RefreshHasPendingInvites();
+        }
+
+        public void AddOptimisticClearedMany(IEnumerable<string>? origins)
+        {
+            if (origins == null) return;
+            lock (_optimisticClearedLock)
+            {
+                foreach (var origin in origins)
+                {
+                    if (string.IsNullOrWhiteSpace(origin)) continue;
+                    _optimisticClearedOrigins.Add(TrimUidPrefix(origin));
+                }
+            }
+            RefreshHasPendingInvites();
+        }
+
+        public void RemoveOptimisticCleared(string origin)
+        {
+            if (string.IsNullOrWhiteSpace(origin)) return;
+            var o = TrimUidPrefix(origin);
+            lock (_optimisticClearedLock) { _optimisticClearedOrigins.Remove(o); }
+            RefreshHasPendingInvites();
+        }
+
+        public bool ShouldSuppressInvite(string? origin)
+        {
+            if (string.IsNullOrWhiteSpace(origin)) return false;
+            lock (_optimisticClearedLock)
+            {
+                if (_optimisticClearedOrigins.Contains(origin)) return true;
+                var trimmed = TrimUidPrefix(origin);
+                return _optimisticClearedOrigins.Contains(trimmed);
+            }
+        }
+
+        private void HandleContactCameOnline(string uid)
+        {
+            try
+            {
+                var trimmed = TrimUidPrefix(uid);
+                if (string.IsNullOrWhiteSpace(trimmed)) return;
+                MarkOutgoingMessagesReadForContact(trimmed);
+                AppServices.Notifications.MarkConversationMessageNoticesRead(trimmed);
+            }
+            catch { }
+        }
+
+        private void MarkOutgoingMessagesReadForContact(string trimmedUid)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(trimmedUid)) return;
+                var self = TrimUidPrefix(AppServices.Identity.UID ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(self)) return;
+                var list = _messagesStore.LoadMessages(trimmedUid, AppServices.Passphrase);
+                var changed = false;
+                var now = DateTime.UtcNow;
+                foreach (var message in list)
+                {
+                    var sender = TrimUidPrefix(message.SenderUID ?? string.Empty);
+                    if (!string.Equals(sender, self, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (string.Equals(message.DeliveryStatus, "Read", StringComparison.OrdinalIgnoreCase)) continue;
+                    message.DeliveryStatus = "Read";
+                    message.ReadUtc = now;
+                    if (message.DeliveredUtc == null) message.DeliveredUtc = now;
+                    changed = true;
+                }
+                if (changed)
+                {
+                    _messagesStore.ReplaceConversation(trimmedUid, list, AppServices.Passphrase);
+                }
+
+                var selected = SelectedContact;
+                if (selected != null && string.Equals(TrimUidPrefix(selected.UID ?? string.Empty), trimmedUid, StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (var message in Messages)
+                    {
+                        var sender = TrimUidPrefix(message.SenderUID ?? string.Empty);
+                        if (!string.Equals(sender, self, StringComparison.OrdinalIgnoreCase)) continue;
+                        if (string.Equals(message.DeliveryStatus, "Read", StringComparison.OrdinalIgnoreCase)) continue;
+                        message.DeliveryStatus = "Read";
+                        message.ReadUtc = DateTime.UtcNow;
+                        if (message.DeliveredUtc == null) message.DeliveredUtc = message.ReadUtc;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void PublishMessageNotification(string originUid, string displayName, Message message, bool incoming, bool unread)
+        {
+            try
+            {
+                var trimmedOrigin = TrimUidPrefix(originUid);
+                var title = incoming ? $"From {displayName}" : $"To {displayName}";
+                var preview = BuildMessagePreview(message?.Content ?? string.Empty);
+                AppServices.Notifications.AddOrUpdateMessageNotice(title, preview, trimmedOrigin, message?.Id ?? Guid.NewGuid(), incoming, unread);
+            }
+            catch { }
+        }
+
+        private void MaybeCreateOutgoingMessageNotice(Contact contact, Message message)
+        {
+            try
+            {
+                if (contact == null || message == null) return;
+                var presence = contact.Presence;
+                if (presence != PresenceStatus.Offline &&
+                    presence != PresenceStatus.Invisible &&
+                    presence != PresenceStatus.DoNotDisturb &&
+                    presence != PresenceStatus.Idle)
+                {
+                    return;
+                }
+                var display = ResolveContactDisplayName(contact.UID);
+                PublishMessageNotification(contact.UID, display, message, incoming: false, unread: true);
+            }
+            catch { }
+        }
+
+        private bool IsSelfOnline()
+        {
+            try { return AppServices.Settings.Settings.Status == Models.PresenceStatus.Online; }
+            catch { return true; }
+        }
+
+        private string ResolveContactDisplayName(string uid)
+        {
+            try
+            {
+                var trimmed = TrimUidPrefix(uid ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(trimmed)) return "Unknown";
+                var contact = Contacts.FirstOrDefault(c => string.Equals(TrimUidPrefix(c.UID ?? string.Empty), trimmed, StringComparison.OrdinalIgnoreCase));
+                if (contact != null && !string.IsNullOrWhiteSpace(contact.DisplayName)) return contact.DisplayName!;
+                var storeContact = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(TrimUidPrefix(c.UID ?? string.Empty), trimmed, StringComparison.OrdinalIgnoreCase));
+                if (storeContact != null && !string.IsNullOrWhiteSpace(storeContact.DisplayName)) return storeContact.DisplayName!;
+                return trimmed;
+            }
+            catch { return uid; }
+        }
+
+        private static string BuildMessagePreview(string content)
+        {
+            if (string.IsNullOrWhiteSpace(content)) return "<no text>";
+            const int maxLen = 160;
+            var trimmed = content.Trim();
+            return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen) + "...";
+        }
+
+        public void FocusConversation(string uid)
+        {
+            try
+            {
+                var trimmed = TrimUidPrefix(uid ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(trimmed)) return;
+                var contact = Contacts.FirstOrDefault(c => string.Equals(TrimUidPrefix(c.UID ?? string.Empty), trimmed, StringComparison.OrdinalIgnoreCase));
+                if (contact == null) return;
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => SelectedContact = contact);
+            }
+            catch { }
+        }
+
+        // Some parts of the code/store may use trimmed UIDs while others include the 'usr-' prefix.
+        // Expand both forms so we can robustly remove notices regardless of representation.
+        private IEnumerable<string> ExpandOriginForms(string origin)
+        {
+            if (string.IsNullOrWhiteSpace(origin)) yield break;
+            var trimmed = TrimUidPrefix(origin);
+            yield return trimmed;
+            var prefixed = trimmed.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) ? trimmed : "usr-" + trimmed;
+            if (!string.Equals(prefixed, trimmed, StringComparison.OrdinalIgnoreCase)) yield return prefixed;
+        }
+
+        // Mark a single notification-backed message as read and remove related notices for its origin.
+        public void MarkMessageAsReadAndClear(Message m)
+        {
+            try
+            {
+                if (m == null) return;
+                if (m.ReadUtc.HasValue) return;
+                var originRaw = m.SenderUID ?? string.Empty;
+                m.ReadUtc = DateTime.UtcNow;
+                // Persist read state
+                try { _messagesStore.UpdateDelivery(originRaw, m.Id, m.DeliveryStatus, m.DeliveredUtc, AppServices.Passphrase, m.ReadUtc); } catch { }
+                try { AppServices.Notifications.MarkMessageNoticeRead(m.Id); } catch { }
+                RefreshHasPendingInvites();
+            }
+            catch { }
+        }
+
+        // Mark all messages shown in the Messages list as read and remove related notices.
+        public void MarkAllNotificationMessagesReadAndClear()
+        {
+            try
+            {
+                AppServices.Notifications.MarkAllMessageNoticesRead();
+                RefreshHasPendingInvites();
+            }
+            catch { }
+        }
+
+        public void HandleLocalPresenceStatusChanged(Models.PresenceStatus status)
+        {
+            try
+            {
+                if (status != Models.PresenceStatus.Online) return;
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    try { MarkMessagesAsRead(); }
+                    catch { }
+                });
+            }
+            catch { }
         }
 
         private void ClearTimeline()
@@ -1366,12 +1751,15 @@ namespace ZTalk.ViewModels
         {
             try { AppServices.Outbox.Enqueue(recipientUid, message, AppServices.Passphrase); } catch { }
             Avalonia.Threading.Dispatcher.UIThread.Post(() => ShowOfflineBanner(banner));
+            var display = ResolveContactDisplayName(recipientUid);
+            PublishMessageNotification(recipientUid, display, message, incoming: false, unread: true);
         }
 
         private void MarkMessagesAsRead(IEnumerable<Message>? subset = null)
         {
             try
             {
+                if (!IsSelfOnline()) return;
                 var contact = SelectedContact;
                 if (contact == null) return;
                 if (contact.IsSimulated) return;
@@ -1390,6 +1778,7 @@ namespace ZTalk.ViewModels
                     var marked = DateTime.UtcNow;
                     message.ReadUtc = marked;
                     try { _messagesStore.UpdateDelivery(peerUid, message.Id, message.DeliveryStatus, message.DeliveredUtc, AppServices.Passphrase, message.ReadUtc); } catch { }
+                    try { AppServices.Notifications.MarkMessageNoticeRead(message.Id); } catch { }
                     _ = Task.Run(async () =>
                     {
                         try { await AppServices.Network.SendReadReceiptAsync(peerUid, message.Id, CancellationToken.None); } catch { }

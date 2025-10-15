@@ -38,16 +38,11 @@
     <Grid RowDefinitions="*,Auto" RowSpacing="8">
       <!-- [LAYOUT] Removed ScrollViewer per requirement; content fits within fixed window size. -->
       <StackPanel Grid.Row="0" Spacing="8">
-          <TextBlock Text="Enter the contact’s UID (no prefix). Optionally provide Host:Port if not discovered." TextWrapping="Wrap"/>
+          <TextBlock Text="Enter the contact's UID (no prefix). Discovery is automatic." TextWrapping="Wrap"/>
           <StackPanel>
             <TextBlock Text="UID"/>
             <TextBox Text="{Binding UID, Mode=TwoWay}" Watermark="e.g., 7XKQ9Z8P"/>
           </StackPanel>
-          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-            <TextBox Grid.Column="0" Text="{Binding Host, Mode=TwoWay}" Watermark="Host (optional)"/>
-            <TextBlock Grid.Column="1" Text=":" VerticalAlignment="Center"/>
-            <TextBox Grid.Column="2" Text="{Binding Port, Mode=TwoWay}" Watermark="Port" Width="64"/>
-          </Grid>
           <StackPanel>
             <TextBlock Text="Expected Public Key (hex, optional)"/>
             <TextBox Text="{Binding ExpectedPublicKeyHex, Mode=TwoWay}" Watermark="abcdef..."/>

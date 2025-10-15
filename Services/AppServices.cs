@@ -37,6 +37,8 @@ public static class AppServices
     public static LinkPreviewService LinkPreview { get; } = new();
     public static OutboxService Outbox { get; } = new();
     public static LogMaintenanceService LogMaintenance { get; } = new(Settings, Updates);
+    public static TrayIconService TrayIcon { get; } = new();
+    public static NotificationService Notifications { get; } = new();
     // Centralized UI pulse key; interval can be adjusted via Settings if desired
     private const string UiPulseKey = "App.UI.Pulse";
     // Email verification removed in keypair-based identity model
@@ -193,6 +195,8 @@ public static class AppServices
                                 await Network.ConnectWithRelayFallbackAsync(uid, peer.Address!, peer.Port, System.Threading.CancellationToken.None);
                             }
                         }
+                        // Retry any queued offline contact requests for this peer
+                        try { ContactRequests.OnPeerOnline(uid); } catch { }
                         await Outbox.DrainAsync(uid, Passphrase, System.Threading.CancellationToken.None);
                     }
                     catch { }
@@ -367,6 +371,7 @@ public static class AppServices
         try { PeersStore.Save(Peers.Peers, Passphrase); } catch { }
         try { Settings.Save(Passphrase); } catch { }
         try { LinkPreview.Dispose(); } catch { }
+        try { TrayIcon.Dispose(); } catch { }
 #if DEBUG
     try { LogMaintenance.Stop(); } catch { }
 #endif

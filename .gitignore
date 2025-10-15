@@ -146,4 +146,11 @@ lint-report.json
 Suggestions.md
 context.md
 
+# Temporary build/share docs that should not be committed
+RELEASE-DEBUG-SC.md
+temp_pending_invites.txt
+
+# Documentation drafts stay local only
+docs/
+
 scripts/Markdown.Avalonia/

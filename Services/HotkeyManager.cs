@@ -87,15 +87,35 @@ namespace ZTalk.Services
         {
             if (e.Handled) return false;
 
+            // Diagnostic: log incoming key event
+            try
+            {
+                if (ZTalk.Utilities.LoggingPaths.Enabled)
+                {
+                    ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Hotkey] HandleKeyEvent received key={e.Key} mods={e.KeyModifiers}\n");
+                }
+            }
+            catch { }
+
             lock (_lock)
             {
+                // Tolerant match: require registration modifiers to be present in the event (allow extra modifiers)
                 var match = _registrations.Values.FirstOrDefault(r =>
-                    r.Key == e.Key && r.Modifiers == e.KeyModifiers);
+                    r.Key == e.Key && (e.KeyModifiers & r.Modifiers) == r.Modifiers);
 
                 if (match != null)
                 {
                     try
                     {
+                        try
+                        {
+                            if (ZTalk.Utilities.LoggingPaths.Enabled)
+                            {
+                                ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Hotkey] Matched registration id={match.Id} key={match.Key} mods={match.Modifiers}\n");
+                            }
+                        }
+                        catch { }
+
                         match.Callback?.Invoke();
                         e.Handled = true;
                         return true;

@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Diagnostics;
 
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
@@ -70,6 +71,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private ViewModels.SettingsViewModel SettingsProxy => _settingsVm ??= new ViewModels.SettingsViewModel();
     // Regression toast
     private CancellationTokenSource? _rgToastCts;
+    // Invite slide-in toast
+    private CancellationTokenSource? _inviteToastCts;
+    private Window? _inviteToastWindow;
+    private Border? _inviteToastBorder;
+    private TextBlock? _inviteToastTitle;
+    private TextBlock? _inviteToastBody;
+    private Button? _inviteToastViewBtn;
+    private Button? _inviteToastDismissBtn;
+    private bool _inviteToastEventsHooked;
     // Verification popup state
     private Window? _verifyReqPopup;
     private string? _verifyReqUid;
@@ -317,6 +327,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         // Apply saved widths (0 hides panel)
         this.Opened += (_, __) => ApplyInitialPanelVisibility();
+    this.Opened += (_, __) => ConfigureInviteToastWindow();
 
         // Initialize presence flags from settings
         this.Opened += (_, __) =>
@@ -1971,6 +1982,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 Utilities.Logger.Log($"Presence set to {status}");
                 try { InteractionLogger.Log($"[AvatarMenu] Presence set to {status}"); } catch { }
                 BroadcastPresence(status);
+                try
+                {
+                    if (DataContext is MainWindowViewModel vm)
+                    {
+                        vm.HandleLocalPresenceStatusChanged(status);
+                    }
+                }
+                catch { }
             }
             catch { }
         }
@@ -2163,6 +2182,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             try { AppServices.Shutdown(); } catch { }
         }
         catch { }
+        finally
+        {
+            try { AppServices.ContactRequests.RequestReceived -= OnInviteRequestReceived; } catch { }
+            try { AppServices.ContactRequests.PendingChanged -= OnInvitePendingChangedForToast; } catch { }
+            _inviteToastEventsHooked = false;
+            try { _inviteToastCts?.Cancel(); } catch { }
+            try
+            {
+                _inviteToastWindow?.Close();
+            }
+            catch { }
+            finally
+            {
+                _inviteToastWindow = null;
+                _inviteToastBorder = null;
+                _inviteToastTitle = null;
+                _inviteToastBody = null;
+                _inviteToastViewBtn = null;
+                _inviteToastDismissBtn = null;
+            }
+        }
     }
 
     
@@ -3359,6 +3399,283 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    private Border BuildInviteToastContent()
+    {
+        var title = new TextBlock { FontWeight = FontWeight.SemiBold };
+        var body = new TextBlock { TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.CharacterEllipsis };
+
+    var viewBtn = new Button { Content = "Open Invites", Padding = new Thickness(12, 4) };
+    viewBtn.Click += InviteToastView_Click;
+    var dismissBtn = new Button { Padding = new Thickness(6, 2) };
+    dismissBtn.Classes.Add("icon-button");
+    ToolTip.SetTip(dismissBtn, "Dismiss");
+    var dismissIcon = new TextBlock { Text = "\uE711", FontFamily = FontFamily.Parse("Segoe MDL2 Assets") };
+    dismissBtn.Content = dismissIcon;
+    dismissBtn.Click += InviteToastDismiss_Click;
+
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 8,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        actions.Children.Add(viewBtn);
+        actions.Children.Add(dismissBtn);
+
+        var content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 12,
+            Margin = new Thickness(12),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        var textColumn = new StackPanel
+        {
+            Spacing = 4,
+            Width = 220,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        textColumn.Children.Add(title);
+        textColumn.Children.Add(body);
+        content.Children.Add(textColumn);
+        content.Children.Add(actions);
+
+        var border = new Border
+        {
+            Background = (IBrush?)Application.Current?.FindResource("App.Surface"),
+            BorderBrush = (IBrush?)Application.Current?.FindResource("App.Border"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(0),
+            Opacity = 0,
+            IsHitTestVisible = false,
+            IsVisible = false,
+            Child = content
+        };
+
+        var slide = new TranslateTransform { X = 360 };
+        slide.Transitions = new Transitions
+        {
+            new DoubleTransition
+            {
+                Duration = TimeSpan.FromMilliseconds(240),
+                Property = TranslateTransform.XProperty
+            }
+        };
+        border.RenderTransform = slide;
+        border.Transitions = new Transitions
+        {
+            new DoubleTransition
+            {
+                Duration = TimeSpan.FromMilliseconds(200),
+                Property = Border.OpacityProperty
+            }
+        };
+
+        _inviteToastBorder = border;
+        _inviteToastTitle = title;
+        _inviteToastBody = body;
+        _inviteToastViewBtn = viewBtn;
+        _inviteToastDismissBtn = dismissBtn;
+
+        return border;
+    }
+
+    private void PositionInviteToastWindow()
+    {
+        try
+        {
+            if (_inviteToastWindow == null) return;
+            var screen = Screens.Primary ?? Screens.All.FirstOrDefault();
+            if (screen == null) return;
+            var bounds = screen.WorkingArea;
+            var x = bounds.X + bounds.Width - (int)_inviteToastWindow.Width - 24;
+            var y = bounds.Y + 48;
+            _inviteToastWindow.Position = new PixelPoint(x, y);
+        }
+        catch { }
+    }
+
+    private void ConfigureInviteToastWindow()
+    {
+        try
+        {
+            var lifetime = Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            if (lifetime?.MainWindow == null) return;
+
+            // Create toast window once; reuse across invites
+            if (_inviteToastWindow == null)
+            {
+                _inviteToastWindow = new Window
+                {
+                    Width = 360,
+                    Height = 132,
+                    CanResize = false,
+                    ShowInTaskbar = false,
+                    SystemDecorations = SystemDecorations.None,
+                    Background = null,
+                    Topmost = true,
+                    IsHitTestVisible = true,
+                    ShowActivated = false,
+                    ExtendClientAreaToDecorationsHint = true,
+                    ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
+                    ExtendClientAreaTitleBarHeightHint = 32,
+                    WindowStartupLocation = WindowStartupLocation.Manual
+                };
+
+                var root = BuildInviteToastContent();
+                _inviteToastWindow.Content = root;
+                PositionInviteToastWindow();
+                _inviteToastWindow.Hide();
+            }
+        }
+        catch { }
+
+        try
+        {
+            if (!_inviteToastEventsHooked)
+            {
+                AppServices.ContactRequests.RequestReceived += OnInviteRequestReceived;
+                AppServices.ContactRequests.PendingChanged += OnInvitePendingChangedForToast;
+                _inviteToastEventsHooked = true;
+            }
+        }
+        catch { }
+    }
+
+    private void OnInviteRequestReceived(ContactRequestsService.PendingContactRequest req)
+    {
+        try { Dispatcher.UIThread.Post(() => ShowInviteToast(req)); }
+        catch { }
+    }
+
+    private void OnInvitePendingChangedForToast()
+    {
+        try
+        {
+            if (AppServices.ContactRequests.PendingInboundRequests.Count <= 0)
+            {
+                Dispatcher.UIThread.Post(() => HideInviteToast());
+            }
+        }
+        catch { }
+    }
+
+    private void ShowInviteToast(ContactRequestsService.PendingContactRequest req)
+    {
+        try
+        {
+            if (_inviteToastWindow == null || _inviteToastBorder == null || _inviteToastTitle == null || _inviteToastBody == null)
+            {
+                ConfigureInviteToastWindow();
+                if (_inviteToastWindow == null || _inviteToastBorder == null || _inviteToastTitle == null || _inviteToastBody == null) return;
+            }
+
+            _inviteToastCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _inviteToastCts = cts;
+
+            var display = string.IsNullOrWhiteSpace(req.DisplayName) ? TrimUidPrefix(req.Uid ?? string.Empty) : req.DisplayName;
+            if (string.IsNullOrWhiteSpace(display)) display = "New contact invite";
+            var trimmedUid = TrimUidPrefix(req.Uid ?? string.Empty);
+            var line = string.IsNullOrWhiteSpace(trimmedUid) ? $"{display} wants to connect." : $"{display} ({trimmedUid}) wants to connect.";
+            _inviteToastTitle.Text = "New Contact Invite";
+            _inviteToastBody.Text = line;
+
+            PositionInviteToastWindow();
+
+            if (!_inviteToastWindow.IsVisible)
+            {
+                _inviteToastWindow.Show();
+            }
+
+            if (_inviteToastBorder.RenderTransform is not TranslateTransform slide)
+            {
+                slide = new TranslateTransform { X = 360 };
+                _inviteToastBorder.RenderTransform = slide;
+            }
+            slide.X = 360;
+            _inviteToastBorder.Opacity = 0;
+            _inviteToastBorder.IsVisible = true;
+            _inviteToastBorder.IsHitTestVisible = true;
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    if (_inviteToastBorder?.RenderTransform is TranslateTransform slideIn) slideIn.X = 0;
+                    if (_inviteToastBorder != null) _inviteToastBorder.Opacity = 1;
+                }
+                catch { }
+            }, DispatcherPriority.Render);
+
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(6), cts.Token);
+                    if (!cts.Token.IsCancellationRequested)
+                    {
+                        Dispatcher.UIThread.Post(() => HideInviteToast());
+                    }
+                }
+                catch { }
+            }, cts.Token);
+        }
+        catch { }
+    }
+
+    private void HideInviteToast(bool immediate = false)
+    {
+        try
+        {
+            if (_inviteToastBorder == null || _inviteToastWindow == null) return;
+
+            if (immediate)
+            {
+                _inviteToastBorder.IsHitTestVisible = false;
+                _inviteToastBorder.Opacity = 0;
+                if (_inviteToastBorder.RenderTransform is TranslateTransform inst) inst.X = 360;
+                _inviteToastBorder.IsVisible = false;
+                if (_inviteToastWindow.IsVisible) _inviteToastWindow.Hide();
+                return;
+            }
+
+            _inviteToastBorder.IsHitTestVisible = false;
+            _inviteToastBorder.Opacity = 0;
+            if (_inviteToastBorder.RenderTransform is TranslateTransform slide) slide.X = 360;
+            DispatcherTimer.RunOnce(() =>
+            {
+                try
+                {
+                    if (_inviteToastBorder != null) _inviteToastBorder.IsVisible = false;
+                    if (_inviteToastWindow?.IsVisible == true) _inviteToastWindow.Hide();
+                }
+                catch { }
+            }, TimeSpan.FromMilliseconds(260));
+        }
+        catch { }
+    }
+
+    private void InviteToastDismiss_Click(object? sender, RoutedEventArgs e)
+    {
+        try { _inviteToastCts?.Cancel(); }
+        catch { }
+        HideInviteToast();
+    }
+
+    private void InviteToastView_Click(object? sender, RoutedEventArgs e)
+    {
+        try { _inviteToastCts?.Cancel(); }
+        catch { }
+        HideInviteToast();
+        try { PendingInvites_Click(sender, e); }
+        catch { }
+    }
+
     private void OnWindowKeyDownForOverlays(object? sender, KeyEventArgs e)
     {
         try
@@ -3509,6 +3826,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                         rightRoot.IsVisible = false;
                         rightRoot.MinWidth = 0;
                     }
+                    try { DetachRightPanelEventHandlers(); } catch { }
                     // Preserve previous width (don't overwrite with zero)
                     _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
                     return;
@@ -3521,6 +3839,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 {
                     diagCol.MinWidth = 0;
                     grid.ColumnDefinitions[3].Width = new GridLength(1, GridUnitType.Star);
+                    try { DetachRightPanelEventHandlers(); } catch { }
                 }
                 else
                 {
@@ -3530,6 +3849,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 {
                     rightRoot.IsVisible = target > 0;
                     rightRoot.MinWidth = target > 0 ? 240 : 0;
+                    if (target > 0)
+                    {
+                        // Initialize hosts so subsequent rendering can safely assume they exist
+                        try { EnsureRightPanelHostsInitialized(); } catch { }
+                        try { AttachRightPanelEventHandlers(); } catch { }
+                    }
                 }
                 s2.MainRightWidth = target; // right side persisted directly like original logic
                 grid.InvalidateMeasure();
@@ -4028,176 +4353,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var pend = AppServices.ContactRequests.PendingInboundRequests.ToList();
-            // Placeholder notices collection (future: integrate with a NotificationsService)
-            var notices = new System.Collections.Generic.List<string>();
-            var win = new Window
-            {
-                // Notification Center (invites appear here for now)
-                Title = $"Notifications ({pend.Count} invites)",
-                // 16:9 size (e.g., 720x405) with reasonable minimums
-                Width = 720,
-                Height = 405,
-                CanResize = false,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                ExtendClientAreaToDecorationsHint = true,
-                ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
-                ExtendClientAreaTitleBarHeightHint = 32
-            };
-            var invitesList = new StackPanel { Margin = new Thickness(8), Spacing = 6 };
-            void RenderInvites()
-            {
-                    if (DataContext is MainWindowViewModel vm) vm.BeginSelectionFreeze();
-                try
-                {
-                    invitesList.Children.Clear();
-                    var invites = AppServices.ContactRequests.PendingInboundRequests.ToList();
-                    foreach (var p in invites.OrderByDescending(x => x.ReceivedAt))
-                    {
-                        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Tag = p.Nonce };
-                        row.Children.Add(new TextBlock { Text = $"{p.DisplayName} ({p.Uid[..Math.Min(10,p.Uid.Length)]}...)" });
-                        var accept = new Button { Content = "Accept", Margin = new Thickness(4,0,0,0), Padding = new Thickness(6,2) };
-                        var reject = new Button { Content = "Reject", Margin = new Thickness(4,0,0,0), Padding = new Thickness(6,2) };
-                        Grid.SetColumn(accept, 1); Grid.SetColumn(reject, 2);
-                        accept.Click += async (_, __) => { try { await AppServices.ContactRequests.AcceptPendingAsync(p.Nonce); RefreshPendingInviteFlag(); RenderInvites(); } catch { } };
-                        reject.Click += async (_, __) => { try { await AppServices.ContactRequests.RejectPendingAsync(p.Nonce); RefreshPendingInviteFlag(); RenderInvites(); } catch { } };
-                        row.Children.Add(accept); row.Children.Add(reject);
-                        invitesList.Children.Add(new Border { Padding = new Thickness(6), Background = (IBrush?)Application.Current?.FindResource("App.Surface"), BorderBrush = (IBrush?)Application.Current?.FindResource("App.Border"), BorderThickness = new Thickness(1), Child = row });
-                    }
-                    if (invites.Count == 0)
-                    {
-                        invitesList.Children.Add(new TextBlock { Text = "No pending invites.", Opacity = 0.7 });
-                    }
-                }
-                catch { }
-            }
-            var noticesList = new StackPanel { Margin = new Thickness(8), Spacing = 6 };
-            void RenderNotices()
-            {
-                try
-                {
-                    noticesList.Children.Clear();
-                    if (notices.Count == 0)
-                    {
-                        noticesList.Children.Add(new TextBlock { Text = "No notifications.", Opacity = 0.7 });
-                        return;
-                    }
-                    foreach (var n in notices)
-                    {
-                        var row = new Border
-                        {
-                            Padding = new Thickness(6),
-                            Background = (IBrush?)Application.Current?.FindResource("App.Surface"),
-                            BorderBrush = (IBrush?)Application.Current?.FindResource("App.Border"),
-                            BorderThickness = new Thickness(1),
-                            Child = new TextBlock { Text = n, TextWrapping = Avalonia.Media.TextWrapping.Wrap }
-                        };
-                        noticesList.Children.Add(row);
-                    }
-                }
-                catch { }
-            }
-            // Build custom header with actions and close button since we use custom chrome
-            var header = new Border
-            {
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(8, 6),
-                BorderBrush = (IBrush?)Application.Current?.FindResource("App.Border"),
-                Background = (IBrush?)Application.Current?.FindResource("App.Background")
-            };
-        var headerGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto,Auto") };
-        headerGrid.Children.Add(new TextBlock { Text = win.Title, FontWeight = FontWeight.SemiBold, VerticalAlignment = VerticalAlignment.Center });
-            var filterBtn = new Button();
-            filterBtn.Classes.Add("icon-button");
-            var filterGlyph = new TextBlock { Text = "\uE71C" }; // MDL2: Filter (funnel)
-            filterGlyph.Classes.Add("icon-mdl2");
-            filterBtn.Content = filterGlyph;
-            bool showInvites = true;
-            void UpdateFilterTip()
-            {
-                ToolTip.SetTip(filterBtn, showInvites ? "Filter: Showing Invites (click to show Notices)" : "Filter: Showing Notices (click to show Invites)");
-            }
-            UpdateFilterTip();
-            // Clear All Notices (glyph + tooltip)
-            var clearAllBtn = new Button();
-            clearAllBtn.Classes.Add("icon-button");
-            ToolTip.SetTip(clearAllBtn, "Clear All Notices");
-            var clearAllGlyph = new TextBlock { Text = "\uE74D" }; // MDL2: Erase/Delete-like
-            clearAllGlyph.Classes.Add("icon-mdl2");
-            clearAllBtn.Content = clearAllGlyph;
-            // Clear Invites (reuse prohibition glyph used in main header)
-            var clearInvBtn = new Button();
-            clearInvBtn.Classes.Add("icon-button");
-            ToolTip.SetTip(clearInvBtn, "Clear Invites");
-            var invGlyph = new Grid { Width = 16, Height = 16, IsHitTestVisible = false };
-            invGlyph.Children.Add(new Avalonia.Controls.Shapes.Ellipse { Stroke = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary"), StrokeThickness = 1.6 });
-            invGlyph.Children.Add(new Avalonia.Controls.Shapes.Path { Stroke = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary"), StrokeThickness = 1.6, Data = Avalonia.Media.Geometry.Parse("M3,13 L13,3") });
-            clearInvBtn.Content = invGlyph;
-            // Close button (MDL2 close glyph)
-            var closeBtn = new Button();
-            closeBtn.Classes.Add("icon-button");
-            ToolTip.SetTip(closeBtn, "Close");
-            var closeGlyph = new TextBlock { Text = "\uE8BB" };
-            closeGlyph.Classes.Add("icon-mdl2");
-            closeBtn.Content = closeGlyph;
-            Grid.SetColumn(filterBtn, 1);
-            Grid.SetColumn(clearAllBtn, 2);
-            Grid.SetColumn(clearInvBtn, 3);
-            Grid.SetColumn(closeBtn, 4);
-            headerGrid.Children.Add(filterBtn);
-            headerGrid.Children.Add(closeBtn);
-            headerGrid.Children.Add(clearAllBtn);
-            headerGrid.Children.Add(clearInvBtn);
-            header.Child = headerGrid;
+            // Minimal: toggle the right-side notifications panel and show the Invites host.
+            // This is step 1 of the incremental migration from modal -> right-panel.
+            // Reuse existing ToggleRightPanel_Click animation/logic so behavior stays consistent.
+            try { ToggleRightPanel_Click(sender, e); } catch { }
 
-            // Root layout with header + scroll content
-            var root = new Grid { RowDefinitions = new RowDefinitions("Auto, *") };
-            Grid.SetRow(header, 0);
-            root.Children.Add(header);
-            // Content host switches between Invites and Notices
-            var contentHost = new ContentControl();
-            void Render()
-            {
-                if (showInvites)
-                {
-                    RenderInvites();
-                    contentHost.Content = invitesList;
-                }
-                else
-                {
-                    RenderNotices();
-                    contentHost.Content = noticesList;
-                }
-            }
-            Render();
-            var scroller = new ScrollViewer { Content = contentHost };
-            Grid.SetRow(scroller, 1);
-            root.Children.Add(scroller);
+            // Ensure the Invites host is visible and header reflects the active view.
+            try { ShowInvitesHost(); } catch { }
 
-            filterBtn.Click += (_, __) => { showInvites = !showInvites; UpdateFilterTip(); Render(); };
-            clearAllBtn.Click += (_, __) =>
-            {
-                try
-                {
-                    // Clear Notices only; do not touch invites
-                    notices.Clear();
-                    if (!showInvites) Render();
-                }
-                catch { }
-            };
-            clearInvBtn.Click += (_, __) =>
-            {
-                try
-                {
-                    AppServices.ContactRequests.ClearAllPendingInbound();
-                    if (showInvites) Render();
-                    RefreshPendingInviteFlag();
-                }
-                catch { }
-            };
-            closeBtn.Click += (_, __) => { try { win.Close(); } catch { } };
-            win.Content = root;
-            win.ShowDialog(this);
+            // Refresh ViewModel aggregated state so badges/counts update immediately.
+            try { if (DataContext is MainWindowViewModel vm) { vm.RefreshHasPendingInvites(); } } catch { }
+
+            // Render invites immediately so the user sees content in the right panel.
+            try { RenderInvitesPanel(); } catch { }
+            try { AttachRightPanelEventHandlers(); } catch { }
         }
         catch { }
     }
@@ -4348,6 +4517,538 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var rightRoot = this.FindControl<Border>("RightPanelRoot");
             if (rightRoot != null) rightRoot.IsVisible = visible;
         }
+    }
+
+    private enum RightPanelView
+    {
+        Invites,
+        Messages
+    }
+
+    private RightPanelView _rightPanelView = RightPanelView.Invites;
+
+    // Helpers to switch the content hosts inside the right notifications panel.
+    // Kept as top-level private methods (not nested) so they can be incrementally extended and tested.
+    private void ShowInvitesHost() => SwitchRightPanelView(RightPanelView.Invites);
+
+    private void ShowMessagesHost() => SwitchRightPanelView(RightPanelView.Messages);
+
+    private void SwitchRightPanelView(RightPanelView target)
+    {
+        try
+        {
+            _rightPanelView = target;
+            var invitesHost = this.FindControl<ScrollViewer>("InvitesHost");
+            var messagesHost = this.FindControl<ScrollViewer>("MessagesHost");
+            if (invitesHost != null) invitesHost.IsVisible = target == RightPanelView.Invites;
+            if (messagesHost != null) messagesHost.IsVisible = target == RightPanelView.Messages;
+        }
+        catch { }
+        try { UpdateRightPanelHeaderAndControls(); } catch { }
+    }
+
+    private void UpdateRightPanelHeaderAndControls()
+    {
+        try
+        {
+            var title = this.FindControl<TextBlock>("NotificationsTitle");
+            if (title != null)
+            {
+                title.Text = _rightPanelView == RightPanelView.Invites ? "Pending Invites" : "Messages";
+            }
+        }
+        catch { }
+        try
+        {
+            var rejectBtn = this.FindControl<Button>("RejectAllInvitesBtn");
+            if (rejectBtn != null) rejectBtn.IsVisible = _rightPanelView == RightPanelView.Invites;
+        }
+        catch { }
+        try
+        {
+            var markBtn = this.FindControl<Button>("MarkAllMessagesBtn");
+            if (markBtn != null) markBtn.IsVisible = _rightPanelView == RightPanelView.Messages;
+        }
+        catch { }
+        try
+        {
+            var prevBtn = this.FindControl<Button>("NotifPrevBtn");
+            if (prevBtn != null) prevBtn.IsEnabled = _rightPanelView == RightPanelView.Messages;
+        }
+        catch { }
+        try
+        {
+            var nextBtn = this.FindControl<Button>("NotifNextBtn");
+            if (nextBtn != null) nextBtn.IsEnabled = _rightPanelView == RightPanelView.Invites;
+        }
+        catch { }
+    }
+
+    private static string TrimUidPrefix(string uid)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
+            return uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+        }
+        catch { return string.Empty; }
+    }
+
+    // Ensure the right-panel content hosts exist and are initialized.
+    // This creates lightweight placeholders if the XAML host elements are missing (defensive init).
+    private void EnsureRightPanelHostsInitialized()
+    {
+        try
+        {
+            var rightRoot = this.FindControl<Border>("RightPanelRoot");
+            if (rightRoot == null) return;
+
+            var invitesHost = this.FindControl<ScrollViewer>("InvitesHost");
+            var messagesHost = this.FindControl<ScrollViewer>("MessagesHost");
+            var invitesStack = this.FindControl<StackPanel>("InvitesStack");
+            var messagesStack = this.FindControl<StackPanel>("MessagesStack");
+
+            // If hosts are missing (e.g., XAML changed), create safe placeholders so callers don't NRE.
+            if (invitesHost == null || invitesStack == null)
+            {
+                var newInvitesStack = invitesStack ?? new StackPanel { Name = "InvitesStack", Margin = new Thickness(4), Spacing = 6 };
+                var newInvitesHost = invitesHost ?? new ScrollViewer { Name = "InvitesHost", VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = newInvitesStack };
+                // Attach to rightRoot if possible
+                if (rightRoot.Child is Grid g && !g.Children.Contains(newInvitesHost))
+                {
+                    Grid.SetRow(newInvitesHost, 2);
+                    g.Children.Add(newInvitesHost);
+                }
+            }
+            if (messagesHost == null || messagesStack == null)
+            {
+                var newMessagesStack = messagesStack ?? new StackPanel { Name = "MessagesStack", Margin = new Thickness(4), Spacing = 6 };
+                var newMessagesHost = messagesHost ?? new ScrollViewer { Name = "MessagesHost", VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = newMessagesStack };
+                if (rightRoot.Child is Grid g2 && !g2.Children.Contains(newMessagesHost))
+                {
+                    Grid.SetRow(newMessagesHost, 2);
+                    g2.Children.Add(newMessagesHost);
+                }
+            }
+            // Default to invites shown
+            ShowInvitesHost();
+        }
+        catch { }
+    }
+
+    // Event handler fields for right panel live updates
+    private Action? _rightPanelPendingChangedHandler;
+    private Action? _rightPanelNoticesChangedHandler;
+    // UI handlers for header buttons so we can detach them safely
+    private EventHandler<RoutedEventArgs>? _rejectAllInvitesHandler;
+    private EventHandler<RoutedEventArgs>? _markAllMessagesHandler;
+    private EventHandler<RoutedEventArgs>? _notifPrevHandler;
+    private EventHandler<RoutedEventArgs>? _notifNextHandler;
+    private bool _rightPanelButtonsWired = false;
+
+    private void AttachRightPanelEventHandlers()
+    {
+        try
+        {
+            if (_rightPanelPendingChangedHandler == null)
+            {
+                _rightPanelPendingChangedHandler = () =>
+                {
+                    try
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            try { RenderInvitesPanel(); if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites(); } catch { }
+                        });
+                    }
+                    catch { }
+                };
+                try { AppServices.ContactRequests.PendingChanged += _rightPanelPendingChangedHandler; } catch { }
+            }
+            if (_rightPanelNoticesChangedHandler == null)
+            {
+                _rightPanelNoticesChangedHandler = () =>
+                {
+                    try
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            try { RenderMessagesPanel(); if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites(); } catch { }
+                        });
+                    }
+                    catch { }
+                };
+                try { AppServices.Notifications.NoticesChanged += _rightPanelNoticesChangedHandler; } catch { }
+            }
+            if (!_rightPanelButtonsWired)
+            {
+                try
+                {
+                    var rejectBtn = this.FindControl<Button>("RejectAllInvitesBtn");
+                    var markAllBtn = this.FindControl<Button>("MarkAllMessagesBtn");
+                    var prevBtn = this.FindControl<Button>("NotifPrevBtn");
+                    var nextBtn = this.FindControl<Button>("NotifNextBtn");
+                    if (rejectBtn != null)
+                    {
+                        _rejectAllInvitesHandler ??= new EventHandler<RoutedEventArgs>(RejectAllInvites_Click);
+                        rejectBtn.Click += _rejectAllInvitesHandler;
+                    }
+                    if (markAllBtn != null)
+                    {
+                        _markAllMessagesHandler ??= new EventHandler<RoutedEventArgs>(MarkAllMessages_Click);
+                        markAllBtn.Click += _markAllMessagesHandler;
+                    }
+                    if (prevBtn != null)
+                    {
+                        _notifPrevHandler ??= new EventHandler<RoutedEventArgs>(NotifPrev_Click);
+                        prevBtn.Click += _notifPrevHandler;
+                    }
+                    if (nextBtn != null)
+                    {
+                        _notifNextHandler ??= new EventHandler<RoutedEventArgs>(NotifNext_Click);
+                        nextBtn.Click += _notifNextHandler;
+                    }
+                    _rightPanelButtonsWired = true;
+                }
+                catch { }
+            }
+            try { ShowInvitesHost(); } catch { }
+            try { RenderInvitesPanel(); } catch { }
+        }
+        catch { }
+    }
+
+    private void NotifPrev_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_rightPanelView == RightPanelView.Messages)
+            {
+                ShowInvitesHost();
+                try { RenderInvitesPanel(); } catch { }
+            }
+        }
+        catch { }
+    }
+
+    private void NotifNext_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_rightPanelView == RightPanelView.Invites)
+            {
+                ShowMessagesHost();
+                try { RenderMessagesPanel(); } catch { }
+            }
+        }
+        catch { }
+    }
+
+    private void DetachRightPanelEventHandlers()
+    {
+        try
+        {
+            if (_rightPanelPendingChangedHandler != null)
+            {
+                try { AppServices.ContactRequests.PendingChanged -= _rightPanelPendingChangedHandler; } catch { }
+                _rightPanelPendingChangedHandler = null;
+            }
+        }
+        catch { }
+        try
+        {
+            if (_rightPanelNoticesChangedHandler != null)
+            {
+                try { AppServices.Notifications.NoticesChanged -= _rightPanelNoticesChangedHandler; } catch { }
+                _rightPanelNoticesChangedHandler = null;
+            }
+        }
+        catch { }
+        try
+        {
+            if (_rightPanelButtonsWired)
+            {
+                try
+                {
+                    var rejectBtn = this.FindControl<Button>("RejectAllInvitesBtn");
+                    if (rejectBtn != null && _rejectAllInvitesHandler != null) rejectBtn.Click -= _rejectAllInvitesHandler;
+                }
+                catch { }
+                try
+                {
+                    var markAllBtn = this.FindControl<Button>("MarkAllMessagesBtn");
+                    if (markAllBtn != null && _markAllMessagesHandler != null) markAllBtn.Click -= _markAllMessagesHandler;
+                }
+                catch { }
+                try
+                {
+                    var prevBtn = this.FindControl<Button>("NotifPrevBtn");
+                    if (prevBtn != null && _notifPrevHandler != null) prevBtn.Click -= _notifPrevHandler;
+                }
+                catch { }
+                try
+                {
+                    var nextBtn = this.FindControl<Button>("NotifNextBtn");
+                    if (nextBtn != null && _notifNextHandler != null) nextBtn.Click -= _notifNextHandler;
+                }
+                catch { }
+                _rejectAllInvitesHandler = null;
+                _markAllMessagesHandler = null;
+                _notifPrevHandler = null;
+                _notifNextHandler = null;
+                _rightPanelButtonsWired = false;
+            }
+        }
+        catch { }
+    }
+
+    private async void RejectAllInvites_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+
+            bool confirmed = false;
+            try
+            {
+                confirmed = await AppServices.Dialogs.ConfirmAsync(
+                    "Reject all invites",
+                    "Are you sure you want to reject all pending contact invites? This cannot be undone.",
+                    "Reject All",
+                    "Cancel");
+            }
+            catch { }
+            if (!confirmed) return;
+
+            if (DataContext is MainWindowViewModel vm)
+            {
+                try { vm.ClearInvitesCommand.Execute(null); } catch { }
+                try { RenderInvitesPanel(); vm.RefreshHasPendingInvites(); } catch { }
+            }
+            else
+            {
+                // Fallback: clear via service and optimistically clear notices
+                try
+                {
+                    var pending = AppServices.ContactRequests.PendingInboundRequests.ToList();
+                    var origins = pending.Select(p => p.Uid).Where(u => !string.IsNullOrWhiteSpace(u)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                    // Optimistically remove notices
+                    try { AppServices.Notifications.RemoveNoticesForOrigins(origins); } catch { }
+                    // Clear pending invites
+                    try { AppServices.ContactRequests.ClearAllPendingInbound(); } catch { }
+                    try { RenderInvitesPanel(); } catch { }
+                }
+                catch { }
+            }
+        }
+        catch { }
+    }
+
+    private void MarkAllMessages_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                try { vm.MarkAllNotificationMessagesReadAndClear(); } catch { }
+                try { RenderMessagesPanel(); vm.RefreshHasPendingInvites(); } catch { }
+            }
+            else
+            {
+                try
+                {
+                    try { AppServices.Notifications.ClearNotices(); } catch { }
+                    try { RenderMessagesPanel(); } catch { }
+                }
+                catch { }
+            }
+        }
+        catch { }
+    }
+
+    // Render the Invites host contents from the ContactRequestsService pending list.
+    private void RenderInvitesPanel()
+    {
+        try
+        {
+            // Always run UI mutations on UI thread
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var invitesStack = this.FindControl<StackPanel>("InvitesStack");
+                    if (invitesStack == null) return;
+                    invitesStack.Children.Clear();
+                    var rawInvites = AppServices.ContactRequests.PendingInboundRequests.OrderByDescending(p => p.ReceivedAt).ToList();
+                    var vm = DataContext as MainWindowViewModel;
+                    var invites = rawInvites
+                        .Where(p => vm == null || !vm.ShouldSuppressInvite(p.Uid))
+                        .ToList();
+                    foreach (var p in invites)
+                    {
+                        var txt = new TextBlock { Text = $"{p.DisplayName} ({p.Uid})", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+                        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
+                        row.Children.Add(txt);
+                        var accept = new Button { Content = "Accept", Margin = new Thickness(6,0,0,0), Padding = new Thickness(8,2) };
+                        var reject = new Button { Content = "Reject", Margin = new Thickness(6,0,0,0), Padding = new Thickness(8,2) };
+                        Grid.SetColumn(accept, 1); Grid.SetColumn(reject, 2);
+                        accept.Click += async (_, __) => { try { await AppServices.ContactRequests.AcceptPendingAsync(p.Nonce); if (DataContext is MainWindowViewModel vm) vm.AddOptimisticCleared(p.Uid); RenderInvitesPanel(); } catch { } };
+                        reject.Click += async (_, __) => { try { await AppServices.ContactRequests.RejectPendingAsync(p.Nonce); if (DataContext is MainWindowViewModel vm) vm.AddOptimisticCleared(p.Uid); RenderInvitesPanel(); } catch { } };
+                        row.Children.Add(accept); row.Children.Add(reject);
+                        invitesStack.Children.Add(new Border { Padding = new Thickness(6), Background = (IBrush?)Application.Current?.FindResource("App.Surface"), BorderBrush = (IBrush?)Application.Current?.FindResource("App.Border"), BorderThickness = new Thickness(1), Child = row });
+                    }
+                    if (invites.Count == 0)
+                        invitesStack.Children.Add(new TextBlock { Text = "No pending invites.", Opacity = 0.7 });
+                }
+                catch { }
+            }, DispatcherPriority.Background);
+        }
+        catch { }
+    }
+
+    // Render the Messages host contents from the notification service snapshot.
+    private void RenderMessagesPanel()
+    {
+        try
+        {
+            var noticesSnapshot = AppServices.Notifications.Notices?
+                .Where(n => n.IsMessage)
+                .ToList() ?? new List<NotificationService.NotificationItem>();
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var messagesStack = this.FindControl<StackPanel>("MessagesStack");
+                    if (messagesStack == null) return;
+                    messagesStack.Children.Clear();
+                    var notices = noticesSnapshot.OrderByDescending(n => n.Utc).ToList();
+                    foreach (var notice in notices)
+                    {
+                        messagesStack.Children.Add(BuildNotificationMessageEntry(notice));
+                    }
+                    if (notices.Count == 0)
+                    {
+                        messagesStack.Children.Add(new TextBlock { Text = "No recent messages.", Opacity = 0.7 });
+                    }
+                }
+                catch { }
+            }, DispatcherPriority.Background);
+        }
+        catch { }
+    }
+
+    private Control BuildNotificationMessageEntry(NotificationService.NotificationItem notice)
+    {
+        var button = new Button
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 0, 0, 6),
+            Padding = new Thickness(0),
+            Tag = notice,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0)
+        };
+        button.Click += NotificationMessage_Click;
+
+        var accentBrush = (IBrush?)Application.Current?.FindResource("App.Accent") ?? Brushes.DodgerBlue;
+        var surfaceBrush = (IBrush?)Application.Current?.FindResource("App.Surface") ?? Brushes.Transparent;
+        var borderBrush = (IBrush?)Application.Current?.FindResource("App.Border") ?? Brushes.Gray;
+
+        var root = new Grid { ColumnDefinitions = new ColumnDefinitions("4,*") };
+
+        var indicator = new Border
+        {
+            Background = notice.IsUnread ? accentBrush : Brushes.Transparent,
+            CornerRadius = new CornerRadius(2)
+        };
+        Grid.SetColumn(indicator, 0);
+
+        var contentBorder = new Border
+        {
+            Padding = new Thickness(8),
+            Background = surfaceBrush,
+            BorderBrush = borderBrush,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6)
+        };
+        Grid.SetColumn(contentBorder, 1);
+
+        var contentStack = new StackPanel { Spacing = 4 };
+
+        var displayTitle = !string.IsNullOrWhiteSpace(notice.Title)
+            ? notice.Title
+            : TrimUidPrefix(notice.OriginUid ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(displayTitle))
+        {
+            displayTitle = "Message";
+        }
+        contentStack.Children.Add(new TextBlock
+        {
+            Text = displayTitle,
+            FontWeight = notice.IsUnread ? FontWeight.Bold : FontWeight.SemiBold
+        });
+
+        var bodyText = notice.FullBody ?? notice.Body;
+        if (!string.IsNullOrWhiteSpace(bodyText))
+        {
+            contentStack.Children.Add(new TextBlock
+            {
+                Text = bodyText,
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
+
+        var metaPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+        metaPanel.Children.Add(new TextBlock
+        {
+            Text = notice.IsIncoming ? "Incoming" : "Outgoing",
+            FontSize = 11,
+            Opacity = 0.65
+        });
+        metaPanel.Children.Add(new TextBlock
+        {
+            Text = notice.IsUnread ? "Unread" : "Read",
+            FontSize = 11,
+            Opacity = notice.IsUnread ? 0.8 : 0.6
+        });
+        metaPanel.Children.Add(new TextBlock
+        {
+            Text = notice.Utc.ToLocalTime().ToString("g"),
+            FontSize = 11,
+            Opacity = 0.6
+        });
+        contentStack.Children.Add(metaPanel);
+
+        contentBorder.Child = contentStack;
+        root.Children.Add(indicator);
+        root.Children.Add(contentBorder);
+
+        button.Content = root;
+        return button;
+    }
+
+    private void NotificationMessage_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (sender is not Button button) return;
+            if (button.Tag is not NotificationService.NotificationItem notice) return;
+            if (!notice.IsMessage) return;
+
+            if (!string.IsNullOrWhiteSpace(notice.OriginUid) && DataContext is MainWindowViewModel vm)
+            {
+                vm.FocusConversation(notice.OriginUid);
+            }
+
+            var targetId = notice.MessageId ?? notice.Id;
+            if (targetId != Guid.Empty)
+            {
+                try { AppServices.Notifications.MarkMessageNoticeRead(targetId); } catch { }
+            }
+
+            e.Handled = true;
+        }
+        catch { }
     }
 
     // Public API: Reset main UI to defaults (panel visibility + layout) and persist immediately.
@@ -4653,6 +5354,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
         }
         catch { }
+        try { AppServices.ContactRequests.RequestReceived -= OnInviteRequestReceived; } catch { }
+        try { AppServices.ContactRequests.PendingChanged -= OnInvitePendingChangedForToast; } catch { }
+    _inviteToastEventsHooked = false;
+        try { _inviteToastCts?.Cancel(); } catch { }
+        try
+        {
+            _inviteToastWindow?.Close();
+        }
+        catch { }
+        finally
+        {
+            _inviteToastWindow = null;
+            _inviteToastBorder = null;
+            _inviteToastTitle = null;
+            _inviteToastBody = null;
+            _inviteToastViewBtn = null;
+            _inviteToastDismissBtn = null;
+        }
+        try { DetachRightPanelEventHandlers(); } catch { }
         ClearMessageHandlers();
         GC.SuppressFinalize(this);
     }

@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:core="clr-namespace:ZTalk"
     xmlns:vm="clr-namespace:ZTalk.ViewModels"
     xmlns:v="clr-namespace:ZTalk.Views"
     xmlns:models="clr-namespace:ZTalk.Models"
@@ -124,6 +125,22 @@
             <Setter Property="Background" Value="{DynamicResource App.ItemHover}" />
             <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}" />
         </Style>
+        <!-- Tame tab underline and use subtle hover/selected visuals for TabControls -->
+        <Style Selector="TabControl TabItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,4" />
+        </Style>
+        <Style Selector="TabControl TabItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource App.ItemHover}" />
+            <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}" />
+        </Style>
+        <Style Selector="TabControl TabItem:selected">
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource App.Accent}" />
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*" Background="{DynamicResource App.Surface}">
@@ -147,7 +164,7 @@
                 <!-- Center: Prototype tag, smack-dab in the middle -->
                 <Grid Grid.Column="1" IsHitTestVisible="False">
                     <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#FFA500" Padding="10,3" CornerRadius="8">
-                        <TextBlock Text="{Binding PrototypeBadgeText}" Foreground="Black" FontWeight="Bold"/>
+                        <TextBlock Text="{x:Static core:AppInfo.PrototypeBadgeText}" Foreground="Black" FontWeight="Bold"/>
                     </Border>
                 </Grid>
 
@@ -169,8 +186,15 @@
                     <Button Classes="icon-button" ToolTip.Tip="Toggle Contacts" Click="ToggleLeftPanel_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE700;"/>
                     </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Toggle Diagnostics" Click="ToggleRightPanel_Click">
-                        <TextBlock Classes="icon-mdl2" Text="&#xE90C;"/>
+                    <Button Classes="icon-button" ToolTip.Tip="Open Notifications" Click="ToggleRightPanel_Click">
+                        <!-- Bell glyph with compact red-dot badge to mirror nav rail -->
+                        <Grid Width="20" Height="20">
+                            <Path Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource App.ForegroundPrimary}" IsHitTestVisible="False"
+                                  Data="M12,2 C8.7,2 6,4.7 6,8 L6,11.3 C6,11.76 5.8,12.2 5.45,12.5 L4,14 L20,14 L18.55,12.5 C18.2,12.2 18,11.76 18,11.3 L18,8 C18,4.7 15.3,2 12,2 Z M9,18 C9,19.66 10.34,21 12,21 C13.66,21 15,19.66 15,18 Z"/>
+                            <Ellipse Width="8" Height="8" Fill="#DD3333" Stroke="{DynamicResource App.Background}" StrokeThickness="1"
+                                     HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0"
+                                     IsHitTestVisible="False" IsVisible="{Binding NotificationBadgeVisible}" />
+                        </Grid>
                     </Button>
                     <Button Classes="icon-button" ToolTip.Tip="Lock / Logout" Click="Lock_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE72E;"/>
@@ -226,12 +250,14 @@
                         <!-- Constrain to square; center contents to match other nav glyphs -->
                         <Grid Width="32" Height="32" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <!-- Vector bell icon (custom path) centered; size aligned with other icons -->
-                            <Path Width="24" Height="24" Stretch="Uniform" Fill="{DynamicResource App.ForegroundPrimary}"
-                                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                                  Data="M12,2 C8.7,2 6,4.7 6,8 L6,11.3 C6,11.76 5.8,12.2 5.45,12.5 L4,14 L20,14 L18.55,12.5 C18.2,12.2 18,11.76 18,11.3 L18,8 C18,4.7 15.3,2 12,2 Z M9,18 C9,19.66 10.34,21 12,21 C13.66,21 15,19.66 15,18 Z"/>
-                            <Ellipse Width="10" Height="10" Fill="#DD3333" Stroke="{DynamicResource App.Background}" StrokeThickness="1"
-                                     HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0"
-                                     IsVisible="{Binding HasPendingInvites}"/>
+                    <Path Width="24" Height="24" Stretch="Uniform" Fill="{DynamicResource App.ForegroundPrimary}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        IsHitTestVisible="False"
+                        Data="M12,2 C8.7,2 6,4.7 6,8 L6,11.3 C6,11.76 5.8,12.2 5.45,12.5 L4,14 L20,14 L18.55,12.5 C18.2,12.2 18,11.76 18,11.3 L18,8 C18,4.7 15.3,2 12,2 Z M9,18 C9,19.66 10.34,21 12,21 C13.66,21 15,19.66 15,18 Z"/>
+                    <!-- Compact red dot badge (classic) - shown when there's any notification -->
+                    <Ellipse Width="10" Height="10" Fill="#DD3333" Stroke="{DynamicResource App.Background}" StrokeThickness="1"
+                             HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
+                             IsHitTestVisible="False" IsVisible="{Binding NotificationBadgeVisible}" />
                         </Grid>
                     </Button>
                     <Button Classes="icon-button" ToolTip.Tip="Home" Click="Home_Click">
@@ -368,22 +394,9 @@
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <Separator/>
-                                        <MenuItem Header="Mark as trusted"
-                                                  Command="{Binding $parent[v:MainWindow].DataContext.TrustContactCommand}"
-                                                  CommandParameter="{Binding UID}"
-                                                  IsVisible="{Binding IsTrusted, Converter={StaticResource InverseBoolConverter}}">
-                                            <MenuItem.Icon>
-                                                <TextBlock Classes="icon-mdl2" Text="&#xE72E;"/>
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="Remove trusted flag"
-                                                  Command="{Binding $parent[v:MainWindow].DataContext.UntrustContactCommand}"
-                                                  CommandParameter="{Binding UID}"
-                                                  IsVisible="{Binding IsTrusted}">
-                                            <MenuItem.Icon>
-                                                <TextBlock Classes="icon-mdl2" Text="&#xE711;"/>
-                                            </MenuItem.Icon>
-                                        </MenuItem>
+                                        <!-- DEPRECATED: Mark as trusted (replaced by cryptographic verification) -->
+                                        <!-- MenuItem Header="Mark as trusted" removed per design decision -->
+                                        <!-- MenuItem Header="Remove trusted flag" removed per design decision -->
                                         <MenuItem Header="Set simulated presence"
                                                   IsVisible="{Binding IsSimulated}">
                                             <MenuItem.Items>
@@ -468,7 +481,7 @@
                                         <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
                                             <TextBlock Text="{Binding DisplayUID}" FontSize="12" Opacity="0.65"/>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Presence}" FontSize="12" Opacity="0.6"/>
+                                                <TextBlock Text="{Binding Presence, Converter={StaticResource PresenceToDisplayStringConverter}}" FontSize="12" Opacity="0.6"/>
                                                 <Border Background="#444" CornerRadius="4" Padding="4,1" IsVisible="{Binding LastKnownEncrypted}">
                                                     <TextBlock Text="Encrypted" Foreground="White" FontSize="10"/>
                                                 </Border>
@@ -477,8 +490,14 @@
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2" Orientation="Vertical" Spacing="4" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding LastPresenceUtc, StringFormat='{}{0:HH:mm}'}" FontSize="11" Opacity="0.5"
-                                                   IsVisible="{Binding LastPresenceUtc, Converter={StaticResource ObjectNotNullConverter}}"/>
+                                        <TextBlock Text="{Binding LastPresenceUtc, StringFormat='{}{0:HH:mm}'}" FontSize="11" Opacity="0.5">
+                                            <TextBlock.IsVisible>
+                                                <MultiBinding Converter="{StaticResource LastSeenTimestampVisibilityConverter}">
+                                                    <Binding Path="Presence"/>
+                                                    <Binding Path="LastPresenceUtc"/>
+                                                </MultiBinding>
+                                            </TextBlock.IsVisible>
+                                        </TextBlock>
                                     </StackPanel>
                                 </Grid>
                             </Border>
@@ -872,6 +891,46 @@
                                        TargetTextBox="{Binding #MessageInput}"/>
                 </Popup>
             </Grid>
+            <!-- Right-side Diagnostics / Notifications panel (repurposed) -->
+            <Border x:Name="RightPanelRoot" Grid.Column="5" Padding="8" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" MinWidth="220" IsVisible="False">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <!-- Header: arrows + title + toolbar actions -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Button x:Name="NotifPrevBtn" Classes="icon-button" ToolTip.Tip="Previous" Width="28" Height="28">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE100;"/>
+                            </Button>
+                            <Button x:Name="NotifNextBtn" Classes="icon-button" ToolTip.Tip="Next" Width="28" Height="28">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE101;"/>
+                            </Button>
+                        </StackPanel>
+                        <TextBlock x:Name="NotificationsTitle" Grid.Column="1" Text="Pending Invites" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                            <Button x:Name="RejectAllInvitesBtn" Classes="icon-button" ToolTip.Tip="Clear Invites" IsVisible="True">
+                                <Grid Width="16" Height="16" IsHitTestVisible="False">
+                                    <Ellipse Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="1.6" />
+                                    <Path Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="1.6" Data="M3,13 L13,3" />
+                                </Grid>
+                            </Button>
+                            <Button x:Name="MarkAllMessagesBtn" Classes="icon-button" ToolTip.Tip="Mark all messages read" IsVisible="True">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE8C3;"/>
+                            </Button>
+                            <Button x:Name="CloseNotificationsBtn" Classes="icon-button" ToolTip.Tip="Close" Click="ToggleRightPanel_Click">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE711;"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Tab-like content hosts (we'll use simple visibility switching via code-behind) -->
+                    <ScrollViewer x:Name="InvitesHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="True">
+                        <StackPanel x:Name="InvitesStack" Margin="4" Spacing="6" />
+                    </ScrollViewer>
+                    <ScrollViewer x:Name="MessagesHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="False">
+                        <StackPanel x:Name="MessagesStack" Margin="4" Spacing="6" />
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+            <!-- Slide-in invite toast (top-right) -->
             <!-- Close BodyGrid before overlays to keep hierarchy balanced -->
         </Grid>
         <!-- Full Profile Overlay marker below remains unchanged -->
@@ -949,7 +1008,7 @@
                                     </StackPanel>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Presence" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedContact.Presence}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedContact.Presence, Converter={StaticResource PresenceToDisplayStringConverter}}" VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Prev. Name" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8">

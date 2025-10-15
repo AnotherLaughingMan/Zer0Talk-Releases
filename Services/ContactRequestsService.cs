@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
+using Avalonia.Threading;
 using Models = ZTalk.Models;
 
 namespace ZTalk.Services
@@ -37,6 +38,8 @@ namespace ZTalk.Services
     private readonly ConcurrentDictionary<string, bool> _verifyReceived = new(StringComparer.OrdinalIgnoreCase);
     // Manual verification requests (peer asks to open dialog). Track pending by UID.
     private readonly ConcurrentDictionary<string, bool> _verifyRequestPending = new(StringComparer.OrdinalIgnoreCase);
+    // Offline contact request queue: UID -> (nonce, displayName, timestamp)
+    private readonly ConcurrentDictionary<string, (string Nonce, string DisplayName, DateTime QueuedAt)> _offlineQueue = new(StringComparer.OrdinalIgnoreCase);
 
         public ContactRequestsService(IdentityService identity, NetworkService net, SettingsService settings, ContactManager contacts, DialogService dialogs)
         {
@@ -48,6 +51,8 @@ namespace ZTalk.Services
 
     // UI event raised on dispatcher by caller: a new inbound contact request enqueued
     public event Action<PendingContactRequest>? RequestReceived;
+    // Raised when the pending inbound collection changes (add/remove/clear)
+    public event Action? PendingChanged;
     // Raised when a manual verification request arrives (show in notifications)
     public event Action<string>? VerifyRequestReceived; // arg: uid
     public event Action<string>? VerifyRequestCancelled; // arg: uid
@@ -89,6 +94,11 @@ namespace ZTalk.Services
             if (!okRelayOrDirect)
             {
                 SafeLogNetError($"contact-request connect-fail uid={Trim(uid)} host={host} port={port}");
+                // Queue for retry when peer comes online
+                var offlineNonce = Guid.NewGuid().ToString("N");
+                var offlineDisplayName = _identity.DisplayName ?? string.Empty;
+                _offlineQueue[Trim(uid)] = (offlineNonce, offlineDisplayName, DateTime.UtcNow);
+                try { Utilities.Logger.Log($"Queued offline contact request for {Trim(uid)} - will retry when online"); } catch { }
                 return ContactRequestResult.NotFound;
             }
             // Wait a short grace period for session registration (handshake completion)
@@ -131,16 +141,25 @@ namespace ZTalk.Services
                 // Await accept/cancel
                 using var _ = cts.Token.Register(() => tcs.TrySetResult(ContactRequestResult.Timeout));
                 var result = await tcs.Task;
-                if (result == ContactRequestResult.Accepted)
+                // OnInboundAccept will have already added the contact when C1 frame arrives
+                // If successful, just update ExpectedPublicKeyHex if provided and verify
+                if (result == ContactRequestResult.Accepted && !string.IsNullOrWhiteSpace(expectedPublicKeyHex))
                 {
-                    // Add contact locally. We do NOT use our own display name here.
-                    // If we don't have a peer-provided name, default to UID; it can be updated later.
-                    var dn = uid;
-                    var c = new Models.Contact { UID = uid, DisplayName = dn, ExpectedPublicKeyHex = NormalizeHex(expectedPublicKeyHex) };
-                    _contacts.AddContact(c, AppServices.Passphrase);
-                    AppServices.Peers.IncludeContacts();
-                    // If the peer is currently known and has an observed pubkey, validate immediately
-                    TryImmediatePeerVerification(c);
+                    try
+                    {
+                        var contact = _contacts.Contacts.FirstOrDefault(c => string.Equals(c.UID, uid, StringComparison.OrdinalIgnoreCase));
+                        if (contact != null)
+                        {
+                            var normalized = NormalizeHex(expectedPublicKeyHex);
+                            if (normalized != contact.ExpectedPublicKeyHex)
+                            {
+                                contact.ExpectedPublicKeyHex = normalized;
+                                _contacts.Save(AppServices.Passphrase);
+                            }
+                            TryImmediatePeerVerification(contact);
+                        }
+                    }
+                    catch { }
                 }
                 return result;
             }
@@ -218,8 +237,15 @@ namespace ZTalk.Services
             _pendingInbound[nonce] = req;
             _uidToNonce[trimmedUid] = nonce;
             try { Utilities.Logger.Log($"Inbound contact request queued from {trimmedUid} nonce={nonce}"); } catch { }
+            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] OnInboundRequest queued uid={trimmedUid} nonce={nonce} count={_pendingInbound.Count}\n"); } catch { }
             // Fire event (UI will toast / panel)
             try { RequestReceived?.Invoke(req); } catch { }
+            try
+            {
+                if (PendingChanged != null) { PendingChanged.Invoke(); }
+                else { try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS (OnInboundRequest) count={_pendingInbound.Count}\n"); } catch { } }
+            }
+            catch { }
             await Task.CompletedTask;
         }
 
@@ -227,13 +253,28 @@ namespace ZTalk.Services
         {
             try
             {
-                if (!_pendingInbound.TryRemove(nonce, out var req)) return false;
+                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] AcceptPending START nonce={nonce} currentCountBefore={_pendingInbound.Count}\n"); } catch { }
+                if (!_pendingInbound.TryRemove(nonce, out var req))
+                {
+                    try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] AcceptPending FAILED remove nonce={nonce} currentCount={_pendingInbound.Count}\n"); } catch { }
+                    return false;
+                }
                 _uidToNonce.TryRemove(req.Uid, out _);
                 try { Utilities.Logger.Log($"Contact request ACCEPTED for {req.Uid}"); } catch { }
+                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] AcceptPending removed nonce={nonce} newCount={_pendingInbound.Count}\n"); } catch { }
+                try
+                {
+                    if (PendingChanged != null) { PendingChanged.Invoke(); if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged invoked after accept nonce={nonce} count={_pendingInbound.Count}\n"); }
+                    else { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS after accept nonce={nonce} count={_pendingInbound.Count}\n"); }
+                }
+                catch { }
                 await _net.SendContactAcceptAsync(Trim(req.Uid), nonce, CancellationToken.None);
                 var dn2 = string.IsNullOrWhiteSpace(req.DisplayName) ? Trim(req.Uid) : req.DisplayName;
-                _contacts.AddContact(new Models.Contact { UID = Trim(req.Uid), DisplayName = dn2, ExpectedPublicKeyHex = null }, AppServices.Passphrase);
+                var contact = new Models.Contact { UID = Trim(req.Uid), DisplayName = dn2, ExpectedPublicKeyHex = null };
+                _contacts.AddContact(contact, AppServices.Passphrase);
                 AppServices.Peers.IncludeContacts();
+                // Try immediate peer verification if peer is present
+                TryImmediatePeerVerification(contact);
                 return true;
             }
             catch { return false; }
@@ -243,10 +284,21 @@ namespace ZTalk.Services
         {
             try
             {
-                if (!_pendingInbound.TryRemove(nonce, out var req)) return false;
+                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] RejectPending START nonce={nonce} currentCountBefore={_pendingInbound.Count}\n"); } catch { }
+                if (!_pendingInbound.TryRemove(nonce, out var req))
+                {
+                    try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] RejectPending FAILED remove nonce={nonce} currentCount={_pendingInbound.Count}\n"); } catch { }
+                    return false;
+                }
                 _uidToNonce.TryRemove(req.Uid, out _);
                 try { Utilities.Logger.Log($"Contact request REJECTED for {req.Uid}"); } catch { }
                 await _net.SendContactCancelAsync(Trim(req.Uid), nonce, CancellationToken.None);
+                try
+                {
+                    if (PendingChanged != null) { PendingChanged.Invoke(); if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged invoked after reject nonce={nonce} count={_pendingInbound.Count}\n"); }
+                    else { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS after reject nonce={nonce} count={_pendingInbound.Count}\n"); }
+                }
+                catch { }
                 return true;
             }
             catch { return false; }
@@ -266,6 +318,13 @@ namespace ZTalk.Services
                 _uidToNonce[trimmed] = nonce;
                 try { Utilities.Logger.Log($"[SIM] Inbound contact request queued from {trimmed} nonce={nonce}"); } catch { }
                 try { RequestReceived?.Invoke(req); } catch { }
+                try
+                {
+                    if (PendingChanged != null) { PendingChanged.Invoke(); }
+                    else { try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS (Simulate) count={_pendingInbound.Count}\n"); } catch { } }
+                }
+                catch { }
+                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] SimulateInbound queued uid={trimmed} nonce={nonce} count={_pendingInbound.Count}\n"); } catch { }
             }
             catch { }
         }
@@ -281,13 +340,80 @@ namespace ZTalk.Services
                     if (_pendingInbound.TryRemove(kv.Key, out _)) count++;
                 }
                 _uidToNonce.Clear();
+                try
+                {
+                    if (PendingChanged != null) { PendingChanged.Invoke(); }
+                    else { try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS (ClearAll) newCount={_pendingInbound.Count}\n"); } catch { } }
+                }
+                catch { }
+                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] ClearAllPendingInbound removed={count} newCount={_pendingInbound.Count}\n"); } catch { }
             }
             catch { }
             return count;
         }
 
-        public void OnInboundAccept(string nonce)
+        public void OnInboundAccept(string nonce, string accepterUid, string? accepterDisplayName)
         {
+            // Automatically add the accepter as a contact (bidirectional add)
+            try
+            {
+                var uid = Trim(accepterUid);
+                var dn = string.IsNullOrWhiteSpace(accepterDisplayName) ? uid : accepterDisplayName;
+                
+                // Check if already a contact to avoid duplicates (compare trimmed UIDs)
+                bool alreadyExists = _contacts.Contacts.Any(c => 
+                {
+                    var contactUid = Trim(c.UID);
+                    return string.Equals(contactUid, uid, StringComparison.OrdinalIgnoreCase);
+                });
+                
+                if (!alreadyExists)
+                {
+                    var contact = new Models.Contact { UID = uid, DisplayName = dn, ExpectedPublicKeyHex = null };
+                    bool added = _contacts.AddContact(contact, AppServices.Passphrase);
+                    AppServices.Peers.IncludeContacts();
+                    try { Utilities.Logger.Log($"Auto-added {dn} ({uid}) to contacts after they accepted our request (added={added})"); } catch { }
+                    
+                    // Immediate verification if peer is present
+                    TryImmediatePeerVerification(contact);
+                    
+                    // Force UI refresh on main thread to ensure contact list updates immediately
+                    if (added)
+                    {
+                        try
+                        {
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                try
+                                {
+                                    // Restore focus to MainWindow to prevent dialogs from blocking updates
+                                    var lifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                                    if (lifetime?.MainWindow is Avalonia.Controls.Window mainWindow)
+                                    {
+                                        mainWindow.Activate();
+                                        mainWindow.Focus();
+                                    }
+                                    
+                                    // Trigger changed event again on UI thread to ensure UI updates
+                                    AppServices.Contacts.NotifyChanged();
+                                }
+                                catch { }
+                            }, DispatcherPriority.Normal);
+                        }
+                        catch { }
+                    }
+                }
+                else
+                {
+                    try { Utilities.Logger.Log($"Skipped adding {dn} ({uid}) - already a contact"); } catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                try { Utilities.Logger.Log($"Failed to auto-add contact on accept: {ex.Message}"); } catch { }
+            }
+            
+            // Complete the pending request
             if (_pending.TryGetValue(nonce, out var tcs)) tcs.TrySetResult(ContactRequestResult.Accepted);
         }
         public void OnInboundCancel(string nonce)
@@ -375,6 +501,44 @@ namespace ZTalk.Services
             try { VerifyRequestCancelled?.Invoke(uid); } catch { }
         }
 
+        // Inbound 0xC6: Peer has verified us, update our local verification status for them
+        public void OnInboundVerifyComplete(string uid)
+        {
+            uid = Trim(uid);
+            try
+            {
+                // Mark this contact as verified since the peer has confirmed they verified us
+                var peer = AppServices.Peers.Peers.Find(p => string.Equals(p.UID, uid, StringComparison.OrdinalIgnoreCase));
+                if (peer?.PublicKey is { Length: > 0 })
+                {
+                    AppServices.Peers.SetPeerVerification(uid, true);
+                    AppServices.Contacts.SetPublicKeyVerified(uid, true);
+                    try { AppServices.Contacts.SetIsVerified(uid, true, AppServices.Passphrase); } catch { }
+                    try { Utilities.Logger.Log($"Verification complete notification received from {uid}"); } catch { }
+                    
+                    // Brute-force contact list refresh when receiving verification from peer
+                    try
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            try 
+                            { 
+                                // Force immediate contact list refresh for verification status
+                                AppServices.Contacts.NotifyChanged();
+                                // Double-tap to ensure refresh processes
+                                Dispatcher.UIThread.Post(() =>
+                                {
+                                    try { AppServices.Contacts.NotifyChanged(); } catch { }
+                                }, DispatcherPriority.Background);
+                            } catch { }
+                        }, DispatcherPriority.Send);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+
         private void EvaluateMutualVerification(string uid)
         {
             try
@@ -390,6 +554,35 @@ namespace ZTalk.Services
                         // Persist the verified status so the green shield remains across sessions
                         try { AppServices.Contacts.SetIsVerified(uid, true, AppServices.Passphrase); } catch { }
                         try { Utilities.Logger.Log($"Public key verified by mutual intent for {uid}"); } catch { }
+                        
+                        // Send verification complete notification to peer (0xC6)
+                        // This ensures both parties see the verification status immediately
+                        try
+                        {
+                            _ = AppServices.Network.SendVerifyCompleteAsync(uid, CancellationToken.None);
+                        }
+                        catch { }
+                        
+                        // Brute-force contact list refresh immediately after verification completes
+                        try
+                        {
+                            Dispatcher.UIThread.Post(() =>
+                            {
+                                try
+                                {
+                                    // Force immediate contact list refresh for verification status
+                                    AppServices.Contacts.NotifyChanged();
+                                    // Double-tap to ensure refresh processes
+                                    Dispatcher.UIThread.Post(() =>
+                                    {
+                                        try { AppServices.Contacts.NotifyChanged(); } catch { }
+                                    }, DispatcherPriority.Background);
+                                }
+                                catch { }
+                            }, DispatcherPriority.Send);
+                        }
+                        catch { }
+                        
                         // User confirmation: toast a small info message (fire-and-forget)
                         try
                         {
@@ -401,6 +594,38 @@ namespace ZTalk.Services
                 }
             }
             catch { }
+        }
+
+        // Retry offline contact requests when peer comes online
+        public async Task RetryOfflineRequestAsync(string uid)
+        {
+            uid = Trim(uid);
+            if (!_offlineQueue.TryRemove(uid, out var queued)) return;
+            
+            try
+            {
+                Utilities.Logger.Log($"Retrying offline contact request for {uid}");
+                // Use SendRequestAsync with discovered peer info
+                _ = await SendRequestAsync(uid, timeout: TimeSpan.FromSeconds(15));
+            }
+            catch (Exception ex)
+            {
+                try { Utilities.Logger.Log($"Failed to retry offline contact request for {uid}: {ex.Message}"); } catch { }
+            }
+        }
+
+        // Check for offline requests when any peer comes online (call from NetworkService or PeerManager)
+        public void OnPeerOnline(string uid)
+        {
+            uid = Trim(uid);
+            if (_offlineQueue.ContainsKey(uid))
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1000); // Brief delay to ensure session is established
+                    await RetryOfflineRequestAsync(uid);
+                });
+            }
         }
     }
 }

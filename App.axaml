@@ -92,7 +92,9 @@
         <!-- Make these available to all templates -->
         <util:UidToAvatarConverter x:Key="UidToAvatarConverter" />
         <util:VerificationShieldVisibilityConverter x:Key="VerificationShieldVisibilityConverter" />
+        <util:LastSeenTimestampVisibilityConverter x:Key="LastSeenTimestampVisibilityConverter" />
         <util:PresenceEqualsToBoolConverter x:Key="PresenceEqualsToBoolConverter" />
+        <util:PresenceToDisplayStringConverter x:Key="PresenceToDisplayStringConverter" />
         <util:MessageSenderNameConverter x:Key="MessageSenderNameConverter" />
         <util:MessageSenderBrushConverter x:Key="MessageSenderBrushConverter" />
         <util:MessageIsFromContactConverter x:Key="MessageIsFromContactConverter" />

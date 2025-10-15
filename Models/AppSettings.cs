@@ -4,6 +4,7 @@
 */
 // TODO[ANCHOR]: AppSettings - Window states and theme
 using System;
+using Avalonia.Input;
 
 namespace ZTalk.Models;
 
@@ -28,6 +29,11 @@ public class WindowStateSettings
 
 public class AppSettings
 {
+    public const int DefaultLockHotkeyKey = (int)Key.L;
+    public const int DefaultLockHotkeyModifiers = (int)KeyModifiers.Control;
+    public const int DefaultClearInputHotkeyKey = (int)Key.Q;
+    public const int DefaultClearInputHotkeyModifiers = (int)(KeyModifiers.Control | KeyModifiers.Shift);
+
     public string DisplayName { get; set; } = string.Empty;
     public ThemeOption Theme { get; set; } = ThemeOption.Dark;
     // Theme Engine: user-selected UI font family (null or empty = default platform font)
@@ -118,10 +124,10 @@ public class AppSettings
     public bool EnableLogging { get; set; } = false;
 
     // Hotkey configuration (stores Key enum value as int and KeyModifiers as int for serialization)
-    public int LockHotkeyKey { get; set; } = 68; // Default: Key.L = 68
-    public int LockHotkeyModifiers { get; set; } = 1; // Default: KeyModifiers.Control = 1
-    public int ClearInputHotkeyKey { get; set; } = 82; // Default: Key.Q = 82
-    public int ClearInputHotkeyModifiers { get; set; } = 5; // Default: Ctrl+Shift = 5
+    public int LockHotkeyKey { get; set; } = DefaultLockHotkeyKey; // Default: Ctrl+L
+    public int LockHotkeyModifiers { get; set; } = DefaultLockHotkeyModifiers; // Default: Ctrl modifier only
+    public int ClearInputHotkeyKey { get; set; } = DefaultClearInputHotkeyKey; // Default: Ctrl+Shift+Q
+    public int ClearInputHotkeyModifiers { get; set; } = DefaultClearInputHotkeyModifiers; // Default: Ctrl+Shift modifiers
 
     // Localization: selected UI language (future expansion)
     public string Language { get; set; } = "English (US)";
@@ -133,4 +139,9 @@ public class AppSettings
     public double CursorWidth { get; set; } = 1.0; // multiplier
     public bool ShowKeyboardFocus { get; set; } = true;
     public bool EnhancedKeyboardNavigation { get; set; } = true;
+
+    // System Tray settings
+    public bool MinimizeToTray { get; set; } = false; // When enabled, close button minimizes to tray instead of closing
+    public bool RunOnStartup { get; set; } = false; // When enabled, app starts with Windows
+    public bool ShowInSystemTray { get; set; } = false; // When enabled, app icon appears in system tray
 }

@@ -57,11 +57,14 @@ namespace ZTalk.Models
     public PresenceStatus Presence { get => _presence; set { if (_presence != value) { _presence = value; OnPropertyChanged(nameof(Presence)); } } }
     // Transient presence bookkeeping (not persisted)
     [JsonIgnore]
-    public System.DateTime? LastPresenceUtc { get; set; }
+    private System.DateTime? _lastPresenceUtc;
+    public System.DateTime? LastPresenceUtc { get => _lastPresenceUtc; set { if (_lastPresenceUtc != value) { _lastPresenceUtc = value; OnPropertyChanged(nameof(LastPresenceUtc)); } } }
     [JsonIgnore]
-    public System.DateTime? PresenceExpiresUtc { get; set; }
+    private System.DateTime? _presenceExpiresUtc;
+    public System.DateTime? PresenceExpiresUtc { get => _presenceExpiresUtc; set { if (_presenceExpiresUtc != value) { _presenceExpiresUtc = value; OnPropertyChanged(nameof(PresenceExpiresUtc)); } } }
     [JsonIgnore]
-    public PresenceSource PresenceSource { get; set; } = PresenceSource.Unknown;
+    private PresenceSource _presenceSource = PresenceSource.Unknown;
+    public PresenceSource PresenceSource { get => _presenceSource; set { if (_presenceSource != value) { _presenceSource = value; OnPropertyChanged(nameof(PresenceSource)); } } }
 
         public Contact() { }
 

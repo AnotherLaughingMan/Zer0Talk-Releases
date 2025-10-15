@@ -5,10 +5,10 @@
     <AssemblyName>ZTalk</AssemblyName>
     <Nullable>enable</Nullable>
     <!-- Auto-versioning properties -->
-    <Version>0.0.1.58</Version>
-    <AssemblyVersion>0.0.1.58</AssemblyVersion>
-    <FileVersion>0.0.1.58</FileVersion>
-    <InformationalVersion>0.0.1.58</InformationalVersion>
+  <Version>0.0.1.60</Version>
+  <AssemblyVersion>0.0.1.60</AssemblyVersion>
+  <FileVersion>0.0.1.60</FileVersion>
+  <InformationalVersion>0.0.1.60-Prototype</InformationalVersion>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest><!-- Embed multi-resolution application icon for shell/taskbar -->
     <ApplicationIcon>Assets\Icons\Icon.ico</ApplicationIcon>
@@ -18,7 +18,7 @@
     <AvaloniaDisableXamlCompiler>false</AvaloniaDisableXamlCompiler>
   </PropertyGroup><!-- Debug: disable analyzers for friction-free feature work -->
   <PropertyGroup>
-    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+  <EnablePreviewFeatures>true</EnablePreviewFeatures>
   </PropertyGroup><!-- Debug: disable analyzers for friction-free feature work -->
   <PropertyGroup Condition="&apos;$(Configuration)&apos; == &apos;Debug&apos;">
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
@@ -42,6 +42,8 @@
       <IncludeAssets Condition="&apos;$(Configuration)&apos; != &apos;Debug&apos;">None</IncludeAssets>
       <PrivateAssets Condition="&apos;$(Configuration)&apos; != &apos;Debug&apos;">All</PrivateAssets>
     </PackageReference>
+  <!-- Desktop OS notifications will use a lightweight System.Windows.Forms.NotifyIcon on Windows. -->
+  <!-- System.Windows.Forms and System.Drawing are provided by runtime packs when UseWindowsForms=true on Windows. -->
   <PackageReference Include="Markdig" Version="0.37.0"/>
     <PackageReference Include="Sodium.Core" Version="1.4.0"/>
     <PackageReference Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1"/>

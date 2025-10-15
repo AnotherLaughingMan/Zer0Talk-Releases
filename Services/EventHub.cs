@@ -24,6 +24,8 @@ namespace ZTalk.Services
         public event Action<string>? RegressionDetected;
         // Raised when messages are pruned/expired for a given peer (e.g., retention)
         public event Action<MessagePurgeSummary>? AllMessagesPurged;
+    // Request the UI to open a conversation for the provided UID (click-to-open)
+    public event Action<string>? OpenConversationRequested;
         // Raised when an outbound message's delivery metadata changes (e.g., Pending -> Sent)
         public event Action<string, Guid, string?, DateTime?>? OutboundDeliveryUpdated;
 
@@ -35,6 +37,7 @@ namespace ZTalk.Services
         public void RaiseNetworkConfigChanged() { try { NetworkConfigChanged?.Invoke(); } catch { } }
         public void RaiseRegressionDetected(string message) { if (!string.IsNullOrWhiteSpace(message)) { try { RegressionDetected?.Invoke(message); } catch { } } }
         public void RaiseAllMessagesPurged(MessagePurgeSummary summary) { try { AllMessagesPurged?.Invoke(summary); } catch { } }
+    public void RaiseOpenConversationRequested(string uid) { if (string.IsNullOrWhiteSpace(uid)) return; try { OpenConversationRequested?.Invoke(uid); } catch { } }
         public void RaiseOutboundDeliveryUpdated(string peerUid, Guid messageId, string? status, DateTime? deliveredUtc)
         {
             if (string.IsNullOrWhiteSpace(peerUid)) return;

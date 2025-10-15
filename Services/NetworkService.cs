@@ -916,9 +916,23 @@ namespace ZTalk.Services
             }
             else if (data[0] == 0xC1)
             {
-                int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen) return Task.CompletedTask; var nonce = Encoding.UTF8.GetString(data, idx, nlen);
-                try { SafeNetLog($"recv C1 contact-accept | peer={Trim(peerUid)} | nonce={nonce}"); } catch { }
-                AppServices.ContactRequests.OnInboundAccept(nonce);
+                int idx = 1;
+                int nlen = data[idx++];
+                if (data.Length < idx + nlen) return Task.CompletedTask;
+                var nonce = Encoding.UTF8.GetString(data, idx, nlen);
+                idx += nlen;
+                // Parse display name if present (new protocol)
+                string? displayName = null;
+                if (data.Length > idx)
+                {
+                    int dnLen = data[idx++];
+                    if (data.Length >= idx + dnLen && dnLen > 0)
+                    {
+                        displayName = Encoding.UTF8.GetString(data, idx, dnLen);
+                    }
+                }
+                try { SafeNetLog($"recv C1 contact-accept | peer={Trim(peerUid)} | nonce={nonce} | dnLen={displayName?.Length ?? 0}"); } catch { }
+                AppServices.ContactRequests.OnInboundAccept(nonce, Trim(peerUid), displayName);
             }
             else if (data[0] == 0xC2)
             {
@@ -940,6 +954,11 @@ namespace ZTalk.Services
             {
                 // Verification cancel (no payload). Receiver should dismiss pending and show info.
                 try { AppServices.ContactRequests.OnInboundVerifyCancel(Trim(peerUid)); } catch { }
+            }
+            else if (data[0] == 0xC6)
+            {
+                // Verification complete notification from peer - they have verified us
+                try { AppServices.ContactRequests.OnInboundVerifyComplete(Trim(peerUid)); } catch { }
             }
             else if (data[0] == 0xD0)
             {
@@ -1727,15 +1746,52 @@ namespace ZTalk.Services
                             }
                             else if (data[0] == 0xC1)
                             {
-                                int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen) continue; var nonce = Encoding.UTF8.GetString(data, idx, nlen);
-                                try { SafeNetLog($"recv C1 contact-accept | peer={boundUid} | nonce={nonce}"); } catch { }
-                                AppServices.ContactRequests.OnInboundAccept(nonce);
+                                int idx = 1;
+                                int nlen = data[idx++];
+                                if (data.Length < idx + nlen) continue;
+                                var nonce = Encoding.UTF8.GetString(data, idx, nlen);
+                                idx += nlen;
+                                // Parse display name if present (new protocol)
+                                string? displayName = null;
+                                if (data.Length > idx)
+                                {
+                                    int dnLen = data[idx++];
+                                    if (data.Length >= idx + dnLen && dnLen > 0)
+                                    {
+                                        displayName = Encoding.UTF8.GetString(data, idx, dnLen);
+                                    }
+                                }
+                                try { SafeNetLog($"recv C1 contact-accept | peer={boundUid} | nonce={nonce} | dnLen={displayName?.Length ?? 0}"); } catch { }
+                                if (!string.IsNullOrEmpty(boundUid))
+                                {
+                                    AppServices.ContactRequests.OnInboundAccept(nonce, boundUid, displayName);
+                                }
                             }
                             else if (data[0] == 0xC2)
                             {
                                 int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen) continue; var nonce = Encoding.UTF8.GetString(data, idx, nlen);
                                 try { SafeNetLog($"recv C2 contact-cancel | peer={boundUid} | nonce={nonce}"); } catch { }
                                 AppServices.ContactRequests.OnInboundCancel(nonce);
+                            }
+                            else if (data[0] == 0xC3)
+                            {
+                                // Verification intent
+                                if (!string.IsNullOrEmpty(boundUid)) { try { AppServices.ContactRequests.OnInboundVerifyIntent(boundUid); } catch { } }
+                            }
+                            else if (data[0] == 0xC4)
+                            {
+                                // Verification request
+                                if (!string.IsNullOrEmpty(boundUid)) { try { AppServices.ContactRequests.OnInboundVerifyRequest(boundUid); } catch { } }
+                            }
+                            else if (data[0] == 0xC5)
+                            {
+                                // Verification cancel
+                                if (!string.IsNullOrEmpty(boundUid)) { try { AppServices.ContactRequests.OnInboundVerifyCancel(boundUid); } catch { } }
+                            }
+                            else if (data[0] == 0xC6)
+                            {
+                                // Verification complete notification
+                                if (!string.IsNullOrEmpty(boundUid)) { try { AppServices.ContactRequests.OnInboundVerifyComplete(boundUid); } catch { } }
                             }
                             else if (data[0] == 0xD0)
                             {
@@ -2301,8 +2357,17 @@ namespace ZTalk.Services
         public Task<bool> SendContactAcceptAsync(string peerUid, string nonce, CancellationToken ct)
         {
             var payload = Encoding.UTF8.GetBytes(nonce);
-            var frame = new byte[1 + 1 + payload.Length]; int i = 0; frame[i++] = 0xC1; frame[i++] = (byte)payload.Length; Buffer.BlockCopy(payload, 0, frame, i, payload.Length);
-            try { SafeNetLog($"send C1 contact-accept | peer={Trim(peerUid)} | nonce={nonce}"); } catch { }
+            var dn = Encoding.UTF8.GetBytes(_identity.DisplayName ?? string.Empty);
+            // Frame: [0xC1][nonce_len][nonce][dn_len][display_name]
+            var frame = new byte[1 + 1 + payload.Length + 1 + dn.Length];
+            int i = 0;
+            frame[i++] = 0xC1;
+            frame[i++] = (byte)payload.Length;
+            Buffer.BlockCopy(payload, 0, frame, i, payload.Length);
+            i += payload.Length;
+            frame[i++] = (byte)dn.Length;
+            Buffer.BlockCopy(dn, 0, frame, i, dn.Length);
+            try { SafeNetLog($"send C1 contact-accept | peer={Trim(peerUid)} | nonce={nonce} | dnLen={dn.Length}"); } catch { }
             return TrySendEncryptedAsync(peerUid, frame, ct);
         }
 
@@ -2362,6 +2427,14 @@ namespace ZTalk.Services
         public Task<bool> SendVerifyCancelAsync(string peerUid, CancellationToken ct)
         {
             var frame = new byte[] { 0xC5 };
+            return TrySendEncryptedAsync(Trim(peerUid), frame, ct);
+        }
+
+        // 0xC6: Verification complete (no payload) – notify peer that we have verified them.
+        // This allows bidirectional verification updates so both parties see the green shield immediately.
+        public Task<bool> SendVerifyCompleteAsync(string peerUid, CancellationToken ct)
+        {
+            var frame = new byte[] { 0xC6 };
             return TrySendEncryptedAsync(Trim(peerUid), frame, ct);
         }
 

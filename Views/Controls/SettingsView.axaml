@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:core="clr-namespace:ZTalk"
              xmlns:vm="clr-namespace:ZTalk.ViewModels"
              x:Class="ZTalk.Views.Controls.SettingsView"
              x:DataType="vm:SettingsViewModel">
@@ -151,6 +152,46 @@
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
                 <TextBlock Grid.Column="1" Text="Show public keys on profiles" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowPublicKeys}"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- System Tray -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="System Tray" FontWeight="SemiBold"/>
+              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                <Run Text="Control how ZTalk behaves with the Windows system tray."/>
+              </TextBlock>
+              
+              <!-- Show in System Tray -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowInSystemTray}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Show icon in system tray" FontWeight="Medium"/>
+                  <TextBlock Text="Display ZTalk icon in the Windows system tray for quick access" 
+                             FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
+
+              <!-- Minimize to Tray -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding MinimizeToTray}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Minimize to tray on close" FontWeight="Medium"/>
+                  <TextBlock Text="Close button will minimize to system tray instead of exiting the application" 
+                             FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
+
+              <!-- Run on Startup -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding RunOnStartup}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Run on Windows startup" FontWeight="Medium"/>
+                  <TextBlock Text="Automatically start ZTalk when Windows starts (minimized to tray)" 
+                             FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
               </Grid>
             </StackPanel>
           </Border>
@@ -601,9 +642,9 @@
                 <TextBlock Text="{Binding AppName}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
                 <TextBlock Text="Version:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                  <TextBlock Text="{Binding AppVersion}" VerticalAlignment="Center" FontWeight="Medium"/>
+                  <TextBlock Text="{Binding AppVersion, StringFormat='v{0}'}" VerticalAlignment="Center" FontWeight="Medium"/>
                   <Border Background="#FFA500" Padding="8,2" CornerRadius="4">
-                    <TextBlock Text="InDev-Prototype" Foreground="Black" FontWeight="Bold"/>
+                    <TextBlock Text="{x:Static core:AppInfo.PrototypeTag}" Foreground="Black" FontWeight="Bold"/>
                   </Border>
                 </StackPanel>
                 <TextBlock Text="Build:" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
@@ -666,21 +707,23 @@
               </TextBlock>
               <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Port" VerticalAlignment="Center"/>
-                <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding Port}" Minimum="1" Maximum="65535" Width="120" ShowButtonSpinner="False" HorizontalAlignment="Left"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Port}" Width="120" HorizontalAlignment="Left" Watermark="26264"/>
                 
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Dedicated Peer Node" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Row="1" Grid.Column="1" IsChecked="{Binding MajorNode}" Content="Enable as dedicated peer node (requires port forwarding)"/>
               </Grid>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820" Margin="0,4,0,0">
-                <Run Text="Dedicated Peer Node Setup:"/>
+                <Run Text="Dedicated Peer Node:"/>
                 <LineBreak/>
-                <Run Text="1. Forward your router's external port (default 26264) to this computer's internal IP and port."/>
+                <Run Text="• Enables UPnP port mapping for WAN reachability (requires router support)"/>
                 <LineBreak/>
-                <Run Text="2. Enable this option to advertise your node as publicly accessible."/>
+                <Run Text="• Makes your node accessible from outside your local network"/>
                 <LineBreak/>
-                <Run Text="3. Other peers will be able to connect directly to you, improving network stability and discovery."/>
+                <Run Text="• Improves direct P2P connectivity for all peers"/>
                 <LineBreak/>
-                <Run Text="4. Your node will help relay connection information for peers behind restrictive NATs."/>
+                <Run Text="• Does NOT relay encrypted message traffic - only helps with NAT traversal"/>
+                <LineBreak/>
+                <Run Text="• Requires manual port forwarding if UPnP fails (forward port 26264 TCP to this machine)"/>
               </TextBlock>
             </StackPanel>
           </Border>
@@ -688,14 +731,30 @@
           <!-- Relay Settings -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Relay" FontWeight="SemiBold"/>
+              <TextBlock Text="Relay Fallback Server" FontWeight="SemiBold"/>
+              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820">
+                <Run Text="Relay servers provide last-resort connectivity when direct P2P and NAT traversal fail."/>
+                <LineBreak/>
+                <Run Text="All messages remain end-to-end encrypted - the relay only forwards encrypted traffic."/>
+              </TextBlock>
               <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Relay Fallback" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding RelayFallbackEnabled}" Content="Enable relay fallback for blocked connections"/>
                 
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Relay Server" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RelayServer}" Watermark="relay.example.com:443" Width="240"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RelayServer}" Watermark="relay.example.com:443" Width="280" HorizontalAlignment="Left"/>
               </Grid>
+              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820" Margin="0,4,0,0">
+                <Run Text="Requirements:"/>
+                <LineBreak/>
+                <Run Text="• Requires a dedicated relay server with public IP or DNS name"/>
+                <LineBreak/>
+                <Run Text="• Server must be configured to accept ZTalk relay protocol connections"/>
+                <LineBreak/>
+                <Run Text="• Format: hostname:port or IP:port (e.g., relay.example.com:443)"/>
+                <LineBreak/>
+                <Run Text="• Leave blank to disable relay fallback and rely on direct/NAT traversal only"/>
+              </TextBlock>
             </StackPanel>
           </Border>
 
