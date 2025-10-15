@@ -2813,6 +2813,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand RemoveIpRangeCommand => NetworkVm.RemoveIpRangeCommand;
     public ICommand ImportIpListCommand => NetworkVm.ImportIpListCommand;
     public ICommand ExportIpListCommand => NetworkVm.ExportIpListCommand;
+    public ICommand ClearAllIpsCommand => NetworkVm.ClearAllIpsCommand;
+    public ICommand ClearAllRangesCommand => NetworkVm.ClearAllRangesCommand;
     
     // Additional debug properties that were referenced in XAML
     public int DebugLogSizeValue { get; set; } = 16;
@@ -2871,6 +2873,8 @@ public class NetworkViewModel : INotifyPropertyChanged
         RemoveIpRangeCommand = new RelayCommand(range => { if (range is IpEntryWithCountry entry) RemoveIpRange(entry.IpOrRange); });
         ImportIpListCommand = new RelayCommand(async _ => await ImportIpListAsync());
         ExportIpListCommand = new RelayCommand(async _ => await ExportIpListAsync());
+        ClearAllIpsCommand = new RelayCommand(_ => ClearAllIps(), _ => BadActorIps.Count > 0);
+        ClearAllRangesCommand = new RelayCommand(_ => ClearAllRanges(), _ => IpRanges.Count > 0);
         
         RefreshLists();
         RefreshIpLists();
@@ -3011,6 +3015,8 @@ public class NetworkViewModel : INotifyPropertyChanged
     public ICommand RemoveIpRangeCommand { get; }
     public ICommand ImportIpListCommand { get; }
     public ICommand ExportIpListCommand { get; }
+    public ICommand ClearAllIpsCommand { get; }
+    public ICommand ClearAllRangesCommand { get; }
 
     private System.Collections.ObjectModel.ObservableCollection<Peer> _discoveredPeers = new();
     public System.Collections.ObjectModel.ObservableCollection<Peer> DiscoveredPeers { get => _discoveredPeers; private set { _discoveredPeers = value; OnPropertyChanged(); } }
@@ -3821,6 +3827,59 @@ public class NetworkViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             await AppServices.Dialogs.ShowInfoAsync("Export Error", ex.Message);
+        }
+    }
+
+    private async void ClearAllIps()
+    {
+        var ok = await AppServices.Dialogs.ConfirmAsync(
+            "Clear All Blocked IPs",
+            "This will remove ALL blocked individual IP addresses from your block list.\n\n" +
+            "This action cannot be undone. Your IP ranges will remain intact.\n\n" +
+            "Are you sure you want to continue?",
+            "Clear All IPs",
+            "Cancel");
+            
+        if (ok)
+        {
+            try
+            {
+                AppServices.IpBlocking.ClearAllBadActorIps();
+                RefreshIpLists();
+                ZTalk.Utilities.Logger.Log("[IP-BLOCK] Cleared all bad actor IPs via UI");
+                await AppServices.Dialogs.ShowInfoAsync("Clear Complete", "All blocked individual IPs have been removed.");
+            }
+            catch (Exception ex)
+            {
+                await AppServices.Dialogs.ShowInfoAsync("Clear Error", ex.Message);
+            }
+        }
+    }
+
+    private async void ClearAllRanges()
+    {
+        var ok = await AppServices.Dialogs.ConfirmAsync(
+            "Clear All Blocked IP Ranges",
+            "This will remove ALL blocked IP ranges (CIDR blocks) from your block list.\n\n" +
+            "This includes both custom ranges and imported threat intelligence lists.\n" +
+            "This action cannot be undone. Your individual IPs will remain intact.\n\n" +
+            "Are you sure you want to continue?",
+            "Clear All Ranges",
+            "Cancel");
+            
+        if (ok)
+        {
+            try
+            {
+                AppServices.IpBlocking.ClearAllBlockedRanges();
+                RefreshIpLists();
+                ZTalk.Utilities.Logger.Log("[IP-BLOCK] Cleared all IP ranges via UI");
+                await AppServices.Dialogs.ShowInfoAsync("Clear Complete", "All blocked IP ranges have been removed.");
+            }
+            catch (Exception ex)
+            {
+                await AppServices.Dialogs.ShowInfoAsync("Clear Error", ex.Message);
+            }
         }
     }
 

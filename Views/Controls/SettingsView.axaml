@@ -1092,7 +1092,12 @@
               <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
                 <!-- Individual IPs -->
                 <StackPanel Grid.Column="0" Spacing="8">
-                  <TextBlock Text="Blocked IPs" FontWeight="Medium"/>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="Blocked IPs" FontWeight="Medium" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Content="Clear All" Command="{Binding ClearAllIpsCommand}" 
+                            FontSize="11" Padding="6,2" VerticalAlignment="Center"
+                            ToolTip.Tip="Remove all individual IP addresses from the block list. IP ranges will remain intact."/>
+                  </Grid>
                   <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Height="160">
                     <ScrollViewer>
                       <ListBox ItemsSource="{Binding BadActorIps}" SelectedItem="{Binding SelectedBadActorIp}" BorderThickness="0" Background="Transparent">
@@ -1115,7 +1120,12 @@
                 
                 <!-- IP Ranges -->
                 <StackPanel Grid.Column="1" Spacing="8">
-                  <TextBlock Text="Blocked Ranges" FontWeight="Medium"/>
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="Blocked Ranges" FontWeight="Medium" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Content="Clear All" Command="{Binding ClearAllRangesCommand}" 
+                            FontSize="11" Padding="6,2" VerticalAlignment="Center"
+                            ToolTip.Tip="Remove all CIDR IP ranges from the block list. Individual IPs will remain intact."/>
+                  </Grid>
                   <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Height="160">
                     <ScrollViewer>
                       <ListBox ItemsSource="{Binding IpRanges}" SelectedItem="{Binding SelectedIpRange}" BorderThickness="0" Background="Transparent">
