@@ -150,6 +150,7 @@ namespace ZTalk.Services
         {
             if (_disposed) return;
             _disposed = true;
+            GC.SuppressFinalize(this);
 
             try
             {

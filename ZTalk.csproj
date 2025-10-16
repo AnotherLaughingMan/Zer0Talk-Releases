@@ -5,10 +5,10 @@
     <AssemblyName>ZTalk</AssemblyName>
     <Nullable>enable</Nullable>
     <!-- Auto-versioning properties -->
-  <Version>0.0.1.60</Version>
-  <AssemblyVersion>0.0.1.60</AssemblyVersion>
-  <FileVersion>0.0.1.60</FileVersion>
-  <InformationalVersion>0.0.1.60-Prototype</InformationalVersion>
+  <Version>0.0.1.61</Version>
+  <AssemblyVersion>0.0.1.61</AssemblyVersion>
+  <FileVersion>0.0.1.61</FileVersion>
+  <InformationalVersion>0.0.1.61-Prototype</InformationalVersion>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest><!-- Embed multi-resolution application icon for shell/taskbar -->
     <ApplicationIcon>Assets\Icons\Icon.ico</ApplicationIcon>

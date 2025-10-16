@@ -327,6 +327,10 @@ namespace ZTalk.ViewModels
     // Test commands (Debug only UI wiring expected)
     public ICommand SimulateInviteCommand { get; }
     public ICommand ClearInvitesCommand { get; }
+    public ICommand? TestInfoToastCommand { get; }
+    public ICommand? TestWarningToastCommand { get; }
+    public ICommand? TestErrorToastCommand { get; }
+    public ICommand? TestMessageToastCommand { get; }
 
         private bool _hasPendingInvites;
         public bool HasPendingInvites { get => _hasPendingInvites; private set { if (_hasPendingInvites != value) { _hasPendingInvites = value; OnPropertyChanged(); } } }
@@ -353,7 +357,7 @@ namespace ZTalk.ViewModels
             get
             {
                 if (NotificationCount <= 0) return string.Empty;
-                return NotificationCount > 99 ? "99+" : NotificationCount.ToString();
+                return NotificationCount > 99 ? "99+" : NotificationCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
         }
 
@@ -550,6 +554,12 @@ namespace ZTalk.ViewModels
                 }
                 catch { }
             });
+#if DEBUG
+            TestInfoToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Information", "This is a test information notification with some longer text to see how it wraps."); } catch { } });
+            TestWarningToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Warning", "This is a test warning notification that might indicate something needs attention."); } catch { } });
+            TestErrorToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Error", "This is a test error notification showing that something went wrong."); } catch { } });
+            TestMessageToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.AddOrUpdateMessageNotice("Alice", "Hey, are you available for a quick call? This is a test notification with a longer message that should be truncated in the preview.", "alice123", Guid.NewGuid(), incoming: true, DateTime.UtcNow, isUnread: true); } catch { } });
+#endif
 
             // Aggregation helpers: compute counts and manage optimistic clears
             // (kept as instance methods so other UI code can call them directly)
@@ -945,6 +955,28 @@ namespace ZTalk.ViewModels
                 };
                 AppServices.Events.AllMessagesPurged += allMessagesPurgedHandler;
                 _teardownActions.Add(() => AppServices.Events.AllMessagesPurged -= allMessagesPurgedHandler);
+
+                // Handle OpenConversationRequested event to navigate to a specific contact
+                Action<string> openConversationHandler = (uid) =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            if (string.IsNullOrWhiteSpace(uid)) return;
+                            // Find the contact in the list
+                            var contact = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(c.UID, uid, StringComparison.OrdinalIgnoreCase));
+                            if (contact != null)
+                            {
+                                // Set as selected contact (this triggers LoadConversation)
+                                SelectedContact = contact;
+                            }
+                        }
+                        catch { }
+                    });
+                };
+                AppServices.Events.OpenConversationRequested += openConversationHandler;
+                _teardownActions.Add(() => AppServices.Events.OpenConversationRequested -= openConversationHandler);
             }
             catch { }
         }
@@ -1475,9 +1507,10 @@ namespace ZTalk.ViewModels
             try
             {
                 var trimmedOrigin = TrimUidPrefix(originUid);
-                var title = incoming ? $"From {displayName}" : $"To {displayName}";
+                var title = incoming ? displayName : $"To {displayName}";
                 var preview = BuildMessagePreview(message?.Content ?? string.Empty);
-                AppServices.Notifications.AddOrUpdateMessageNotice(title, preview, trimmedOrigin, message?.Id ?? Guid.NewGuid(), incoming, unread);
+                var timestamp = message?.Timestamp ?? DateTime.UtcNow;
+                AppServices.Notifications.AddOrUpdateMessageNotice(title, preview, trimmedOrigin, message?.Id ?? Guid.NewGuid(), incoming, timestamp, unread);
                 
                 // Play incoming message sound for received messages
                 if (incoming)
@@ -1544,7 +1577,7 @@ namespace ZTalk.ViewModels
             if (string.IsNullOrWhiteSpace(content)) return "<no text>";
             const int maxLen = 160;
             var trimmed = content.Trim();
-            return trimmed.Length <= maxLen ? trimmed : trimmed.Substring(0, maxLen) + "...";
+            return trimmed.Length <= maxLen ? trimmed : string.Concat(trimmed.AsSpan(0, maxLen), "...");
         }
 
         public void FocusConversation(string uid)

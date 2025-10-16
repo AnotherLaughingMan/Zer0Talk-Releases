@@ -182,6 +182,19 @@
                                 <Path Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="1.6" Data="M3,13 L13,3" />
                             </Grid>
                         </Button>
+                        <Separator IsVisible="{Binding IsDebugUi}"/>
+                        <Button Classes="icon-button" ToolTip.Tip="Test Info Toast" Command="{Binding TestInfoToastCommand}" IsVisible="{Binding IsDebugUi}">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE946;" Foreground="#4CAF50"/>
+                        </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="Test Warning Toast" Command="{Binding TestWarningToastCommand}" IsVisible="{Binding IsDebugUi}">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE7BA;" Foreground="#FF9800"/>
+                        </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="Test Error Toast" Command="{Binding TestErrorToastCommand}" IsVisible="{Binding IsDebugUi}">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE783;" Foreground="#F44336"/>
+                        </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="Test Message Toast" Command="{Binding TestMessageToastCommand}" IsVisible="{Binding IsDebugUi}">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE8BD;" Foreground="#2196F3"/>
+                        </Button>
                     </StackPanel>
                     <Button Classes="icon-button" ToolTip.Tip="Toggle Contacts" Click="ToggleLeftPanel_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE700;"/>
@@ -243,24 +256,25 @@
                         <Setter Property="Padding" Value="8,0"/>
                     </Style>
                 </Border.Styles>
-        <!-- Top-stacked buttons with consistent spacing; horizontally centered per requirements -->
-        <StackPanel Margin="0,12,0,0" Spacing="6" VerticalAlignment="Top" HorizontalAlignment="Center">
-                    <Button Classes="icon-button" ToolTip.Tip="Home" Click="Home_Click">
-                        <TextBlock Classes="icon-mdl2" Text="&#xE80F;" FontSize="26"/>
-                    </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Monitoring" Click="Monitoring_Click">
-                        <TextBlock Classes="icon-mdl2" Text="&#xE9D2;" FontSize="26"/>
-                    </Button>
-                    <Button x:Name="LogsButton" Classes="icon-button" ToolTip.Tip="Logs" Click="Logs_Click" IsVisible="False">
-                        <TextBlock Classes="icon-mdl2" Text="&#xE8A5;" FontSize="26"/>
-                    </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Network Settings" Click="Network_Click">
-                        <TextBlock Classes="icon-mdl2" Text="&#xE968;" FontSize="26"/>
-                    </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Settings" Click="Settings_Click">
+        <Grid Margin="0,12" RowDefinitions="Auto,*,Auto">
+                    <!-- Primary navigation icons stay anchored to the top -->
+                    <StackPanel Grid.Row="0" Spacing="6" HorizontalAlignment="Center">
+                        <Button Classes="icon-button" ToolTip.Tip="Home" Click="Home_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE80F;" FontSize="26"/>
+                        </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="Monitoring" Click="Monitoring_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE9D2;" FontSize="26"/>
+                        </Button>
+                        <Button x:Name="LogsButton" Classes="icon-button" ToolTip.Tip="Logs" Click="Logs_Click" IsVisible="False">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE8A5;" FontSize="26"/>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Settings gear lives at the bottom edge to match navigation expectations -->
+                    <Button Grid.Row="2" Classes="icon-button" ToolTip.Tip="Settings" Click="Settings_Click" HorizontalAlignment="Center">
                         <TextBlock Classes="icon-mdl2" Text="&#xE713;" FontSize="26"/>
                     </Button>
-                </StackPanel>
+                </Grid>
             </Border>
 
             <!-- Contacts -->

@@ -224,7 +224,7 @@ namespace ZTalk.Services
                     var trimmed = line.Trim();
                     
                     // Skip empty lines and comments
-                    if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#") || trimmed.StartsWith("//"))
+                    if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith('#') || trimmed.StartsWith("//", StringComparison.Ordinal))
                         continue;
                     
                     // Check if it's a CIDR range or individual IP
@@ -418,7 +418,7 @@ namespace ZTalk.Services
                         var trimmed = line.Trim();
                         
                         // Skip empty lines and comments
-                        if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#") || trimmed.StartsWith("//"))
+                        if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith('#') || trimmed.StartsWith("//", StringComparison.Ordinal))
                             continue;
                         
                         // Check if it's a CIDR range or individual IP

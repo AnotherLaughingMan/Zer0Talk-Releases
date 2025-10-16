@@ -25,7 +25,9 @@ namespace ZTalk.Controls.Markdown
             catch { }
         }
         
-        // CRITICAL: Each viewer needs its own parser/renderer instances to avoid control reuse
+    private static readonly char[] LineSeparators = { '\r', '\n' };
+
+    // CRITICAL: Each viewer needs its own parser/renderer instances to avoid control reuse
         private readonly MarkdownParser _parser = new();
         private readonly MarkdownRenderer _renderer = new();
 
@@ -85,7 +87,8 @@ namespace ZTalk.Controls.Markdown
                     var text = Markdown ?? string.Empty;
                     
                     // Debug logging to track rendering
-                    System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Rendering markdown: {text.Substring(0, Math.Min(50, text.Length))}...");
+                    var renderPreview = CreatePreview(text, 50);
+                    System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Rendering markdown: {renderPreview}...");
 
                     // Empty text - show empty content
                     if (string.IsNullOrWhiteSpace(text))
@@ -299,11 +302,21 @@ namespace ZTalk.Controls.Markdown
             }
         }
 
+    private static string CreatePreview(string text, int maxLength)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= maxLength)
+        {
+            return text;
+        }
+
+        return string.Concat(text.AsSpan(0, maxLength), "...");
+    }
+
     private static void LogError(string stage, Exception ex, string markdown)
     {
         try
         {
-            var truncated = markdown.Length > 200 ? markdown.Substring(0, 200) + "..." : markdown;
+            var truncated = CreatePreview(markdown, 200);
             
             // CRITICAL: Use local Logs/ folder, NOT AppData
             var exeDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? ".";
@@ -409,8 +422,8 @@ namespace ZTalk.Controls.Markdown
         if (string.IsNullOrWhiteSpace(text)) return false;
         
         // Check if any line starts with >
-        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-        return lines.Length > 0 && lines[0].TrimStart().StartsWith(">");
+    var lines = text.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
+    return lines.Length > 0 && lines[0].TrimStart().StartsWith('>');
     }
 
     // Check if text is code block markdown (starts with ``` or contains code fence)
@@ -418,9 +431,9 @@ namespace ZTalk.Controls.Markdown
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         
-        var trimmed = text.Trim();
-        // Check for fenced code block: ```language or just ```
-        return trimmed.StartsWith("```");
+    var trimmed = text.Trim();
+    // Check for fenced code block: ```language or just ```
+    return trimmed.StartsWith("```", StringComparison.Ordinal);
     }
 
     // Check if text contains spoiler markdown ||text||
@@ -429,7 +442,7 @@ namespace ZTalk.Controls.Markdown
         if (string.IsNullOrWhiteSpace(text)) return false;
         
         // Check for ||spoiler|| syntax
-        return text.Contains("||");
+    return text.Contains("||", StringComparison.Ordinal);
     }
 
     // Check if text is header markdown (starts with #)
@@ -437,9 +450,9 @@ namespace ZTalk.Controls.Markdown
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         
-        var trimmed = text.TrimStart();
-        // Check for header: # ## ### #### ##### ######
-        return trimmed.StartsWith("#");
+    var trimmed = text.TrimStart();
+    // Check for header: # ## ### #### ##### ######
+    return trimmed.StartsWith('#');
     }
 
     // Check if text is list markdown (starts with -, *, +, or digit.)
@@ -447,13 +460,13 @@ namespace ZTalk.Controls.Markdown
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         
-        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+    var lines = text.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
         if (lines.Length == 0) return false;
         
         var firstLine = lines[0].TrimStart();
         
         // Check for unordered list: -, *, +
-        if (firstLine.StartsWith("- ") || firstLine.StartsWith("* ") || firstLine.StartsWith("+ "))
+        if (firstLine.StartsWith("- ", StringComparison.Ordinal) || firstLine.StartsWith("* ", StringComparison.Ordinal) || firstLine.StartsWith("+ ", StringComparison.Ordinal))
             return true;
         
         // Check for ordered list: 1. 2. 3. etc.
@@ -497,9 +510,9 @@ namespace ZTalk.Controls.Markdown
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         
-        System.Diagnostics.Debug.WriteLine($"[IsTableMarkdown] Checking: {text.Substring(0, Math.Min(100, text.Length))}");
+    System.Diagnostics.Debug.WriteLine($"[IsTableMarkdown] Checking: {CreatePreview(text, 100)}");
         
-        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+    var lines = text.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
         System.Diagnostics.Debug.WriteLine($"[IsTableMarkdown] Lines count: {lines.Length}");
         
         if (lines.Length < 2) return false; // Need at least header and separator
@@ -510,7 +523,7 @@ namespace ZTalk.Controls.Markdown
             var trimmed = line.Trim();
             System.Diagnostics.Debug.WriteLine($"[IsTableMarkdown] Checking line: '{trimmed}'");
             
-            if (trimmed.Contains("|") && trimmed.Contains("-"))
+            if (trimmed.Contains('|') && trimmed.Contains('-'))
             {
                 // Check if it's a separator line: |---|---|
                 var hasOnlyTableChars = trimmed.All(c => c == '|' || c == '-' || c == ':' || char.IsWhiteSpace(c));
@@ -533,9 +546,9 @@ namespace ZTalk.Controls.Markdown
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         
-        System.Diagnostics.Debug.WriteLine($"[HasMixedMarkdown] Checking: {text.Substring(0, Math.Min(100, text.Length))}");
+    System.Diagnostics.Debug.WriteLine($"[HasMixedMarkdown] Checking: {CreatePreview(text, 100)}");
         
-        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
+    var lines = text.Split(LineSeparators, StringSplitOptions.None);
         bool hasQuote = false;
         bool hasCode = false;
         bool hasHeader = false;
@@ -551,7 +564,7 @@ namespace ZTalk.Controls.Markdown
             if (string.IsNullOrEmpty(trimmed)) continue;
             
             // Check for table separator line
-            if (trimmed.Contains("|") && trimmed.Contains("-"))
+            if (trimmed.Contains('|') && trimmed.Contains('-'))
             {
                 var hasOnlyTableChars = trimmed.All(c => c == '|' || c == '-' || c == ':' || char.IsWhiteSpace(c));
                 if (hasOnlyTableChars && trimmed.Count(c => c == '|') >= 2)
@@ -565,7 +578,7 @@ namespace ZTalk.Controls.Markdown
             // If in table, check if line still has |
             if (inTable)
             {
-                if (!trimmed.Contains("|"))
+                if (!trimmed.Contains('|'))
                     inTable = false;
                 else
                     continue;
@@ -573,7 +586,7 @@ namespace ZTalk.Controls.Markdown
             
             // Check if this line could be a table header (before we've seen separator)
             // Don't count it as "normal" if it looks like a table line
-            bool looksLikeTableLine = trimmed.Contains("|") && trimmed.Count(c => c == '|') >= 2;
+            bool looksLikeTableLine = trimmed.Contains('|') && trimmed.Count(c => c == '|') >= 2;
             
             // Check for horizontal rule: ---, ***, ___
             if (trimmed.Length >= 3)
@@ -586,11 +599,13 @@ namespace ZTalk.Controls.Markdown
                 }
             }
             
-            if (trimmed.StartsWith(">")) hasQuote = true;
-            else if (trimmed.StartsWith("```")) hasCode = true;
-            else if (trimmed.StartsWith("#")) hasHeader = true;
-            else if (trimmed.StartsWith("- ") || trimmed.StartsWith("* ") || trimmed.StartsWith("+ ") ||
-                     (trimmed.Length > 2 && char.IsDigit(trimmed[0]) && trimmed.Contains("."))) hasList = true;
+            if (trimmed.StartsWith('>')) hasQuote = true;
+            else if (trimmed.StartsWith("```", StringComparison.Ordinal)) hasCode = true;
+            else if (trimmed.StartsWith('#')) hasHeader = true;
+            else if (trimmed.StartsWith("- ", StringComparison.Ordinal) ||
+                     trimmed.StartsWith("* ", StringComparison.Ordinal) ||
+                     trimmed.StartsWith("+ ", StringComparison.Ordinal) ||
+                     (trimmed.Length > 2 && char.IsDigit(trimmed[0]) && trimmed.Contains('.'))) hasList = true;
             else if (!looksLikeTableLine) hasNormal = true;  // Only count as normal if it doesn't look like a table line
         }
         
@@ -617,7 +632,7 @@ namespace ZTalk.Controls.Markdown
     {
         try
         {
-            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
+        var lines = text.Split(LineSeparators, StringSplitOptions.None);
             var container = new StackPanel
             {
                 Spacing = 8,
@@ -660,7 +675,7 @@ namespace ZTalk.Controls.Markdown
                             blockControl = RenderCustomList(blockText);
                             break;
                         case "table":
-                            System.Diagnostics.Debug.WriteLine($"[MixedMarkdown] Rendering table: {blockText.Substring(0, Math.Min(50, blockText.Length))}");
+                            System.Diagnostics.Debug.WriteLine($"[MixedMarkdown] Rendering table: {CreatePreview(blockText, 50)}");
                             blockControl = RenderCustomTable(blockText);
                             break;
                         case "hr":
@@ -700,7 +715,7 @@ namespace ZTalk.Controls.Markdown
                 var trimmed = line.TrimStart();
                 
                 // Handle code blocks specially (they can contain anything)
-                if (trimmed.StartsWith("```"))
+                if (trimmed.StartsWith("```", StringComparison.Ordinal))
                 {
                     if (!inCodeBlock)
                     {
@@ -743,12 +758,12 @@ namespace ZTalk.Controls.Markdown
                 }
                 
                 // Check for table (has | and either separator or consistent | pattern)
-                if (trimmed.Contains("|"))
+                if (trimmed.Contains('|'))
                 {
                     System.Diagnostics.Debug.WriteLine($"[MixedMarkdown] Line contains |, checking table...");
                     
                     // Check if it's table separator line
-                    if (trimmed.Contains("-"))
+                    if (trimmed.Contains('-'))
                     {
                         var hasOnlyTableChars = trimmed.All(c => c == '|' || c == '-' || c == ':' || char.IsWhiteSpace(c));
                         System.Diagnostics.Debug.WriteLine($"[MixedMarkdown] Contains -, hasOnlyTableChars: {hasOnlyTableChars}, pipes: {trimmed.Count(c => c == '|')}");
@@ -777,11 +792,13 @@ namespace ZTalk.Controls.Markdown
                     }
                 }
                 
-                if (lineType == null && trimmed.StartsWith(">"))
+                if (lineType == null && trimmed.StartsWith('>'))
                     lineType = "quote";
-                else if (lineType == null && trimmed.StartsWith("#"))
+                else if (lineType == null && trimmed.StartsWith('#'))
                     lineType = "header";
-                else if (lineType == null && (trimmed.StartsWith("- ") || trimmed.StartsWith("* ") || trimmed.StartsWith("+ ")))
+                else if (lineType == null && (trimmed.StartsWith("- ", StringComparison.Ordinal) ||
+                                              trimmed.StartsWith("* ", StringComparison.Ordinal) ||
+                                              trimmed.StartsWith("+ ", StringComparison.Ordinal)))
                     lineType = "list";
                 else if (lineType == null && trimmed.Length > 2 && char.IsDigit(trimmed[0]))
                 {
@@ -854,7 +871,7 @@ namespace ZTalk.Controls.Markdown
     {
         try
         {
-            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = text.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
             var container = new StackPanel
             {
                 Spacing = 4,
@@ -868,7 +885,7 @@ namespace ZTalk.Controls.Markdown
             foreach (var line in lines)
             {
                 var trimmed = line.TrimStart();
-                if (trimmed.StartsWith(">"))
+                if (trimmed.StartsWith('>'))
                 {
                     // Quote line - add any pending normal text first
                     if (normalLines.Count > 0)
@@ -878,7 +895,7 @@ namespace ZTalk.Controls.Markdown
                     }
                     
                     // Extract quote content (remove > and optional space)
-                    var quoteText = trimmed.Substring(1).TrimStart();
+                    var quoteText = trimmed.Length > 1 ? trimmed[1..].TrimStart() : string.Empty;
                     currentQuoteLines.Add(quoteText);
                 }
                 else
@@ -1036,7 +1053,7 @@ namespace ZTalk.Controls.Markdown
     {
         try
         {
-            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
+            var lines = text.Split(LineSeparators, StringSplitOptions.None);
             var container = new StackPanel
             {
                 Spacing = 8,
@@ -1052,8 +1069,9 @@ namespace ZTalk.Controls.Markdown
             for (int i = 0; i < lines.Length; i++)
             {
                 var line = lines[i];
-                
-                if (line.TrimStart().StartsWith("```"))
+                var trimmedLine = line.TrimStart();
+
+                if (trimmedLine.StartsWith("```", StringComparison.Ordinal))
                 {
                     if (!inCodeBlock)
                     {
@@ -1069,7 +1087,7 @@ namespace ZTalk.Controls.Markdown
                         }
                         
                         // Extract language (after ```)
-                        language = line.TrimStart().Substring(3).Trim();
+                        language = trimmedLine.Length > 3 ? trimmedLine[3..].Trim() : string.Empty;
                         inCodeBlock = true;
                         codeLines.Clear();
                     }
@@ -1431,7 +1449,7 @@ namespace ZTalk.Controls.Markdown
     {
         try
         {
-            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.None);
+            var lines = text.Split(LineSeparators, StringSplitOptions.None);
             var container = new StackPanel
             {
                 Spacing = 4,
@@ -1630,7 +1648,7 @@ namespace ZTalk.Controls.Markdown
     {
         try
         {
-            var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = text.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
             if (lines.Length < 2) return CreateFallbackTextBlock(text);
 
             var headerLine = lines[0];
@@ -1701,8 +1719,8 @@ namespace ZTalk.Controls.Markdown
 
         var trimmed = line.Trim();
         // Remove leading and trailing |
-        if (trimmed.StartsWith("|")) trimmed = trimmed.Substring(1);
-        if (trimmed.EndsWith("|")) trimmed = trimmed.Substring(0, trimmed.Length - 1);
+    if (trimmed.StartsWith('|')) trimmed = trimmed.Length > 1 ? trimmed[1..] : string.Empty;
+    if (trimmed.EndsWith('|')) trimmed = trimmed.Length > 1 ? trimmed[..^1] : string.Empty;
 
         var cells = trimmed.Split('|');
         return cells.Select(c => c.Trim()).ToArray();
@@ -1719,8 +1737,8 @@ namespace ZTalk.Controls.Markdown
             if (i < cells.Length)
             {
                 var cell = cells[i];
-                var startsWithColon = cell.StartsWith(":");
-                var endsWithColon = cell.EndsWith(":");
+                var startsWithColon = cell.StartsWith(':');
+                var endsWithColon = cell.EndsWith(':');
 
                 if (startsWithColon && endsWithColon)
                     alignments[i] = Avalonia.Layout.HorizontalAlignment.Center;

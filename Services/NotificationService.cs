@@ -8,6 +8,8 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Media;
 
 namespace ZTalk.Services
@@ -24,6 +26,262 @@ namespace ZTalk.Services
     private readonly Queue<Guid> _messageRemovalQueue = new();
     private readonly HashSet<Guid> _messageRemovalPending = new();
     private bool _messageRemovalWorkerRunning;
+    private readonly List<Window> _activeToastWindows = new();
+
+    private const int ToastMargin = 12;
+    private const int ToastSpacing = 8;
+    private const int ToastWidth = 420;
+
+    private void RemoveToastWindow(Window toast)
+    {
+        if (toast == null) return;
+
+        void RemoveAndReflow()
+        {
+            try
+            {
+                var beforeCount = _activeToastWindows.Count;
+                if (_activeToastWindows.Remove(toast))
+                {
+                    try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Removed: {beforeCount} -> {_activeToastWindows.Count} active\n"); } catch { }
+                    ReflowToastPositionsCore();
+                }
+                else
+                {
+                    try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Remove failed: not found in {beforeCount} active\n"); } catch { }
+                }
+            }
+            catch { }
+        }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            RemoveAndReflow();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(RemoveAndReflow);
+        }
+    }
+
+    private void PruneToastWindows()
+    {
+        try
+        {
+            for (int i = _activeToastWindows.Count - 1; i >= 0; i--)
+            {
+                var win = _activeToastWindows[i];
+                if (win == null || !win.IsVisible)
+                {
+                    _activeToastWindows.RemoveAt(i);
+                }
+            }
+        }
+        catch { }
+    }
+
+    private void ReflowToastPositions()
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            ReflowToastPositionsCore();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(ReflowToastPositionsCore);
+        }
+    }
+
+    private void ReflowToastPositionsCore()
+    {
+        try
+        {
+            PruneToastWindows();
+            if (_activeToastWindows.Count == 0) 
+            {
+                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow: No active windows\n"); } catch { }
+                return;
+            }
+
+            var area = GetPrimaryWorkingArea();
+            var targetLeft = area.Right - ToastWidth - ToastMargin;
+            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow: {_activeToastWindows.Count} windows, area={area}, targetLeft={targetLeft}\n"); } catch { }
+
+            var cumulativeTop = area.Y + ToastMargin;
+            for (int i = 0; i < _activeToastWindows.Count; i++)
+            {
+                var toast = _activeToastWindows[i];
+                if (toast == null || !toast.IsVisible) continue;
+
+                var oldPos = toast.Position;
+                try { toast.Position = new PixelPoint(targetLeft, cumulativeTop); } catch { }
+                
+                var toastHeight = (int)Math.Max(1, toast.Bounds.Height > 0 ? toast.Bounds.Height : toast.Height);
+                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow[{i}]: height={toastHeight}, {oldPos} -> ({targetLeft},{cumulativeTop})\n"); } catch { }
+                
+                cumulativeTop += toastHeight + ToastSpacing;
+            }
+        }
+        catch { }
+    }
+
+    private static PixelRect GetPrimaryWorkingArea()
+    {
+        try
+        {
+            var lifetime = Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+            var mainWin = lifetime?.MainWindow;
+            if (mainWin?.Screens?.Primary != null)
+            {
+                return mainWin.Screens.Primary.WorkingArea;
+            }
+        }
+        catch { }
+
+        return new PixelRect(0, 0, 1280, 720);
+    }
+
+    private Control CreateToastContent(Window host, string? title, string text, string? originUid = null)
+    {
+        var resolvedTitle = string.IsNullOrWhiteSpace(title) ? "ZTalk" : title;
+        var resolvedBody = string.IsNullOrWhiteSpace(text) ? string.Empty : text;
+        var hasOrigin = !string.IsNullOrWhiteSpace(originUid);
+        
+        // Determine toast type and color based on title or origin (subdued/darker colors)
+        IBrush backgroundColor;
+        IBrush borderBrush;
+        if (resolvedTitle.Contains("Error", StringComparison.OrdinalIgnoreCase))
+        {
+            backgroundColor = new SolidColorBrush(Color.FromArgb(255, 183, 28, 28)); // Darker Red
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 136, 14, 14));
+        }
+        else if (resolvedTitle.Contains("Warning", StringComparison.OrdinalIgnoreCase))
+        {
+            backgroundColor = new SolidColorBrush(Color.FromArgb(255, 191, 84, 0)); // Darker Orange
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 153, 62, 0));
+        }
+        else if (resolvedTitle.Contains("Information", StringComparison.OrdinalIgnoreCase))
+        {
+            backgroundColor = new SolidColorBrush(Color.FromArgb(255, 46, 125, 50)); // Darker Green
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 27, 94, 32));
+        }
+        else if (hasOrigin || resolvedTitle.Contains("Message", StringComparison.OrdinalIgnoreCase))
+        {
+            backgroundColor = new SolidColorBrush(Color.FromArgb(255, 21, 101, 192)); // Darker Blue
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 13, 71, 161));
+        }
+        else
+        {
+            // Default to app theme
+            backgroundColor = (IBrush?)Application.Current?.FindResource("App.Surface") ?? new SolidColorBrush(Color.FromArgb(255, 64, 64, 64));
+            borderBrush = (IBrush?)Application.Current?.FindResource("App.Border") ?? new SolidColorBrush(Color.FromArgb(255, 128, 128, 128));
+        }
+
+        var grid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto"),
+            Margin = new Thickness(12, 10, 12, 12),
+        };
+
+        var titleBlock = new TextBlock
+        {
+            Text = resolvedTitle,
+            FontWeight = FontWeight.SemiBold,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+
+        var bodyBlock = new TextBlock
+        {
+            Text = resolvedBody,
+            TextWrapping = TextWrapping.NoWrap,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            MaxLines = 1,
+            Margin = new Thickness(0, 6, 0, 0)
+        };
+
+        var closeButton = new Button
+        {
+            Content = "X",
+            Width = 24,
+            Height = 24,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            Padding = new Thickness(0),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            Foreground = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary")
+        };
+
+        ToolTip.SetTip(closeButton, "Dismiss");
+
+        closeButton.Click += (_, __) =>
+        {
+            try { host.Close(); } catch { }
+        };
+        closeButton.PointerPressed += (_, e) => { e.Handled = true; };
+
+        Grid.SetRow(titleBlock, 0);
+        Grid.SetColumn(titleBlock, 0);
+        Grid.SetRow(closeButton, 0);
+        Grid.SetColumn(closeButton, 1);
+        Grid.SetRow(bodyBlock, 1);
+        Grid.SetColumn(bodyBlock, 0);
+        Grid.SetColumnSpan(bodyBlock, 2);
+
+        grid.Children.Add(titleBlock);
+        grid.Children.Add(closeButton);
+        grid.Children.Add(bodyBlock);
+
+        // Add "Go to Chat" button if this is a message notification
+        if (hasOrigin)
+        {
+            var goToChatButton = new Button
+            {
+                Content = "Go to Chat",
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 8, 0, 0),
+                Padding = new Thickness(12, 6),
+                Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
+                Foreground = new SolidColorBrush(Color.FromArgb(255, 0, 0, 0)),
+                BorderBrush = Brushes.Transparent,
+                CornerRadius = new CornerRadius(4),
+                FontWeight = FontWeight.SemiBold
+            };
+
+            goToChatButton.Click += (_, __) =>
+            {
+                try
+                {
+                    // Navigate to the chat with this user
+                    var fullUid = originUid?.StartsWith("usr-") == true ? originUid : $"usr-{originUid}";
+                    AppServices.Events.RaiseOpenConversationRequested(fullUid);
+                    host.Close();
+                }
+                catch { }
+            };
+
+            Grid.SetRow(goToChatButton, 2);
+            Grid.SetColumn(goToChatButton, 0);
+            Grid.SetColumnSpan(goToChatButton, 2);
+            grid.Children.Add(goToChatButton);
+        }
+
+        // Set text color to white for better visibility on colored backgrounds
+        titleBlock.Foreground = Brushes.White;
+        bodyBlock.Foreground = Brushes.White;
+        closeButton.Foreground = Brushes.White;
+
+        return new Border
+        {
+            Padding = new Thickness(8),
+            Background = backgroundColor,
+            BorderBrush = borderBrush,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Child = grid
+        };
+    }
 
     public IReadOnlyList<NotificationItem> Notices => _notices.AsReadOnly();
 
@@ -98,7 +356,23 @@ namespace ZTalk.Services
                         {
                             try
                             {
-                                await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.NotificationGeneral);
+                                // Play type-specific sounds based on notification title
+                                if (item.Title.Contains("Warning", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    await AppServices.AudioNotifications.PlayCustomSoundAsync("ui-10-smooth-warnnotify-sound-effect-365842.mp3");
+                                }
+                                else if (item.Title.Contains("Information", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-notify-alert-toast-warn-274736.mp3");
+                                }
+                                else if (item.Title.Contains("Error", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-completed-notify-starting-alert-274739.mp3");
+                                }
+                                else
+                                {
+                                    await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.NotificationGeneral);
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -139,10 +413,13 @@ namespace ZTalk.Services
             catch { }
         }
 
-        public NotificationItem AddOrUpdateMessageNotice(string title, string body, string? originUid, Guid messageId, bool incoming, bool isUnread = true)
+        public NotificationItem AddOrUpdateMessageNotice(string title, string body, string? originUid, Guid messageId, bool incoming, DateTime? timestamp = null, bool isUnread = true)
         {
             if (messageId == Guid.Empty) messageId = Guid.NewGuid();
             var trimmedOrigin = TrimUidPrefix(originUid ?? string.Empty);
+            var messageTime = timestamp ?? DateTime.UtcNow;
+            var formattedTime = messageTime.ToLocalTime().ToString("MMM d, yyyy h:mm tt");
+            var titleWithTime = $"{title} • {formattedTime}";
             NotificationItem updated;
             bool notify = false;
             bool created = false;
@@ -155,7 +432,7 @@ namespace ZTalk.Services
                     var readUtc = isUnread ? existing.ReadUtc : existing.ReadUtc ?? DateTime.UtcNow;
                     updated = existing with
                     {
-                        Title = string.IsNullOrWhiteSpace(title) ? existing.Title : title,
+                        Title = string.IsNullOrWhiteSpace(title) ? existing.Title : titleWithTime,
                         Body = string.IsNullOrWhiteSpace(body) ? existing.Body : body,
                         FullBody = string.IsNullOrWhiteSpace(existing.FullBody) ? body : existing.FullBody,
                         OriginUid = string.IsNullOrWhiteSpace(trimmedOrigin) ? existing.OriginUid : trimmedOrigin,
@@ -171,7 +448,7 @@ namespace ZTalk.Services
                 {
                     updated = new NotificationItem(
                         Guid.NewGuid(),
-                        title ?? string.Empty,
+                        titleWithTime ?? string.Empty,
                         body ?? string.Empty,
                         string.IsNullOrWhiteSpace(trimmedOrigin) ? null : trimmedOrigin,
                         DateTime.UtcNow,
@@ -408,94 +685,96 @@ namespace ZTalk.Services
         {
             try
             {
-                Dispatcher.UIThread.Post(async () =>
+                Dispatcher.UIThread.Post(() =>
                 {
                     try
                     {
                         var win = new Avalonia.Controls.Window
                         {
-                            Width = 360,
-                            Height = 80,
+                            Width = ToastWidth,
+                            SizeToContent = Avalonia.Controls.SizeToContent.Height,
                             CanResize = false,
                             WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.Manual,
                             Topmost = true,
                             ShowInTaskbar = false,
-                            Content = new Avalonia.Controls.Border
-                            {
-                                Padding = new Avalonia.Thickness(8),
-                                Background = (Avalonia.Media.IBrush?)Avalonia.Application.Current?.FindResource("App.Surface"),
-                                Child = new Avalonia.Controls.StackPanel
-                                {
-                                    Spacing = 6,
-                                    Children =
-                                    {
-                                        new Avalonia.Controls.TextBlock { Text = string.IsNullOrWhiteSpace(title) ? "ZTalk" : title, FontWeight = Avalonia.Media.FontWeight.SemiBold },
-                                        new Avalonia.Controls.TextBlock { Text = text, TextWrapping = Avalonia.Media.TextWrapping.Wrap }
-                                    }
-                                }
-                            }
+                            ExtendClientAreaToDecorationsHint = true,
+                            ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
+                            SystemDecorations = Avalonia.Controls.SystemDecorations.None
                         };
+                        win.Content = CreateToastContent(win, title, text, originUid);
 
-                        // Compute top-right slide-in start/target positions
-                        // Attempt to compute working area from main window's screens if available
-                        Avalonia.PixelRect area;
-                        try
-                        {
-                            var lifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
-                            var mainWin = lifetime?.MainWindow;
-                            if (mainWin != null && mainWin.Screens?.Primary != null) area = mainWin.Screens.Primary.WorkingArea; else area = new Avalonia.PixelRect(0, 0, 1280, 720);
-                        }
-                        catch
-                        {
-                            area = new Avalonia.PixelRect(0, 0, 1280, 720);
-                        }
-                        var margin = 12;
-                        var targetLeft = area.Right - (int)win.Width - margin;
-                        var targetTop = area.Y + margin;
-                        var startLeft = area.Right + margin; // start off-screen to right
+                        PruneToastWindows();
+                        var beforeCount = _activeToastWindows.Count;
+
+                        // Compute working area and initial positions
+                        var area = GetPrimaryWorkingArea();
+                        var targetLeft = area.Right - ToastWidth - ToastMargin;
+                        var startLeft = area.Right + ToastMargin; // start off-screen to right
+                        var startTop = area.Y + ToastMargin; // temporary position
+
+                        try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Creating: beforeCount={beforeCount}\n"); } catch { }
 
                         // Place window initially off-screen at top-right
-                        try { win.Position = new Avalonia.PixelPoint((int)startLeft, (int)targetTop); } catch { }
+                        try { win.Position = new Avalonia.PixelPoint((int)startLeft, (int)startTop); } catch { }
                         win.Show();
-
-                        // Slide-in animation (over ~300ms)
-                        var durationMs = 320.0;
-                        var start = DateTime.UtcNow;
-                        var end = start.AddMilliseconds(durationMs);
-                        var timer = new Avalonia.Threading.DispatcherTimer()
+                        _activeToastWindows.Add(win);
+                        win.Closed += (_, __) => RemoveToastWindow(win);
+                        try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Added to list: now {_activeToastWindows.Count} active\n"); } catch { }
+                        
+                        // Delay reflow slightly to allow window to measure with SizeToContent, then animate
+                        Dispatcher.UIThread.Post(() => 
                         {
-                            Interval = TimeSpan.FromMilliseconds(16)
-                        };
-                        timer.Tick += (_, __) =>
-                        {
-                            try
+                            ReflowToastPositionsCore();
+                            
+                            // Get the target position after reflow
+                            var targetPos = win.Position;
+                            
+                            // Start slide-in animation from off-screen
+                            var durationMs = 320.0;
+                            var start = DateTime.UtcNow;
+                            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Animation: start=({startLeft},{targetPos.Y}) -> target=({targetLeft},{targetPos.Y})\n"); } catch { }
+                            var timer = new Avalonia.Threading.DispatcherTimer()
                             {
-                                var now = DateTime.UtcNow;
-                                var total = (now - start).TotalMilliseconds;
-                                var t = Math.Clamp(total / durationMs, 0.0, 1.0);
-                                // Ease-out cubic
-                                var eased = 1 - Math.Pow(1 - t, 3);
-                                var left = startLeft - ((startLeft - targetLeft) * eased);
-                                try { win.Position = new Avalonia.PixelPoint((int)left, (int)targetTop); } catch { }
-                                if (t >= 1.0)
+                                Interval = TimeSpan.FromMilliseconds(16)
+                            };
+                            timer.Tick += (_, __) =>
+                            {
+                                try
                                 {
-                                    timer.Stop();
+                                    var now = DateTime.UtcNow;
+                                    var total = (now - start).TotalMilliseconds;
+                                    var t = Math.Clamp(total / durationMs, 0.0, 1.0);
+                                    // Ease-out cubic
+                                    var eased = 1 - Math.Pow(1 - t, 3);
+                                    var left = startLeft - ((startLeft - targetLeft) * eased);
+                                    try { win.Position = new Avalonia.PixelPoint((int)left, targetPos.Y); } catch { }
+                                    if (t >= 1.0)
+                                    {
+                                        timer.Stop();
+                                        try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Animation complete: final=({(int)left},{targetPos.Y})\n"); } catch { }
+                                    }
                                 }
-                            }
-                            catch { }
-                        };
-                        timer.Start();
+                                catch { }
+                            };
+                            timer.Start();
+                        }, Avalonia.Threading.DispatcherPriority.Loaded);
 
                         // Mouse/click handler: open conversation and dismiss
-                        win.PointerReleased += (_, __) =>
+                        win.PointerReleased += (_, e) =>
                         {
                             try
                             {
+                                if (e.Source is Button)
+                                {
+                                    return;
+                                }
+
                                 if (!string.IsNullOrWhiteSpace(originUid))
                                 {
                                     try { AppServices.Events.RaiseOpenConversationRequested(originUid); } catch { }
                                 }
                                 try { win.Close(); } catch { }
+                                e.Handled = true;
                             }
                             catch { }
                         };
@@ -512,6 +791,8 @@ namespace ZTalk.Services
                                 // Slide-out animation (reverse)
                                 var outStart = DateTime.UtcNow;
                                 var outDur = 260.0;
+                                var currentY = 0;
+                                Dispatcher.UIThread.Post(() => { try { currentY = win.Position.Y; } catch { } });
                                 var outTimer = new Avalonia.Threading.DispatcherTimer() { Interval = TimeSpan.FromMilliseconds(16) };
                                 outTimer.Tick += (_, __) =>
                                 {
@@ -522,7 +803,7 @@ namespace ZTalk.Services
                                         var tt = Math.Clamp(elapsed / outDur, 0.0, 1.0);
                                         var eased = Math.Pow(tt, 3); // ease-in
                                         var left = targetLeft + ((startLeft - targetLeft) * eased);
-                                        Dispatcher.UIThread.Post(() => { try { win.Position = new Avalonia.PixelPoint((int)left, (int)targetTop); } catch { } });
+                                        Dispatcher.UIThread.Post(() => { try { win.Position = new Avalonia.PixelPoint((int)left, currentY); } catch { } });
                                         if (tt >= 1.0)
                                         {
                                             outTimer.Stop();

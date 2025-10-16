@@ -47,7 +47,10 @@ namespace ZTalk.Utilities
                                 break;
                             }
                             var tn = dt.Name ?? string.Empty;
-                            if (tn.IndexOf("Network", StringComparison.OrdinalIgnoreCase) >= 0 || tn.IndexOf("Nat", StringComparison.OrdinalIgnoreCase) >= 0 || tn.IndexOf("Discovery", StringComparison.OrdinalIgnoreCase) >= 0 || tn.IndexOf("Peer", StringComparison.OrdinalIgnoreCase) >= 0)
+                            if (tn.Contains("Network", StringComparison.OrdinalIgnoreCase) ||
+                                tn.Contains("Nat", StringComparison.OrdinalIgnoreCase) ||
+                                tn.Contains("Discovery", StringComparison.OrdinalIgnoreCase) ||
+                                tn.Contains("Peer", StringComparison.OrdinalIgnoreCase))
                             {
                                 routeToNetwork = true;
                                 break;

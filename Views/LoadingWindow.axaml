@@ -4,8 +4,8 @@
         x:Class="ZTalk.Views.LoadingWindow"
         x:DataType="vm:LoadingWindowViewModel"
         Title="ZTalk - Loading"
-        Width="600"
-        Height="400"
+        Width="700"
+        Height="500"
         WindowStartupLocation="CenterScreen"
         CanResize="False"
         ShowInTaskbar="False"
@@ -27,29 +27,29 @@
                 </LinearGradientBrush>
             </Rectangle.Fill>
         </Rectangle>
-        
+
         <!-- Main loading content -->
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="30">
-            
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Spacing="35" Margin="0,40,0,0">
+
             <!-- App Title/Logo area -->
-            <TextBlock Text="ZTalk" 
-                       FontSize="48" 
-                       FontWeight="Bold" 
-                       Foreground="#4a9eff" 
+            <TextBlock Text="ZTalk"
+                       FontSize="48"
+                       FontWeight="Bold"
+                       Foreground="#4a9eff"
                        HorizontalAlignment="Center"/>
-            
+
             <!-- Loading indicator -->
-            <Border Width="80" Height="80" 
-                    CornerRadius="40" 
-                    BorderBrush="#4a9eff" 
+            <Border Width="80" Height="80"
+                    CornerRadius="40"
+                    BorderBrush="#4a9eff"
                     BorderThickness="4"
                     HorizontalAlignment="Center">
-                
+
                 <!-- Inner loading dot -->
-                <Ellipse Width="20" Height="20" 
-                         Fill="#4a9eff" 
-                         HorizontalAlignment="Left" 
-                         VerticalAlignment="Top" 
+                <Ellipse Width="20" Height="20"
+                         Fill="#4a9eff"
+                         HorizontalAlignment="Left"
+                         VerticalAlignment="Top"
                          Margin="10,10,0,0">
                     <Ellipse.Styles>
                         <Style Selector="Ellipse">
@@ -70,61 +70,69 @@
                     </Ellipse.Styles>
                 </Ellipse>
             </Border>
-            
+
             <!-- Main status message -->
-            <TextBlock Text="{Binding MainMessage}" 
-                       FontSize="24" 
-                       FontWeight="SemiBold" 
-                       Foreground="White" 
+            <TextBlock Text="{Binding MainMessage}"
+                       FontSize="24"
+                       FontWeight="SemiBold"
+                       Foreground="White"
                        HorizontalAlignment="Center"
                        TextWrapping="Wrap"
                        MaxWidth="500"/>
-            
-            <!-- Progress bar -->
-            <ProgressBar Value="{Binding Progress}" 
-                         Minimum="0" 
-                         Maximum="100" 
-                         Width="400" 
-                         Height="8" 
-                         Foreground="#4a9eff" 
-                         Background="#333333"/>
-            
-            <!-- Current task/file being loaded -->
-            <TextBlock Text="{Binding CurrentTask}" 
-                       FontSize="14" 
-                       Foreground="#cccccc" 
-                       HorizontalAlignment="Center"
-                       TextWrapping="Wrap"
-                       MaxWidth="500"/>
-            
-            <!-- Loading steps list -->
+
+            <!-- Loading steps list (horizontal) -->
             <ItemsControl ItemsSource="{Binding LoadingSteps}" 
-                          MaxWidth="500">
+                          HorizontalAlignment="Center"
+                          Margin="0,10,0,10">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Orientation="Horizontal" Margin="0,2">
-                            <TextBlock Text="{Binding Icon}" 
-                                       FontSize="12" 
-                                       Foreground="{Binding StatusColor}" 
-                                       Width="20"/>
-                            <TextBlock Text="{Binding Description}" 
-                                       FontSize="12" 
-                                       Foreground="{Binding StatusColor}" 
-                                       Margin="5,0,0,0"/>
+                        <StackPanel Orientation="Vertical" Margin="8,0" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding Icon}"
+                                       FontSize="16"
+                                       Foreground="{Binding StatusColor}"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="{Binding Description}"
+                                       FontSize="10"
+                                       Foreground="{Binding StatusColor}"
+                                       HorizontalAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="80"/>
                         </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-            
+
+            <!-- Progress bar -->
+            <ProgressBar Value="{Binding Progress}"
+                         Minimum="0"
+                         Maximum="100"
+                         Width="400"
+                         Height="8"
+                         Foreground="#4a9eff"
+                         Background="#333333"/>
+
+            <!-- Current task/file being loaded -->
+            <TextBlock Text="{Binding CurrentTask}"
+                       FontSize="14"
+                       Foreground="#cccccc"
+                       HorizontalAlignment="Center"
+                       TextWrapping="Wrap"
+                       MaxWidth="500"/>
+
         </StackPanel>
-        
+
         <!-- Version info in bottom corner -->
-        <TextBlock Text="Initializing secure messaging system..." 
-                   FontSize="10" 
-                   Foreground="#666666" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Bottom" 
-                   Margin="0,0,0,20"/>
-                   
+        <TextBlock Text="Initializing secure messaging system..."
+                   FontSize="10"
+                   Foreground="#666666"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Bottom"
+                   Margin="0,0,0,30"/>
+
     </Grid>
 </Window>

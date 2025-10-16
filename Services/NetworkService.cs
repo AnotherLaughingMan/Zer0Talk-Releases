@@ -2462,8 +2462,7 @@ namespace ZTalk.Services
         {
             try
             {
-                using var sha = System.Security.Cryptography.SHA256.Create();
-                var hash = sha.ComputeHash(publicKey);
+                var hash = System.Security.Cryptography.SHA256.HashData(publicKey);
                 return Convert.ToBase64String(hash);
             }
             catch { return string.Empty; }

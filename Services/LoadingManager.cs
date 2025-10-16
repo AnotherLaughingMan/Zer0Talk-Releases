@@ -8,7 +8,7 @@ namespace ZTalk.Services;
 
 public class LoadingManager
 {
-    private readonly LoadingWindowViewModel _viewModel;
+    private readonly LoadingWindowViewModel? _viewModel;
     private int _currentStep = 0;
     private readonly string[] _stepDescriptions = 
     {
@@ -20,7 +20,7 @@ public class LoadingManager
         "Starting network services"
     };
     
-    public LoadingManager(LoadingWindowViewModel viewModel)
+    public LoadingManager(LoadingWindowViewModel? viewModel)
     {
         _viewModel = viewModel;
     }
@@ -29,8 +29,11 @@ public class LoadingManager
     {
         try
         {
-            _viewModel.MainMessage = "Getting things ready for you...";
-            _viewModel.Progress = 0;
+            if (_viewModel != null)
+            {
+                _viewModel.MainMessage = "Getting things ready for you...";
+                _viewModel.Progress = 0;
+            }
             
             // Play startup sound immediately using AudioHelper
             _ = Task.Run(async () =>
@@ -43,7 +46,7 @@ public class LoadingManager
                     var startupSoundPath = System.IO.Path.Combine("Assets", "Sounds", "short-modern-logo-242224.mp3");
                     if (System.IO.File.Exists(startupSoundPath))
                     {
-                                            await ZTalk.Services.AudioHelper.PlayCustomSoundAsync("short-modern-logo-242224.mp3");
+                        await ZTalk.Services.AudioHelper.PlayCustomSoundAsync("short-modern-logo-242224.mp3");
                         SafeLog("Init.StartupSound.Complete", null);
                     }
                     else
@@ -195,7 +198,10 @@ public class LoadingManager
             
             // Final completion
             await UpdateProgress("Ready! Opening ZTalk...", 100);
-            _viewModel.MainMessage = "Welcome to ZTalk!";
+            if (_viewModel != null)
+            {
+                _viewModel.MainMessage = "Welcome to ZTalk!";
+            }
             await Task.Delay(1000); // Longer pause to ensure UI is ready
             
             SafeLog("LoadingManager.InitializeApplicationAsync.Success", null);
@@ -204,39 +210,43 @@ public class LoadingManager
         catch (Exception ex)
         {
             SafeLog("LoadingManager.InitializeApplicationAsync.Error", ex);
-            _viewModel.MainMessage = "Initialization failed. Please restart the application.";
-            _viewModel.CurrentTask = $"Error: {ex.Message}";
-            
-            if (_currentStep < _stepDescriptions.Length)
+            if (_viewModel != null)
             {
-                _viewModel.UpdateStep(_stepDescriptions[_currentStep], LoadingStatus.Error);
+                _viewModel.MainMessage = "Initialization failed. Please restart the application.";
+                _viewModel.CurrentTask = $"Error: {ex.Message}";
+
+                if (_currentStep < _stepDescriptions.Length)
+                {
+                    _viewModel.UpdateStep(_stepDescriptions[_currentStep], LoadingStatus.Error);
+                }
             }
-            
+
             return false;
         }
     }
     
     private async Task UpdateProgress(string taskDescription, double progress)
     {
-        _viewModel.CurrentTask = taskDescription;
-        _viewModel.Progress = progress;
-        
-        if (_currentStep < _stepDescriptions.Length)
+        if (_viewModel != null)
         {
-            _viewModel.UpdateStep(_stepDescriptions[_currentStep], LoadingStatus.InProgress);
+            _viewModel.CurrentTask = taskDescription;
+            _viewModel.Progress = progress;
+
+            if (_currentStep < _stepDescriptions.Length)
+            {
+                _viewModel.UpdateStep(_stepDescriptions[_currentStep], LoadingStatus.InProgress);
+            }
         }
-        
+
         // Small delay for visual feedback
         await Task.Delay(200);
-    }
-    
-    private void CompleteCurrentStep()
+    }    private void CompleteCurrentStep()
     {
-        if (_currentStep < _stepDescriptions.Length)
+        if (_viewModel != null && _currentStep < _stepDescriptions.Length)
         {
             _viewModel.UpdateStep(_stepDescriptions[_currentStep], LoadingStatus.Complete);
-            _currentStep++;
         }
+        _currentStep++;
     }
     
     private static void SafeLog(string header, Exception? ex)

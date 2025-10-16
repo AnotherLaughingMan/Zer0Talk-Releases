@@ -523,10 +523,7 @@ public class LinkPreviewService : IDisposable
 
     private void ThrowIfDisposed()
     {
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(nameof(LinkPreviewService));
-        }
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
     public void Dispose()
@@ -536,6 +533,7 @@ public class LinkPreviewService : IDisposable
             return;
         }
         _disposed = true;
+        GC.SuppressFinalize(this);
         if (_disposeClient)
         {
             _httpClient.Dispose();

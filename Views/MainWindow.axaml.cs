@@ -2106,6 +2106,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+
+
     public new event PropertyChangedEventHandler? PropertyChanged;
     private void RaisePropChanged([CallerMemberName] string? name = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
@@ -3568,62 +3570,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (_inviteToastWindow == null || _inviteToastBorder == null || _inviteToastTitle == null || _inviteToastBody == null)
-            {
-                ConfigureInviteToastWindow();
-                if (_inviteToastWindow == null || _inviteToastBorder == null || _inviteToastTitle == null || _inviteToastBody == null) return;
-            }
-
-            _inviteToastCts?.Cancel();
-            var cts = new CancellationTokenSource();
-            _inviteToastCts = cts;
-
+            // Use the updated NotificationService system for cascading toasts
             var display = string.IsNullOrWhiteSpace(req.DisplayName) ? TrimUidPrefix(req.Uid ?? string.Empty) : req.DisplayName;
             if (string.IsNullOrWhiteSpace(display)) display = "New contact invite";
             var trimmedUid = TrimUidPrefix(req.Uid ?? string.Empty);
             var line = string.IsNullOrWhiteSpace(trimmedUid) ? $"{display} wants to connect." : $"{display} ({trimmedUid}) wants to connect.";
-            _inviteToastTitle.Text = "New Contact Invite";
-            _inviteToastBody.Text = line;
-
-            PositionInviteToastWindow();
-
-            if (!_inviteToastWindow.IsVisible)
-            {
-                _inviteToastWindow.Show();
-            }
-
-            if (_inviteToastBorder.RenderTransform is not TranslateTransform slide)
-            {
-                slide = new TranslateTransform { X = 360 };
-                _inviteToastBorder.RenderTransform = slide;
-            }
-            slide.X = 360;
-            _inviteToastBorder.Opacity = 0;
-            _inviteToastBorder.IsVisible = true;
-            _inviteToastBorder.IsHitTestVisible = true;
-
-            Dispatcher.UIThread.Post(() =>
-            {
-                try
-                {
-                    if (_inviteToastBorder?.RenderTransform is TranslateTransform slideIn) slideIn.X = 0;
-                    if (_inviteToastBorder != null) _inviteToastBorder.Opacity = 1;
-                }
-                catch { }
-            }, DispatcherPriority.Render);
-
-            _ = System.Threading.Tasks.Task.Run(async () =>
-            {
-                try
-                {
-                    await System.Threading.Tasks.Task.Delay(TimeSpan.FromSeconds(6), cts.Token);
-                    if (!cts.Token.IsCancellationRequested)
-                    {
-                        Dispatcher.UIThread.Post(() => HideInviteToast());
-                    }
-                }
-                catch { }
-            }, cts.Token);
+            
+            AppServices.Notifications.PostNotice("New Contact Invite", line, req.Uid);
         }
         catch { }
     }
@@ -4657,7 +4610,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private EventHandler<RoutedEventArgs>? _markAllMessagesHandler;
     private EventHandler<RoutedEventArgs>? _notifPrevHandler;
     private EventHandler<RoutedEventArgs>? _notifNextHandler;
-    private bool _rightPanelButtonsWired = false;
+    private bool _rightPanelButtonsWired;
 
     private void AttachRightPanelEventHandlers()
     {
@@ -5026,7 +4979,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         });
         metaPanel.Children.Add(new TextBlock
         {
-            Text = notice.Utc.ToLocalTime().ToString("g"),
+            Text = notice.Utc.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
             FontSize = 11,
             Opacity = 0.6
         });

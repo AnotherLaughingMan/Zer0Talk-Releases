@@ -133,6 +133,28 @@ namespace ZTalk.Services
                         PreloadAudioFile(soundFile);
                     }
                 }
+
+                // Preload toast notification specific sounds
+                var toastSounds = new[]
+                {
+                    "ui-10-smooth-warnnotify-sound-effect-365842.mp3",      // Warning
+                    "smooth-notify-alert-toast-warn-274736.mp3",            // Information
+                    "smooth-completed-notify-starting-alert-274739.mp3"     // Error
+                };
+
+                foreach (var soundFileName in toastSounds)
+                {
+                    var soundFile = Path.Combine(_soundsDirectory, soundFileName);
+                    if (File.Exists(soundFile))
+                    {
+                        PreloadAudioFile(soundFile);
+                        SafeAudioLog($"Preloaded toast sound: {soundFileName}");
+                    }
+                    else
+                    {
+                        SafeAudioLog($"Toast sound file not found: {soundFileName}");
+                    }
+                }
                 
                 SafeAudioLog($"Preloaded {_cachedAudioFiles.Count} sound files for instant playback");
             }
@@ -493,6 +515,7 @@ namespace ZTalk.Services
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             StopSound();
             
             // Dispose cached audio files

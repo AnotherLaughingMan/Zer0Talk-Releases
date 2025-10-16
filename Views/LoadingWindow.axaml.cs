@@ -10,6 +10,6 @@ public partial class LoadingWindow : Window
         InitializeComponent();
         DataContext = new LoadingWindowViewModel();
     }
-    
+
     public LoadingWindowViewModel ViewModel => (LoadingWindowViewModel)DataContext!;
 }

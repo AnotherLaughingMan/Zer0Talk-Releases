@@ -123,7 +123,7 @@ public class AppSettings
     public int DebugLogRetentionDays { get; set; } = 1;
     public int DebugLogMaxMegabytes { get; set; } = 16;
     // Debug-only: toggle logging on/off (default off for performance)
-    public bool EnableLogging { get; set; } = false;
+    public bool EnableLogging { get; set; }
 
     // Hotkey configuration (stores Key enum value as int and KeyModifiers as int for serialization)
     public int LockHotkeyKey { get; set; } = DefaultLockHotkeyKey; // Default: Ctrl+L
@@ -143,9 +143,9 @@ public class AppSettings
     public bool EnhancedKeyboardNavigation { get; set; } = true;
 
     // System Tray settings
-    public bool MinimizeToTray { get; set; } = false; // When enabled, close button minimizes to tray instead of closing
-    public bool RunOnStartup { get; set; } = false; // When enabled, app starts with Windows
-    public bool ShowInSystemTray { get; set; } = false; // When enabled, app icon appears in system tray
+    public bool MinimizeToTray { get; set; } // When enabled, close button minimizes to tray instead of closing
+    public bool RunOnStartup { get; set; } // When enabled, app starts with Windows
+    public bool ShowInSystemTray { get; set; } // When enabled, app icon appears in system tray
 
     // Audio settings (volume ranges from 0.0 to 1.0)
     public double MainVolume { get; set; } = 1.0; // Overall volume control for all sounds

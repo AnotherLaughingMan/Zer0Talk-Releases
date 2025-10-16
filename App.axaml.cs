@@ -7,6 +7,7 @@
 // TODO[ANCHOR]: App - Wire service singletons via AppServices
 using System;
 using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -114,26 +115,33 @@ public partial class App : Application
         catch { }
     }
     
-    private static void ContinueToMainApp(IClassicDesktopStyleApplicationLifetime desktop, Views.LoadingWindow loadingWindow)
+    private static void SafeStartupLog(string msg)
     {
         try
         {
-            TryWriteErrorTxt("Init.TransitionToMainApp.Begin", null);
+            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
+            var line = "[" + DateTime.Now.ToString("O") + "] " + msg;
+            System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Startup, line + Environment.NewLine);
+        }
+        catch { }
+    }
+    
+
+    
+    private static void ShowAppropriateWindow(IClassicDesktopStyleApplicationLifetime desktop, Views.LoadingWindow? loadingWindow)
+    {
+        try
+        {
+            SafeStartupLog("ShowAppropriateWindow.Start");
+            var hasAccount = AppServices.Accounts.HasAccount();
+            SafeStartupLog($"ShowAppropriateWindow.HasAccount={hasAccount}");
             
-            // Ensure we're on the UI thread
-            if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
-            {
-                Avalonia.Threading.Dispatcher.UIThread.Post(() => ContinueToMainApp(desktop, loadingWindow));
-                return;
-            }
-            
-            // Determine which window to show based on account status
-            if (!AppServices.Accounts.HasAccount())
+            if (!hasAccount)
             {
                 // Show account creation window
                 var acw = new Views.AccountCreationWindow();
                 desktop.MainWindow = acw;
-                loadingWindow.Close();
+                loadingWindow?.Close();
                 acw.Show();
                 
                 acw.Closed += (_, __) =>
@@ -154,31 +162,31 @@ public partial class App : Application
                 // Check for auto-unlock
                 var rememberPref = false;
                 try { rememberPref = AppServices.Settings.GetRememberPreference(); } catch { }
+                SafeStartupLog($"ShowAppropriateWindow.RememberPref={rememberPref}");
                 
                 if (rememberPref && AppServices.Settings.TryGetRememberedPassphrase(out var remembered) && !string.IsNullOrWhiteSpace(remembered))
                 {
+                    SafeStartupLog("ShowAppropriateWindow.AutoLogin.Attempting");
                     try
                     {
                         // Auto-unlock and go to main window
                         TryWriteErrorTxt("Auto-unlock attempt", null);
                         var acc = AppServices.Accounts.LoadAccount(remembered);
                         AppServices.Passphrase = remembered;
+                        SafeStartupLog("ShowAppropriateWindow.AutoLogin.AccountLoaded");
                         
-                        // Load settings and apply theme
-                        AppServices.Settings.Load(AppServices.Passphrase);
-                        AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme);
-                        AppServices.Identity.LoadFromAccount(acc);
+                        // Load settings and apply theme (LoadingManager already did crypto/audio/theme init)
+                        try { AppServices.Settings.Load(AppServices.Passphrase); SafeStartupLog("ShowAppropriateWindow.AutoLogin.Settings.Loaded"); } catch (Exception ex) { SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Settings.Error: {ex.Message}"); throw; }
+                        try { AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme); SafeStartupLog("ShowAppropriateWindow.AutoLogin.Theme.Applied"); } catch (Exception ex) { SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Theme.Error: {ex.Message}"); throw; }
+                        try { AppServices.Identity.LoadFromAccount(acc); SafeStartupLog("ShowAppropriateWindow.AutoLogin.Identity.Loaded"); } catch (Exception ex) { SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Identity.Error: {ex.Message}"); throw; }
+                        SafeStartupLog("ShowAppropriateWindow.AutoLogin.AllSettingsLoaded");
                         
-                        // Show main window first, then close loading window
+                        // Show main window
+                        SafeStartupLog("ShowAppropriateWindow.AutoLogin.ShowingMainWindow");
                         ShowMainWindow(desktop);
                         SetupPostInitialization(desktop);
-                        
-                        // Close loading window after main window is established
-                        _ = System.Threading.Tasks.Task.Run(async () =>
-                        {
-                            await System.Threading.Tasks.Task.Delay(100);
-                            Avalonia.Threading.Dispatcher.UIThread.Post(() => loadingWindow.Close());
-                        });
+                        loadingWindow?.Close();
+                        SafeStartupLog("ShowAppropriateWindow.AutoLogin.Complete");
                         
                         // Load additional data in background
                         _ = System.Threading.Tasks.Task.Run(() =>
@@ -200,7 +208,7 @@ public partial class App : Application
                 // Show unlock window
                 var unlock = new Views.UnlockWindow();
                 desktop.MainWindow = unlock;
-                loadingWindow.Close();
+                loadingWindow?.Close();
                 unlock.Show();
                 
                 unlock.Closed += (_, __) =>
@@ -209,23 +217,16 @@ public partial class App : Application
                     {
                         try
                         {
-                        AppServices.Settings.Load(AppServices.Passphrase);
-                        AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme);
-                        var acc = AppServices.Accounts.LoadAccount(AppServices.Passphrase);
-                        AppServices.Identity.LoadFromAccount(acc);
-                    }
-                    catch { }
-                    
-                    // Show main window and setup
-                    ShowMainWindow(desktop);
-                    SetupPostInitialization(desktop);
-                    
-                    // Close loading window after establishing main window
-                    _ = System.Threading.Tasks.Task.Run(async () =>
-                    {
-                        await System.Threading.Tasks.Task.Delay(100);
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() => loadingWindow.Close());
-                    });                        // Load additional data in background
+                            AppServices.Settings.Load(AppServices.Passphrase);
+                            AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme);
+                            var acc = AppServices.Accounts.LoadAccount(AppServices.Passphrase);
+                            AppServices.Identity.LoadFromAccount(acc);
+                        }
+                        catch { }
+                        
+                        ShowMainWindow(desktop);
+                        SetupPostInitialization(desktop);
+                        
                         _ = System.Threading.Tasks.Task.Run(() =>
                         {
                             try { AppServices.Contacts.Load(AppServices.Passphrase); } catch { }
@@ -239,56 +240,40 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            TryWriteErrorTxt("ContinueToMainApp.Error", ex);
+            TryWriteErrorTxt("ShowAppropriateWindow.Error", ex);
         }
     }
     
     private static void ShowMainWindow(IClassicDesktopStyleApplicationLifetime desktop)
     {
-        MainWindow mw;
         try
         {
-            TryWriteErrorTxt("ShowMainWindow.Begin", null);
-            
-            // Ensure shutdown mode allows the main window to control app lifetime
             desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose;
-            
-            mw = new MainWindow();
-            TryWriteErrorTxt("ShowMainWindow.Created", null);
-            
+            var mw = new MainWindow();
             desktop.MainWindow = mw;
-            TryWriteErrorTxt("ShowMainWindow.SetAsMain", null);
-            
             mw.Show();
-            TryWriteErrorTxt("ShowMainWindow.Shown", null);
             
-            // Ensure the window is activated and brought to front
-            mw.Activate();
-            TryWriteErrorTxt("ShowMainWindow.Activated", null);
+            // Set up window cleanup
+            mw.Closed += (_, __) =>
+            {
+                try
+                {
+                    if (desktop.Windows is not null)
+                    {
+                        var copy = new System.Collections.Generic.List<Avalonia.Controls.Window>(desktop.Windows);
+                        foreach (var w in copy)
+                        {
+                            try { if (w != mw) w.Close(); } catch { }
+                        }
+                    }
+                }
+                catch { }
+            };
         }
         catch (Exception ex)
         {
             TryWriteErrorTxt("ShowMainWindow.Error", ex);
-            // Don't throw - this would kill the app. Instead, keep running with current window
-            return;
         }
-        
-        // Set up window cleanup
-        mw.Closed += (_, __) =>
-        {
-            try
-            {
-                if (desktop.Windows is not null)
-                {
-                    var copy = new System.Collections.Generic.List<Avalonia.Controls.Window>(desktop.Windows);
-                    foreach (var w in copy)
-                    {
-                        try { if (w != mw) w.Close(); } catch { }
-                    }
-                }
-            }
-            catch { }
-        };
     }
     
     private static void SetupPostInitialization(IClassicDesktopStyleApplicationLifetime desktop)
@@ -449,61 +434,67 @@ public partial class App : Application
                     };
                 }
                 catch { }
-                // Show loading window immediately for better UX
-                var loadingWindow = new Views.LoadingWindow();
-                desktop.MainWindow = loadingWindow;
-                loadingWindow.Show();
                 
-                // Initialize application through loading manager with progress feedback
-                var loadingManager = new Services.LoadingManager(loadingWindow.ViewModel);
-                _ = System.Threading.Tasks.Task.Run(async () =>
+                // Create and show loading window
+                Views.LoadingWindow? loadingWindow = null;
+                try
+                {
+                    TryWriteErrorTxt("Init.LoadingWindow.Create", null);
+                    SafeStartupLog("Init.LoadingWindow.Create");
+                    loadingWindow = new Views.LoadingWindow();
+                    desktop.MainWindow = loadingWindow;
+                    loadingWindow.Show();
+                    TryWriteErrorTxt("Init.LoadingWindow.Shown", null);
+                    SafeStartupLog("Init.LoadingWindow.Shown");
+                }
+                catch (Exception ex)
+                {
+                    TryWriteErrorTxt("Init.LoadingWindow.Error", ex);
+                    SafeStartupLog($"Init.LoadingWindow.Error: {ex.Message}");
+                    // If loading window fails, try without it
+                    loadingWindow = null;
+                }
+                
+                // Initialize via LoadingManager on UI thread
+                _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     try
                     {
-                        TryWriteErrorTxt("LoadingManager.Start", null);
-                        var initSuccess = await loadingManager.InitializeApplicationAsync();
-                        TryWriteErrorTxt($"LoadingManager.Complete.Success={initSuccess}", null);
+                        TryWriteErrorTxt("Init.LoadingManager.Begin", null);
+                        SafeStartupLog("Init.LoadingManager.Begin");
                         
-                        if (!initSuccess)
+                        var loadingManager = new Services.LoadingManager(loadingWindow?.ViewModel);
+                        await loadingManager.InitializeApplicationAsync();
+                        
+                        TryWriteErrorTxt("Init.LoadingManager.Complete", null);
+                        SafeStartupLog("Init.LoadingManager.Complete");
+                        
+                        // Switch to appropriate window
+                        try
                         {
-                            // Initialization failed, keep loading window open with error
-                            TryWriteErrorTxt("LoadingManager.Failed.KeepingWindowOpen", null);
-                            return;
+                            SafeStartupLog("Init.ShowAppropriateWindow.Begin");
+                            ShowAppropriateWindow(desktop, loadingWindow);
+                            SafeStartupLog("Init.ShowAppropriateWindow.Complete");
                         }
-                        
-                        // Transition to main app on UI thread
-                        TryWriteErrorTxt("LoadingManager.TransitionToUI", null);
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        catch (Exception ex)
                         {
-                            try
-                            {
-                                TryWriteErrorTxt("UI.ContinueToMainApp.Start", null);
-                                ContinueToMainApp(desktop, loadingWindow);
-                                TryWriteErrorTxt("UI.ContinueToMainApp.Complete", null);
-                            }
-                            catch (Exception ex)
-                            {
-                                TryWriteErrorTxt("LoadingWindow.TransitionToMain.Error", ex);
-                                // Don't let the app die - show error but keep loading window open
-                                loadingWindow.ViewModel.MainMessage = "Initialization failed. Please restart the application.";
-                                loadingWindow.ViewModel.CurrentTask = $"Error: {ex.Message}";
-                            }
-                        });
+                            TryWriteErrorTxt("Init.ShowWindow.Error", ex);
+                            SafeStartupLog($"Init.ShowWindow.Error: {ex.Message}");
+                            try { desktop.Shutdown(); } catch { }
+                        }
                     }
                     catch (Exception ex)
                     {
-                        TryWriteErrorTxt("LoadingManager.Exception", ex);
-                        // Update UI on UI thread
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                        {
-                            loadingWindow.ViewModel.MainMessage = "Critical initialization error occurred.";
-                            loadingWindow.ViewModel.CurrentTask = $"Error: {ex.Message}";
-                        });
+                        TryWriteErrorTxt("Init.LoadingManager.Error", ex);
+                        SafeStartupLog($"Init.LoadingManager.Error: {ex.Message}");
+                        try 
+                        { 
+                            try { loadingWindow?.Close(); } catch { }
+                            try { desktop.Shutdown(); } catch { }
+                        } 
+                        catch { }
                     }
                 });
-                
-                // Exit early - all other initialization is handled by LoadingManager
-                return;
             }
             catch (Exception ex)
             {

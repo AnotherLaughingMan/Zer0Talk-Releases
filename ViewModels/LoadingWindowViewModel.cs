@@ -10,7 +10,7 @@ public class LoadingWindowViewModel : INotifyPropertyChanged
     private string _mainMessage = "Getting things ready for you...";
     private string _currentTask = "Initializing...";
     private double _progress = 0;
-    
+
     public string MainMessage
     {
         get => _mainMessage;
@@ -20,7 +20,7 @@ public class LoadingWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged();
         }
     }
-    
+
     public string CurrentTask
     {
         get => _currentTask;
@@ -30,7 +30,7 @@ public class LoadingWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged();
         }
     }
-    
+
     public double Progress
     {
         get => _progress;
@@ -40,14 +40,14 @@ public class LoadingWindowViewModel : INotifyPropertyChanged
             OnPropertyChanged();
         }
     }
-    
+
     public ObservableCollection<LoadingStep> LoadingSteps { get; } = new();
-    
+
     public LoadingWindowViewModel()
     {
         InitializeLoadingSteps();
     }
-    
+
     private void InitializeLoadingSteps()
     {
         LoadingSteps.Add(new LoadingStep("Initializing cryptography", LoadingStatus.Pending));
@@ -57,7 +57,7 @@ public class LoadingWindowViewModel : INotifyPropertyChanged
         LoadingSteps.Add(new LoadingStep("Preparing user interface", LoadingStatus.Pending));
         LoadingSteps.Add(new LoadingStep("Starting network services", LoadingStatus.Pending));
     }
-    
+
     public void UpdateStep(string description, LoadingStatus status)
     {
         var step = LoadingSteps.FirstOrDefault(s => s.Description == description);
@@ -66,9 +66,9 @@ public class LoadingWindowViewModel : INotifyPropertyChanged
             step.Status = status;
         }
     }
-    
+
     public event PropertyChangedEventHandler? PropertyChanged;
-    
+
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
@@ -86,9 +86,9 @@ public enum LoadingStatus
 public class LoadingStep : INotifyPropertyChanged
 {
     private LoadingStatus _status;
-    
+
     public string Description { get; }
-    
+
     public LoadingStatus Status
     {
         get => _status;
@@ -100,7 +100,7 @@ public class LoadingStep : INotifyPropertyChanged
             OnPropertyChanged(nameof(StatusColor));
         }
     }
-    
+
     public string Icon => Status switch
     {
         LoadingStatus.Pending => "⏳",
@@ -109,7 +109,7 @@ public class LoadingStep : INotifyPropertyChanged
         LoadingStatus.Error => "❌",
         _ => "⏳"
     };
-    
+
     public string StatusColor => Status switch
     {
         LoadingStatus.Pending => "#666666",
@@ -118,15 +118,15 @@ public class LoadingStep : INotifyPropertyChanged
         LoadingStatus.Error => "#ef4444",
         _ => "#666666"
     };
-    
+
     public LoadingStep(string description, LoadingStatus status = LoadingStatus.Pending)
     {
         Description = description;
         _status = status;
     }
-    
+
     public event PropertyChangedEventHandler? PropertyChanged;
-    
+
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

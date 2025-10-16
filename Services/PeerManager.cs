@@ -400,8 +400,7 @@ namespace ZTalk.Services
                     {
                         try
                         {
-                            using var sha = System.Security.Cryptography.SHA256.Create();
-                            var hash = sha.ComputeHash(peer.PublicKey);
+                            var hash = System.Security.Cryptography.SHA256.HashData(peer.PublicKey);
                             var fingerprint = Convert.ToBase64String(hash);
                             
                             _settings.Settings.BlockedPublicKeyFingerprints ??= new();
@@ -460,8 +459,7 @@ namespace ZTalk.Services
                     {
                         try
                         {
-                            using var sha = System.Security.Cryptography.SHA256.Create();
-                            var hash = sha.ComputeHash(peer.PublicKey);
+                            var hash = System.Security.Cryptography.SHA256.HashData(peer.PublicKey);
                             var fingerprint = Convert.ToBase64String(hash);
                             _settings.Settings.BlockedPublicKeyFingerprints?.Remove(fingerprint);
                             Utilities.Logger.Log($"[UNBLOCK-PUBKEY] Removed public key fingerprint from blocklist for {uid}");

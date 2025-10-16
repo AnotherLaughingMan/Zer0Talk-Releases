@@ -2323,7 +2323,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     }
     public string LogMaintenanceLastRun
         => _lastLogMaintenanceUtc.HasValue
-            ? _lastLogMaintenanceUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+            ? _lastLogMaintenanceUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)
             : "Never";
     private string _selfPublicKeyHex = string.Empty;
     public string SelfPublicKeyHex { get => _selfPublicKeyHex; private set { _selfPublicKeyHex = value; OnPropertyChanged(); } }
@@ -2766,7 +2766,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private NetworkViewModel NetworkVm => _networkVm ??= new NetworkViewModel();
     
     // Network properties exposed from NetworkViewModel
-    public int Port { get => NetworkVm.Port; set => NetworkVm.PortText = value.ToString(); }
+    public int Port { get => NetworkVm.Port; set => NetworkVm.PortText = value.ToString(System.Globalization.CultureInfo.InvariantCulture); }
     public bool MajorNode { get => NetworkVm.MajorNode; set => NetworkVm.MajorNode = value; }
     public bool EnableGeoBlocking { get => NetworkVm.EnableGeoBlocking; set => NetworkVm.EnableGeoBlocking = value; }
     public string GeoBlockingStatus => NetworkVm.GeoBlockingStatus;
@@ -3836,7 +3836,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             Directory.CreateDirectory(securityDir);
             
             // Export with timestamp
-            var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm");
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm", System.Globalization.CultureInfo.InvariantCulture);
             var exportPath = Path.Combine(securityDir, $"ztalk-ip-blocklist-{timestamp}.txt");
             
             await AppServices.IpBlocking.ExportIpListToFileAsync(exportPath);
