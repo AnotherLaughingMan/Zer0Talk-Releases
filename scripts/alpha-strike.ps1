@@ -40,8 +40,30 @@ function Invoke-PublishScript([string]$Configuration) {
   pwsh -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'publish-debug.ps1') -Configuration $Configuration -Rid $Rid -KeepZips $KeepZips | Write-Host
 }
 
+function Move-OldVersionsToArchive([string]$CurrentVersion) {
+  $oldDir = Join-Path $publishDir 'old'
+  New-Item -ItemType Directory -Force -Path $oldDir | Out-Null
+  
+  # Find all zip files that don't match the current version
+  $oldVersionFiles = Get-ChildItem $publishDir -Filter "ZTalk-*.zip" | Where-Object { $_.Name -notmatch "ZTalk-v$([regex]::Escape($CurrentVersion))-" }
+  
+  if ($oldVersionFiles) {
+    Write-Host "Moving $($oldVersionFiles.Count) older version build(s) to 'old' subfolder..."
+    foreach ($file in $oldVersionFiles) {
+      try {
+        $destPath = Join-Path $oldDir $file.Name
+        Move-Item $file.FullName $destPath -Force -ErrorAction Stop
+        Write-Host "  Moved: $($file.Name)"
+      } catch {
+        Write-Host "Warning: Could not move old archive: $($file.Name) - $($_.Exception.Message)"
+      }
+    }
+  }
+}
+
 function Remove-OldZips([string]$Pattern) {
-  $files = Get-ChildItem $publishDir -Filter $Pattern -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+  # Only remove files of the current version that exceed the keep count
+  $files = Get-ChildItem $publishDir -Filter $Pattern -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "ZTalk-v$([regex]::Escape($version))-" } | Sort-Object LastWriteTime -Descending
   if ($files.Count -gt $keepCount) {
     $files | Select-Object -Skip $keepCount | ForEach-Object {
       try { Remove-Item -Force $_.FullName -ErrorAction Stop } catch { Write-Host "Warning: Could not delete old archive: $($_.Name)" }
@@ -90,6 +112,10 @@ function Publish-SingleFile {
     Write-Host "Error: Output directory not found after publish: $OutputDir"
   }
 }
+
+# Move older version builds to 'old' subfolder before starting new builds
+Write-Header "Archive older version builds"
+Move-OldVersionsToArchive $version
 
 # Proactively prune any legacy P2PTalk-named artifacts left from pre-rename runs
 Write-Header "Prune legacy P2PTalk artifacts"

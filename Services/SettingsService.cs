@@ -54,6 +54,13 @@ public class SettingsService
                     ZTalk.Utilities.LoggingPaths.SyncWithSettings();
                 }
                 catch { }
+
+                // Sync audio settings after creation
+                try
+                {
+                    AppServices.SyncAudioSettings();
+                }
+                catch { }
                 
                 return;
             }
@@ -85,6 +92,13 @@ public class SettingsService
             try
             {
                 ZTalk.Utilities.LoggingPaths.SyncWithSettings();
+            }
+            catch { }
+
+            // Sync audio settings after load
+            try
+            {
+                AppServices.SyncAudioSettings();
             }
             catch { }
 

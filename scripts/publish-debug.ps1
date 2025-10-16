@@ -127,9 +127,34 @@ Format-Table -AutoSize
 Write-Host "\nDone. Artifacts in: $publishDir"
 Write-Host "Version: $version"
 
-# Prune older zips for this RID/Configuration (keep latest $keepCount for each variant)
+# Move older version builds to 'old' subfolder
+function Move-OldVersionsToArchive([string]$CurrentVersion) {
+  $oldDir = Join-Path $publishDir 'old'
+  New-Item -ItemType Directory -Force -Path $oldDir | Out-Null
+  
+  # Find all zip files that don't match the current version
+  $oldVersionFiles = Get-ChildItem $publishDir -Filter "ZTalk-*.zip" | Where-Object { $_.Name -notmatch "ZTalk-v$([regex]::Escape($CurrentVersion))-" }
+  
+  if ($oldVersionFiles) {
+    Write-Host "Moving $($oldVersionFiles.Count) older version build(s) to 'old' subfolder..."
+    foreach ($file in $oldVersionFiles) {
+      try {
+        $destPath = Join-Path $oldDir $file.Name
+        Move-Item $file.FullName $destPath -Force -ErrorAction Stop
+        Write-Host "  Moved: $($file.Name)"
+      } catch {
+        Write-Host "Warning: Could not move old archive: $($file.Name) - $($_.Exception.Message)"
+      }
+    }
+  }
+}
+
+# Archive older versions first
+Move-OldVersionsToArchive $version
+
+# Prune older zips for this RID/Configuration (keep latest $keepCount for each variant of current version only)
 foreach ($pattern in @("ZTalk-v$version-$Rid-$Configuration-*.zip", "ZTalk-v$version-$Rid-$Configuration-sc-*.zip", "ZTalk-v$version-$Rid-$Configuration-single-*.zip")) {
-    $files = Get-ChildItem $publishDir -Filter $pattern | Sort-Object LastWriteTime -Descending
+    $files = Get-ChildItem $publishDir -Filter $pattern | Where-Object { $_.Name -match "ZTalk-v$([regex]::Escape($version))-" } | Sort-Object LastWriteTime -Descending
     if ($files.Count -gt $keepCount) {
         $toDelete = $files | Select-Object -Skip $keepCount
         foreach ($f in $toDelete) {

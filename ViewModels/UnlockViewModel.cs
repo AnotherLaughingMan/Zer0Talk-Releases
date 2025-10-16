@@ -112,7 +112,7 @@ namespace ZTalk.ViewModels
         private async Task RecoverAsync()
         {
             // Warning + confirmation via dialog
-            var ok = await AppServices.Dialogs.ConfirmAsync(
+            var ok = await AppServices.Dialogs.ConfirmWarningAsync(
                 "Lost Passphrase Recovery",
                 "This will generate a NEW passphrase and re-encrypt your data. Continue?",
                 "Proceed",

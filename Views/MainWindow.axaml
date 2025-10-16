@@ -245,21 +245,6 @@
                 </Border.Styles>
         <!-- Top-stacked buttons with consistent spacing; horizontally centered per requirements -->
         <StackPanel Margin="0,12,0,0" Spacing="6" VerticalAlignment="Top" HorizontalAlignment="Center">
-                    <!-- Notifications (bell) button with red dot indicating pending invites only -->
-                    <Button x:Name="PendingInvitesButton" Classes="icon-button" ToolTip.Tip="Notifications" Click="PendingInvites_Click">
-                        <!-- Constrain to square; center contents to match other nav glyphs -->
-                        <Grid Width="32" Height="32" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <!-- Vector bell icon (custom path) centered; size aligned with other icons -->
-                    <Path Width="24" Height="24" Stretch="Uniform" Fill="{DynamicResource App.ForegroundPrimary}"
-                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                        IsHitTestVisible="False"
-                        Data="M12,2 C8.7,2 6,4.7 6,8 L6,11.3 C6,11.76 5.8,12.2 5.45,12.5 L4,14 L20,14 L18.55,12.5 C18.2,12.2 18,11.76 18,11.3 L18,8 C18,4.7 15.3,2 12,2 Z M9,18 C9,19.66 10.34,21 12,21 C13.66,21 15,19.66 15,18 Z"/>
-                    <!-- Compact red dot badge (classic) - shown when there's any notification -->
-                    <Ellipse Width="10" Height="10" Fill="#DD3333" Stroke="{DynamicResource App.Background}" StrokeThickness="1"
-                             HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,4,0"
-                             IsHitTestVisible="False" IsVisible="{Binding NotificationBadgeVisible}" />
-                        </Grid>
-                    </Button>
                     <Button Classes="icon-button" ToolTip.Tip="Home" Click="Home_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE80F;" FontSize="26"/>
                     </Button>

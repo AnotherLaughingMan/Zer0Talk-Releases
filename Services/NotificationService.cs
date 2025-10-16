@@ -51,15 +51,63 @@ namespace ZTalk.Services
                 try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Posted: {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
 
                 // Show transient pop-up; attach origin so click may open conversation
+                // Check if notifications should be suppressed in Do Not Disturb mode
                 try
                 {
-                    ShowTransientToast(item.Title, item.Body, item.OriginUid);
-                    try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Transient shown: {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
+                    bool shouldShowToast = true;
+                    try
+                    {
+                        var settings = AppServices.Settings.Settings;
+                        if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
+                        {
+                            shouldShowToast = false;
+                            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Toast suppressed (DND): {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
+                        }
+                    }
+                    catch { }
+
+                    if (shouldShowToast)
+                    {
+                        ShowTransientToast(item.Title, item.Body, item.OriginUid);
+                        try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Transient shown: {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
+                    }
                 }
                 catch (Exception ex)
                 {
                     Utilities.Logger.Log($"NotificationService: Transient toast failed: {ex.Message}");
                 }
+
+                // Play notification sound (unless suppressed in DND mode)
+                try
+                {
+                    bool shouldPlayAudio = true;
+                    try
+                    {
+                        var settings = AppServices.Settings.Settings;
+                        if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
+                        {
+                            shouldPlayAudio = false;
+                            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Audio suppressed (DND): {item.Title} | {item.Body}\n"); } catch { }
+                        }
+                    }
+                    catch { }
+
+                    if (shouldPlayAudio)
+                    {
+                        _ = System.Threading.Tasks.Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.NotificationGeneral);
+                            }
+                            catch (Exception ex)
+                            {
+                                Utilities.Logger.Log($"NotificationService: Audio notification failed: {ex.Message}");
+                            }
+                        });
+                    }
+                }
+                catch { }
             }
             catch { }
         }
@@ -146,8 +194,56 @@ namespace ZTalk.Services
             {
                 try
                 {
-                    var toastBody = string.IsNullOrWhiteSpace(updated.FullBody) ? updated.Body : updated.FullBody;
-                    ShowTransientToast(updated.Title, toastBody ?? string.Empty, updated.OriginUid);
+                    // Check if notifications should be suppressed in Do Not Disturb mode
+                    bool shouldShowToast = true;
+                    try
+                    {
+                        var settings = AppServices.Settings.Settings;
+                        if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
+                        {
+                            shouldShowToast = false;
+                            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Message toast suppressed (DND): {updated.Title} | {updated.Body} origin={updated.OriginUid}\n"); } catch { }
+                        }
+                    }
+                    catch { }
+
+                    if (shouldShowToast)
+                    {
+                        var toastBody = string.IsNullOrWhiteSpace(updated.FullBody) ? updated.Body : updated.FullBody;
+                        ShowTransientToast(updated.Title, toastBody ?? string.Empty, updated.OriginUid);
+                    }
+                }
+                catch { }
+
+                // Play incoming message sound (unless suppressed in DND mode)
+                try
+                {
+                    bool shouldPlayAudio = true;
+                    try
+                    {
+                        var settings = AppServices.Settings.Settings;
+                        if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
+                        {
+                            shouldPlayAudio = false;
+                            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Message audio suppressed (DND): {updated.Title} | {updated.Body} origin={updated.OriginUid}\n"); } catch { }
+                        }
+                    }
+                    catch { }
+
+                    if (shouldPlayAudio)
+                    {
+                        _ = System.Threading.Tasks.Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.MessageIncoming);
+                            }
+                            catch (Exception ex)
+                            {
+                                Utilities.Logger.Log($"NotificationService: Incoming message audio failed: {ex.Message}");
+                            }
+                        });
+                    }
                 }
                 catch { }
             }
@@ -409,7 +505,10 @@ namespace ZTalk.Services
                         {
                             try
                             {
-                                await System.Threading.Tasks.Task.Delay(4500);
+                                // Use user-configurable notification duration
+                                var durationSeconds = 4.5; // Default fallback
+                                try { durationSeconds = Math.Clamp(AppServices.Settings.Settings.NotificationDurationSeconds, 0.5, 30.0); } catch { }
+                                await System.Threading.Tasks.Task.Delay((int)(durationSeconds * 1000));
                                 // Slide-out animation (reverse)
                                 var outStart = DateTime.UtcNow;
                                 var outDur = 260.0;

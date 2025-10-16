@@ -121,6 +121,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(UiFontFamily),
         nameof(Language),
         nameof(DefaultPresenceIndex),
+        nameof(SuppressNotificationsInDnd),
+        nameof(NotificationDurationSeconds),
         nameof(AutoLockEnabled),
         nameof(AutoLockMinutes),
         nameof(LockOnMinimize),
@@ -285,6 +287,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private string _baseLanguage = "English (US)";
     // Baseline: General additions
     private int _baseDefaultPresenceIndex;
+    private bool _baseSuppressNotificationsInDnd;
+    private double _baseNotificationDurationSeconds;
     private bool _baseAutoLockEnabled;
     private int _baseAutoLockMinutes;
     private bool _baseLockOnMinimize;
@@ -378,6 +382,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             ShowKeyboardFocus = settings.ShowKeyboardFocus;
             EnhancedKeyboardNavigation = settings.EnhancedKeyboardNavigation;
             DefaultPresenceIndex = PresenceToIndex(settings.Status);
+            SuppressNotificationsInDnd = settings.SuppressNotificationsInDnd;
+            NotificationDurationSeconds = Math.Clamp(settings.NotificationDurationSeconds, 0.5, 30.0);
             AutoLockEnabled = settings.AutoLockEnabled;
             AutoLockMinutes = Math.Max(0, settings.AutoLockMinutes);
             LockOnMinimize = settings.LockOnMinimize;
@@ -546,6 +552,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             UiFontFamily = string.IsNullOrWhiteSpace(s.UiFontFamily) ? null : s.UiFontFamily;
             LockBlurRadius = ClampRange(s.LockBlurRadius, 0, 10);
             DefaultPresenceIndex = PresenceToIndex(s.Status);
+            SuppressNotificationsInDnd = s.SuppressNotificationsInDnd;
+            NotificationDurationSeconds = Math.Clamp(s.NotificationDurationSeconds, 0.5, 30.0);
             AutoLockEnabled = s.AutoLockEnabled;
             AutoLockMinutes = Math.Max(0, s.AutoLockMinutes);
             LockOnMinimize = s.LockOnMinimize;
@@ -1412,6 +1420,12 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         };
     private int _defaultPresenceIndex;
     public int DefaultPresenceIndex { get => _defaultPresenceIndex; set { var v = value; if (v < 0) v = 0; if (v > 3) v = 3; if (_defaultPresenceIndex != v) { _defaultPresenceIndex = v; OnPropertyChanged(); } } }
+    
+    private bool _suppressNotificationsInDnd;
+    public bool SuppressNotificationsInDnd { get => _suppressNotificationsInDnd; set { if (_suppressNotificationsInDnd != value) { _suppressNotificationsInDnd = value; OnPropertyChanged(); } } }
+    
+    private double _notificationDurationSeconds;
+    public double NotificationDurationSeconds { get => _notificationDurationSeconds; set { var v = Math.Clamp(value, 0.5, 30.0); if (Math.Abs(_notificationDurationSeconds - v) > 0.01) { _notificationDurationSeconds = v; OnPropertyChanged(); } } }
 
     // General: Auto-Lock controls
     private bool _autoLockEnabled;
@@ -1521,6 +1535,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.Language = string.IsNullOrWhiteSpace(Language) ? "English (US)" : Language;
             // General additions
             s.Status = IndexToPresence(DefaultPresenceIndex);
+            s.SuppressNotificationsInDnd = SuppressNotificationsInDnd;
+            s.NotificationDurationSeconds = Math.Clamp(NotificationDurationSeconds, 0.5, 30.0);
             s.AutoLockEnabled = AutoLockEnabled;
             s.AutoLockMinutes = Math.Max(0, AutoLockMinutes);
             s.LockOnMinimize = LockOnMinimize;
@@ -1770,6 +1786,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (!string.Equals(_baseUiFontFamily ?? string.Empty, UiFontFamily ?? string.Empty, StringComparison.Ordinal)) return true;
             if (!string.Equals(_baseLanguage ?? "English (US)", Language ?? "English (US)", StringComparison.Ordinal)) return true;
             if (_baseDefaultPresenceIndex != _defaultPresenceIndex) return true;
+            if (_baseSuppressNotificationsInDnd != _suppressNotificationsInDnd) return true;
+            if (Math.Abs(_baseNotificationDurationSeconds - _notificationDurationSeconds) > 0.01) return true;
             if (_baseAutoLockEnabled != _autoLockEnabled) return true;
             if (_baseAutoLockMinutes != _autoLockMinutes) return true;
             if (_baseLockOnMinimize != _lockOnMinimize) return true;
@@ -1845,6 +1863,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _baseUiFontFamily = UiFontFamily;
             _baseLanguage = Language ?? "English (US)";
             _baseDefaultPresenceIndex = _defaultPresenceIndex;
+            _baseSuppressNotificationsInDnd = _suppressNotificationsInDnd;
+            _baseNotificationDurationSeconds = _notificationDurationSeconds;
             _baseAutoLockEnabled = _autoLockEnabled;
             _baseAutoLockMinutes = _autoLockMinutes;
             _baseLockOnMinimize = _lockOnMinimize;
@@ -3670,7 +3690,7 @@ public class NetworkViewModel : INotifyPropertyChanged
 
     private async void ConfirmUnblock(string uid)
     {
-        var ok = await AppServices.Dialogs.ConfirmAsync(
+        var ok = await AppServices.Dialogs.ConfirmWarningAsync(
             "Unblock Peer",
             "You are about to unblock a peer previously flagged for misbehavior. Proceed only if you trust this node. Unblocking may expose you to spam or malformed traffic.",
             "Unblock",
@@ -3684,7 +3704,7 @@ public class NetworkViewModel : INotifyPropertyChanged
 
     private async void ConfirmClearAll()
     {
-        var ok = await AppServices.Dialogs.ConfirmAsync(
+        var ok = await AppServices.Dialogs.ConfirmWarningAsync(
             "Clear All Blocked Peers",
             "This will remove all blocked peers and may expose you to spam or malformed traffic. Continue?",
             "Clear All",
@@ -3832,7 +3852,7 @@ public class NetworkViewModel : INotifyPropertyChanged
 
     private async void ClearAllIps()
     {
-        var ok = await AppServices.Dialogs.ConfirmAsync(
+        var ok = await AppServices.Dialogs.ConfirmDestructiveAsync(
             "Clear All Blocked IPs",
             "This will remove ALL blocked individual IP addresses from your block list.\n\n" +
             "This action cannot be undone. Your IP ranges will remain intact.\n\n" +
@@ -3858,7 +3878,7 @@ public class NetworkViewModel : INotifyPropertyChanged
 
     private async void ClearAllRanges()
     {
-        var ok = await AppServices.Dialogs.ConfirmAsync(
+        var ok = await AppServices.Dialogs.ConfirmDestructiveAsync(
             "Clear All Blocked IP Ranges",
             "This will remove ALL blocked IP ranges (CIDR blocks) from your block list.\n\n" +
             "This includes both custom ranges and imported threat intelligence lists.\n" +

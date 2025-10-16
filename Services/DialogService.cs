@@ -17,6 +17,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 
 namespace ZTalk.Services
 {
@@ -29,8 +30,21 @@ namespace ZTalk.Services
             Discard = 2
         }
 
+        public enum ToastType
+        {
+            Info,
+            Success,
+            Warning,
+            Error
+        }
+
         // Lightweight, non-modal info popup that auto-dismisses after a short delay.
-    public async Task ShowInfoAsync(string title, string message, int dismissAfterMs = 2500)
+        public async Task ShowInfoAsync(string title, string message, int dismissAfterMs = 2500)
+        {
+            await ShowEnhancedToastAsync(title, message, dismissAfterMs, ToastType.Info);
+        }
+
+        public async Task ShowInfoAsync(string title, string message, int dismissAfterMs, string? iconText)
         {
             var lifetime = Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
             if (lifetime?.MainWindow is not Window owner) return;
@@ -38,6 +52,65 @@ namespace ZTalk.Services
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
             {
         try { WriteUiLog($"[Toast][Info] Showing: '{title}' - will auto-dismiss in {dismissAfterMs}ms"); } catch { }
+                
+                // Play notification sound for legacy info toasts
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (iconText == "\u26A0" || iconText == "\u274C") // Warning or error icon
+                        {
+                            await ZTalk.Services.AudioHelper.PlayAlertNotificationAsync();
+                        }
+                        else
+                        {
+                            await ZTalk.Services.AudioHelper.PlayNotificationAsync();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        try { WriteUiLog($"[Toast][Info] Audio notification failed: {ex.Message}"); } catch { }
+                    }
+                });
+                
+                var contentPanel = new StackPanel { Spacing = 6 };
+                
+                // Add title with optional icon
+                var titlePanel = new StackPanel 
+                { 
+                    Orientation = Avalonia.Layout.Orientation.Horizontal, 
+                    Spacing = 8 
+                };
+                
+                if (!string.IsNullOrEmpty(iconText))
+                {
+                    titlePanel.Children.Add(new TextBlock 
+                    { 
+                        Text = iconText, 
+                        FontSize = 16,
+                        FontStyle = Avalonia.Media.FontStyle.Normal,
+                        FontWeight = Avalonia.Media.FontWeight.Normal,
+                        Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(255, 165, 0)),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        RenderTransform = null // Ensure no transforms are applied
+                    });
+                }
+                
+                titlePanel.Children.Add(new TextBlock 
+                { 
+                    Text = title, 
+                    FontWeight = Avalonia.Media.FontWeight.SemiBold,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                });
+                
+                contentPanel.Children.Add(titlePanel);
+                contentPanel.Children.Add(new TextBlock 
+                { 
+                    Text = message, 
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap, 
+                    MaxWidth = 360 
+                });
+                
                 var border = new Border
                 {
                     Padding = new Thickness(12),
@@ -45,15 +118,7 @@ namespace ZTalk.Services
                     Background = (Avalonia.Media.IBrush?)Application.Current?.FindResource("App.Surface"),
                     BorderBrush = (Avalonia.Media.IBrush?)Application.Current?.FindResource("App.Border"),
                     BorderThickness = new Thickness(1),
-                    Child = new StackPanel
-                    {
-                        Spacing = 6,
-                        Children =
-                        {
-                            new TextBlock { Text = title, FontWeight = Avalonia.Media.FontWeight.SemiBold },
-                            new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MaxWidth = 360 }
-                        }
-                    }
+                    Child = contentPanel
                 };
 
                 var toast = new Window
@@ -89,6 +154,236 @@ namespace ZTalk.Services
                 try { toast.Close(); } catch { }
                 try { WriteUiLog($"[Toast][Info] Closed: '{title}'"); } catch { }
             });
+        }
+
+
+
+        // Success info popup with check icon
+        public async Task ShowSuccessAsync(string title, string message, int dismissAfterMs = 2500)
+        {
+            await ShowEnhancedToastAsync(title, message, dismissAfterMs, ToastType.Success);
+        }
+
+        // Warning info popup with caution icon
+        public async Task ShowWarningAsync(string title, string message, int dismissAfterMs = 3000)
+        {
+            await ShowEnhancedToastAsync(title, message, dismissAfterMs, ToastType.Warning);
+        }
+
+        // Error info popup with error icon
+        public async Task ShowErrorAsync(string title, string message, int dismissAfterMs = 4000)
+        {
+            await ShowEnhancedToastAsync(title, message, dismissAfterMs, ToastType.Error);
+        }
+
+        // Enhanced toast with animations, progress, and better styling
+        public async Task ShowEnhancedToastAsync(string title, string message, int dismissAfterMs, ToastType type)
+        {
+            var lifetime = Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+            if (lifetime?.MainWindow is not Window owner) return;
+
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                try { WriteUiLog($"[Toast][{type}] Showing: '{title}' - will auto-dismiss in {dismissAfterMs}ms"); } catch { }
+                
+                // Play appropriate sound for toast type
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (type == ToastType.Warning || type == ToastType.Error)
+                        {
+                            await ZTalk.Services.AudioHelper.PlayAlertNotificationAsync();
+                        }
+                        else
+                        {
+                            await ZTalk.Services.AudioHelper.PlayNotificationAsync();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        try { WriteUiLog($"[Toast][{type}] Audio notification failed: {ex.Message}"); } catch { }
+                    }
+                });
+                
+                // Get type-specific styling
+                var (iconText, accentColor, bgColor) = GetToastStyling(type);
+                
+                var contentPanel = new StackPanel { Spacing = 8 };
+                
+                // Header with icon and title
+                var headerPanel = new StackPanel 
+                { 
+                    Orientation = Avalonia.Layout.Orientation.Horizontal, 
+                    Spacing = 10 
+                };
+                
+                // Icon
+                var iconBlock = new TextBlock
+                {
+                    Text = iconText,
+                    FontSize = 18,
+                    FontStyle = Avalonia.Media.FontStyle.Normal,
+                    FontWeight = Avalonia.Media.FontWeight.Normal,
+                    Foreground = new Avalonia.Media.SolidColorBrush(accentColor),
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                    RenderTransform = null
+                };
+                headerPanel.Children.Add(iconBlock);
+                
+                // Title
+                var titleBlock = new TextBlock
+                {
+                    Text = title,
+                    FontWeight = Avalonia.Media.FontWeight.SemiBold,
+                    FontSize = 14,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                    Foreground = (Avalonia.Media.IBrush?)Application.Current?.FindResource("App.PrimaryText")
+                };
+                headerPanel.Children.Add(titleBlock);
+                
+                contentPanel.Children.Add(headerPanel);
+                
+                // Message
+                if (!string.IsNullOrWhiteSpace(message))
+                {
+                    var messageBlock = new TextBlock
+                    {
+                        Text = message,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                        MaxWidth = 340,
+                        FontSize = 13,
+                        Opacity = 0.9,
+                        Margin = new Thickness(28, 0, 0, 0), // Indent under icon
+                        Foreground = (Avalonia.Media.IBrush?)Application.Current?.FindResource("App.SecondaryText")
+                    };
+                    contentPanel.Children.Add(messageBlock);
+                }
+                
+                // Progress bar
+                var progressBar = new Avalonia.Controls.ProgressBar
+                {
+                    Height = 3,
+                    Margin = new Thickness(0, 4, 0, 0),
+                    Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromArgb(30, 255, 255, 255)),
+                    Foreground = new Avalonia.Media.SolidColorBrush(accentColor),
+                    Value = 100,
+                    Minimum = 0,
+                    Maximum = 100
+                };
+                contentPanel.Children.Add(progressBar);
+                
+                // Enhanced border with accent and shadow effect
+                var border = new Border
+                {
+                    Padding = new Thickness(16, 12),
+                    CornerRadius = new CornerRadius(10),
+                    Background = new Avalonia.Media.SolidColorBrush(bgColor),
+                    BorderBrush = new Avalonia.Media.SolidColorBrush(accentColor),
+                    BorderThickness = new Thickness(0, 0, 0, 3), // Bottom accent line
+                    Child = contentPanel,
+                    BoxShadow = new Avalonia.Media.BoxShadows(new Avalonia.Media.BoxShadow
+                    {
+                        Color = Avalonia.Media.Color.FromArgb(40, 0, 0, 0),
+                        Blur = 12,
+                        OffsetY = 4,
+                        OffsetX = 2
+                    })
+                };
+                
+                var toast = new Window
+                {
+                    CanResize = false,
+                    SizeToContent = SizeToContent.WidthAndHeight,
+                    MinWidth = 300,
+                    MaxWidth = 450,
+                    ShowInTaskbar = false,
+                    ShowActivated = false,
+                    SystemDecorations = SystemDecorations.None,
+                    Background = Avalonia.Media.Brushes.Transparent,
+                    Content = border,
+                    WindowStartupLocation = WindowStartupLocation.Manual,
+                    Topmost = true,
+                    ExtendClientAreaToDecorationsHint = true,
+                    ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
+                    ExtendClientAreaTitleBarHeightHint = 0
+                };
+                
+                // Click to dismiss
+                border.PointerPressed += (_, __) => 
+                {
+                    try { toast.Close(); } catch { }
+                };
+                border.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+                
+                // Position in top-right with offset for multiple toasts
+                try
+                {
+                    var p = owner.Position;
+                    var sz = owner.Bounds;
+                    toast.Position = new PixelPoint(p.X + (int)sz.Width - 470, Math.Max(0, p.Y + 60));
+                }
+                catch { }
+                
+                // Smooth fade-in effect
+                border.Opacity = 0.2;
+                toast.Show(owner);
+                
+                // Animate opacity from 0.2 to 1.0
+                for (int i = 0; i <= 12; i++)
+                {
+                    border.Opacity = 0.2 + (i * 0.067); // 0.2 to 1.0 in 12 steps
+                    await Task.Delay(15); // 180ms total
+                }
+                
+                // Animate progress bar
+                var progressAnimation = new System.Threading.CancellationTokenSource();
+                _ = Task.Run(async () =>
+                {
+                    var startTime = DateTime.UtcNow;
+                    var duration = dismissAfterMs;
+                    
+                    while (!progressAnimation.Token.IsCancellationRequested)
+                    {
+                        var elapsed = (DateTime.UtcNow - startTime).TotalMilliseconds;
+                        var remaining = Math.Max(0, duration - elapsed);
+                        var progress = Math.Max(0, (remaining / duration) * 100);
+                        
+                        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            try { progressBar.Value = progress; } catch { }
+                        });
+                        
+                        if (remaining <= 0) break;
+                        await Task.Delay(50, progressAnimation.Token);
+                    }
+                }, progressAnimation.Token);
+                
+                // Auto-dismiss
+                try { await Task.Delay(dismissAfterMs); } catch { }
+                
+                progressAnimation.Cancel();
+                
+                // Smooth fade-out effect
+                for (int i = 10; i >= 0; i--)
+                {
+                    border.Opacity = i * 0.1; // 1.0 to 0.0 in 11 steps
+                    await Task.Delay(20); // 220ms total
+                }
+                try { toast.Close(); } catch { }
+                try { WriteUiLog($"[Toast][{type}] Closed: '{title}'"); } catch { }
+            });
+        }
+        
+        private static (string icon, Avalonia.Media.Color accent, Avalonia.Media.Color bg) GetToastStyling(ToastType type)
+        {
+            return type switch
+            {
+                ToastType.Success => ("\u2713", Avalonia.Media.Color.FromRgb(34, 197, 94), Avalonia.Media.Color.FromRgb(240, 253, 244)),   // ✓ Green
+                ToastType.Warning => ("\u26A0", Avalonia.Media.Color.FromRgb(245, 158, 11), Avalonia.Media.Color.FromRgb(255, 251, 235)),  // ⚠ Amber
+                ToastType.Error => ("\u274C", Avalonia.Media.Color.FromRgb(239, 68, 68), Avalonia.Media.Color.FromRgb(254, 242, 242)),     // ❌ Red
+                _ => ("\u2139", Avalonia.Media.Color.FromRgb(59, 130, 246), Avalonia.Media.Color.FromRgb(239, 246, 255))                 // ℹ Blue
+            };
         }
 
         // Centered toast for chat area notifications
@@ -203,7 +498,30 @@ namespace ZTalk.Services
             return await ConfirmAsync("Contact request", msg, "Agree", "Cancel");
         }
 
+        // Warning dialog with triangle caution icon
+        public async Task<bool> ConfirmWarningAsync(string title, string message, string confirmText = "OK", string cancelText = "Cancel")
+        {
+            return await ConfirmAsync(title, message, confirmText, cancelText, "\u26A0");
+        }
+
+        // Alert dialog with triangle caution icon (using Unicode triangle with exclamation)
+        public async Task<bool> ConfirmAlertAsync(string title, string message, string confirmText = "OK", string cancelText = "Cancel")
+        {
+            return await ConfirmAsync(title, message, confirmText, cancelText, "\u26A0");
+        }
+
+        // Destructive action dialog with triangle caution icon
+        public async Task<bool> ConfirmDestructiveAsync(string title, string message, string confirmText = "Delete", string cancelText = "Cancel")
+        {
+            return await ConfirmAsync(title, message, confirmText, cancelText, "\u26A0");
+        }
+
         public async Task<bool> ConfirmAsync(string title, string message, string confirmText = "OK", string cancelText = "Cancel")
+        {
+            return await ConfirmAsync(title, message, confirmText, cancelText, null);
+        }
+
+        public async Task<bool> ConfirmAsync(string title, string message, string confirmText, string cancelText, string? iconText)
         {
             var lifetime = Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
             if (lifetime?.MainWindow is not Window owner) return false;
@@ -211,9 +529,12 @@ namespace ZTalk.Services
             var dialog = new Window
             {
                 Title = title,
-                Width = 420,
-                Height = 180,
+                MinWidth = 420,
+                MaxWidth = 600,
+                MinHeight = iconText != null ? 200 : 180,
+                MaxHeight = 400, // Allow for longer messages
                 CanResize = false,
+                SizeToContent = SizeToContent.WidthAndHeight,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 ExtendClientAreaToDecorationsHint = true,
                 ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
@@ -243,14 +564,41 @@ namespace ZTalk.Services
                 Margin = new Avalonia.Thickness(20, 16, 20, 16)
             };
 
+            var messagePanel = new StackPanel
+            {
+                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                Spacing = 12,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+                Margin = new Avalonia.Thickness(0, 8, 0, 0),
+                MaxWidth = 540 // Constrain to fit within dialog margins
+            };
+
+            // Add triangle caution icon if provided
+            if (!string.IsNullOrEmpty(iconText))
+            {
+                var iconBlock = new TextBlock
+                {
+                    Text = iconText,
+                    FontSize = 24,
+                    FontStyle = Avalonia.Media.FontStyle.Normal,
+                    FontWeight = Avalonia.Media.FontWeight.Normal,
+                    Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(255, 165, 0)), // Orange warning color
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+                    Margin = new Avalonia.Thickness(0, 2, 0, 0), // Slight top margin to align with text
+                    RenderTransform = null // Ensure no transforms are applied
+                };
+                messagePanel.Children.Add(iconBlock);
+            }
+
             var messageBlock = new TextBlock 
             { 
                 Text = message, 
                 TextWrapping = Avalonia.Media.TextWrapping.Wrap,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
-                Margin = new Avalonia.Thickness(0, 8, 0, 0)
+                MaxWidth = iconText != null ? 480 : 520 // Leave space for icon if present
             };
-            Grid.SetRow(messageBlock, 0);
+            messagePanel.Children.Add(messageBlock);
+            Grid.SetRow(messagePanel, 0);
 
             var buttonGrid = new Grid
             {
@@ -264,7 +612,7 @@ namespace ZTalk.Services
             buttonGrid.Children.Add(cancelBtn);
             buttonGrid.Children.Add(confirmBtn);
 
-            grid.Children.Add(messageBlock);
+            grid.Children.Add(messagePanel);
             grid.Children.Add(buttonGrid);
             dialog.Content = grid;
 
@@ -285,18 +633,23 @@ namespace ZTalk.Services
             var dialog = new Window
             {
                 Title = "Verification",
-                // 16:9-ish sizing
-                Width = 560,
-                Height = 315,
+                MinWidth = 460,
+                MaxWidth = 600,
+                MinHeight = 200,
+                MaxHeight = 400,
                 CanResize = true,
-                SizeToContent = SizeToContent.Manual,
+                SizeToContent = SizeToContent.WidthAndHeight,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 ExtendClientAreaToDecorationsHint = true,
                 ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
                 ExtendClientAreaTitleBarHeightHint = 32
             };
-            var root = new StackPanel { Margin = new Thickness(16), Spacing = 12 };
-            root.Children.Add(new TextBlock { Text = $"You and {peerDisplay} ({peerUid}) will verify each other.", TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+            var root = new StackPanel { Margin = new Thickness(16), Spacing = 12, MaxWidth = 560 };
+            root.Children.Add(new TextBlock { 
+                Text = $"You and {peerDisplay} ({peerUid}) will verify each other.", 
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                MaxWidth = 520
+            });
             var actions = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8 };
             var cancel = new Button { Content = "Cancel" };
             var verify = new Button { Content = "Verify", IsDefault = true };
@@ -329,9 +682,12 @@ namespace ZTalk.Services
             var dialog = new Window
             {
                 Title = title,
-                Width = 480,
-                Height = 220,
+                MinWidth = 480,
+                MaxWidth = 600,
+                MinHeight = 220,
+                MaxHeight = 350,
                 CanResize = false,
+                SizeToContent = SizeToContent.WidthAndHeight,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 ExtendClientAreaToDecorationsHint = true,
                 ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
@@ -371,11 +727,36 @@ namespace ZTalk.Services
             {
                 Spacing = 8
             };
-            contentPanel.Children.Add(new TextBlock
+            
+            // Add message with warning icon for unsaved changes
+            var messagePanel = new StackPanel
+            {
+                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                Spacing = 12
+            };
+            
+            var warningIcon = new TextBlock
+            {
+                Text = "\u26A0", // Triangle warning symbol
+                FontSize = 20,
+                FontStyle = Avalonia.Media.FontStyle.Normal,
+                FontWeight = Avalonia.Media.FontWeight.Normal,
+                Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(255, 165, 0)), // Orange warning color
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+                Margin = new Avalonia.Thickness(0, 2, 0, 0),
+                RenderTransform = null // Ensure no transforms are applied
+            };
+            
+            var messageText = new TextBlock
             {
                 Text = message,
-                TextWrapping = Avalonia.Media.TextWrapping.Wrap
-            });
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                MaxWidth = 480 // Leave space for icon
+            };
+            
+            messagePanel.Children.Add(warningIcon);
+            messagePanel.Children.Add(messageText);
+            contentPanel.Children.Add(messagePanel);
             Grid.SetRow(contentPanel, 1);
 
             // Actions: Save (left), Discard (right). Cancel is not shown; Esc acts as Cancel.
@@ -480,10 +861,12 @@ namespace ZTalk.Services
             var dialog = new Window
             {
                 Title = "Your account passphrase",
-                // 16:9-ish sizing
-                Width = 640,
-                Height = 360,
+                MinWidth = 540,
+                MaxWidth = 700,
+                MinHeight = 300,
+                MaxHeight = 450,
                 CanResize = false,
+                SizeToContent = SizeToContent.WidthAndHeight,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 ExtendClientAreaToDecorationsHint = true,
                 ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
@@ -492,9 +875,14 @@ namespace ZTalk.Services
                 {
                     Margin = new Thickness(16),
                     Spacing = 8,
+                    MaxWidth = 650,
                     Children =
                     {
-                        new TextBlock { Text = "Write down or save this passphrase now. It cannot be recovered if lost.", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+                        new TextBlock { 
+                            Text = "Write down or save this passphrase now. It cannot be recovered if lost.", 
+                            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                            MaxWidth = 600
+                        },
                         tb,
                         new StackPanel
                         {

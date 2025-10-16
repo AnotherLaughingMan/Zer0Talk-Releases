@@ -1,8 +1,16 @@
 <!--
-    Context: Application settings UI (General, Appearance, Account).
-    - Settings persisted encrypted via SettingsService; window state (size/pos/topmost) is saved in AppSettings.SettingsWindow.
-    - Compact tabs with reduced fonts; top-right "On top" checkbox toggles Window.Topmost.
-    - Programmatic tab switching available via code-behind SwitchToTab().
+    ⚠️  OBSOLETE SETTINGS WINDOW - DO NOT MODIFY  ⚠️
+    
+    This old settings window has been REPLACED by the modern SettingsView.axaml overlay panel.
+    ALL NEW SETTINGS must be added to Views/Controls/SettingsView.axaml instead.
+    
+    This file is kept for backward compatibility only and should not be modified.
+    The modern settings panel provides a better user experience and is actively maintained.
+    
+    Original Context: Application settings UI (General, Appearance, Account).
+    Settings persisted encrypted via SettingsService; window state saved in AppSettings.SettingsWindow.
+    Compact tabs with reduced fonts; top-right checkbox toggles Window.Topmost.
+    Programmatic tab switching available via code-behind SwitchToTab().
 -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"

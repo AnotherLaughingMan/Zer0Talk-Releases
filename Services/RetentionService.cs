@@ -507,6 +507,12 @@ namespace ZTalk.Services
             catch { }
         }
 
+        // Debug method to test retention logging
+        public static void TestRetentionLogging()
+        {
+            SafeRetentionLog("Test retention logging called - verifying log functionality");
+        }
+
         private static void TryResetDirectory(string directory)
         {
             try

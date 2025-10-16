@@ -1,5 +1,12 @@
 /*
-    Settings window code-behind: persists window state and handles tab selection helpers.
+    ⚠️  OBSOLETE SETTINGS WINDOW CODE-BEHIND - DO NOT MODIFY  ⚠️
+    
+    This old settings window has been REPLACED by the modern SettingsView.axaml overlay panel.
+    ALL NEW SETTINGS must be added to Views/Controls/SettingsView.axaml instead.
+    
+    This file is kept for backward compatibility only and should not be modified.
+    
+    Original: Settings window code-behind: persists window state and handles tab selection helpers.
     - Binds Topmost checkbox; saves Topmost to AppSettings.
 */
 using System;

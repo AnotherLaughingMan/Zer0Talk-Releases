@@ -89,10 +89,60 @@
                 <ComboBox Grid.Column="1" SelectedIndex="{Binding DefaultPresenceIndex}" Width="150">
                   <ComboBoxItem Content="Online"/>
                   <ComboBoxItem Content="Away"/>
-                  <ComboBoxItem Content="Busy"/>
+                  <ComboBoxItem Content="Do Not Disturb"/>
                   <ComboBoxItem Content="Offline"/>
                 </ComboBox>
               </Grid>
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding SuppressNotificationsInDnd}"/>
+                <TextBlock Grid.Column="1" Text="Suppress notifications and audio while in Do Not Disturb" VerticalAlignment="Center"/>
+              </Grid>
+              
+              <!-- Notification Duration Controls -->
+              <StackPanel Spacing="8" Margin="0,12,0,0">
+                <TextBlock Text="Notification Duration" FontWeight="Medium"/>
+                <Grid ColumnDefinitions="120,*,80,80" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                  <!-- Slider Row -->
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Duration:" VerticalAlignment="Center" FontSize="12"/>
+                  <Slider Grid.Row="0" Grid.Column="1" 
+                          Minimum="0.5" Maximum="20" 
+                          Value="{Binding NotificationDurationSeconds, Mode=TwoWay}"
+                          TickFrequency="0.5" 
+                          IsSnapToTickEnabled="True"
+                          ToolTip.Tip="Drag to adjust notification display duration"/>
+                  <Border Grid.Row="0" Grid.Column="2" 
+                          BorderBrush="{DynamicResource App.Border}" 
+                          BorderThickness="1" 
+                          CornerRadius="4" 
+                          Padding="6,0" 
+                          Height="28" 
+                          HorizontalAlignment="Center">
+                    <TextBlock Text="{Binding NotificationDurationSeconds, StringFormat='{}{0:F1}s'}" 
+                               VerticalAlignment="Center" 
+                               FontFamily="Consolas" 
+                               FontSize="11"/>
+                  </Border>
+                  
+                  <!-- Input Box Row -->
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Precise:" VerticalAlignment="Center" FontSize="12"/>
+                  <NumericUpDown Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                 Value="{Binding NotificationDurationSeconds, Mode=TwoWay}"
+                                 Minimum="0.5"
+                                 Maximum="30"
+                                 Increment="0.5"
+                                 FormatString="F1"
+                                 ShowButtonSpinner="True"
+                                 Width="120"
+                                 HorizontalAlignment="Left"
+                                 ToolTip.Tip="Enter precise duration (0.5 to 30 seconds)"/>
+                </Grid>
+                <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
+                  <Run Text="Controls how long notification toasts stay visible. Slider: 0.5-20s, Input: 0.5-30s."/>
+                  <Run Text="Current setting:"/>
+                  <Run Text="{Binding NotificationDurationSeconds, StringFormat='{}{0:F1} seconds'}" FontWeight="Medium"/>
+                </TextBlock>
+              </StackPanel>
+              
               <TextBlock Text="Offline is automatic only and cannot be selected." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
             </StackPanel>
           </Border>

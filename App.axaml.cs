@@ -113,6 +113,232 @@ public partial class App : Application
         }
         catch { }
     }
+    
+    private static void ContinueToMainApp(IClassicDesktopStyleApplicationLifetime desktop, Views.LoadingWindow loadingWindow)
+    {
+        try
+        {
+            TryWriteErrorTxt("Init.TransitionToMainApp.Begin", null);
+            
+            // Ensure we're on the UI thread
+            if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => ContinueToMainApp(desktop, loadingWindow));
+                return;
+            }
+            
+            // Determine which window to show based on account status
+            if (!AppServices.Accounts.HasAccount())
+            {
+                // Show account creation window
+                var acw = new Views.AccountCreationWindow();
+                desktop.MainWindow = acw;
+                loadingWindow.Close();
+                acw.Show();
+                
+                acw.Closed += (_, __) =>
+                {
+                    if (AppServices.Accounts.HasAccount())
+                    {
+                        ShowMainWindow(desktop);
+                        SetupPostInitialization(desktop);
+                    }
+                    else
+                    {
+                        desktop.Shutdown();
+                    }
+                };
+            }
+            else
+            {
+                // Check for auto-unlock
+                var rememberPref = false;
+                try { rememberPref = AppServices.Settings.GetRememberPreference(); } catch { }
+                
+                if (rememberPref && AppServices.Settings.TryGetRememberedPassphrase(out var remembered) && !string.IsNullOrWhiteSpace(remembered))
+                {
+                    try
+                    {
+                        // Auto-unlock and go to main window
+                        TryWriteErrorTxt("Auto-unlock attempt", null);
+                        var acc = AppServices.Accounts.LoadAccount(remembered);
+                        AppServices.Passphrase = remembered;
+                        
+                        // Load settings and apply theme
+                        AppServices.Settings.Load(AppServices.Passphrase);
+                        AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme);
+                        AppServices.Identity.LoadFromAccount(acc);
+                        
+                        // Show main window first, then close loading window
+                        ShowMainWindow(desktop);
+                        SetupPostInitialization(desktop);
+                        
+                        // Close loading window after main window is established
+                        _ = System.Threading.Tasks.Task.Run(async () =>
+                        {
+                            await System.Threading.Tasks.Task.Delay(100);
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() => loadingWindow.Close());
+                        });
+                        
+                        // Load additional data in background
+                        _ = System.Threading.Tasks.Task.Run(() =>
+                        {
+                            try { AppServices.Contacts.Load(AppServices.Passphrase); } catch { }
+                            try { var persisted = AppServices.PeersStore.Load(AppServices.Passphrase); AppServices.Peers.SetDiscovered(persisted); AppServices.Peers.IncludeContacts(); } catch { }
+                        });
+                        
+                        ScheduleDelayedNetworkInit();
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        TryWriteErrorTxt("Auto-unlock failed", ex);
+                        // Fall through to manual unlock
+                    }
+                }
+                
+                // Show unlock window
+                var unlock = new Views.UnlockWindow();
+                desktop.MainWindow = unlock;
+                loadingWindow.Close();
+                unlock.Show();
+                
+                unlock.Closed += (_, __) =>
+                {
+                    if (!string.IsNullOrWhiteSpace(AppServices.Passphrase))
+                    {
+                        try
+                        {
+                        AppServices.Settings.Load(AppServices.Passphrase);
+                        AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme);
+                        var acc = AppServices.Accounts.LoadAccount(AppServices.Passphrase);
+                        AppServices.Identity.LoadFromAccount(acc);
+                    }
+                    catch { }
+                    
+                    // Show main window and setup
+                    ShowMainWindow(desktop);
+                    SetupPostInitialization(desktop);
+                    
+                    // Close loading window after establishing main window
+                    _ = System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        await System.Threading.Tasks.Task.Delay(100);
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() => loadingWindow.Close());
+                    });                        // Load additional data in background
+                        _ = System.Threading.Tasks.Task.Run(() =>
+                        {
+                            try { AppServices.Contacts.Load(AppServices.Passphrase); } catch { }
+                            try { var persisted = AppServices.PeersStore.Load(AppServices.Passphrase); AppServices.Peers.SetDiscovered(persisted); AppServices.Peers.IncludeContacts(); } catch { }
+                        });
+                        
+                        ScheduleDelayedNetworkInit();
+                    }
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            TryWriteErrorTxt("ContinueToMainApp.Error", ex);
+        }
+    }
+    
+    private static void ShowMainWindow(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        MainWindow mw;
+        try
+        {
+            TryWriteErrorTxt("ShowMainWindow.Begin", null);
+            
+            // Ensure shutdown mode allows the main window to control app lifetime
+            desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose;
+            
+            mw = new MainWindow();
+            TryWriteErrorTxt("ShowMainWindow.Created", null);
+            
+            desktop.MainWindow = mw;
+            TryWriteErrorTxt("ShowMainWindow.SetAsMain", null);
+            
+            mw.Show();
+            TryWriteErrorTxt("ShowMainWindow.Shown", null);
+            
+            // Ensure the window is activated and brought to front
+            mw.Activate();
+            TryWriteErrorTxt("ShowMainWindow.Activated", null);
+        }
+        catch (Exception ex)
+        {
+            TryWriteErrorTxt("ShowMainWindow.Error", ex);
+            // Don't throw - this would kill the app. Instead, keep running with current window
+            return;
+        }
+        
+        // Set up window cleanup
+        mw.Closed += (_, __) =>
+        {
+            try
+            {
+                if (desktop.Windows is not null)
+                {
+                    var copy = new System.Collections.Generic.List<Avalonia.Controls.Window>(desktop.Windows);
+                    foreach (var w in copy)
+                    {
+                        try { if (w != mw) w.Close(); } catch { }
+                    }
+                }
+            }
+            catch { }
+        };
+    }
+    
+    private static void SetupPostInitialization(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        // Set up network config change handling
+        try
+        {
+            AppServices.Events.NetworkConfigChanged += () =>
+            {
+                try
+                {
+                    if (ZTalk.Utilities.RuntimeFlags.SafeMode) return;
+                    var ns = AppServices.Settings.Settings;
+                    AppServices.Network.StartIfMajorNode(ns.Port, ns.MajorNode);
+                }
+                catch (Exception ex) { Logger.Log($"Apply network config failed: {ex.Message}"); }
+            };
+        }
+        catch { }
+        
+        // Setup other post-initialization tasks as needed
+        _ = System.Threading.Tasks.Task.Run(() =>
+        {
+            try 
+            { 
+                TryWriteErrorTxt("Migration.Messages.Begin", null);
+                var dir = ZTalk.Utilities.AppDataPaths.Combine("messages");
+                if (Directory.Exists(dir))
+                {
+                    var mc = new MessageContainer();
+                    var files = Directory.GetFiles(dir, "*.p2e");
+                    foreach (var f in files)
+                    {
+                        try
+                        {
+                            var peer = Path.GetFileNameWithoutExtension(f) ?? string.Empty;
+                            if (!string.IsNullOrWhiteSpace(peer))
+                                _ = mc.LoadMessages(peer, AppServices.Passphrase);
+                        }
+                        catch { }
+                    }
+                }
+                TryWriteErrorTxt("Migration.Messages.Done", null);
+            }
+            catch (System.Exception ex)
+            {
+                TryWriteErrorTxt("Migration.Messages.Error", ex);
+            }
+        });
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -223,436 +449,61 @@ public partial class App : Application
                     };
                 }
                 catch { }
-                // Initialize native crypto library (libsodium)
-                try { TryWriteErrorTxt("Init.Sodium.Begin", null); SodiumCore.Init(); TryWriteErrorTxt("Init.Sodium.Done", null); }
-                catch (System.Exception ex) { Logger.Log($"Sodium init failed: {ex.Message}"); throw; }
-
-                // Log intended settings path and existence (do not decrypt before unlock)
-                try { TryWriteErrorTxt("Init.Settings.Path", null); } catch { }
-                var path = AppServices.Settings.GetSettingsPath();
-                Logger.Log($"Settings path: {path}; Exists={System.IO.File.Exists(path)}");
-
-                // Ensure identity and start network only after unlock
-                try { TryWriteErrorTxt("Init.WAN.Events", null); } catch { }
-                AppServices.Crawler.DiscoveredChanged += peers => AppServices.Peers.SetDiscovered(peers);
-                // [WAN] Only start WAN/seed crawler when internet is available; skip otherwise. Suppress in SafeMode.
-                if (!ZTalk.Utilities.RuntimeFlags.SafeMode)
+                // Show loading window immediately for better UX
+                var loadingWindow = new Views.LoadingWindow();
+                desktop.MainWindow = loadingWindow;
+                loadingWindow.Show();
+                
+                // Initialize application through loading manager with progress feedback
+                var loadingManager = new Services.LoadingManager(loadingWindow.ViewModel);
+                _ = System.Threading.Tasks.Task.Run(async () =>
                 {
                     try
                     {
-                        if (System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
-                            AppServices.Crawler.Start();
-                        else
-                            Utilities.Logger.Log("WAN crawler not started: no internet connectivity detected");
-                    }
-                    catch { AppServices.Crawler.Start(); }
-                }
-                try { TryWriteErrorTxt("Init.Theme.ApplyInitial", null); } catch { }
-                // Use shared theme service so live engine and selector state stay consistent
-                // Apply a quick initial theme from in-memory defaults; re-apply after settings load post-unlock
-                try { AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme); } catch { }
-                // Apply performance settings (GPU interpolation + throttles) early when available
-                try
-                {
-                    var sPerf = AppServices.Settings.Settings;
-                    var app = Avalonia.Application.Current;
-                    if (app != null)
-                    {
-                        app.Resources["App.AvatarInterpolation"] = sPerf.DisableGpuAcceleration ? "None" : "HighQuality";
-                    }
-                    // Apply FPS throttle to the central UI pulse
-                    try
-                    {
-                        var fps = Math.Max(0, sPerf.FpsThrottle);
-                        var interval = fps <= 0 ? 16 : Math.Max(5, 1000 / Math.Max(1, fps));
-                        AppServices.Updates.UpdateUiInterval("App.UI.Pulse", interval);
-                    }
-                    catch { }
-                    // Apply refresh rate throttle as a secondary pulse
-                    try
-                    {
-                        var hz = Math.Max(0, sPerf.RefreshRateThrottle);
-                        const string key = "App.UI.Refresh";
-                        if (hz <= 0) AppServices.Updates.UnregisterUi(key);
-                        else
+                        TryWriteErrorTxt("LoadingManager.Start", null);
+                        var initSuccess = await loadingManager.InitializeApplicationAsync();
+                        TryWriteErrorTxt($"LoadingManager.Complete.Success={initSuccess}", null);
+                        
+                        if (!initSuccess)
                         {
-                            var interval = Math.Max(5, 1000 / Math.Max(1, hz));
-                            AppServices.Updates.RegisterUiInterval(key, interval, () => { try { AppServices.Events.RaiseUiPulse(); } catch { } });
-                        }
-                    }
-                    catch { }
-                    // Initialize focus-aware background framerate enforcement and apply policy immediately
-                    try { FocusFramerateService.Initialize(); FocusFramerateService.ApplyCurrentPolicy(); } catch { }
-                }
-                catch { }
-                // Onboarding: ensure account exists; if not, show AccountCreationWindow first
-                try { TryWriteErrorTxt("Init.AccountCheck", null); } catch { }
-                if (!AppServices.Accounts.HasAccount())
-                {
-                    var acw = new Views.AccountCreationWindow();
-                    desktop.MainWindow = acw;
-                    try { TryWriteErrorTxt("Init.ACW.Show", null); } catch { }
-                    acw.Show();
-                    acw.Closed += (_, __) =>
-                    {
-                        if (AppServices.Accounts.HasAccount())
-                        {
-                            // Show main window immediately to avoid UI freeze while loading resources
-                            var mw = new MainWindow();
-                            desktop.MainWindow = mw;
-                            try { TryWriteErrorTxt("Init.MW.Show.PostCreate", null); } catch { }
-                            mw.Show();
-                            try
-                            {
-                                mw.Closed += (_, __) =>
-                                {
-                                    try
-                                    {
-                                        if (desktop.Windows is not null)
-                                        {
-                                            var copy = new System.Collections.Generic.List<Avalonia.Controls.Window>(desktop.Windows);
-                                            foreach (var w in copy)
-                                            {
-                                                try { if (w != mw) w.Close(); } catch { }
-                                            }
-                                        }
-                                    }
-                                    catch { }
-                                };
-                            }
-                            catch { }
-                            // Offload settings/contacts/peers/theme to background to keep UI responsive
-                            _ = System.Threading.Tasks.Task.Run(() =>
-                            {
-                                try { AppServices.Settings.Load(AppServices.Passphrase); } catch (System.Exception ex) { Logger.Log($"Settings load after account creation failed: {ex.Message}"); }
-                                try { var persisted = AppServices.PeersStore.Load(AppServices.Passphrase); AppServices.Peers.SetDiscovered(persisted); AppServices.Peers.IncludeContacts(); } catch { }
-                                try
-                                {
-                                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                                    {
-                                        try { AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme); } catch { }
-                                    });
-                                }
-                                catch { }
-                            });
-                            // Subscribe to config-changed for centralized networking control
-                            try
-                            {
-                                AppServices.Events.NetworkConfigChanged += () =>
-                                {
-                                    try
-                                    {
-                                        if (ZTalk.Utilities.RuntimeFlags.SafeMode)
-                                        {
-                                            try { TryWriteErrorTxt("NetworkConfigChanged.Suppressed.SafeMode", null); } catch { }
-                                            return;
-                                        }
-                                        var ns = AppServices.Settings.Settings;
-                                        AppServices.Network.StartIfMajorNode(ns.Port, ns.MajorNode);
-                                    }
-                                    catch (Exception ex) { Logger.Log($"Apply network config failed: {ex.Message}"); }
-                                };
-                            }
-                            catch { }
-                            // Start networking after a short delay (decoupled from window lifecycle)
-                            // [PORT-ALERT] Wire a one-shot listener to WarningRaised to show a red toast for port conflicts.
-                            try
-                            {
-                                AppServices.Network.WarningRaised += msg =>
-                                {
-                                    // Heuristic: show toast for preferred-port conflict messages only; non-blocking.
-                                    if (msg.Contains("Preferred port", StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        try
-                                        {
-                                            var vm = mw.DataContext as ViewModels.MainWindowViewModel;
-                                            if (vm != null)
-                                            {
-                                                vm.PortAlertText = "Port is in use. Open Network (globe) -> change Port -> re-run ZTalk.";
-                                                vm.PortAlertVisible = true;
-                                            }
-                                        }
-                                        catch { }
-                                        // Log to network.log (centralized log location)
-                                            try
-                                            {
-                                                if (ZTalk.Utilities.LoggingPaths.Enabled)
-                                                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Network, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] PORT {msg}\n");
-                                            }
-                                            catch { }
-                                    }
-                                };
-                            }
-                            catch { }
-                            try { TryWriteErrorTxt("Init.Network.Schedule.PostCreate", null); } catch { }
-                            ScheduleDelayedNetworkInit();
-                        }
-                        else
-                        {
-                            // User canceled creation: exit app
-                            (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown();
-                        }
-                    };
-                }
-                else
-                {
-                    // If account exists, attempt auto-unlock before showing Unlock window
-                    try { TryWriteErrorTxt("Init.AutoUnlock.Check", null); } catch { }
-                    var rememberPref = false;
-                    try { rememberPref = AppServices.Settings.GetRememberPreference(); } catch { }
-                    if (rememberPref && AppServices.Settings.TryGetRememberedPassphrase(out var remembered) && !string.IsNullOrWhiteSpace(remembered))
-                    {
-                        try
-                        {
-                            // Validate and proceed to main without showing Unlock
-                            var acc = AppServices.Accounts.LoadAccount(remembered);
-                            AppServices.Passphrase = remembered;
-                            // Load settings now and apply theme BEFORE showing the main window to avoid a default-theme flash
-                            try
-                            {
-                                AppServices.Settings.Load(AppServices.Passphrase);
-                                // Backfill DisplayName if needed (mirrors later background path)
-                                if (string.IsNullOrWhiteSpace(AppServices.Settings.Settings.DisplayName) && !string.IsNullOrWhiteSpace(acc.DisplayName))
-                                {
-                                    AppServices.Settings.Settings.DisplayName = acc.DisplayName;
-                                    AppServices.Settings.Save(AppServices.Passphrase);
-                                }
-                                // Apply saved theme on UI thread (we are on UI thread here)
-                                AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme);
-                            }
-                            catch { }
-                            // Ensure identity is loaded before showing main window so UID bindings are valid
-                            try { AppServices.Identity.LoadFromAccount(acc); } catch { }
-                            // Show main window after theme is applied for a seamless appearance
-                            var mw = new MainWindow();
-                            desktop.MainWindow = mw;
-                            try { TryWriteErrorTxt("Init.MW.Show.AutoUnlock", null); } catch { }
-                            mw.Show();
-                            try
-                            {
-                                mw.Closed += (_, __) =>
-                                {
-                                    try
-                                    {
-                                        if (desktop.Windows is not null)
-                                        {
-                                            var copy = new System.Collections.Generic.List<Avalonia.Controls.Window>(desktop.Windows);
-                                            foreach (var w in copy)
-                                            {
-                                                try { if (w != mw) w.Close(); } catch { }
-                                            }
-                                        }
-                                    }
-                                    catch { }
-                                };
-                            }
-                            catch { }
-                            try { mw.Closed += (_, __) => TryWriteErrorTxt("MainWindow.Closed", null); } catch { }
-                            // Offload identity/settings/contacts/peers to background, apply theme on UI thread
-                            _ = System.Threading.Tasks.Task.Run(() =>
-                            {
-                                // Settings already loaded above; keep fallback in case of transient error
-                                try { if (AppServices.Settings.Settings is null) AppServices.Settings.Load(AppServices.Passphrase); } catch { AppServices.Settings.ResetToDefaults(AppServices.Passphrase); }
-                                try { AppServices.Contacts.Load(AppServices.Passphrase); } catch { }
-                                try { var persisted = AppServices.PeersStore.Load(AppServices.Passphrase); AppServices.Peers.SetDiscovered(persisted); AppServices.Peers.IncludeContacts(); } catch { }
-                                try { AppServices.Settings.SetRememberPreference(true); } catch { }
-                                // Theme was applied before showing MainWindow; no UI-thread theme reapply needed here
-                            });
-                            // Subscribe to config-changed for centralized networking control (auto-unlock path)
-                            try
-                            {
-                                AppServices.Events.NetworkConfigChanged += () =>
-                                {
-                                    try
-                                    {
-                                        if (ZTalk.Utilities.RuntimeFlags.SafeMode)
-                                        {
-                                            try { TryWriteErrorTxt("NetworkConfigChanged.Suppressed.SafeMode", null); } catch { }
-                                            return;
-                                        }
-                                        var ns = AppServices.Settings.Settings;
-                                        AppServices.Network.StartIfMajorNode(ns.Port, ns.MajorNode);
-                                    }
-                                    catch (Exception ex) { Logger.Log($"Apply network config failed: {ex.Message}"); }
-                                };
-                            }
-                            catch { }
-                            // Start networking after a short delay (decoupled from window lifecycle)
-                            try { TryWriteErrorTxt("Init.Network.Schedule.AutoUnlock", null); } catch { }
-                            ScheduleDelayedNetworkInit();
-                            // After unlock, migrate legacy conversations by normalizing UIDs and saving back
-                            _ = System.Threading.Tasks.Task.Run(() =>
-                            {
-                                try { TryWriteErrorTxt("Migration.Messages.Begin", null); } catch { }
-                                try
-                                {
-                                    var dir = ZTalk.Utilities.AppDataPaths.Combine("messages");
-                                    if (Directory.Exists(dir))
-                                    {
-                                        var mc = new MessageContainer();
-                                        var files = Directory.GetFiles(dir, "*.p2e");
-                                        foreach (var f in files)
-                                        {
-                                            try
-                                            {
-                                                var peer = Path.GetFileNameWithoutExtension(f) ?? string.Empty;
-                                                if (!string.IsNullOrWhiteSpace(peer))
-                                                    _ = mc.LoadMessages(peer, AppServices.Passphrase);
-                                            }
-                                            catch { }
-                                        }
-                                    }
-                                }
-                                catch (System.Exception ex)
-                                {
-                                    try { TryWriteErrorTxt("Migration.Messages.Error", ex); } catch { }
-                                }
-                                finally { try { TryWriteErrorTxt("Migration.Messages.Done", null); } catch { } }
-                            });
+                            // Initialization failed, keep loading window open with error
+                            TryWriteErrorTxt("LoadingManager.Failed.KeepingWindowOpen", null);
                             return;
                         }
-                        catch (Exception ex)
+                        
+                        // Transition to main app on UI thread
+                        TryWriteErrorTxt("LoadingManager.TransitionToUI", null);
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                         {
-                            Logger.Log($"Auto-unlock with remembered passphrase failed: {ex.Message}");
-                            // Fall back to manual unlock
-                        }
-                    }
-
-                    // Require unlock before main window
-                    var unlock = new Views.UnlockWindow();
-                    // Temporarily prevent app shutdown when the Unlock window closes
-                    var originalShutdown = desktop.ShutdownMode;
-                    try { desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnExplicitShutdown; } catch { }
-                    desktop.MainWindow = unlock;
-                    try { TryWriteErrorTxt("Init.Unlock.Show", null); } catch { }
-                    unlock.Closed += (_, __) =>
-                    {
-                        // Only proceed to main window if unlock actually succeeded
-                        try
-                        {
-                            if (string.IsNullOrWhiteSpace(AppServices.Passphrase))
-                            {
-                                try { TryWriteErrorTxt("Init.Unlock.Closed.NoPassphrase", null); } catch { }
-                                // Restore shutdown behavior before exiting or returning control
-                                try
-                                {
-                                    if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d0)
-                                        d0.ShutdownMode = originalShutdown;
-                                }
-                                catch { }
-                                return; // user chose Close App or unlock failed; do not show MainWindow
-                            }
-                        }
-                        catch { }
-                        // Load settings and apply theme before showing MainWindow to avoid default-theme flash
-                        try
-                        {
-                            AppServices.Settings.Load(AppServices.Passphrase);
-                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                            {
-                                try { AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme); } catch { }
-                            });
-                        }
-                        catch { }
-                        // Ensure identity is loaded before showing MainWindow so UID bindings are valid
-                        try { var acc2Sync = AppServices.Accounts.LoadAccount(AppServices.Passphrase); AppServices.Identity.LoadFromAccount(acc2Sync); } catch { }
-                        // Show main window after theme apply
-                        var mw = new MainWindow();
-                        desktop.MainWindow = mw;
-                        try { TryWriteErrorTxt("Init.MW.Show.Unlock", null); } catch { }
-                        mw.Show();
-                        // Restore the original shutdown behavior now that MainWindow is up
-                        try
-                        {
-                            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d1)
-                                d1.ShutdownMode = originalShutdown;
-                        }
-                        catch { }
-                        try
-                        {
-                            mw.Closed += (_, __) =>
-                            {
-                                try
-                                {
-                                    if (desktop.Windows is not null)
-                                    {
-                                        var copy = new System.Collections.Generic.List<Avalonia.Controls.Window>(desktop.Windows);
-                                        foreach (var w in copy)
-                                        {
-                                            try { if (w != mw) w.Close(); } catch { }
-                                        }
-                                    }
-                                }
-                                catch { }
-                            };
-                        }
-                        catch { }
-                        try { mw.Closed += (_, __) => TryWriteErrorTxt("MainWindow.Closed", null); } catch { }
-                        // After unlock, load settings/identity using the correct passphrase in background
-                        _ = System.Threading.Tasks.Task.Run(() =>
-                        {
-                            // Settings already loaded above for theme; keep background load as a fallback
-                            try { if (AppServices.Settings.Settings is null) AppServices.Settings.Load(AppServices.Passphrase); } catch (System.Exception ex) { Logger.Log($"Settings load after unlock failed: {ex.Message}"); }
-                            // Identity already loaded synchronously; no-op here
-                            // Theme already applied above; no reapply needed here
-                        });
-                        // Initialize network after a short delay; keep it independent of window lifecycle
-                        try { TryWriteErrorTxt("Init.Network.Schedule.Unlock", null); } catch { }
-                        ScheduleDelayedNetworkInit();
-                        // Centralize future network config changes: UI raises an event; app applies networking
-                        try
-                        {
-                            AppServices.Events.NetworkConfigChanged += () =>
-                            {
-                                try
-                                {
-                                    if (ZTalk.Utilities.RuntimeFlags.SafeMode)
-                                    {
-                                        try { TryWriteErrorTxt("NetworkConfigChanged.Suppressed.SafeMode", null); } catch { }
-                                        return;
-                                    }
-                                    var ns = AppServices.Settings.Settings;
-                                    AppServices.Network.StartIfMajorNode(ns.Port, ns.MajorNode);
-                                }
-                                catch (Exception ex) { Logger.Log($"Apply network config failed: {ex.Message}"); }
-                            };
-                        }
-                        catch { }
-                        // Load persisted peers and contacts
-                        try { var persisted = AppServices.PeersStore.Load(AppServices.Passphrase); AppServices.Peers.SetDiscovered(persisted); AppServices.Peers.IncludeContacts(); } catch { }
-                        // After unlock, migrate legacy conversations by normalizing UIDs and saving back
-                        _ = System.Threading.Tasks.Task.Run(() =>
-                        {
-                            try { TryWriteErrorTxt("Migration.Messages.Begin", null); } catch { }
                             try
                             {
-                                var dir = ZTalk.Utilities.AppDataPaths.Combine("messages");
-                                if (Directory.Exists(dir))
-                                {
-                                    var mc = new MessageContainer();
-                                    var files = Directory.GetFiles(dir, "*.p2e");
-                                    foreach (var f in files)
-                                    {
-                                        try
-                                        {
-                                            var peer = Path.GetFileNameWithoutExtension(f) ?? string.Empty;
-                                            if (!string.IsNullOrWhiteSpace(peer))
-                                                _ = mc.LoadMessages(peer, AppServices.Passphrase);
-                                        }
-                                        catch { }
-                                    }
-                                }
+                                TryWriteErrorTxt("UI.ContinueToMainApp.Start", null);
+                                ContinueToMainApp(desktop, loadingWindow);
+                                TryWriteErrorTxt("UI.ContinueToMainApp.Complete", null);
                             }
-                            catch (System.Exception ex)
+                            catch (Exception ex)
                             {
-                                try { TryWriteErrorTxt("Migration.Messages.Error", ex); } catch { }
+                                TryWriteErrorTxt("LoadingWindow.TransitionToMain.Error", ex);
+                                // Don't let the app die - show error but keep loading window open
+                                loadingWindow.ViewModel.MainMessage = "Initialization failed. Please restart the application.";
+                                loadingWindow.ViewModel.CurrentTask = $"Error: {ex.Message}";
                             }
-                            finally { try { TryWriteErrorTxt("Migration.Messages.Done", null); } catch { } }
                         });
-                        // Theme re-application handled above on UI thread after settings load
-                    };
-                    unlock.Show();
-                }
+                    }
+                    catch (Exception ex)
+                    {
+                        TryWriteErrorTxt("LoadingManager.Exception", ex);
+                        // Update UI on UI thread
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            loadingWindow.ViewModel.MainMessage = "Critical initialization error occurred.";
+                            loadingWindow.ViewModel.CurrentTask = $"Error: {ex.Message}";
+                        });
+                    }
+                });
+                
+                // Exit early - all other initialization is handled by LoadingManager
+                return;
             }
             catch (Exception ex)
             {

@@ -2698,7 +2698,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         // (hotkey usage bypasses this confirmation)
         try
         {
-            var confirmed = await AppServices.Dialogs.ConfirmAsync(
+            var confirmed = await AppServices.Dialogs.ConfirmWarningAsync(
                 "Lock & Log Out",
                 "Are you sure you want to lock and log out?\n\nYou'll need to re-enter your passphrase to unlock.",
                 "Lock & Log Out",
@@ -3672,7 +3672,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try { _inviteToastCts?.Cancel(); }
         catch { }
         HideInviteToast();
-        try { PendingInvites_Click(sender, e); }
+        try { 
+            // Open notifications panel to show pending invites
+            ToggleRightPanel_Click(sender, e);
+            ShowInvitesHost();
+            if (DataContext is MainWindowViewModel vm) { vm.RefreshHasPendingInvites(); }
+            RenderInvitesPanel();
+            AttachRightPanelEventHandlers();
+        }
         catch { }
     }
 
@@ -4400,17 +4407,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var win = new Window
             {
                 Title = "Verification Request",
-                // 16:9 modal sizing
-                Width = 640,
-                Height = 360,
+                MinWidth = 440,
+                MaxWidth = 600,
+                MinHeight = 200,
+                MaxHeight = 400,
                 CanResize = false,
+                SizeToContent = SizeToContent.WidthAndHeight,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 ExtendClientAreaToDecorationsHint = true,
                 ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
                 ExtendClientAreaTitleBarHeightHint = 32
             };
-            var root = new StackPanel { Margin = new Thickness(12), Spacing = 8 };
-            root.Children.Add(new TextBlock { Text = $"{dn} ({uid}) wants to verify.", TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+            var root = new StackPanel { Margin = new Thickness(12), Spacing = 8, MaxWidth = 560 };
+            root.Children.Add(new TextBlock { 
+                Text = $"{dn} ({uid}) wants to verify.", 
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                MaxWidth = 520
+            });
             var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8 };
             var decline = new Button { Content = "Decline" };
             var start = new Button { Content = "Start", IsDefault = true };
@@ -4810,7 +4823,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             bool confirmed = false;
             try
             {
-                confirmed = await AppServices.Dialogs.ConfirmAsync(
+                confirmed = await AppServices.Dialogs.ConfirmWarningAsync(
                     "Reject all invites",
                     "Are you sure you want to reject all pending contact invites? This cannot be undone.",
                     "Reject All",

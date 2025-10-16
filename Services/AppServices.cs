@@ -39,6 +39,8 @@ public static class AppServices
     public static LogMaintenanceService LogMaintenance { get; } = new(Settings, Updates);
     public static TrayIconService TrayIcon { get; } = new();
     public static NotificationService Notifications { get; } = new();
+    public static AudioNotificationService AudioNotifications => AudioNotificationService.Instance;
+    public static IpBlockingService IpBlocking { get; } = new(Settings);
     // Centralized UI pulse key; interval can be adjusted via Settings if desired
     private const string UiPulseKey = "App.UI.Pulse";
     // Email verification removed in keypair-based identity model
@@ -319,6 +321,13 @@ public static class AppServices
     try { LogMaintenance.TryStart(); } catch { }
 #endif
 
+        // Initialize audio service with current settings (will be updated when settings are loaded)
+        try
+        {
+            SyncAudioSettings();
+        }
+        catch { }
+
         // Opportunistic retention triggers
         try
         {
@@ -359,6 +368,20 @@ public static class AppServices
         catch { }
     }
 
+    // Sync audio service volumes with current settings
+    public static void SyncAudioSettings()
+    {
+        try
+        {
+            var audio = AudioNotifications;
+            var settings = Settings.Settings;
+            audio.MainVolume = (float)Math.Clamp(settings.MainVolume, 0.0, 1.0);
+            audio.NotificationVolume = (float)Math.Clamp(settings.NotificationVolume, 0.0, 1.0);
+            audio.ChatVolume = (float)Math.Clamp(settings.ChatVolume, 0.0, 1.0);
+        }
+        catch { }
+    }
+
     // Centralized graceful shutdown. Invoked on MainWindow close / application exit.
     public static void Shutdown()
     {
@@ -372,6 +395,7 @@ public static class AppServices
         try { Settings.Save(Passphrase); } catch { }
         try { LinkPreview.Dispose(); } catch { }
         try { TrayIcon.Dispose(); } catch { }
+        try { AudioNotifications.Dispose(); } catch { }
 #if DEBUG
     try { LogMaintenance.Stop(); } catch { }
 #endif

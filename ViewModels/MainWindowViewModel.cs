@@ -570,7 +570,7 @@ namespace ZTalk.ViewModels
                     var isPending = string.Equals(msg.DeliveryStatus, "Pending", StringComparison.OrdinalIgnoreCase);
                     if (!isPending)
                     {
-                        if (!IsWithinEditWindow(msg)) { await AppServices.Dialogs.ShowInfoAsync("Edit Time Expired", "That message can't be edited anymore because the 25-minute window has passed."); return; }
+                        if (!IsWithinEditWindow(msg)) { await AppServices.Dialogs.ShowWarningAsync("Edit Time Expired", "That message can't be edited anymore because the 25-minute window has passed."); return; }
                     }
                     // Simple edit prompt using DialogService
                     var original = msg.Content ?? string.Empty;
@@ -582,7 +582,7 @@ namespace ZTalk.ViewModels
                     var stillThere = Messages.Any(m => m.Id == id);
                     if (!stillThere)
                     {
-                        await AppServices.Dialogs.ShowInfoAsync("Message Deleted", "Sorry but this message was deleted while you were editing it, it will be purged as soon as you finish editing it.");
+                        await AppServices.Dialogs.ShowErrorAsync("Message Deleted", "Sorry but this message was deleted while you were editing it, it will be purged as soon as you finish editing it.");
                         return;
                     }
                     if (!isPending)
@@ -646,7 +646,7 @@ namespace ZTalk.ViewModels
                     var prompt = isOwn
                         ? "Are you sure you want to delete this message? This will permanently delete it for both you and the recipient. This action cannot be undone."
                         : "Delete this message locally? The sender will not be notified. This action cannot be undone.";
-                    var ok = await AppServices.Dialogs.ConfirmAsync("Delete Message", prompt, "Delete", "Cancel");
+                    var ok = await AppServices.Dialogs.ConfirmDestructiveAsync("Delete Message", prompt, "Delete", "Cancel");
                     if (!ok) return;
                     // Remove from UI first (user-deleted should be treated as truly deleted)
                     Messages.Remove(msg);
@@ -1000,7 +1000,7 @@ namespace ZTalk.ViewModels
                 details += $" and removed {summary.QueuedMessagesDeleted} pending messages";
             }
 
-            _ = AppServices.Dialogs.ShowInfoAsync("Messages purged", details, dismissAfterMs: 3000);
+            _ = AppServices.Dialogs.ShowSuccessAsync("Messages purged", details, 3000);
         }
 
     private void RefreshIdentityBindings()
@@ -1210,6 +1210,23 @@ namespace ZTalk.ViewModels
                 Messages.Add(message);
                 try { _messagesStore.StoreMessage(recipientUid, message, AppServices.Passphrase); } catch { }
                 OutgoingMessage = string.Empty;
+
+                // Play outgoing message sound
+                try
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await Services.AudioHelper.PlayOutgoingMessageAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log($"SendMessage: Outgoing audio notification failed: {ex.Message}");
+                        }
+                    });
+                }
+                catch { }
 
                 MaybeCreateOutgoingMessageNotice(contact, message);
 
@@ -1461,6 +1478,22 @@ namespace ZTalk.ViewModels
                 var title = incoming ? $"From {displayName}" : $"To {displayName}";
                 var preview = BuildMessagePreview(message?.Content ?? string.Empty);
                 AppServices.Notifications.AddOrUpdateMessageNotice(title, preview, trimmedOrigin, message?.Id ?? Guid.NewGuid(), incoming, unread);
+                
+                // Play incoming message sound for received messages
+                if (incoming)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await Services.AudioHelper.PlayIncomingMessageAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Log($"PublishMessageNotification: Incoming audio notification failed: {ex.Message}");
+                        }
+                    });
+                }
             }
             catch { }
         }
@@ -1478,8 +1511,9 @@ namespace ZTalk.ViewModels
                 {
                     return;
                 }
-                var display = ResolveContactDisplayName(contact.UID);
-                PublishMessageNotification(contact.UID, display, message, incoming: false, unread: true);
+                // Don't create notifications for outgoing messages - users don't need to be notified about their own messages
+                // var display = ResolveContactDisplayName(contact.UID);
+                // PublishMessageNotification(contact.UID, display, message, incoming: false, unread: true);
             }
             catch { }
         }
@@ -1565,6 +1599,61 @@ namespace ZTalk.ViewModels
             catch { }
         }
 
+        // Mark all unread incoming messages from all contacts as read (used when coming back online)
+        public void MarkAllUnreadMessagesAsRead()
+        {
+            try
+            {
+                if (!IsSelfOnline()) return;
+                var selfUid = TrimUidPrefix(AppServices.Identity.UID ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(selfUid)) return;
+
+                var contacts = AppServices.Contacts.Contacts.ToList();
+                foreach (var contact in contacts)
+                {
+                    try
+                    {
+                        var peerUid = TrimUidPrefix(contact.UID ?? string.Empty);
+                        if (string.IsNullOrWhiteSpace(peerUid)) continue;
+
+                        var messages = _messagesStore.LoadMessages(peerUid, AppServices.Passphrase);
+                        var changed = false;
+                        var now = DateTime.UtcNow;
+
+                        foreach (var message in messages)
+                        {
+                            if (message == null) continue;
+                            if (message.ReadUtc.HasValue) continue; // Already read
+                            if (message.Id == Guid.Empty) continue;
+                            
+                            var sender = TrimUidPrefix(message.SenderUID ?? string.Empty);
+                            // Only mark incoming messages as read (not our own messages)
+                            if (string.Equals(sender, selfUid, StringComparison.OrdinalIgnoreCase)) continue;
+                            
+                            message.ReadUtc = now;
+                            try { AppServices.Notifications.MarkMessageNoticeRead(message.Id); } catch { }
+                            _ = Task.Run(async () =>
+                            {
+                                try { await AppServices.Network.SendReadReceiptAsync(peerUid, message.Id, CancellationToken.None); } catch { }
+                            });
+                            changed = true;
+                        }
+
+                        if (changed)
+                        {
+                            _messagesStore.ReplaceConversation(peerUid, messages, AppServices.Passphrase);
+                        }
+                    }
+                    catch { }
+                }
+
+                // Also clear all conversation notifications
+                try { AppServices.Notifications.MarkAllMessageNoticesRead(); } catch { }
+                RefreshHasPendingInvites();
+            }
+            catch { }
+        }
+
         public void HandleLocalPresenceStatusChanged(Models.PresenceStatus status)
         {
             try
@@ -1572,7 +1661,7 @@ namespace ZTalk.ViewModels
                 if (status != Models.PresenceStatus.Online) return;
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
-                    try { MarkMessagesAsRead(); }
+                    try { MarkAllUnreadMessagesAsRead(); }
                     catch { }
                 });
             }
@@ -1751,8 +1840,9 @@ namespace ZTalk.ViewModels
         {
             try { AppServices.Outbox.Enqueue(recipientUid, message, AppServices.Passphrase); } catch { }
             Avalonia.Threading.Dispatcher.UIThread.Post(() => ShowOfflineBanner(banner));
-            var display = ResolveContactDisplayName(recipientUid);
-            PublishMessageNotification(recipientUid, display, message, incoming: false, unread: true);
+            // Don't create notifications for outgoing messages - users don't need to be notified about their own messages
+            // var display = ResolveContactDisplayName(recipientUid);
+            // PublishMessageNotification(recipientUid, display, message, incoming: false, unread: true);
         }
 
         private void MarkMessagesAsRead(IEnumerable<Message>? subset = null)
@@ -2295,6 +2385,8 @@ namespace ZTalk.ViewModels
                 var list = _messagesStore.LoadMessages(peerUid, AppServices.Passphrase);
                 foreach (var m in list) Messages.Add(m);
                 MarkMessagesAsRead();
+                // Clear notifications for this conversation
+                try { AppServices.Notifications.MarkConversationMessageNoticesRead(peerUid); } catch { }
             }
             catch { }
         }
@@ -2323,7 +2415,7 @@ namespace ZTalk.ViewModels
             bool confirmed;
             try
             {
-                confirmed = await AppServices.Dialogs.ConfirmAsync("Burn conversation", confirmationText, "Burn Now", "Cancel");
+                confirmed = await AppServices.Dialogs.ConfirmDestructiveAsync("Burn conversation", confirmationText, "Burn Now", "Cancel");
             }
             catch
             {
@@ -2338,12 +2430,33 @@ namespace ZTalk.ViewModels
                 ErrorMessage = string.Empty;
 
                 var summary = AppServices.Retention.BurnConversationSecurely(peerUid, AppServices.Passphrase);
-                LoadConversation(peerUid);
+                
+                try
+                {
+                    LoadConversation(peerUid);
+                }
+                catch (Exception loadEx)
+                {
+                    // Log load conversation error but don't fail the burn operation
+                    try { ZTalk.Utilities.ErrorLogger.LogException(loadEx, source: "UI.BurnConversation.LoadConversation"); } catch { }
+                }
 
                 var toast = summary.BytesWiped > 0
                     ? $"Secure shred complete ({summary.BytesWiped:N0} bytes wiped)."
                     : "Conversation artifacts were already absent.";
-                await AppServices.Dialogs.ShowInfoAsync("Conversation burned", toast, dismissAfterMs: 3500);
+                
+                try
+                {
+                    await AppServices.Dialogs.ShowSuccessAsync("Conversation burned", toast, 3500);
+                }
+                catch (Exception toastEx)
+                {
+                    // Log toast error but don't fail the burn operation
+                    try { ZTalk.Utilities.ErrorLogger.LogException(toastEx, source: "UI.BurnConversation.Toast"); } catch { }
+                }
+                
+                // Clear error message since burn was successful
+                ErrorMessage = string.Empty;
             }
             catch (Exception ex)
             {

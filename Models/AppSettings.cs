@@ -47,6 +47,8 @@ public class AppSettings
     public System.Collections.Generic.List<string> BlockList { get; set; } = new(); // UIDs
     public System.Collections.Generic.List<string> BlockedPublicKeyFingerprints { get; set; } = new(); // SHA256 Base64 hashes of blocked public keys
     public System.Collections.Generic.List<string> BlockedIpAddresses { get; set; } = new(); // IP addresses (v4/v6)
+    public System.Collections.Generic.List<string> BlockedIpRanges { get; set; } = new(); // CIDR ranges (e.g., 192.168.1.0/24)
+    public System.Collections.Generic.HashSet<string> CustomBadActorIps { get; set; } = new(); // User-added bad actor IPs
     public System.Collections.Generic.List<string> KnownMajorNodes { get; set; } = new(); // "host:port"
     // Ordered list of preferred adapter IDs (NetworkInterface.Id)
     public System.Collections.Generic.List<string> AdapterPriorityIds { get; set; } = new();
@@ -144,4 +146,13 @@ public class AppSettings
     public bool MinimizeToTray { get; set; } = false; // When enabled, close button minimizes to tray instead of closing
     public bool RunOnStartup { get; set; } = false; // When enabled, app starts with Windows
     public bool ShowInSystemTray { get; set; } = false; // When enabled, app icon appears in system tray
+
+    // Audio settings (volume ranges from 0.0 to 1.0)
+    public double MainVolume { get; set; } = 1.0; // Overall volume control for all sounds
+    public double NotificationVolume { get; set; } = 0.8; // Volume for general notifications
+    public double ChatVolume { get; set; } = 0.7; // Volume for chat-related sounds (incoming/outgoing messages)
+
+    // Notification behavior settings
+    public bool SuppressNotificationsInDnd { get; set; } = true; // When enabled, notification toasts and audio are suppressed in Do Not Disturb mode
+    public double NotificationDurationSeconds { get; set; } = 4.5; // Duration in seconds that notification toasts stay visible (0.5 to 30 seconds)
 }

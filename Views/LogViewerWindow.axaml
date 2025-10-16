@@ -19,6 +19,49 @@
         <vm:LogViewerViewModel />
     </Window.DataContext>
 
+    <Window.Styles>
+        <!-- Custom style for scrollable left-side TabControl -->
+        <Style Selector="TabControl.scrollable-left">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Left side: Scrollable tab strip -->
+                        <Border Grid.Column="0"
+                                Background="{DynamicResource App.Surface}"
+                                BorderBrush="{DynamicResource App.Border}"
+                                BorderThickness="0,0,1,0"
+                                MinWidth="200">
+                            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                          VerticalScrollBarVisibility="Auto"
+                                          Padding="0">
+                                <ItemsPresenter Name="PART_ItemsPresenter"
+                                                ItemsPanel="{TemplateBinding ItemsPanel}" />
+                            </ScrollViewer>
+                        </Border>
+                        
+                        <!-- Right side: Content area -->
+                        <ContentPresenter Grid.Column="1"
+                                          Name="PART_SelectedContentHost"
+                                          Content="{TemplateBinding SelectedContent}"
+                                          ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+            
+            <!-- Override ItemsPanel to use vertical StackPanel for left placement -->
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Vertical" />
+                </ItemsPanelTemplate>
+            </Setter>
+        </Style>
+    </Window.Styles>
+
     <Grid RowDefinitions="Auto,*" Background="{DynamicResource App.Background}">
         <Border Grid.Row="0"
                 Padding="8,6"
@@ -85,7 +128,7 @@
                     <TabControl x:Name="LogTabs"
                                 ItemsSource="{Binding Tabs}"
                                 SelectedItem="{Binding SelectedTab}"
-                                TabStripPlacement="Left"
+                                Classes="scrollable-left"
                                 Background="{DynamicResource App.Background}">
                         <TabControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:LogDocumentViewModel">

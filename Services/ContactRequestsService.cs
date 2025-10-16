@@ -587,7 +587,7 @@ namespace ZTalk.Services
                         try
                         {
                             var name = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(c.UID, uid, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? uid;
-                            _ = _dialogs.ShowInfoAsync("Contact Verified", $"You verified {name}.");
+                            _ = _dialogs.ShowSuccessAsync("Contact Verified", $"You verified {name}.");
                         }
                         catch { }
                     }
