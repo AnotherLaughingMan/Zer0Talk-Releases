@@ -1,0 +1,9 @@
+# -------------------------------------------------------
+# Free IP2Location Firewall List by Country
+# Source: https://www.ip2location.com/free/visitor-blocker
+# Last Generated: 05 Feb 2025 22:22:45 GMT
+# [Important] Please update this list every month
+# -------------------------------------------------------
+57.73.214.0/255.255.254.0
+175.45.176.0/255.255.252.0
+202.72.96.4/255.255.255.252
