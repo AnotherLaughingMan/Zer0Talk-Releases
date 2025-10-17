@@ -57,6 +57,8 @@
     <None Include="Assets\Icons\Icon.ico" Link="Assets\Icon.ico" Condition="Exists(&apos;Assets\\Icons\\Icon.ico&apos;)"/>
     <!-- Include sound assets -->
     <Content Include="Assets\Sounds\**\*.*" CopyToOutputDirectory="PreserveNewest"/>
+    <!-- Include localization JSON files -->
+    <Content Include="Resources\Localization\*.json" CopyToOutputDirectory="PreserveNewest"/>
   </ItemGroup><!-- Diagnostic toggle for dumping AvaloniaResource items during build -->
   <PropertyGroup><!-- Set to true only when needing to inspect @(AvaloniaResource) again -->
     <DumpAvaloniaResources>false</DumpAvaloniaResources>

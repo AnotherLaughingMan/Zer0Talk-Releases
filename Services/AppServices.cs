@@ -41,6 +41,7 @@ public static class AppServices
     public static NotificationService Notifications { get; } = new();
     public static AudioNotificationService AudioNotifications => AudioNotificationService.Instance;
     public static IpBlockingService IpBlocking { get; } = new(Settings);
+    public static LocalizationService Localization { get; } = new();
     // Centralized UI pulse key; interval can be adjusted via Settings if desired
     private const string UiPulseKey = "App.UI.Pulse";
     // Email verification removed in keypair-based identity model

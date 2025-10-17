@@ -1,0 +1,29 @@
+{
+  "App": {
+    "Title": "ZTalk"
+  },
+  "Settings": {
+    "Title": "Settings",
+    "Appearance": "Appearance",
+    "Language": "Language",
+    "Theme": "Theme",
+    "Account": "Account",
+    "Network": "Network",
+    "Privacy": "Privacy"
+  },
+  "Notifications": {
+    "NewMessage": "New Message",
+    "Error": "Error",
+    "Warning": "Warning",
+    "Information": "Information"
+  },
+  "Common": {
+    "Save": "Save",
+    "Cancel": "Cancel",
+    "OK": "OK",
+    "Yes": "Yes",
+    "No": "No",
+    "Apply": "Apply",
+    "Close": "Close"
+  }
+}

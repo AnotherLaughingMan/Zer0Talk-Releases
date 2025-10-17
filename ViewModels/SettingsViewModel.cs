@@ -378,6 +378,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
             UiFontFamily = string.IsNullOrWhiteSpace(settings.UiFontFamily) ? null : settings.UiFontFamily;
             Language = string.IsNullOrWhiteSpace(settings.Language) ? "English (US)" : settings.Language;
+            
+            // Initialize LocalizationService with saved language
+            try
+            {
+                var langCode = GetLanguageCode(Language);
+                Services.AppServices.Localization.LoadLanguage(langCode);
+            }
+            catch { }
+            
             LockBlurRadius = ClampRange(settings.LockBlurRadius, 0, 10);
             ShowKeyboardFocus = settings.ShowKeyboardFocus;
             EnhancedKeyboardNavigation = settings.EnhancedKeyboardNavigation;
@@ -1349,8 +1358,36 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 _language = value;
                 OnPropertyChanged();
                 try { LogSettingsEvent($"Language changed to {_language}"); } catch { }
+                
+                // Update LocalizationService when language changes
+                try
+                {
+                    var langCode = GetLanguageCode(_language);
+                    Services.AppServices.Localization.LoadLanguage(langCode);
+                }
+                catch { }
             }
         }
+    }
+    
+    // Helper to convert display name to language code
+    private static string GetLanguageCode(string displayName)
+    {
+        // Map display names to ISO 639-1 codes
+        return displayName switch
+        {
+            "English (US)" => "en",
+            "Spanish" => "es",
+            "French" => "fr",
+            "German" => "de",
+            "Japanese" => "ja",
+            "Chinese (Simplified)" => "zh-CN",
+            "Chinese (Traditional)" => "zh-TW",
+            "Portuguese" => "pt",
+            "Russian" => "ru",
+            "Italian" => "it",
+            _ => "en" // Default to English
+        };
     }
 
     // Sync ThemeIndex from persisted settings without marking Unsaved.
