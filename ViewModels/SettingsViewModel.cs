@@ -123,6 +123,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(DefaultPresenceIndex),
         nameof(SuppressNotificationsInDnd),
         nameof(NotificationDurationSeconds),
+        nameof(EnableNotificationBellFlash),
         nameof(AutoLockEnabled),
         nameof(AutoLockMinutes),
         nameof(LockOnMinimize),
@@ -290,6 +291,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _baseDefaultPresenceIndex;
     private bool _baseSuppressNotificationsInDnd;
     private double _baseNotificationDurationSeconds;
+    private bool _baseEnableNotificationBellFlash;
     private bool _baseAutoLockEnabled;
     private int _baseAutoLockMinutes;
     private bool _baseLockOnMinimize;
@@ -401,6 +403,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             DefaultPresenceIndex = PresenceToIndex(settings.Status);
             SuppressNotificationsInDnd = settings.SuppressNotificationsInDnd;
             NotificationDurationSeconds = Math.Clamp(settings.NotificationDurationSeconds, 0.5, 30.0);
+            EnableNotificationBellFlash = settings.EnableNotificationBellFlash;
             AutoLockEnabled = settings.AutoLockEnabled;
             AutoLockMinutes = Math.Max(0, settings.AutoLockMinutes);
             LockOnMinimize = settings.LockOnMinimize;
@@ -1381,7 +1384,147 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Localized UI strings
     public string LocalizedSettingsTitle => Services.AppServices.Localization.GetString("Settings.Title", "Settings");
     public string LocalizedAppearance => Services.AppServices.Localization.GetString("Settings.Appearance", "Appearance");
+    public string LocalizedGeneral => Services.AppServices.Localization.GetString("Settings.General", "General");
+    public string LocalizedHotkeys => Services.AppServices.Localization.GetString("Settings.Hotkeys", "Hotkeys");
+    public string LocalizedProfile => Services.AppServices.Localization.GetString("Settings.Profile", "Profile");
+    public string LocalizedNetwork => Services.AppServices.Localization.GetString("Settings.Network", "Network");
+    public string LocalizedPerformance => Services.AppServices.Localization.GetString("Settings.Performance", "Performance");
+    public string LocalizedAccessibility => Services.AppServices.Localization.GetString("Settings.Accessibility", "Accessibility");
+    public string LocalizedAbout => Services.AppServices.Localization.GetString("Settings.About", "About");
+    public string LocalizedDangerZone => Services.AppServices.Localization.GetString("Settings.DangerZone", "Danger Zone");
+    public string LocalizedLogOut => Services.AppServices.Localization.GetString("Settings.LogOut", "Log Out");
     public string LocalizedLanguage => Services.AppServices.Localization.GetString("Settings.Language", "Language");
+    public string LocalizedTheme => Services.AppServices.Localization.GetString("Settings.Theme", "Theme");
+    public string LocalizedFont => Services.AppServices.Localization.GetString("Settings.Font", "Font");
+    public string LocalizedPrivacy => Services.AppServices.Localization.GetString("Settings.Privacy", "Privacy");
+    
+    // General panel strings
+    public string LocalizedDefaultPresence => Services.AppServices.Localization.GetString("Settings.DefaultPresence", "Default Presence");
+    public string LocalizedStatus => Services.AppServices.Localization.GetString("Settings.Status", "Status");
+    public string LocalizedOnline => Services.AppServices.Localization.GetString("Settings.Online", "Online");
+    public string LocalizedAway => Services.AppServices.Localization.GetString("Settings.Away", "Away");
+    public string LocalizedDoNotDisturb => Services.AppServices.Localization.GetString("Settings.DoNotDisturb", "Do Not Disturb");
+    public string LocalizedOffline => Services.AppServices.Localization.GetString("Settings.Offline", "Offline");
+    public string LocalizedSuppressNotifications => Services.AppServices.Localization.GetString("Settings.SuppressNotifications", "Suppress notifications and audio while in Do Not Disturb");
+    public string LocalizedNotificationDuration => Services.AppServices.Localization.GetString("Settings.NotificationDuration", "Notification Duration");
+    public string LocalizedDuration => Services.AppServices.Localization.GetString("Settings.Duration", "Duration:");
+    public string LocalizedPrecise => Services.AppServices.Localization.GetString("Settings.Precise", "Precise:");
+    public string LocalizedNotificationDurationHelp => Services.AppServices.Localization.GetString("Settings.NotificationDurationHelp", "Controls how long notification toasts stay visible. Slider: 0.5-20s, Input: 0.5-30s.");
+    public string LocalizedCurrentSetting => Services.AppServices.Localization.GetString("Settings.CurrentSetting", "Current setting:");
+    public string LocalizedSeconds => Services.AppServices.Localization.GetString("Settings.Seconds", "seconds");
+    public string LocalizedOfflineAutomatic => Services.AppServices.Localization.GetString("Settings.OfflineAutomatic", "Offline is automatic only and cannot be selected.");
+    public string LocalizedAutoLock => Services.AppServices.Localization.GetString("Settings.AutoLock", "Auto-Lock");
+    public string LocalizedEnableAutoLock => Services.AppServices.Localization.GetString("Settings.EnableAutoLock", "Enable Auto-Lock");
+    public string LocalizedMinutes => Services.AppServices.Localization.GetString("Settings.Minutes", "Minutes");
+    public string LocalizedLockOnMinimize => Services.AppServices.Localization.GetString("Settings.LockOnMinimize", "Lock on minimize");
+    public string LocalizedLockBlurRadius => Services.AppServices.Localization.GetString("Settings.LockBlurRadius", "Lock Blur Radius");
+    public string LocalizedLockBlurHelp => Services.AppServices.Localization.GetString("Settings.LockBlurHelp", "Controls blur strength while locked. 0 = no blur, 10 = maximum.");
+    public string LocalizedBlockScreenCapture => Services.AppServices.Localization.GetString("Settings.BlockScreenCapture", "Block screen capture");
+    public string LocalizedScreenCaptureWarning => Services.AppServices.Localization.GetString("Settings.ScreenCaptureWarning", "Windows-only; older/legacy capture tools may not honor this.");
+    public string LocalizedKeyVisibility => Services.AppServices.Localization.GetString("Settings.KeyVisibility", "Key Visibility");
+    public string LocalizedShowPublicKeys => Services.AppServices.Localization.GetString("Settings.ShowPublicKeys", "Show public keys on profiles");
+    public string LocalizedAudio => Services.AppServices.Localization.GetString("Settings.Audio", "Audio");
+    public string LocalizedAudioHelp => Services.AppServices.Localization.GetString("Settings.AudioHelp", "Configure volume levels for different types of sounds. Main Volume acts as a master control, while individual channels allow fine-tuning of specific sound categories.");
+    public string LocalizedMainVolume => Services.AppServices.Localization.GetString("Settings.MainVolume", "Main Volume");
+    public string LocalizedNotifications => Services.AppServices.Localization.GetString("Settings.Notifications", "Notifications");
+    public string LocalizedChatSounds => Services.AppServices.Localization.GetString("Settings.ChatSounds", "Chat Sounds");
+    public string LocalizedSystemTray => Services.AppServices.Localization.GetString("Settings.SystemTray", "System Tray");
+    public string LocalizedSystemTrayHelp => Services.AppServices.Localization.GetString("Settings.SystemTrayHelp", "Control how ZTalk behaves with the Windows system tray.");
+    public string LocalizedShowSystemTrayIcon => Services.AppServices.Localization.GetString("Settings.ShowSystemTrayIcon", "Show icon in system tray");
+    public string LocalizedShowSystemTrayIconHelp => Services.AppServices.Localization.GetString("Settings.ShowSystemTrayIconHelp", "Display ZTalk icon in the Windows system tray for quick access");
+    public string LocalizedMinimizeToTray => Services.AppServices.Localization.GetString("Settings.MinimizeToTray", "Minimize to tray on close");
+    public string LocalizedMinimizeToTrayHelp => Services.AppServices.Localization.GetString("Settings.MinimizeToTrayHelp", "Close button will minimize to system tray instead of exiting the application");
+    public string LocalizedRunOnStartup => Services.AppServices.Localization.GetString("Settings.RunOnStartup", "Run on Windows startup");
+    public string LocalizedRunOnStartupHelp => Services.AppServices.Localization.GetString("Settings.RunOnStartupHelp", "Automatically start ZTalk when Windows starts (minimized to tray)");
+    public string LocalizedFamily => Services.AppServices.Localization.GetString("Settings.Family", "Family:");
+    
+    // Profile panel strings
+    public string LocalizedIdentity => Services.AppServices.Localization.GetString("Settings.Identity", "Identity");
+    public string LocalizedUsername => Services.AppServices.Localization.GetString("Settings.Username", "Username");
+    public string LocalizedUID => Services.AppServices.Localization.GetString("Settings.UID", "UID");
+    public string LocalizedDisplayName => Services.AppServices.Localization.GetString("Settings.DisplayName", "Display Name");
+    public string LocalizedPrevName => Services.AppServices.Localization.GetString("Settings.PrevName", "Prev. Name");
+    public string LocalizedPublicKey => Services.AppServices.Localization.GetString("Settings.PublicKey", "Public Key");
+    public string LocalizedAvatar => Services.AppServices.Localization.GetString("Settings.Avatar", "Avatar");
+    public string LocalizedChoose => Services.AppServices.Localization.GetString("Settings.Choose", "Choose...");
+    public string LocalizedClear => Services.AppServices.Localization.GetString("Settings.Clear", "Clear");
+    public string LocalizedShareAvatar => Services.AppServices.Localization.GetString("Settings.ShareAvatar", "Share Avatar with peers");
+    public string LocalizedBio => Services.AppServices.Localization.GetString("Settings.Bio", "Bio");
+    
+    // Hotkeys panel strings
+    public string LocalizedCustomizeKeyboardShortcuts => Services.AppServices.Localization.GetString("Settings.CustomizeKeyboardShortcuts", "Customize keyboard shortcuts");
+    public string LocalizedHotkeyInstructions => Services.AppServices.Localization.GetString("Settings.HotkeyInstructions", "Click a hotkey field and press your desired key combination. Conflicting assignments will be rejected.");
+    public string LocalizedLockApplication => Services.AppServices.Localization.GetString("Settings.LockApplication", "Lock Application");
+    public string LocalizedLockApplicationHelp => Services.AppServices.Localization.GetString("Settings.LockApplicationHelp", "Quickly lock the app to protect your privacy");
+    public string LocalizedHotkey => Services.AppServices.Localization.GetString("Settings.Hotkey", "Hotkey");
+    public string LocalizedPressKeys => Services.AppServices.Localization.GetString("Settings.PressKeys", "Press keys...");
+    public string LocalizedResetToDefault => Services.AppServices.Localization.GetString("Settings.ResetToDefault", "Reset to Default");
+    public string LocalizedClearMessageInput => Services.AppServices.Localization.GetString("Settings.ClearMessageInput", "Clear Message Input");
+    public string LocalizedClearMessageInputHelp => Services.AppServices.Localization.GetString("Settings.ClearMessageInputHelp", "Instantly clear all text in the message input box");
+    public string LocalizedHotkeyTips => Services.AppServices.Localization.GetString("Settings.HotkeyTips", "💡 Tips");
+    public string LocalizedHotkeyTipsText => Services.AppServices.Localization.GetString("Settings.HotkeyTipsText", "Avoid system hotkeys like Alt+F4, Ctrl+C, Win+L, etc. Common safe combinations use Ctrl, Ctrl+Shift, or Ctrl+Alt with function keys or letters.");
+    
+    // Appearance panel extended strings
+    public string LocalizedDark => Services.AppServices.Localization.GetString("Settings.Dark", "Dark");
+    public string LocalizedLight => Services.AppServices.Localization.GetString("Settings.Light", "Light");
+    public string LocalizedSandy => Services.AppServices.Localization.GetString("Settings.Sandy", "Sandy");
+    public string LocalizedButter => Services.AppServices.Localization.GetString("Settings.Butter", "Butter");
+    public string LocalizedEnterFontFamilyName => Services.AppServices.Localization.GetString("Settings.EnterFontFamilyName", "Enter font family name");
+    public string LocalizedOSScalingMessage => Services.AppServices.Localization.GetString("Settings.OSScalingMessage", "For UI scaling, use your operating system's display scaling settings.");
+    public string LocalizedAdditionalLanguagesMessage => Services.AppServices.Localization.GetString("Settings.AdditionalLanguagesMessage", "Additional languages will be added in future updates.");
+    public string LocalizedEnterDisplayName => Services.AppServices.Localization.GetString("Settings.EnterDisplayName", "Enter your display name");
+    
+    // About panel strings
+    public string LocalizedApplicationInformation => Services.AppServices.Localization.GetString("Settings.ApplicationInformation", "Application Information");
+    public string LocalizedVersion => Services.AppServices.Localization.GetString("Settings.Version", "Version:");
+    public string LocalizedBuild => Services.AppServices.Localization.GetString("Settings.Build", "Build:");
+    public string LocalizedDeveloper => Services.AppServices.Localization.GetString("Settings.Developer", "Developer:");
+    public string LocalizedRepository => Services.AppServices.Localization.GetString("Settings.Repository", "Repository:");
+    public string LocalizedLicense => Services.AppServices.Localization.GetString("Settings.License", "License:");
+    public string LocalizedCopyright => Services.AppServices.Localization.GetString("Settings.Copyright", "Copyright:");
+    
+    // Performance panel strings
+    public string LocalizedCPU => Services.AppServices.Localization.GetString("Settings.CPU", "CPU");
+    public string LocalizedGPU => Services.AppServices.Localization.GetString("Settings.GPU", "GPU");
+    public string LocalizedFramerate => Services.AppServices.Localization.GetString("Settings.Framerate", "Framerate");
+    public string LocalizedCCDOffinity => Services.AppServices.Localization.GetString("Settings.CCDOffinity", "CCD Affinity:");
+    public string LocalizedNotRecommended => Services.AppServices.Localization.GetString("Settings.NotRecommended", "Not Recommended");
+    public string LocalizedEnforceRAMLimit => Services.AppServices.Localization.GetString("Settings.EnforceRAMLimit", "Enforce RAM Limit");
+    public string LocalizedRAMLimit => Services.AppServices.Localization.GetString("Settings.RAMLimit", "RAM Limit:");
+    public string LocalizedMBUnlimited => Services.AppServices.Localization.GetString("Settings.MBUnlimited", "MB (0 = unlimited)");
+    public string LocalizedEnableGPUAcceleration => Services.AppServices.Localization.GetString("Settings.EnableGPUAcceleration", "Enable GPU Acceleration");
+    public string LocalizedEnforceVRAMLimit => Services.AppServices.Localization.GetString("Settings.EnforceVRAMLimit", "Enforce VRAM Limit");
+    public string LocalizedVRAMLimit => Services.AppServices.Localization.GetString("Settings.VRAMLimit", "VRAM Limit:");
+    public string LocalizedFPSThrottle => Services.AppServices.Localization.GetString("Settings.FPSThrottle", "FPS Throttle:");
+    public string LocalizedFPSUnlimited => Services.AppServices.Localization.GetString("Settings.FPSUnlimited", "fps (0 = unlimited)");
+    public string LocalizedRefreshRateThrottle => Services.AppServices.Localization.GetString("Settings.RefreshRateThrottle", "Refresh Rate Throttle:");
+    public string LocalizedHzUnlimited => Services.AppServices.Localization.GetString("Settings.HzUnlimited", "hz (0 = unlimited)");
+    public string LocalizedBackgroundFramerate => Services.AppServices.Localization.GetString("Settings.BackgroundFramerate", "Background Framerate:");
+    public string LocalizedFPS => Services.AppServices.Localization.GetString("Settings.FPS", "fps");
+    
+    // Accessibility panel strings
+    public string LocalizedAccessibilitySettings => Services.AppServices.Localization.GetString("Settings.AccessibilitySettings", "Accessibility Settings");
+    public string LocalizedAccessibilityOSMessage => Services.AppServices.Localization.GetString("Settings.AccessibilityOSMessage", "Most accessibility features are controlled by your operating system:");
+    public string LocalizedKeyboardNavigation => Services.AppServices.Localization.GetString("Settings.KeyboardNavigation", "Keyboard Navigation");
+    public string LocalizedShowKeyboardFocusIndicators => Services.AppServices.Localization.GetString("Settings.ShowKeyboardFocusIndicators", "Show keyboard focus indicators");
+    public string LocalizedEnhancedKeyboardNavigation => Services.AppServices.Localization.GetString("Settings.EnhancedKeyboardNavigation", "Enhanced keyboard navigation");
+    public string LocalizedNavigationKeys => Services.AppServices.Localization.GetString("Settings.NavigationKeys", "Navigation Keys:");
+    public string LocalizedNavigationHelp => Services.AppServices.Localization.GetString("Settings.NavigationHelp", "All windows and panels support full keyboard navigation. Focus indicators will highlight the active control.");
+    public string LocalizedFontRendering => Services.AppServices.Localization.GetString("Settings.FontRendering", "Font Rendering");
+    public string LocalizedOSFontSmoothing => Services.AppServices.Localization.GetString("Settings.OSFontSmoothing", "OS Font Smoothing:");
+    public string LocalizedFontSmoothingMessage => Services.AppServices.Localization.GetString("Settings.FontSmoothingMessage", "Font smoothing is controlled by your operating system. Change it in your OS display settings.");
+    
+    // Debug/Network panel strings
+    public string LocalizedDebugTools => Services.AppServices.Localization.GetString("Settings.DebugTools", "Debug Tools");
+    public string LocalizedLogging => Services.AppServices.Localization.GetString("Settings.Logging", "Logging");
+    public string LocalizedEnableLogging => Services.AppServices.Localization.GetString("Settings.EnableLogging", "Enable logging");
+    public string LocalizedPerformanceWarning => Services.AppServices.Localization.GetString("Settings.PerformanceWarning", "Performance Warning");
+    public string LocalizedLogMaintenance => Services.AppServices.Localization.GetString("Settings.LogMaintenance", "Log Maintenance");
+    public string LocalizedConnectionSettings => Services.AppServices.Localization.GetString("Settings.ConnectionSettings", "Connection Settings");
+    public string LocalizedRelaySettings => Services.AppServices.Localization.GetString("Settings.RelaySettings", "Relay Settings");
+
+
+
     
     // Helper to convert display name to language code
     private static string GetLanguageCode(string displayName)
@@ -1408,9 +1551,147 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         // Refresh all localized properties when language changes
         try
         {
+            // Main menu items
             OnPropertyChanged(nameof(LocalizedSettingsTitle));
             OnPropertyChanged(nameof(LocalizedAppearance));
+            OnPropertyChanged(nameof(LocalizedGeneral));
+            OnPropertyChanged(nameof(LocalizedHotkeys));
+            OnPropertyChanged(nameof(LocalizedProfile));
+            OnPropertyChanged(nameof(LocalizedNetwork));
+            OnPropertyChanged(nameof(LocalizedPerformance));
+            OnPropertyChanged(nameof(LocalizedAccessibility));
+            OnPropertyChanged(nameof(LocalizedAbout));
+            OnPropertyChanged(nameof(LocalizedDangerZone));
+            OnPropertyChanged(nameof(LocalizedLogOut));
             OnPropertyChanged(nameof(LocalizedLanguage));
+            OnPropertyChanged(nameof(LocalizedTheme));
+            OnPropertyChanged(nameof(LocalizedFont));
+            OnPropertyChanged(nameof(LocalizedPrivacy));
+            
+            // General panel
+            OnPropertyChanged(nameof(LocalizedDefaultPresence));
+            OnPropertyChanged(nameof(LocalizedStatus));
+            OnPropertyChanged(nameof(LocalizedOnline));
+            OnPropertyChanged(nameof(LocalizedAway));
+            OnPropertyChanged(nameof(LocalizedDoNotDisturb));
+            OnPropertyChanged(nameof(LocalizedOffline));
+            OnPropertyChanged(nameof(LocalizedSuppressNotifications));
+            OnPropertyChanged(nameof(LocalizedNotificationDuration));
+            OnPropertyChanged(nameof(LocalizedDuration));
+            OnPropertyChanged(nameof(LocalizedPrecise));
+            OnPropertyChanged(nameof(LocalizedNotificationDurationHelp));
+            OnPropertyChanged(nameof(LocalizedCurrentSetting));
+            OnPropertyChanged(nameof(LocalizedSeconds));
+            OnPropertyChanged(nameof(LocalizedOfflineAutomatic));
+            OnPropertyChanged(nameof(LocalizedAutoLock));
+            OnPropertyChanged(nameof(LocalizedEnableAutoLock));
+            OnPropertyChanged(nameof(LocalizedMinutes));
+            OnPropertyChanged(nameof(LocalizedLockOnMinimize));
+            OnPropertyChanged(nameof(LocalizedLockBlurRadius));
+            OnPropertyChanged(nameof(LocalizedLockBlurHelp));
+            OnPropertyChanged(nameof(LocalizedBlockScreenCapture));
+            OnPropertyChanged(nameof(LocalizedScreenCaptureWarning));
+            OnPropertyChanged(nameof(LocalizedKeyVisibility));
+            OnPropertyChanged(nameof(LocalizedShowPublicKeys));
+            OnPropertyChanged(nameof(LocalizedAudio));
+            OnPropertyChanged(nameof(LocalizedAudioHelp));
+            OnPropertyChanged(nameof(LocalizedMainVolume));
+            OnPropertyChanged(nameof(LocalizedNotifications));
+            OnPropertyChanged(nameof(LocalizedChatSounds));
+            OnPropertyChanged(nameof(LocalizedSystemTray));
+            OnPropertyChanged(nameof(LocalizedSystemTrayHelp));
+            OnPropertyChanged(nameof(LocalizedShowSystemTrayIcon));
+            OnPropertyChanged(nameof(LocalizedShowSystemTrayIconHelp));
+            OnPropertyChanged(nameof(LocalizedMinimizeToTray));
+            OnPropertyChanged(nameof(LocalizedMinimizeToTrayHelp));
+            OnPropertyChanged(nameof(LocalizedRunOnStartup));
+            OnPropertyChanged(nameof(LocalizedRunOnStartupHelp));
+            OnPropertyChanged(nameof(LocalizedFamily));
+            
+            // Profile panel
+            OnPropertyChanged(nameof(LocalizedIdentity));
+            OnPropertyChanged(nameof(LocalizedUsername));
+            OnPropertyChanged(nameof(LocalizedUID));
+            OnPropertyChanged(nameof(LocalizedDisplayName));
+            OnPropertyChanged(nameof(LocalizedPrevName));
+            OnPropertyChanged(nameof(LocalizedPublicKey));
+            OnPropertyChanged(nameof(LocalizedAvatar));
+            OnPropertyChanged(nameof(LocalizedChoose));
+            OnPropertyChanged(nameof(LocalizedClear));
+            OnPropertyChanged(nameof(LocalizedShareAvatar));
+            OnPropertyChanged(nameof(LocalizedBio));
+            
+            // Hotkeys panel
+            OnPropertyChanged(nameof(LocalizedCustomizeKeyboardShortcuts));
+            OnPropertyChanged(nameof(LocalizedHotkeyInstructions));
+            OnPropertyChanged(nameof(LocalizedLockApplication));
+            OnPropertyChanged(nameof(LocalizedLockApplicationHelp));
+            OnPropertyChanged(nameof(LocalizedHotkey));
+            OnPropertyChanged(nameof(LocalizedPressKeys));
+            OnPropertyChanged(nameof(LocalizedResetToDefault));
+            OnPropertyChanged(nameof(LocalizedClearMessageInput));
+            OnPropertyChanged(nameof(LocalizedClearMessageInputHelp));
+            OnPropertyChanged(nameof(LocalizedHotkeyTips));
+            OnPropertyChanged(nameof(LocalizedHotkeyTipsText));
+            
+            // Appearance panel extended
+            OnPropertyChanged(nameof(LocalizedDark));
+            OnPropertyChanged(nameof(LocalizedLight));
+            OnPropertyChanged(nameof(LocalizedSandy));
+            OnPropertyChanged(nameof(LocalizedButter));
+            OnPropertyChanged(nameof(LocalizedEnterFontFamilyName));
+            OnPropertyChanged(nameof(LocalizedOSScalingMessage));
+            OnPropertyChanged(nameof(LocalizedAdditionalLanguagesMessage));
+            OnPropertyChanged(nameof(LocalizedEnterDisplayName));
+            
+            // About panel
+            OnPropertyChanged(nameof(LocalizedApplicationInformation));
+            OnPropertyChanged(nameof(LocalizedVersion));
+            OnPropertyChanged(nameof(LocalizedBuild));
+            OnPropertyChanged(nameof(LocalizedDeveloper));
+            OnPropertyChanged(nameof(LocalizedRepository));
+            OnPropertyChanged(nameof(LocalizedLicense));
+            OnPropertyChanged(nameof(LocalizedCopyright));
+            
+            // Performance panel
+            OnPropertyChanged(nameof(LocalizedCPU));
+            OnPropertyChanged(nameof(LocalizedGPU));
+            OnPropertyChanged(nameof(LocalizedFramerate));
+            OnPropertyChanged(nameof(LocalizedCCDOffinity));
+            OnPropertyChanged(nameof(LocalizedNotRecommended));
+            OnPropertyChanged(nameof(LocalizedEnforceRAMLimit));
+            OnPropertyChanged(nameof(LocalizedRAMLimit));
+            OnPropertyChanged(nameof(LocalizedMBUnlimited));
+            OnPropertyChanged(nameof(LocalizedEnableGPUAcceleration));
+            OnPropertyChanged(nameof(LocalizedEnforceVRAMLimit));
+            OnPropertyChanged(nameof(LocalizedVRAMLimit));
+            OnPropertyChanged(nameof(LocalizedFPSThrottle));
+            OnPropertyChanged(nameof(LocalizedFPSUnlimited));
+            OnPropertyChanged(nameof(LocalizedRefreshRateThrottle));
+            OnPropertyChanged(nameof(LocalizedHzUnlimited));
+            OnPropertyChanged(nameof(LocalizedBackgroundFramerate));
+            OnPropertyChanged(nameof(LocalizedFPS));
+            
+            // Accessibility panel
+            OnPropertyChanged(nameof(LocalizedAccessibilitySettings));
+            OnPropertyChanged(nameof(LocalizedAccessibilityOSMessage));
+            OnPropertyChanged(nameof(LocalizedKeyboardNavigation));
+            OnPropertyChanged(nameof(LocalizedShowKeyboardFocusIndicators));
+            OnPropertyChanged(nameof(LocalizedEnhancedKeyboardNavigation));
+            OnPropertyChanged(nameof(LocalizedNavigationKeys));
+            OnPropertyChanged(nameof(LocalizedNavigationHelp));
+            OnPropertyChanged(nameof(LocalizedFontRendering));
+            OnPropertyChanged(nameof(LocalizedOSFontSmoothing));
+            OnPropertyChanged(nameof(LocalizedFontSmoothingMessage));
+            
+            // Debug/Network panels
+            OnPropertyChanged(nameof(LocalizedDebugTools));
+            OnPropertyChanged(nameof(LocalizedLogging));
+            OnPropertyChanged(nameof(LocalizedEnableLogging));
+            OnPropertyChanged(nameof(LocalizedPerformanceWarning));
+            OnPropertyChanged(nameof(LocalizedLogMaintenance));
+            OnPropertyChanged(nameof(LocalizedConnectionSettings));
+            OnPropertyChanged(nameof(LocalizedRelaySettings));
         }
         catch { }
     }
@@ -1488,6 +1769,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     
     private double _notificationDurationSeconds;
     public double NotificationDurationSeconds { get => _notificationDurationSeconds; set { var v = Math.Clamp(value, 0.5, 30.0); if (Math.Abs(_notificationDurationSeconds - v) > 0.01) { _notificationDurationSeconds = v; OnPropertyChanged(); } } }
+    
+    private bool _enableNotificationBellFlash;
+    public bool EnableNotificationBellFlash { get => _enableNotificationBellFlash; set { if (_enableNotificationBellFlash != value) { _enableNotificationBellFlash = value; OnPropertyChanged(); } } }
 
     // General: Auto-Lock controls
     private bool _autoLockEnabled;
@@ -1599,6 +1883,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.Status = IndexToPresence(DefaultPresenceIndex);
             s.SuppressNotificationsInDnd = SuppressNotificationsInDnd;
             s.NotificationDurationSeconds = Math.Clamp(NotificationDurationSeconds, 0.5, 30.0);
+            s.EnableNotificationBellFlash = EnableNotificationBellFlash;
             s.AutoLockEnabled = AutoLockEnabled;
             s.AutoLockMinutes = Math.Max(0, AutoLockMinutes);
             s.LockOnMinimize = LockOnMinimize;
@@ -1927,6 +2212,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseDefaultPresenceIndex = _defaultPresenceIndex;
             _baseSuppressNotificationsInDnd = _suppressNotificationsInDnd;
             _baseNotificationDurationSeconds = _notificationDurationSeconds;
+            _baseEnableNotificationBellFlash = _enableNotificationBellFlash;
             _baseAutoLockEnabled = _autoLockEnabled;
             _baseAutoLockMinutes = _autoLockMinutes;
             _baseLockOnMinimize = _lockOnMinimize;

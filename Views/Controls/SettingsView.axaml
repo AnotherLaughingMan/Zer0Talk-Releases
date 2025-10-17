@@ -7,19 +7,19 @@
   <Grid ColumnDefinitions="200,1,*">
     <Border Grid.Column="0" Background="{DynamicResource App.Surface}" BorderThickness="0">
       <ListBox x:Name="MenuList" SelectedIndex="0" BorderThickness="0">
-        <ListBoxItem Content="Appearance"/>
-        <ListBoxItem Content="General"/>
-        <ListBoxItem Content="Hotkeys"/>
-        <ListBoxItem Content="Profile"/>
-        <ListBoxItem Content="Network"/>
-        <ListBoxItem Content="Performance"/>
-        <ListBoxItem Content="Accessibility"/>
-        <ListBoxItem Content="About"/>
-        <ListBoxItem Content="Danger Zone"/>
+        <ListBoxItem Content="{Binding LocalizedAppearance}"/>
+        <ListBoxItem Content="{Binding LocalizedGeneral}"/>
+        <ListBoxItem Content="{Binding LocalizedHotkeys}"/>
+        <ListBoxItem Content="{Binding LocalizedProfile}"/>
+        <ListBoxItem Content="{Binding LocalizedNetwork}"/>
+        <ListBoxItem Content="{Binding LocalizedPerformance}"/>
+        <ListBoxItem Content="{Binding LocalizedAccessibility}"/>
+        <ListBoxItem Content="{Binding LocalizedAbout}"/>
+        <ListBoxItem Content="{Binding LocalizedDangerZone}"/>
         <ListBoxItem Tag="logout">
           <StackPanel Orientation="Horizontal" Spacing="6">
             <TextBlock Classes="icon-mdl2" Text="&#xE7E8;" Foreground="#FF5757"/>
-            <TextBlock Text="Log Out" Foreground="#FF5757"/>
+            <TextBlock Text="{Binding LocalizedLogOut}" Foreground="#FF5757"/>
           </StackPanel>
         </ListBoxItem>
       </ListBox>
@@ -32,17 +32,17 @@
       <!-- Appearance Panel -->
       <ScrollViewer x:Name="AppearancePanel" IsVisible="True">
         <StackPanel Margin="8" Spacing="16">
-          <TextBlock Text="Appearance" FontWeight="SemiBold" FontSize="18"/>
+          <TextBlock Text="{Binding LocalizedAppearance}" FontWeight="SemiBold" FontSize="18"/>
           
           <!-- Theme Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Theme" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedTheme}" FontWeight="SemiBold"/>
               <ComboBox x:Name="ThemeCombo" SelectedIndex="{Binding ThemeIndex}" Width="180">
-                <ComboBoxItem Content="Dark"/>
-                <ComboBoxItem Content="Light"/>
-                <ComboBoxItem Content="Sandy"/>
-                <ComboBoxItem Content="Butter"/>
+                <ComboBoxItem Content="{Binding LocalizedDark}"/>
+                <ComboBoxItem Content="{Binding LocalizedLight}"/>
+                <ComboBoxItem Content="{Binding LocalizedSandy}"/>
+                <ComboBoxItem Content="{Binding LocalizedButter}"/>
               </ComboBox>
             </StackPanel>
           </Border>
@@ -50,26 +50,27 @@
           <!-- Font Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Font" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedFont}" FontWeight="SemiBold"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Family:" VerticalAlignment="Center"/>
-                <TextBox Text="{Binding UiFontFamily}" Width="200" Watermark="Enter font family name"/>
+                <TextBlock Text="{Binding LocalizedFamily}" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding UiFontFamily}" Width="200" Watermark="{Binding LocalizedEnterFontFamilyName}"/>
               </StackPanel>
               <!-- UI Scaling removed: OS-level scaling should be used instead (Windows Display Settings, etc.) -->
               <!-- DO NOT re-add UI scaling - RenderTransform scaling causes severe layout issues, content clipping, -->
               <!-- and window sizing problems that cannot be reliably solved. Use OS accessibility features instead. -->
-              <TextBlock Text="For UI scaling, use your operating system's display scaling settings." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding LocalizedOSScalingMessage}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
 
           <!-- Language Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left" BorderBrush="{DynamicResource App.Accent}" BorderThickness="2">
             <StackPanel Spacing="12">
-              <TextBlock Text="Language" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedLanguage}" FontWeight="SemiBold"/>
               <ComboBox SelectedItem="{Binding Language}" Width="200" HorizontalAlignment="Left">
                 <x:String>English (US)</x:String>
+                <x:String>Spanish</x:String>
               </ComboBox>
-              <TextBlock Text="Additional languages will be added in future updates." FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
+              <TextBlock Text="{Binding LocalizedAdditionalLanguagesMessage}" FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
             </StackPanel>
           </Border>
         </StackPanel>
@@ -78,32 +79,34 @@
       <!-- General Panel -->
       <ScrollViewer x:Name="GeneralPanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
-          <TextBlock Text="General" FontWeight="SemiBold" FontSize="18"/>
+          <TextBlock Text="{Binding LocalizedGeneral}" FontWeight="SemiBold" FontSize="18"/>
 
           <!-- Presence -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
-              <TextBlock Text="Default Presence" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedDefaultPresence}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
-                <TextBlock Text="Status:" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedStatus}" VerticalAlignment="Center"/>
                 <ComboBox Grid.Column="1" SelectedIndex="{Binding DefaultPresenceIndex}" Width="150">
-                  <ComboBoxItem Content="Online"/>
-                  <ComboBoxItem Content="Away"/>
-                  <ComboBoxItem Content="Do Not Disturb"/>
-                  <ComboBoxItem Content="Offline"/>
+                  <ComboBoxItem Content="{Binding LocalizedOnline}"/>
+                  <ComboBoxItem Content="{Binding LocalizedAway}"/>
+                  <ComboBoxItem Content="{Binding LocalizedDoNotDisturb}"/>
+                  <ComboBoxItem Content="{Binding LocalizedOffline}"/>
                 </ComboBox>
               </Grid>
+              <TextBlock Text="{Binding LocalizedOfflineAutomatic}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding SuppressNotificationsInDnd}"/>
-                <TextBlock Grid.Column="1" Text="Suppress notifications and audio while in Do Not Disturb" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="{Binding LocalizedSuppressNotifications}" VerticalAlignment="Center"/>
               </Grid>
               
               <!-- Notification Duration Controls -->
               <StackPanel Spacing="8" Margin="0,12,0,0">
-                <TextBlock Text="Notification Duration" FontWeight="Medium"/>
+                <TextBlock Text="{Binding LocalizedNotificationDuration}" FontWeight="Medium"/>
                 <Grid ColumnDefinitions="120,*,80,80" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                   <!-- Slider Row -->
-                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Duration:" VerticalAlignment="Center" FontSize="12"/>
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedDuration}" VerticalAlignment="Center" FontSize="12"/>
                   <Slider Grid.Row="0" Grid.Column="1" 
                           Minimum="0.5" Maximum="20" 
                           Value="{Binding NotificationDurationSeconds, Mode=TwoWay}"
@@ -124,7 +127,7 @@
                   </Border>
                   
                   <!-- Input Box Row -->
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Precise:" VerticalAlignment="Center" FontSize="12"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedPrecise}" VerticalAlignment="Center" FontSize="12"/>
                   <NumericUpDown Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
                                  Value="{Binding NotificationDurationSeconds, Mode=TwoWay}"
                                  Minimum="0.5"
@@ -137,26 +140,37 @@
                                  ToolTip.Tip="Enter precise duration (0.5 to 30 seconds)"/>
                 </Grid>
                 <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                  <Run Text="Controls how long notification toasts stay visible. Slider: 0.5-20s, Input: 0.5-30s."/>
-                  <Run Text="Current setting:"/>
-                  <Run Text="{Binding NotificationDurationSeconds, StringFormat='{}{0:F1} seconds'}" FontWeight="Medium"/>
+                  <Run Text="{Binding LocalizedNotificationDurationHelp}"/>
+                  <Run Text="{Binding LocalizedCurrentSetting}"/>
+                  <Run Text="{Binding NotificationDurationSeconds, StringFormat='{}{0:F1} '}" FontWeight="Medium"/>
+                  <Run Text="{Binding LocalizedSeconds}" FontWeight="Medium"/>
                 </TextBlock>
               </StackPanel>
+
+              <!-- Notification Bell Flash -->
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableNotificationBellFlash}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Enable notification bell flash" VerticalAlignment="Center"/>
+                  <TextBlock Text="Flash the bell icon for 10 seconds when notifications arrive" 
+                             FontSize="11" 
+                             Foreground="{DynamicResource App.SecondaryText}"/>
+                </StackPanel>
+              </Grid>
               
-              <TextBlock Text="Offline is automatic only and cannot be selected." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
             </StackPanel>
           </Border>
 
           <!-- Auto-Lock -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
-              <TextBlock Text="Auto-Lock" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedAutoLock}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="Enable Auto-Lock" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalizedEnableAutoLock}" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding AutoLockEnabled}"/>
-                <TextBlock Grid.Row="0" Grid.Column="3" Text="Minutes" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding LocalizedMinutes}" VerticalAlignment="Center"/>
                 <NumericUpDown Grid.Row="0" Grid.Column="4" Value="{Binding AutoLockMinutes}" Minimum="0" Maximum="1440" Width="64" ShowButtonSpinner="False" IsEnabled="{Binding AutoLockEnabled}"/>
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="Lock on minimize" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LocalizedLockOnMinimize}" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Row="1" Grid.Column="0" IsChecked="{Binding LockOnMinimize}"/>
               </Grid>
             </StackPanel>
@@ -165,7 +179,7 @@
           <!-- Lock Blur Radius -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
-              <TextBlock Text="Lock Blur Radius" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedLockBlurRadius}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="280,Auto" ColumnSpacing="12">
                 <Slider Grid.Column="0" Value="{Binding LockBlurRadius}" Minimum="0" Maximum="10" Width="280"/>
     <Border Grid.Column="1"
@@ -179,28 +193,28 @@
                   <TextBlock Text="{Binding LockBlurRadius}" VerticalAlignment="Center"/>
                 </Border>
               </Grid>
-              <TextBlock Text="Controls blur strength while locked. 0 = no blur, 10 = maximum." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              <TextBlock Text="{Binding LocalizedLockBlurHelp}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
             </StackPanel>
           </Border>
 
           <!-- Privacy -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
-              <TextBlock Text="Privacy" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedPrivacy}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
-                <TextBlock Grid.Column="1" Text="Block screen capture" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="{Binding LocalizedBlockScreenCapture}" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding BlockScreenCapture}"/>
               </Grid>
-              <TextBlock Text="Windows-only; older/legacy capture tools may not honor this." FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              <TextBlock Text="{Binding LocalizedScreenCaptureWarning}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
             </StackPanel>
           </Border>
 
           <!-- Key Visibility -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
-              <TextBlock Text="Key Visibility" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedKeyVisibility}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
-                <TextBlock Grid.Column="1" Text="Show public keys on profiles" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="{Binding LocalizedShowPublicKeys}" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowPublicKeys}"/>
               </Grid>
             </StackPanel>
@@ -209,14 +223,14 @@
           <!-- Audio Settings -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Audio" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedAudio}" FontWeight="SemiBold"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                <Run Text="Configure volume levels for different types of sounds. Main Volume acts as a master control, while individual channels allow fine-tuning of specific sound categories."/>
+                <Run Text="{Binding LocalizedAudioHelp}"/>
               </TextBlock>
               
               <Grid ColumnDefinitions="120,*,60" RowDefinitions="Auto,Auto,Auto" RowSpacing="12" ColumnSpacing="12">
                 <!-- Main Volume -->
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Main Volume" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedMainVolume}" VerticalAlignment="Center"/>
                 <Slider Grid.Row="0" Grid.Column="1" 
                         Minimum="0" Maximum="1" 
                         Value="{Binding MainVolume, Mode=TwoWay}"
@@ -238,7 +252,7 @@
                 </Border>
                 
                 <!-- Notification Volume -->
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Notifications" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedNotifications}" VerticalAlignment="Center"/>
                 <Slider Grid.Row="1" Grid.Column="1" 
                         Minimum="0" Maximum="1" 
                         Value="{Binding NotificationVolume, Mode=TwoWay}"
@@ -260,7 +274,7 @@
                 </Border>
                 
                 <!-- Chat Volume -->
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Chat Sounds" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedChatSounds}" VerticalAlignment="Center"/>
                 <Slider Grid.Row="2" Grid.Column="1" 
                         Minimum="0" Maximum="1" 
                         Value="{Binding ChatVolume, Mode=TwoWay}"
@@ -294,17 +308,17 @@
           <!-- System Tray -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="System Tray" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedSystemTray}" FontWeight="SemiBold"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                <Run Text="Control how ZTalk behaves with the Windows system tray."/>
+                <Run Text="{Binding LocalizedSystemTrayHelp}"/>
               </TextBlock>
               
               <!-- Show in System Tray -->
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowInSystemTray}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                  <TextBlock Text="Show icon in system tray" FontWeight="Medium"/>
-                  <TextBlock Text="Display ZTalk icon in the Windows system tray for quick access" 
+                  <TextBlock Text="{Binding LocalizedShowSystemTrayIcon}" FontWeight="Medium"/>
+                  <TextBlock Text="{Binding LocalizedShowSystemTrayIconHelp}" 
                              FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
                 </StackPanel>
               </Grid>
@@ -313,8 +327,8 @@
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding MinimizeToTray}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                  <TextBlock Text="Minimize to tray on close" FontWeight="Medium"/>
-                  <TextBlock Text="Close button will minimize to system tray instead of exiting the application" 
+                  <TextBlock Text="{Binding LocalizedMinimizeToTray}" FontWeight="Medium"/>
+                  <TextBlock Text="{Binding LocalizedMinimizeToTrayHelp}" 
                              FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
                 </StackPanel>
               </Grid>
@@ -323,8 +337,8 @@
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding RunOnStartup}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                  <TextBlock Text="Run on Windows startup" FontWeight="Medium"/>
-                  <TextBlock Text="Automatically start ZTalk when Windows starts (minimized to tray)" 
+                  <TextBlock Text="{Binding LocalizedRunOnStartup}" FontWeight="Medium"/>
+                  <TextBlock Text="{Binding LocalizedRunOnStartupHelp}" 
                              FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
                 </StackPanel>
               </Grid>
@@ -336,20 +350,20 @@
       <!-- Hotkeys Panel -->
       <ScrollViewer x:Name="HotkeysPanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
-          <TextBlock Text="Hotkeys" FontWeight="SemiBold" FontSize="18"/>
+          <TextBlock Text="{Binding LocalizedHotkeys}" FontWeight="SemiBold" FontSize="18"/>
           
-          <TextBlock Text="Customize keyboard shortcuts" Opacity="0.7" FontSize="13"/>
-          <TextBlock Text="Click a hotkey field and press your desired key combination. Conflicting assignments will be rejected." 
+          <TextBlock Text="{Binding LocalizedCustomizeKeyboardShortcuts}" Opacity="0.7" FontSize="13"/>
+          <TextBlock Text="{Binding LocalizedHotkeyInstructions}" 
                      TextWrapping="Wrap" Opacity="0.7" FontSize="12"/>
 
           <!-- Lock Hotkey -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Lock Application" FontWeight="SemiBold"/>
-              <TextBlock Text="Quickly lock the app to protect your privacy" 
+              <TextBlock Text="{Binding LocalizedLockApplication}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedLockApplicationHelp}" 
                          Opacity="0.7" FontSize="12"/>
               <Grid ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="8">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Hotkey" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedHotkey}" VerticalAlignment="Center"/>
                 <Border Grid.Row="0" Grid.Column="1" 
                         x:Name="LockHotkeyBox"
                         BorderBrush="{DynamicResource App.Border}" 
@@ -364,7 +378,7 @@
                                FontWeight="Medium"
                                VerticalAlignment="Center"
                                IsVisible="{Binding !IsCapturingLockHotkey}"/>
-                    <TextBlock Text="Press keys..." 
+                    <TextBlock Text="{Binding LocalizedPressKeys}" 
                                Opacity="0.5"
                                IsVisible="{Binding IsCapturingLockHotkey}"
                                VerticalAlignment="Center"/>
@@ -382,11 +396,11 @@
           <!-- Clear Input Hotkey -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Clear Message Input" FontWeight="SemiBold"/>
-              <TextBlock Text="Instantly clear all text in the message input box" 
+              <TextBlock Text="{Binding LocalizedClearMessageInput}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedClearMessageInputHelp}" 
                          Opacity="0.7" FontSize="12"/>
               <Grid ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="8">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Hotkey" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedHotkey}" VerticalAlignment="Center"/>
                 <Border Grid.Row="0" Grid.Column="1" 
                         x:Name="ClearInputHotkeyBox"
                         BorderBrush="{DynamicResource App.Border}" 
@@ -401,7 +415,7 @@
                                FontWeight="Medium"
                                VerticalAlignment="Center"
                                IsVisible="{Binding !IsCapturingClearInputHotkey}"/>
-                    <TextBlock Text="Press keys..." 
+                    <TextBlock Text="{Binding LocalizedPressKeys}" 
                                Opacity="0.5"
                                IsVisible="{Binding IsCapturingClearInputHotkey}"
                                VerticalAlignment="Center"/>
@@ -418,9 +432,9 @@
 
           <Border CornerRadius="8" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="4">
-              <TextBlock Text="💡 Tips" FontWeight="SemiBold" FontSize="13"/>
+              <TextBlock Text="{Binding LocalizedHotkeyTips}" FontWeight="SemiBold" FontSize="13"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Opacity="0.75"
-                         Text="Avoid system hotkeys like Alt+F4, Ctrl+C, Win+L, etc. Common safe combinations use Ctrl, Ctrl+Shift, or Ctrl+Alt with function keys or letters."/>
+                         Text="{Binding LocalizedHotkeyTipsText}"/>
             </StackPanel>
           </Border>
         </StackPanel>
@@ -429,14 +443,14 @@
       <!-- Profile Panel -->
       <ScrollViewer x:Name="ProfilePanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
-          <TextBlock Text="Profile" FontWeight="SemiBold" FontSize="18"/>
+          <TextBlock Text="{Binding LocalizedProfile}" FontWeight="SemiBold" FontSize="18"/>
 
           <!-- Card container matching prior layout -->
           <Border Background="{DynamicResource App.CardBackground}" CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="16">
               <!-- Identity Section -->
               <StackPanel Spacing="8">
-                <TextBlock Text="Identity" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding LocalizedIdentity}" FontWeight="SemiBold"/>
                 <Grid ColumnDefinitions="160,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Username" VerticalAlignment="Center"/>
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Username}" VerticalAlignment="Center"/>
@@ -449,10 +463,10 @@
                     </Button>
                   </StackPanel>
 
-                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Display Name" VerticalAlignment="Center"/>
-                  <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DisplayName}" Watermark="Enter your display name"/>
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedDisplayName}" VerticalAlignment="Center"/>
+                  <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DisplayName}" Watermark="{Binding LocalizedEnterDisplayName}"/>
 
-                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Prev. Name" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding LocalizedPrevName}" VerticalAlignment="Center"/>
                   <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8">
                     <ComboBox ItemsSource="{Binding DisplayNameHistory}" SelectedItem="{Binding SelectedPreviousDisplayName}" Width="220">
                       <ComboBox.ItemTemplate>
@@ -467,7 +481,7 @@
                   </StackPanel>
 
                   <!-- Public Key row, visible only when enabled in General -->
-                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Public Key" VerticalAlignment="Center" IsVisible="{Binding ShowPublicKeys}"/>
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding LocalizedPublicKey}" VerticalAlignment="Center" IsVisible="{Binding ShowPublicKeys}"/>
                   <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowPublicKeys}">
                     <TextBlock Text="{Binding SelfPublicKeyHex}" TextTrimming="CharacterEllipsis" Width="420"/>
                     <Button Command="{Binding CopyPublicKeyCommand}" ToolTip.Tip="Copy Public Key" Padding="6,2" MinWidth="0">
@@ -482,18 +496,18 @@
 
               <!-- Avatar Section -->
               <StackPanel Spacing="8">
-                <TextBlock Text="Avatar" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding LocalizedAvatar}" FontWeight="SemiBold"/>
                 <Grid ColumnDefinitions="160,Auto,*" ColumnSpacing="12" VerticalAlignment="Center">
-                  <TextBlock Grid.Column="0" Text="Avatar" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="0" Text="{Binding LocalizedAvatar}" VerticalAlignment="Center"/>
                   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                     <Border Width="48" Height="48" CornerRadius="24" Background="{DynamicResource App.SecondaryBackground}">
                       <Image Source="{Binding AvatarPreview}" Stretch="UniformToFill"/>
                     </Border>
-                    <Button Content="Choose..." Command="{Binding ChooseAvatarCommand}"/>
-                    <Button Content="Clear" Command="{Binding ClearAvatarCommand}"/>
+                    <Button Content="{Binding LocalizedChoose}" Command="{Binding ChooseAvatarCommand}"/>
+                    <Button Content="{Binding LocalizedClear}" Command="{Binding ClearAvatarCommand}"/>
                   </StackPanel>
                   <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <TextBlock Text="Share Avatar with peers" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding LocalizedShareAvatar}" VerticalAlignment="Center"/>
                     <ToggleSwitch IsChecked="{Binding ShareAvatar}"/>
                   </StackPanel>
                 </Grid>
@@ -504,9 +518,9 @@
 
               <!-- About Section -->
               <StackPanel Spacing="8">
-                <TextBlock Text="About" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding LocalizedAbout}" FontWeight="SemiBold"/>
                 <Grid ColumnDefinitions="160,*" ColumnSpacing="12">
-                  <TextBlock Grid.Column="0" Text="Bio" VerticalAlignment="Top"/>
+                  <TextBlock Grid.Column="0" Text="{Binding LocalizedBio}" VerticalAlignment="Top"/>
                   <StackPanel Grid.Column="1" Spacing="6">
                     <TextBox Text="{Binding Bio}" TextWrapping="Wrap" AcceptsReturn="True" Height="140"/>
                     <TextBlock Text="{Binding BioCounter}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" HorizontalAlignment="Right"/>
@@ -520,17 +534,17 @@
 
       <ScrollViewer x:Name="PerformancePanel" IsVisible="False">
         <StackPanel x:Name="PerformanceStack" Margin="8" Spacing="16">
-          <TextBlock Text="Performance" FontWeight="SemiBold" FontSize="18"/>
+          <TextBlock Text="{Binding LocalizedPerformance}" FontWeight="SemiBold" FontSize="18"/>
           
           <!-- CPU Section (first) -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="CPU" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedCPU}" FontWeight="SemiBold"/>
               <!-- Enumerate CPU model and cache capabilities (model normal, details subtle) -->
               <TextBlock Text="{Binding CpuModel}"/>
               <TextBlock Text="{Binding VCacheInfo}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="CCD Affinity:" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedCCDOffinity}" VerticalAlignment="Center"/>
                 <ComboBox SelectedIndex="{Binding CcdAffinityIndex}" Width="150" ToolTip.Tip="{Binding CcdAffinityTooltip}">
                   <ComboBoxItem Content="Auto"/>
                   <ComboBoxItem Content="CCD 0"/>
@@ -547,7 +561,7 @@
                   VerticalAlignment="Center"
                   IsVisible="{Binding BothCcdWarningVisible}"
                   ToolTip.Tip="Using both CCDs can increase latency due to inter-CCD data transfers.">
-                  <TextBlock Text="Not Recommended"
+                  <TextBlock Text="{Binding LocalizedNotRecommended}"
                              Foreground="{DynamicResource DangerButtonForegroundColor}"
                              FontWeight="SemiBold"
                              FontSize="12"/>
@@ -555,13 +569,13 @@
               </StackPanel>
               <TextBlock Text="{Binding CcdAffinityNotice}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" IsVisible="{Binding CcdAffinityNoticeVisible}"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Enforce RAM Limit" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedEnforceRAMLimit}" VerticalAlignment="Center"/>
                 <ToggleSwitch IsChecked="{Binding EnforceRamLimit}"/>
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding EnforceRamLimit}">
-                <TextBlock Text="RAM Limit:" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedRAMLimit}" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding RamUsageLimitMb}" Minimum="0" Width="80" ShowButtonSpinner="False"/>
-                <TextBlock Text="MB (0 = unlimited)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+                <TextBlock Text="{Binding LocalizedMBUnlimited}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
             </StackPanel>
           </Border>
@@ -569,20 +583,20 @@
           <!-- GPU Section (moved after CPU) -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="GPU" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedGPU}" FontWeight="SemiBold"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Enable GPU Acceleration" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedEnableGPUAcceleration}" VerticalAlignment="Center"/>
                 <ToggleSwitch IsChecked="{Binding EnableGpuAcceleration}"/>
               </StackPanel>
               <TextBlock Text="{Binding GpuTextNotice}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Enforce VRAM Limit" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedEnforceVRAMLimit}" VerticalAlignment="Center"/>
                 <ToggleSwitch IsChecked="{Binding EnforceVramLimit}"/>
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding EnforceVramLimit}">
-                <TextBlock Text="VRAM Limit:" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedVRAMLimit}" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding VramUsageLimitMb}" Minimum="0" Width="80" ShowButtonSpinner="False"/>
-                <TextBlock Text="MB (0 = unlimited)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+                <TextBlock Text="{Binding LocalizedMBUnlimited}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
             </StackPanel>
           </Border>
@@ -590,21 +604,21 @@
           <!-- Framerate Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Framerate" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedFramerate}" FontWeight="SemiBold"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="FPS Throttle:" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedFPSThrottle}" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding FpsThrottle}" Minimum="0" Maximum="300" Width="80" ShowButtonSpinner="False"/>
-                <TextBlock Text="fps (0 = unlimited)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+                <TextBlock Text="{Binding LocalizedFPSUnlimited}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Refresh Rate Throttle:" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedRefreshRateThrottle}" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding RefreshRateThrottle}" Minimum="0" Maximum="300" Width="80" ShowButtonSpinner="False"/>
-                <TextBlock Text="hz (0 = unlimited)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+                <TextBlock Text="{Binding LocalizedHzUnlimited}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="Background Framerate:" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedBackgroundFramerate}" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding BackgroundFramerateFps}" Minimum="1" Maximum="60" Width="80" ShowButtonSpinner="False"/>
-                <TextBlock Text="fps" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedFPS}" VerticalAlignment="Center"/>
               </StackPanel>
             </StackPanel>
           </Border>
@@ -618,8 +632,8 @@
           <!-- OS-Level Accessibility Settings -->
           <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Accessibility Settings" FontWeight="SemiBold"/>
-              <TextBlock Text="Most accessibility features are controlled by your operating system:" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding LocalizedAccessibilitySettings}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedAccessibilityOSMessage}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
               <StackPanel Spacing="6" Margin="12,8,0,0">
                 <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
                   <Run Text="• Display Scaling:" FontWeight="SemiBold"/> Windows Display Settings > Scale and layout
@@ -645,17 +659,17 @@
           <!-- Keyboard Navigation Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Keyboard Navigation" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedKeyboardNavigation}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
                 <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding ShowKeyboardFocus}"/>
-                <TextBlock Grid.Row="0" Grid.Column="1" Text="Show keyboard focus indicators" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalizedShowKeyboardFocusIndicators}" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Row="1" Grid.Column="0" IsChecked="{Binding EnhancedKeyboardNavigation}"/>
-                <TextBlock Grid.Row="1" Grid.Column="1" Text="Enhanced keyboard navigation" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LocalizedEnhancedKeyboardNavigation}" VerticalAlignment="Center"/>
               </Grid>
               
               <Border Background="{DynamicResource App.SecondaryBackground}" CornerRadius="6" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
                 <StackPanel Spacing="8">
-                  <TextBlock Text="Navigation Keys:" FontWeight="SemiBold" FontSize="13"/>
+                  <TextBlock Text="{Binding LocalizedNavigationKeys}" FontWeight="SemiBold" FontSize="13"/>
                   <StackPanel Spacing="4">
                     <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
                       <Run Text="• Tab" FontWeight="SemiBold"/> – Move forward between controls
@@ -678,20 +692,20 @@
                   </StackPanel>
                 </StackPanel>
               </Border>
-              <TextBlock Text="All windows and panels support full keyboard navigation. Focus indicators will highlight the active control." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding LocalizedNavigationHelp}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
 
           <!-- Font Rendering Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Font Rendering" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedFontRendering}" FontWeight="SemiBold"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="OS Font Smoothing:" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedOSFontSmoothing}" VerticalAlignment="Center"/>
                 <TextBlock Text="{Binding OsFontSmoothingEnabled, StringFormat='{}{0}'}" VerticalAlignment="Center" FontWeight="SemiBold"/>
                 <TextBlock Text="(System setting)" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
-              <TextBlock Text="Font smoothing is controlled by your operating system. Change it in your OS display settings." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding LocalizedFontSmoothingMessage}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
         </StackPanel>
@@ -699,15 +713,15 @@
 
       <ScrollViewer x:Name="DebugPanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
-          <TextBlock Text="Debug Tools" FontWeight="SemiBold" FontSize="18"/>
+          <TextBlock Text="{Binding LocalizedDebugTools}" FontWeight="SemiBold" FontSize="18"/>
 
           <!-- Logging Toggle -->
           <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left" Background="{DynamicResource App.Surface}" BorderBrush="#FFA500" BorderThickness="2">
             <StackPanel Spacing="12">
-              <TextBlock Text="Logging" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedLogging}" FontWeight="SemiBold"/>
               
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <TextBlock Text="Enable logging" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedEnableLogging}" VerticalAlignment="Center"/>
                 <ToggleSwitch IsChecked="{Binding EnableLogging}"/>
               </StackPanel>
               
@@ -715,7 +729,7 @@
                 <StackPanel Spacing="4">
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <TextBlock Classes="icon-mdl2" Text="&#xE7BA;" FontSize="16" Foreground="#FFA500" VerticalAlignment="Center"/>
-                    <TextBlock Text="Performance Warning" FontWeight="SemiBold" Foreground="#FFA500"/>
+                    <TextBlock Text="{Binding LocalizedPerformanceWarning}" FontWeight="SemiBold" Foreground="#FFA500"/>
                   </StackPanel>
                   <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
                     Logging causes significant performance degradation. Only enable when actively tracking down problems or debugging issues. Disable immediately after troubleshooting is complete.
@@ -727,7 +741,7 @@
 
           <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Log Maintenance" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedLogMaintenance}" FontWeight="SemiBold"/>
 
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <TextBlock Text="Auto-trim UI log" VerticalAlignment="Center"/>
@@ -771,18 +785,18 @@
           <!-- App Information -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Application Information" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="{Binding LocalizedApplicationInformation}" FontWeight="SemiBold" FontSize="16"/>
               <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" HorizontalAlignment="Stretch">
                 <TextBlock Text="Name:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="{Binding AppName}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
-                <TextBlock Text="Version:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding LocalizedVersion}" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                   <TextBlock Text="{Binding AppVersion, StringFormat='v{0}'}" VerticalAlignment="Center" FontWeight="Medium"/>
                   <Border Background="#FFA500" Padding="8,2" CornerRadius="4">
                     <TextBlock Text="{x:Static core:AppInfo.PrototypeTag}" Foreground="Black" FontWeight="Bold"/>
                   </Border>
                 </StackPanel>
-                <TextBlock Text="Build:" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding LocalizedBuild}" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="Debug" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
                 <TextBlock Text="Platform:" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="Windows" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
@@ -830,12 +844,12 @@
       <!-- Network Panel -->
       <ScrollViewer x:Name="NetworkPanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
-          <TextBlock Text="Network" FontWeight="SemiBold" FontSize="18"/>
+          <TextBlock Text="{Binding LocalizedNetwork}" FontWeight="SemiBold" FontSize="18"/>
 
           <!-- Connection Settings -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Connection" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedConnectionSettings}" FontWeight="SemiBold"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820">
                 <Run Text="Port:"/>
                 <Run Text="The port number ZTalk uses for P2P connections. Default is 26264. Changing this requires restarting the application."/>
@@ -866,7 +880,7 @@
           <!-- Relay Settings -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Relay Fallback Server" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedRelaySettings}" FontWeight="SemiBold"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820">
                 <Run Text="Relay servers provide last-resort connectivity when direct P2P and NAT traversal fail."/>
                 <LineBreak/>

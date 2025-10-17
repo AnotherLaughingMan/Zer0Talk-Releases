@@ -175,13 +175,6 @@
                         <Button Classes="icon-button" ToolTip.Tip="Simulate Invite" Command="{Binding SimulateInviteCommand}">
                             <TextBlock Classes="icon-mdl2" Text="&#xE7C5;"/>
                         </Button>
-                        <Button Classes="icon-button" ToolTip.Tip="Clear Invites" Command="{Binding ClearInvitesCommand}">
-                            <!-- Custom prohibition icon (circle with diagonal slash) to distinguish from Close -->
-                            <Grid Width="16" Height="16" IsHitTestVisible="False">
-                                <Ellipse Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="1.6" />
-                                <Path Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="1.6" Data="M3,13 L13,3" />
-                            </Grid>
-                        </Button>
                         <Separator IsVisible="{Binding IsDebugUi}"/>
                         <Button Classes="icon-button" ToolTip.Tip="Test Info Toast" Command="{Binding TestInfoToastCommand}" IsVisible="{Binding IsDebugUi}">
                             <TextBlock Classes="icon-mdl2" Text="&#xE946;" Foreground="#4CAF50"/>
@@ -199,10 +192,10 @@
                     <Button Classes="icon-button" ToolTip.Tip="Toggle Contacts" Click="ToggleLeftPanel_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE700;"/>
                     </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Open Notifications" Click="ToggleRightPanel_Click">
+                    <Button x:Name="NotificationBellButton" Classes="icon-button" ToolTip.Tip="Open Notifications" Click="ToggleRightPanel_Click">
                         <!-- Bell glyph with compact red-dot badge to mirror nav rail -->
                         <Grid Width="20" Height="20">
-                            <Path Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource App.ForegroundPrimary}" IsHitTestVisible="False"
+                            <Path x:Name="NotificationBellIcon" Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource App.ForegroundPrimary}" IsHitTestVisible="False"
                                   Data="M12,2 C8.7,2 6,4.7 6,8 L6,11.3 C6,11.76 5.8,12.2 5.45,12.5 L4,14 L20,14 L18.55,12.5 C18.2,12.2 18,11.76 18,11.3 L18,8 C18,4.7 15.3,2 12,2 Z M9,18 C9,19.66 10.34,21 12,21 C13.66,21 15,19.66 15,18 Z"/>
                             <Ellipse Width="8" Height="8" Fill="#DD3333" Stroke="{DynamicResource App.Background}" StrokeThickness="1"
                                      HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0"
@@ -914,6 +907,9 @@
                             <Button x:Name="MarkAllMessagesBtn" Classes="icon-button" ToolTip.Tip="Mark all messages read" IsVisible="True">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE8C3;"/>
                             </Button>
+                            <Button x:Name="ClearAllAlertsBtn" Classes="icon-button" ToolTip.Tip="Clear All Alerts" IsVisible="False">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE894;"/>
+                            </Button>
                             <Button x:Name="CloseNotificationsBtn" Classes="icon-button" ToolTip.Tip="Close" Click="ToggleRightPanel_Click">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE711;"/>
                             </Button>
@@ -926,6 +922,9 @@
                     </ScrollViewer>
                     <ScrollViewer x:Name="MessagesHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="False">
                         <StackPanel x:Name="MessagesStack" Margin="4" Spacing="6" />
+                    </ScrollViewer>
+                    <ScrollViewer x:Name="AlertsHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="False">
+                        <StackPanel x:Name="AlertsStack" Margin="4" Spacing="6" />
                     </ScrollViewer>
                 </Grid>
             </Border>

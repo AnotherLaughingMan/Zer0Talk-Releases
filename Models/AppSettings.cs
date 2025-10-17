@@ -155,4 +155,5 @@ public class AppSettings
     // Notification behavior settings
     public bool SuppressNotificationsInDnd { get; set; } = true; // When enabled, notification toasts and audio are suppressed in Do Not Disturb mode
     public double NotificationDurationSeconds { get; set; } = 4.5; // Duration in seconds that notification toasts stay visible (0.5 to 30 seconds)
+    public bool EnableNotificationBellFlash { get; set; } = true; // When enabled, the notification bell flashes for 10 seconds when new notifications arrive
 }

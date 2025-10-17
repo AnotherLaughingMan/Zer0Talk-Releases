@@ -555,9 +555,9 @@ namespace ZTalk.ViewModels
                 catch { }
             });
 #if DEBUG
-            TestInfoToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Information", "This is a test information notification with some longer text to see how it wraps."); } catch { } });
-            TestWarningToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Warning", "This is a test warning notification that might indicate something needs attention."); } catch { } });
-            TestErrorToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Error", "This is a test error notification showing that something went wrong."); } catch { } });
+            TestInfoToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Information", "This is a test information notification with some longer text to see how it wraps.", isPersistent: false); } catch { } });
+            TestWarningToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Warning", "This is a test warning notification that might indicate something needs attention.", isPersistent: false); } catch { } });
+            TestErrorToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Error", "This is a test error notification showing that something went wrong.", isPersistent: false); } catch { } });
             TestMessageToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.AddOrUpdateMessageNotice("Alice", "Hey, are you available for a quick call? This is a test notification with a longer message that should be truncated in the preview.", "alice123", Guid.NewGuid(), incoming: true, DateTime.UtcNow, isUnread: true); } catch { } });
 #endif
 
@@ -1381,10 +1381,11 @@ namespace ZTalk.ViewModels
                 var uniqueOrigins = new HashSet<string>(inviteOrigins, StringComparer.OrdinalIgnoreCase);
                 foreach (var o in noticeOrigins) uniqueOrigins.Add(o);
 
-                // Orphan notices (no origin) still count toward the badge
-                var orphanNotices = notices.Count(n => string.IsNullOrWhiteSpace(n.OriginUid));
+                // Count persistent general notifications (alerts without origin - Info/Warning/Error)
+                // Exclude invite notifications as they're already counted via inviteOrigins
+                var generalAlerts = notices.Count(n => string.IsNullOrWhiteSpace(n.OriginUid) && n.IsPersistent && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase));
 
-                var total = uniqueOrigins.Count + orphanNotices;
+                var total = uniqueOrigins.Count + generalAlerts;
 
                 // Marshal property updates to UI thread
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>

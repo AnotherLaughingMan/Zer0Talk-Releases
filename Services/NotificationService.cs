@@ -19,7 +19,7 @@ namespace ZTalk.Services
     // - Publishes OS notifications when available (Windows implementation here)
     public class NotificationService
     {
-    public sealed record NotificationItem(Guid Id, string Title, string Body, string? OriginUid, DateTime Utc, string? FullBody = null, bool IsUnread = false, bool IsMessage = false, bool IsIncoming = false, Guid? MessageId = null, DateTime? ReadUtc = null);
+    public sealed record NotificationItem(Guid Id, string Title, string Body, string? OriginUid, DateTime Utc, string? FullBody = null, bool IsUnread = false, bool IsMessage = false, bool IsIncoming = false, Guid? MessageId = null, DateTime? ReadUtc = null, bool IsPersistent = true);
 
     private readonly List<NotificationItem> _notices = new();
     private readonly object _removalLock = new();
@@ -147,34 +147,36 @@ namespace ZTalk.Services
         var resolvedBody = string.IsNullOrWhiteSpace(text) ? string.Empty : text;
         var hasOrigin = !string.IsNullOrWhiteSpace(originUid);
         
-        // Determine toast type and color based on title or origin (subdued/darker colors)
-        IBrush backgroundColor;
+        // Determine toast border color based on title or origin - use theme background
+        IBrush backgroundColor = (IBrush?)Application.Current?.FindResource("App.Surface") ?? new SolidColorBrush(Color.FromArgb(255, 64, 64, 64));
         IBrush borderBrush;
+        IBrush accentColor; // Used for title/icon color
+        
         if (resolvedTitle.Contains("Error", StringComparison.OrdinalIgnoreCase))
         {
-            backgroundColor = new SolidColorBrush(Color.FromArgb(255, 183, 28, 28)); // Darker Red
-            borderBrush = new SolidColorBrush(Color.FromArgb(255, 136, 14, 14));
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 211, 47, 47)); // Red
+            accentColor = borderBrush;
         }
         else if (resolvedTitle.Contains("Warning", StringComparison.OrdinalIgnoreCase))
         {
-            backgroundColor = new SolidColorBrush(Color.FromArgb(255, 191, 84, 0)); // Darker Orange
-            borderBrush = new SolidColorBrush(Color.FromArgb(255, 153, 62, 0));
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 255, 152, 0)); // Orange
+            accentColor = borderBrush;
         }
         else if (resolvedTitle.Contains("Information", StringComparison.OrdinalIgnoreCase))
         {
-            backgroundColor = new SolidColorBrush(Color.FromArgb(255, 46, 125, 50)); // Darker Green
-            borderBrush = new SolidColorBrush(Color.FromArgb(255, 27, 94, 32));
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green
+            accentColor = borderBrush;
         }
         else if (hasOrigin || resolvedTitle.Contains("Message", StringComparison.OrdinalIgnoreCase))
         {
-            backgroundColor = new SolidColorBrush(Color.FromArgb(255, 21, 101, 192)); // Darker Blue
-            borderBrush = new SolidColorBrush(Color.FromArgb(255, 13, 71, 161));
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 33, 150, 243)); // Blue
+            accentColor = borderBrush;
         }
         else
         {
-            // Default to app theme
-            backgroundColor = (IBrush?)Application.Current?.FindResource("App.Surface") ?? new SolidColorBrush(Color.FromArgb(255, 64, 64, 64));
+            // Default to app theme border
             borderBrush = (IBrush?)Application.Current?.FindResource("App.Border") ?? new SolidColorBrush(Color.FromArgb(255, 128, 128, 128));
+            accentColor = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary") ?? Brushes.White;
         }
 
         var grid = new Grid
@@ -233,12 +235,13 @@ namespace ZTalk.Services
         grid.Children.Add(closeButton);
         grid.Children.Add(bodyBlock);
 
-        // Add "Go to Chat" button if this is a message notification
-        if (hasOrigin)
+        // Add "Go to Chat" button if this is a message notification (but not for invites)
+        var isInvite = resolvedTitle.Contains("Invite", StringComparison.OrdinalIgnoreCase);
+        if (hasOrigin && !isInvite)
         {
             var goToChatButton = new Button
             {
-                Content = "Go to Chat",
+                Content = Services.AppServices.Localization.GetString("Notifications.GoToChat", "Go to Chat"),
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
                 Margin = new Thickness(0, 8, 0, 0),
                 Padding = new Thickness(12, 6),
@@ -267,17 +270,17 @@ namespace ZTalk.Services
             grid.Children.Add(goToChatButton);
         }
 
-        // Set text color to white for better visibility on colored backgrounds
-        titleBlock.Foreground = Brushes.White;
-        bodyBlock.Foreground = Brushes.White;
-        closeButton.Foreground = Brushes.White;
+        // Use accent color for title to match the border theme
+        titleBlock.Foreground = accentColor;
+        bodyBlock.Foreground = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary") ?? Brushes.White;
+        closeButton.Foreground = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary") ?? Brushes.White;
 
         return new Border
         {
             Padding = new Thickness(8),
             Background = backgroundColor,
             BorderBrush = borderBrush,
-            BorderThickness = new Thickness(1),
+            BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(6),
             Child = grid
         };
@@ -288,25 +291,30 @@ namespace ZTalk.Services
         public event Action? NoticesChanged;
 
         // Backwards-compatible convenience: post a simple notice with combined text
-        public void PostNotice(string text)
+        public void PostNotice(string text, bool isPersistent = true)
         {
-            PostNotice(title: string.Empty, body: text, originUid: null, fullBody: text);
+            PostNotice(title: string.Empty, body: text, originUid: null, fullBody: text, isPersistent: isPersistent);
         }
 
         // Structured notice post with optional origin UID (used for click-to-open)
-        public void PostNotice(string title, string body, string? originUid = null, string? fullBody = null)
+        public void PostNotice(string title, string body, string? originUid = null, string? fullBody = null, bool isPersistent = true)
         {
             try
             {
-                var item = new NotificationItem(Guid.NewGuid(), title ?? string.Empty, body ?? string.Empty, originUid, DateTime.UtcNow, fullBody);
-                lock (_notices)
+                var item = new NotificationItem(Guid.NewGuid(), title ?? string.Empty, body ?? string.Empty, originUid, DateTime.UtcNow, fullBody, IsPersistent: isPersistent);
+                
+                // Only add to notice list if persistent (test toasts should not appear in notification center)
+                if (isPersistent)
                 {
-                    _notices.Add(item);
-                }
+                    lock (_notices)
+                    {
+                        _notices.Add(item);
+                    }
 
-                // Notify in-app listeners on UI thread
-                Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
-                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Posted: {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
+                    // Notify in-app listeners on UI thread
+                    Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
+                }
+                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Posted (persistent={isPersistent}): {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
 
                 // Show transient pop-up; attach origin so click may open conversation
                 // Check if notifications should be suppressed in Do Not Disturb mode

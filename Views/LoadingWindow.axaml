@@ -39,37 +39,225 @@
                        HorizontalAlignment="Center"/>
 
             <!-- Loading indicator -->
-            <Border Width="80" Height="80"
-                    CornerRadius="40"
-                    BorderBrush="#4a9eff"
-                    BorderThickness="4"
-                    HorizontalAlignment="Center">
-
-                <!-- Inner loading dot -->
-                <Ellipse Width="20" Height="20"
-                         Fill="#4a9eff"
-                         HorizontalAlignment="Left"
-                         VerticalAlignment="Top"
-                         Margin="10,10,0,0">
+            <!-- WARNING: Custom alignment applied - Do NOT modify the Margin="-60,-50,0,0" value below -->
+            <!-- This specific margin has been manually tuned for proper visual positioning -->
+            <Grid Width="80" Height="80" HorizontalAlignment="Center" Margin="-60,-50,0,0">
+                <!-- Dot 1 (top) -->
+                <Ellipse Width="10" Height="10" Fill="#4a9eff">
+                    <Ellipse.RenderTransform>
+                        <TranslateTransform X="35" Y="15"/>
+                    </Ellipse.RenderTransform>
                     <Ellipse.Styles>
                         <Style Selector="Ellipse">
                             <Style.Animations>
-                                <Animation Duration="0:0:1.5" IterationCount="Infinite">
+                                <Animation Duration="0:0:1" IterationCount="Infinite">
                                     <KeyFrame Cue="0%">
-                                        <Setter Property="Opacity" Value="1"/>
+                                        <Setter Property="Opacity" Value="1.0"/>
                                     </KeyFrame>
-                                    <KeyFrame Cue="50%">
-                                        <Setter Property="Opacity" Value="0.3"/>
+                                    <KeyFrame Cue="12.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="87.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
                                     </KeyFrame>
                                     <KeyFrame Cue="100%">
-                                        <Setter Property="Opacity" Value="1"/>
+                                        <Setter Property="Opacity" Value="1.0"/>
                                     </KeyFrame>
                                 </Animation>
                             </Style.Animations>
                         </Style>
                     </Ellipse.Styles>
                 </Ellipse>
-            </Border>
+                
+                <!-- Dot 2 (top-right) -->
+                <Ellipse Width="10" Height="10" Fill="#4a9eff">
+                    <Ellipse.RenderTransform>
+                        <TranslateTransform X="53" Y="22"/>
+                    </Ellipse.RenderTransform>
+                    <Ellipse.Styles>
+                        <Style Selector="Ellipse">
+                            <Style.Animations>
+                                <Animation Duration="0:0:1" IterationCount="Infinite" Delay="0:0:0.125">
+                                    <KeyFrame Cue="0%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="12.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="87.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="100%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                    </Ellipse.Styles>
+                </Ellipse>
+                
+                <!-- Dot 3 (right) -->
+                <Ellipse Width="10" Height="10" Fill="#4a9eff">
+                    <Ellipse.RenderTransform>
+                        <TranslateTransform X="60" Y="35"/>
+                    </Ellipse.RenderTransform>
+                    <Ellipse.Styles>
+                        <Style Selector="Ellipse">
+                            <Style.Animations>
+                                <Animation Duration="0:0:1" IterationCount="Infinite" Delay="0:0:0.25">
+                                    <KeyFrame Cue="0%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="12.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="87.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="100%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                    </Ellipse.Styles>
+                </Ellipse>
+                
+                <!-- Dot 4 (bottom-right) -->
+                <Ellipse Width="10" Height="10" Fill="#4a9eff">
+                    <Ellipse.RenderTransform>
+                        <TranslateTransform X="53" Y="48"/>
+                    </Ellipse.RenderTransform>
+                    <Ellipse.Styles>
+                        <Style Selector="Ellipse">
+                            <Style.Animations>
+                                <Animation Duration="0:0:1" IterationCount="Infinite" Delay="0:0:0.375">
+                                    <KeyFrame Cue="0%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="12.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="87.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="100%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                    </Ellipse.Styles>
+                </Ellipse>
+                
+                <!-- Dot 5 (bottom) -->
+                <Ellipse Width="10" Height="10" Fill="#4a9eff">
+                    <Ellipse.RenderTransform>
+                        <TranslateTransform X="35" Y="55"/>
+                    </Ellipse.RenderTransform>
+                    <Ellipse.Styles>
+                        <Style Selector="Ellipse">
+                            <Style.Animations>
+                                <Animation Duration="0:0:1" IterationCount="Infinite" Delay="0:0:0.5">
+                                    <KeyFrame Cue="0%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="12.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="87.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="100%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                    </Ellipse.Styles>
+                </Ellipse>
+                
+                <!-- Dot 6 (bottom-left) -->
+                <Ellipse Width="10" Height="10" Fill="#4a9eff">
+                    <Ellipse.RenderTransform>
+                        <TranslateTransform X="17" Y="48"/>
+                    </Ellipse.RenderTransform>
+                    <Ellipse.Styles>
+                        <Style Selector="Ellipse">
+                            <Style.Animations>
+                                <Animation Duration="0:0:1" IterationCount="Infinite" Delay="0:0:0.625">
+                                    <KeyFrame Cue="0%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="12.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="87.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="100%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                    </Ellipse.Styles>
+                </Ellipse>
+                
+                <!-- Dot 7 (left) -->
+                <Ellipse Width="10" Height="10" Fill="#4a9eff">
+                    <Ellipse.RenderTransform>
+                        <TranslateTransform X="10" Y="35"/>
+                    </Ellipse.RenderTransform>
+                    <Ellipse.Styles>
+                        <Style Selector="Ellipse">
+                            <Style.Animations>
+                                <Animation Duration="0:0:1" IterationCount="Infinite" Delay="0:0:0.75">
+                                    <KeyFrame Cue="0%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="12.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="87.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="100%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                    </Ellipse.Styles>
+                </Ellipse>
+                
+                <!-- Dot 8 (top-left) -->
+                <Ellipse Width="10" Height="10" Fill="#4a9eff">
+                    <Ellipse.RenderTransform>
+                        <TranslateTransform X="17" Y="22"/>
+                    </Ellipse.RenderTransform>
+                    <Ellipse.Styles>
+                        <Style Selector="Ellipse">
+                            <Style.Animations>
+                                <Animation Duration="0:0:1" IterationCount="Infinite" Delay="0:0:0.875">
+                                    <KeyFrame Cue="0%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="12.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="87.5%">
+                                        <Setter Property="Opacity" Value="0.2"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="100%">
+                                        <Setter Property="Opacity" Value="1.0"/>
+                                    </KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                    </Ellipse.Styles>
+                </Ellipse>
+            </Grid>
 
             <!-- Main status message -->
             <TextBlock Text="{Binding MainMessage}"

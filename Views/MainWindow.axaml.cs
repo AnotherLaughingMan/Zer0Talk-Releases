@@ -83,6 +83,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     // Verification popup state
     private Window? _verifyReqPopup;
     private string? _verifyReqUid;
+    // Notification bell flashing
+    private Avalonia.Threading.DispatcherTimer? _bellFlashTimer;
+    private Avalonia.Threading.DispatcherTimer? _bellFlashStopTimer;
+    private int _lastNotificationCount;
+    private bool _isBellFlashing;
 
     public MainWindow()
     {
@@ -156,6 +161,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             this.Opened += (_, __) => AttachFlickerWatchers();
             this.Opened += (_, __) => InitializeMessageInputSizing();
             this.Opened += (_, __) => InitializeMarkdownToolbar();
+            this.Opened += (_, __) => InitializeNotificationBellFlash();
             this.Activated += (_, __) => WriteUiCategory("[Window]", "Activated");
             this.Deactivated += (_, __) => WriteUiCategory("[Window]", "Deactivated");
         }
@@ -4488,7 +4494,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private enum RightPanelView
     {
         Invites,
-        Messages
+        Messages,
+        Alerts
     }
 
     private RightPanelView _rightPanelView = RightPanelView.Invites;
@@ -4499,6 +4506,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void ShowMessagesHost() => SwitchRightPanelView(RightPanelView.Messages);
 
+    private void ShowAlertsHost() => SwitchRightPanelView(RightPanelView.Alerts);
+
     private void SwitchRightPanelView(RightPanelView target)
     {
         try
@@ -4506,8 +4515,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _rightPanelView = target;
             var invitesHost = this.FindControl<ScrollViewer>("InvitesHost");
             var messagesHost = this.FindControl<ScrollViewer>("MessagesHost");
+            var alertsHost = this.FindControl<ScrollViewer>("AlertsHost");
             if (invitesHost != null) invitesHost.IsVisible = target == RightPanelView.Invites;
             if (messagesHost != null) messagesHost.IsVisible = target == RightPanelView.Messages;
+            if (alertsHost != null) alertsHost.IsVisible = target == RightPanelView.Alerts;
         }
         catch { }
         try { UpdateRightPanelHeaderAndControls(); } catch { }
@@ -4520,7 +4531,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var title = this.FindControl<TextBlock>("NotificationsTitle");
             if (title != null)
             {
-                title.Text = _rightPanelView == RightPanelView.Invites ? "Pending Invites" : "Messages";
+                title.Text = _rightPanelView switch
+                {
+                    RightPanelView.Invites => "Pending Invites",
+                    RightPanelView.Messages => "Messages",
+                    RightPanelView.Alerts => "Alerts",
+                    _ => "Notifications"
+                };
             }
         }
         catch { }
@@ -4538,14 +4555,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
         try
         {
+            var clearAlertsBtn = this.FindControl<Button>("ClearAllAlertsBtn");
+            if (clearAlertsBtn != null) clearAlertsBtn.IsVisible = _rightPanelView == RightPanelView.Alerts;
+        }
+        catch { }
+        try
+        {
             var prevBtn = this.FindControl<Button>("NotifPrevBtn");
-            if (prevBtn != null) prevBtn.IsEnabled = _rightPanelView == RightPanelView.Messages;
+            if (prevBtn != null) prevBtn.IsEnabled = true; // Always enabled for circular navigation
         }
         catch { }
         try
         {
             var nextBtn = this.FindControl<Button>("NotifNextBtn");
-            if (nextBtn != null) nextBtn.IsEnabled = _rightPanelView == RightPanelView.Invites;
+            if (nextBtn != null) nextBtn.IsEnabled = true; // Always enabled for circular navigation
         }
         catch { }
     }
@@ -4571,8 +4594,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             var invitesHost = this.FindControl<ScrollViewer>("InvitesHost");
             var messagesHost = this.FindControl<ScrollViewer>("MessagesHost");
+            var alertsHost = this.FindControl<ScrollViewer>("AlertsHost");
             var invitesStack = this.FindControl<StackPanel>("InvitesStack");
             var messagesStack = this.FindControl<StackPanel>("MessagesStack");
+            var alertsStack = this.FindControl<StackPanel>("AlertsStack");
 
             // If hosts are missing (e.g., XAML changed), create safe placeholders so callers don't NRE.
             if (invitesHost == null || invitesStack == null)
@@ -4596,6 +4621,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     g2.Children.Add(newMessagesHost);
                 }
             }
+            if (alertsHost == null || alertsStack == null)
+            {
+                var newAlertsStack = alertsStack ?? new StackPanel { Name = "AlertsStack", Margin = new Thickness(4), Spacing = 6 };
+                var newAlertsHost = alertsHost ?? new ScrollViewer { Name = "AlertsHost", VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = newAlertsStack };
+                if (rightRoot.Child is Grid g3 && !g3.Children.Contains(newAlertsHost))
+                {
+                    Grid.SetRow(newAlertsHost, 2);
+                    g3.Children.Add(newAlertsHost);
+                }
+            }
             // Default to invites shown
             ShowInvitesHost();
         }
@@ -4608,6 +4643,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     // UI handlers for header buttons so we can detach them safely
     private EventHandler<RoutedEventArgs>? _rejectAllInvitesHandler;
     private EventHandler<RoutedEventArgs>? _markAllMessagesHandler;
+    private EventHandler<RoutedEventArgs>? _clearAllAlertsHandler;
     private EventHandler<RoutedEventArgs>? _notifPrevHandler;
     private EventHandler<RoutedEventArgs>? _notifNextHandler;
     private bool _rightPanelButtonsWired;
@@ -4639,7 +4675,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     {
                         Dispatcher.UIThread.Post(() =>
                         {
-                            try { RenderMessagesPanel(); if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites(); } catch { }
+                            try { RenderMessagesPanel(); RenderAlertsPanel(); if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites(); } catch { }
                         });
                     }
                     catch { }
@@ -4652,6 +4688,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 {
                     var rejectBtn = this.FindControl<Button>("RejectAllInvitesBtn");
                     var markAllBtn = this.FindControl<Button>("MarkAllMessagesBtn");
+                    var clearAlertsBtn = this.FindControl<Button>("ClearAllAlertsBtn");
                     var prevBtn = this.FindControl<Button>("NotifPrevBtn");
                     var nextBtn = this.FindControl<Button>("NotifNextBtn");
                     if (rejectBtn != null)
@@ -4663,6 +4700,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     {
                         _markAllMessagesHandler ??= new EventHandler<RoutedEventArgs>(MarkAllMessages_Click);
                         markAllBtn.Click += _markAllMessagesHandler;
+                    }
+                    if (clearAlertsBtn != null)
+                    {
+                        _clearAllAlertsHandler ??= new EventHandler<RoutedEventArgs>(ClearAllAlerts_Click);
+                        clearAlertsBtn.Click += _clearAllAlertsHandler;
                     }
                     if (prevBtn != null)
                     {
@@ -4688,10 +4730,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (_rightPanelView == RightPanelView.Messages)
+            // Cycle backward: Invites <- Alerts <- Messages <- Invites
+            switch (_rightPanelView)
             {
-                ShowInvitesHost();
-                try { RenderInvitesPanel(); } catch { }
+                case RightPanelView.Invites:
+                    ShowAlertsHost();
+                    try { RenderAlertsPanel(); } catch { }
+                    break;
+                case RightPanelView.Messages:
+                    ShowInvitesHost();
+                    try { RenderInvitesPanel(); } catch { }
+                    break;
+                case RightPanelView.Alerts:
+                    ShowMessagesHost();
+                    try { RenderMessagesPanel(); } catch { }
+                    break;
             }
         }
         catch { }
@@ -4701,10 +4754,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (_rightPanelView == RightPanelView.Invites)
+            // Cycle forward: Invites -> Messages -> Alerts -> Invites
+            switch (_rightPanelView)
             {
-                ShowMessagesHost();
-                try { RenderMessagesPanel(); } catch { }
+                case RightPanelView.Invites:
+                    ShowMessagesHost();
+                    try { RenderMessagesPanel(); } catch { }
+                    break;
+                case RightPanelView.Messages:
+                    ShowAlertsHost();
+                    try { RenderAlertsPanel(); } catch { }
+                    break;
+                case RightPanelView.Alerts:
+                    ShowInvitesHost();
+                    try { RenderInvitesPanel(); } catch { }
+                    break;
             }
         }
         catch { }
@@ -4748,6 +4812,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 catch { }
                 try
                 {
+                    var clearAlertsBtn = this.FindControl<Button>("ClearAllAlertsBtn");
+                    if (clearAlertsBtn != null && _clearAllAlertsHandler != null) clearAlertsBtn.Click -= _clearAllAlertsHandler;
+                }
+                catch { }
+                try
+                {
                     var prevBtn = this.FindControl<Button>("NotifPrevBtn");
                     if (prevBtn != null && _notifPrevHandler != null) prevBtn.Click -= _notifPrevHandler;
                 }
@@ -4760,6 +4830,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 catch { }
                 _rejectAllInvitesHandler = null;
                 _markAllMessagesHandler = null;
+                _clearAllAlertsHandler = null;
                 _notifPrevHandler = null;
                 _notifNextHandler = null;
                 _rightPanelButtonsWired = false;
@@ -4772,6 +4843,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
+            // Play warning sound when dialog appears
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    await AppServices.AudioNotifications.PlayCustomSoundAsync("ui-10-smooth-warnnotify-sound-effect-365842.mp3");
+                }
+                catch { }
+            });
 
             bool confirmed = false;
             try
@@ -4831,6 +4911,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    private void ClearAllAlerts_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // Remove all persistent general notifications (alerts without origin, excluding invites)
+            var notices = AppServices.Notifications.Notices.ToList();
+            var alertsToRemove = notices.Where(n => !n.IsMessage && n.IsPersistent && string.IsNullOrWhiteSpace(n.OriginUid) && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase)).Select(n => n.Id).ToList();
+            
+            if (alertsToRemove.Count > 0)
+            {
+                var remainingNotices = notices.Where(n => !alertsToRemove.Contains(n.Id)).ToList();
+                var noticesField = typeof(NotificationService).GetField("_notices", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (noticesField != null)
+                {
+                    var noticesList = noticesField.GetValue(AppServices.Notifications) as System.Collections.IList;
+                    if (noticesList != null)
+                    {
+                        noticesList.Clear();
+                        foreach (var notice in remainingNotices)
+                        {
+                            noticesList.Add(notice);
+                        }
+                    }
+                }
+                try { RenderAlertsPanel(); } catch { }
+                if (DataContext is MainWindowViewModel vm)
+                {
+                    try { vm.RefreshHasPendingInvites(); } catch { }
+                }
+            }
+        }
+        catch { }
+    }
+
     // Render the Invites host contents from the ContactRequestsService pending list.
     private void RenderInvitesPanel()
     {
@@ -4860,7 +4974,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                         accept.Click += async (_, __) => { try { await AppServices.ContactRequests.AcceptPendingAsync(p.Nonce); if (DataContext is MainWindowViewModel vm) vm.AddOptimisticCleared(p.Uid); RenderInvitesPanel(); } catch { } };
                         reject.Click += async (_, __) => { try { await AppServices.ContactRequests.RejectPendingAsync(p.Nonce); if (DataContext is MainWindowViewModel vm) vm.AddOptimisticCleared(p.Uid); RenderInvitesPanel(); } catch { } };
                         row.Children.Add(accept); row.Children.Add(reject);
-                        invitesStack.Children.Add(new Border { Padding = new Thickness(6), Background = (IBrush?)Application.Current?.FindResource("App.Surface"), BorderBrush = (IBrush?)Application.Current?.FindResource("App.Border"), BorderThickness = new Thickness(1), Child = row });
+                        // Use blue border to match contact invite toast notifications
+                        var blueBorder = new SolidColorBrush(Color.FromArgb(255, 33, 150, 243));
+                        invitesStack.Children.Add(new Border { Padding = new Thickness(6), Background = (IBrush?)Application.Current?.FindResource("App.Surface"), BorderBrush = blueBorder, BorderThickness = new Thickness(2), CornerRadius = new CornerRadius(6), Child = row });
                     }
                     if (invites.Count == 0)
                         invitesStack.Children.Add(new TextBlock { Text = "No pending invites.", Opacity = 0.7 });
@@ -4991,6 +5107,164 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         button.Content = root;
         return button;
+    }
+
+    // Render the Alerts host contents from the notification service snapshot (non-message notifications).
+    private void RenderAlertsPanel()
+    {
+        try
+        {
+            var noticesSnapshot = AppServices.Notifications.Notices?
+                .Where(n => !n.IsMessage && n.IsPersistent && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase))
+                .ToList() ?? new List<NotificationService.NotificationItem>();
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var alertsStack = this.FindControl<StackPanel>("AlertsStack");
+                    if (alertsStack == null) return;
+                    alertsStack.Children.Clear();
+                    var alerts = noticesSnapshot.OrderByDescending(n => n.Utc).ToList();
+                    foreach (var alert in alerts)
+                    {
+                        alertsStack.Children.Add(BuildAlertEntry(alert));
+                    }
+                    if (alerts.Count == 0)
+                    {
+                        alertsStack.Children.Add(new TextBlock { Text = "No alerts.", Opacity = 0.7 });
+                    }
+                }
+                catch { }
+            }, DispatcherPriority.Background);
+        }
+        catch { }
+    }
+
+    private Control BuildAlertEntry(NotificationService.NotificationItem alert)
+    {
+        var surfaceBrush = (IBrush?)Application.Current?.FindResource("App.Surface") ?? Brushes.Transparent;
+        var foregroundBrush = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary") ?? Brushes.White;
+        
+        // Determine border color based on alert title (matching toast notification styling)
+        IBrush borderBrush;
+        IBrush accentColor;
+        
+        var title = alert.Title ?? string.Empty;
+        if (title.Contains("Error", StringComparison.OrdinalIgnoreCase))
+        {
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 211, 47, 47)); // Red
+            accentColor = borderBrush;
+        }
+        else if (title.Contains("Warning", StringComparison.OrdinalIgnoreCase))
+        {
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 255, 152, 0)); // Orange
+            accentColor = borderBrush;
+        }
+        else if (title.Contains("Information", StringComparison.OrdinalIgnoreCase))
+        {
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green
+            accentColor = borderBrush;
+        }
+        else
+        {
+            borderBrush = (IBrush?)Application.Current?.FindResource("App.Border") ?? Brushes.Gray;
+            accentColor = foregroundBrush;
+        }
+
+        var contentBorder = new Border
+        {
+            Padding = new Thickness(10),
+            Background = surfaceBrush,
+            BorderBrush = borderBrush,
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(6),
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+
+        var mainGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto")
+        };
+
+        // Title
+        var displayTitle = !string.IsNullOrWhiteSpace(alert.Title) ? alert.Title : "Alert";
+        var titleBlock = new TextBlock
+        {
+            Text = displayTitle,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = accentColor,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        Grid.SetRow(titleBlock, 0);
+        Grid.SetColumn(titleBlock, 0);
+
+        // Close button
+        var closeButton = new Button
+        {
+            Content = "✕",
+            Width = 24,
+            Height = 24,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Padding = new Thickness(0),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            Foreground = foregroundBrush,
+            FontSize = 14
+        };
+        closeButton.Click += (_, __) =>
+        {
+            try
+            {
+                // Remove this alert from the notification service
+                var notices = AppServices.Notifications.Notices.ToList();
+                notices.RemoveAll(n => n.Id == alert.Id);
+                typeof(NotificationService).GetField("_notices", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    ?.SetValue(AppServices.Notifications, notices);
+                RenderAlertsPanel();
+                if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites();
+            }
+            catch { }
+        };
+        Grid.SetRow(closeButton, 0);
+        Grid.SetColumn(closeButton, 1);
+
+        // Body
+        var bodyText = alert.FullBody ?? alert.Body;
+        if (!string.IsNullOrWhiteSpace(bodyText))
+        {
+            var bodyBlock = new TextBlock
+            {
+                Text = bodyText,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = foregroundBrush,
+                Margin = new Thickness(0, 6, 0, 0)
+            };
+            Grid.SetRow(bodyBlock, 1);
+            Grid.SetColumn(bodyBlock, 0);
+            Grid.SetColumnSpan(bodyBlock, 2);
+            mainGrid.Children.Add(bodyBlock);
+        }
+
+        // Timestamp
+        var timestampBlock = new TextBlock
+        {
+            Text = alert.Utc.ToLocalTime().ToString("MMM d, yyyy h:mm tt", System.Globalization.CultureInfo.CurrentCulture),
+            FontSize = 11,
+            Opacity = 0.6,
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+        Grid.SetRow(timestampBlock, 2);
+        Grid.SetColumn(timestampBlock, 0);
+        Grid.SetColumnSpan(timestampBlock, 2);
+
+        mainGrid.Children.Add(titleBlock);
+        mainGrid.Children.Add(closeButton);
+        mainGrid.Children.Add(timestampBlock);
+
+        contentBorder.Child = mainGrid;
+        return contentBorder;
     }
 
     private void NotificationMessage_Click(object? sender, RoutedEventArgs e)
@@ -5339,7 +5613,139 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _inviteToastDismissBtn = null;
         }
         try { DetachRightPanelEventHandlers(); } catch { }
+        try { StopNotificationBellFlash(); } catch { }
         ClearMessageHandlers();
         GC.SuppressFinalize(this);
+    }
+
+    // Notification bell flash implementation
+    private void InitializeNotificationBellFlash()
+    {
+        try
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                _lastNotificationCount = vm.NotificationCount;
+                vm.PropertyChanged += (_, e) =>
+                {
+                    if (e.PropertyName == nameof(MainWindowViewModel.NotificationCount))
+                    {
+                        try { OnNotificationCountChanged(vm.NotificationCount); } catch { }
+                    }
+                };
+            }
+        }
+        catch { }
+    }
+
+    private void OnNotificationCountChanged(int newCount)
+    {
+        try
+        {
+            // Only flash if count increased and flashing is enabled in settings
+            if (newCount > _lastNotificationCount && newCount > 0)
+            {
+                var settings = AppServices.Settings?.Settings;
+                if (settings?.EnableNotificationBellFlash == true)
+                {
+                    StartNotificationBellFlash();
+                }
+            }
+            else if (newCount == 0)
+            {
+                // Stop flashing when notifications are cleared
+                StopNotificationBellFlash();
+            }
+            _lastNotificationCount = newCount;
+        }
+        catch { }
+    }
+
+    private void StartNotificationBellFlash()
+    {
+        try
+        {
+            if (_isBellFlashing) return; // Already flashing
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var bellIcon = this.FindControl<Avalonia.Controls.Shapes.Path>("NotificationBellIcon");
+                    if (bellIcon == null) return;
+
+                    _isBellFlashing = true;
+
+                    // Flash timer - toggles visibility every 500ms
+                    _bellFlashTimer = new Avalonia.Threading.DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromMilliseconds(500)
+                    };
+
+                    var isVisible = true;
+                    _bellFlashTimer.Tick += (_, __) =>
+                    {
+                        try
+                        {
+                            isVisible = !isVisible;
+                            bellIcon.Opacity = isVisible ? 1.0 : 0.3;
+                        }
+                        catch { }
+                    };
+
+                    _bellFlashTimer.Start();
+
+                    // Stop timer - stops flashing after 10 seconds
+                    _bellFlashStopTimer = new Avalonia.Threading.DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromSeconds(10)
+                    };
+
+                    _bellFlashStopTimer.Tick += (_, __) =>
+                    {
+                        try { StopNotificationBellFlash(); } catch { }
+                    };
+
+                    _bellFlashStopTimer.Start();
+                }
+                catch { }
+            });
+        }
+        catch { }
+    }
+
+    private void StopNotificationBellFlash()
+    {
+        try
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    _isBellFlashing = false;
+
+                    if (_bellFlashTimer != null)
+                    {
+                        _bellFlashTimer.Stop();
+                        _bellFlashTimer = null;
+                    }
+
+                    if (_bellFlashStopTimer != null)
+                    {
+                        _bellFlashStopTimer.Stop();
+                        _bellFlashStopTimer = null;
+                    }
+
+                    // Restore full opacity
+                    var bellIcon = this.FindControl<Avalonia.Controls.Shapes.Path>("NotificationBellIcon");
+                    if (bellIcon != null)
+                    {
+                        bellIcon.Opacity = 1.0;
+                    }
+                }
+                catch { }
+            });
+        }
+        catch { }
     }
 }
