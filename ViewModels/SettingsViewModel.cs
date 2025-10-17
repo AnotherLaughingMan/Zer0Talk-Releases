@@ -271,6 +271,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         if (_disposed) return;
         _disposed = true;
         try { AppServices.LogMaintenance.MaintenanceCompleted -= OnLogMaintenanceCompleted; } catch { }
+        try { Services.AppServices.Localization.LanguageChanged -= OnLanguageChanged; } catch { }
         DismissSaveToast();
         GC.SuppressFinalize(this);
     }
@@ -384,6 +385,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             {
                 var langCode = GetLanguageCode(Language);
                 Services.AppServices.Localization.LoadLanguage(langCode);
+            }
+            catch { }
+            
+            // Subscribe to language changes to refresh localized properties
+            try
+            {
+                Services.AppServices.Localization.LanguageChanged += OnLanguageChanged;
             }
             catch { }
             
@@ -1370,6 +1378,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
     }
     
+    // Localized UI strings
+    public string LocalizedSettingsTitle => Services.AppServices.Localization.GetString("Settings.Title", "Settings");
+    public string LocalizedAppearance => Services.AppServices.Localization.GetString("Settings.Appearance", "Appearance");
+    public string LocalizedLanguage => Services.AppServices.Localization.GetString("Settings.Language", "Language");
+    
     // Helper to convert display name to language code
     private static string GetLanguageCode(string displayName)
     {
@@ -1388,6 +1401,18 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             "Italian" => "it",
             _ => "en" // Default to English
         };
+    }
+    
+    private void OnLanguageChanged()
+    {
+        // Refresh all localized properties when language changes
+        try
+        {
+            OnPropertyChanged(nameof(LocalizedSettingsTitle));
+            OnPropertyChanged(nameof(LocalizedAppearance));
+            OnPropertyChanged(nameof(LocalizedLanguage));
+        }
+        catch { }
     }
 
     // Sync ThemeIndex from persisted settings without marking Unsaved.
