@@ -19,7 +19,7 @@ namespace ZTalk.Services
     // - Publishes OS notifications when available (Windows implementation here)
     public class NotificationService
     {
-    public sealed record NotificationItem(Guid Id, string Title, string Body, string? OriginUid, DateTime Utc, string? FullBody = null, bool IsUnread = false, bool IsMessage = false, bool IsIncoming = false, Guid? MessageId = null, DateTime? ReadUtc = null, bool IsPersistent = true);
+    public sealed record NotificationItem(Guid Id, string Title, string Body, string? OriginUid, DateTime Utc, string? FullBody = null, bool IsUnread = false, bool IsMessage = false, bool IsIncoming = false, Guid? MessageId = null, DateTime? ReadUtc = null, bool IsPersistent = true, Models.NotificationType? Type = null);
 
     private readonly List<NotificationItem> _notices = new();
     private readonly object _removalLock = new();
@@ -141,42 +141,48 @@ namespace ZTalk.Services
         return new PixelRect(0, 0, 1280, 720);
     }
 
-    private Control CreateToastContent(Window host, string? title, string text, string? originUid = null)
+    private Control CreateToastContent(Window host, string? title, string text, Models.NotificationType? type = null, string? originUid = null)
     {
         var resolvedTitle = string.IsNullOrWhiteSpace(title) ? "ZTalk" : title;
         var resolvedBody = string.IsNullOrWhiteSpace(text) ? string.Empty : text;
         var hasOrigin = !string.IsNullOrWhiteSpace(originUid);
         
-        // Determine toast border color based on title or origin - use theme background
+        // Determine toast border color based on notification type - use theme background
         IBrush backgroundColor = (IBrush?)Application.Current?.FindResource("App.Surface") ?? new SolidColorBrush(Color.FromArgb(255, 64, 64, 64));
         IBrush borderBrush;
         IBrush accentColor; // Used for title/icon color
         
-        if (resolvedTitle.Contains("Error", StringComparison.OrdinalIgnoreCase))
+        switch (type)
         {
-            borderBrush = new SolidColorBrush(Color.FromArgb(255, 211, 47, 47)); // Red
-            accentColor = borderBrush;
-        }
-        else if (resolvedTitle.Contains("Warning", StringComparison.OrdinalIgnoreCase))
-        {
-            borderBrush = new SolidColorBrush(Color.FromArgb(255, 255, 152, 0)); // Orange
-            accentColor = borderBrush;
-        }
-        else if (resolvedTitle.Contains("Information", StringComparison.OrdinalIgnoreCase))
-        {
-            borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green
-            accentColor = borderBrush;
-        }
-        else if (hasOrigin || resolvedTitle.Contains("Message", StringComparison.OrdinalIgnoreCase))
-        {
-            borderBrush = new SolidColorBrush(Color.FromArgb(255, 33, 150, 243)); // Blue
-            accentColor = borderBrush;
-        }
-        else
-        {
-            // Default to app theme border
-            borderBrush = (IBrush?)Application.Current?.FindResource("App.Border") ?? new SolidColorBrush(Color.FromArgb(255, 128, 128, 128));
-            accentColor = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary") ?? Brushes.White;
+            case Models.NotificationType.Error:
+                borderBrush = new SolidColorBrush(Color.FromArgb(255, 211, 47, 47)); // Red
+                accentColor = borderBrush;
+                break;
+            case Models.NotificationType.Warning:
+                borderBrush = new SolidColorBrush(Color.FromArgb(255, 255, 152, 0)); // Orange
+                accentColor = borderBrush;
+                break;
+            case Models.NotificationType.Information:
+                borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green
+                accentColor = borderBrush;
+                break;
+            case Models.NotificationType.Success:
+                borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green (same as Information)
+                accentColor = borderBrush;
+                break;
+            default:
+                // Messages or default case - blue for messages, gray for other
+                if (hasOrigin)
+                {
+                    borderBrush = new SolidColorBrush(Color.FromArgb(255, 33, 150, 243)); // Blue
+                    accentColor = borderBrush;
+                }
+                else
+                {
+                    borderBrush = (IBrush?)Application.Current?.FindResource("App.Border") ?? new SolidColorBrush(Color.FromArgb(255, 128, 128, 128));
+                    accentColor = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary") ?? Brushes.White;
+                }
+                break;
         }
 
         var grid = new Grid
@@ -293,15 +299,24 @@ namespace ZTalk.Services
         // Backwards-compatible convenience: post a simple notice with combined text
         public void PostNotice(string text, bool isPersistent = true)
         {
-            PostNotice(title: string.Empty, body: text, originUid: null, fullBody: text, isPersistent: isPersistent);
+            PostNotice(Models.NotificationType.Information, text, originUid: null, fullBody: text, isPersistent: isPersistent);
         }
 
         // Structured notice post with optional origin UID (used for click-to-open)
-        public void PostNotice(string title, string body, string? originUid = null, string? fullBody = null, bool isPersistent = true)
+        public void PostNotice(Models.NotificationType type, string body, string? originUid = null, string? fullBody = null, bool isPersistent = true)
         {
             try
             {
-                var item = new NotificationItem(Guid.NewGuid(), title ?? string.Empty, body ?? string.Empty, originUid, DateTime.UtcNow, fullBody, IsPersistent: isPersistent);
+                // Localize the title based on notification type
+                var title = type switch
+                {
+                    Models.NotificationType.Error => AppServices.Localization.GetString("Notifications.Error", "Error"),
+                    Models.NotificationType.Warning => AppServices.Localization.GetString("Notifications.Warning", "Warning"),
+                    Models.NotificationType.Success => AppServices.Localization.GetString("Notifications.Success", "Success"),
+                    _ => AppServices.Localization.GetString("Notifications.Information", "Information")
+                };
+
+                var item = new NotificationItem(Guid.NewGuid(), title, body ?? string.Empty, originUid, DateTime.UtcNow, fullBody, IsPersistent: isPersistent, Type: type);
                 
                 // Only add to notice list if persistent (test toasts should not appear in notification center)
                 if (isPersistent)
@@ -334,7 +349,7 @@ namespace ZTalk.Services
 
                     if (shouldShowToast)
                     {
-                        ShowTransientToast(item.Title, item.Body, item.OriginUid);
+                        ShowTransientToast(item.Title, item.Body, item.Type, item.OriginUid);
                         try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Transient shown: {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
                     }
                 }
@@ -364,22 +379,21 @@ namespace ZTalk.Services
                         {
                             try
                             {
-                                // Play type-specific sounds based on notification title
-                                if (item.Title.Contains("Warning", StringComparison.OrdinalIgnoreCase))
+                                // Play type-specific sounds based on notification type
+                                switch (item.Type)
                                 {
-                                    await AppServices.AudioNotifications.PlayCustomSoundAsync("ui-10-smooth-warnnotify-sound-effect-365842.mp3");
-                                }
-                                else if (item.Title.Contains("Information", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-notify-alert-toast-warn-274736.mp3");
-                                }
-                                else if (item.Title.Contains("Error", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-completed-notify-starting-alert-274739.mp3");
-                                }
-                                else
-                                {
-                                    await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.NotificationGeneral);
+                                    case Models.NotificationType.Warning:
+                                        await AppServices.AudioNotifications.PlayCustomSoundAsync("ui-10-smooth-warnnotify-sound-effect-365842.mp3");
+                                        break;
+                                    case Models.NotificationType.Information:
+                                        await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-notify-alert-toast-warn-274736.mp3");
+                                        break;
+                                    case Models.NotificationType.Error:
+                                        await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-completed-notify-starting-alert-274739.mp3");
+                                        break;
+                                    default:
+                                        await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.NotificationGeneral);
+                                        break;
                                 }
                             }
                             catch (Exception ex)
@@ -495,7 +509,7 @@ namespace ZTalk.Services
                     if (shouldShowToast)
                     {
                         var toastBody = string.IsNullOrWhiteSpace(updated.FullBody) ? updated.Body : updated.FullBody;
-                        ShowTransientToast(updated.Title, toastBody ?? string.Empty, updated.OriginUid);
+                        ShowTransientToast(updated.Title, toastBody ?? string.Empty, null, updated.OriginUid);
                     }
                 }
                 catch { }
@@ -689,7 +703,7 @@ namespace ZTalk.Services
             return uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid[4..] : uid;
         }
 
-        private void ShowTransientToast(string title, string text, string? originUid)
+        private void ShowTransientToast(string title, string text, Models.NotificationType? type = null, string? originUid = null)
         {
             try
             {
@@ -709,7 +723,7 @@ namespace ZTalk.Services
                             ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
                             SystemDecorations = Avalonia.Controls.SystemDecorations.None
                         };
-                        win.Content = CreateToastContent(win, title, text, originUid);
+                        win.Content = CreateToastContent(win, title, text, type, originUid);
 
                         PruneToastWindows();
                         var beforeCount = _activeToastWindows.Count;

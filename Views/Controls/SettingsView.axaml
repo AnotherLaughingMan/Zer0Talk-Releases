@@ -546,10 +546,10 @@
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedCCDOffinity}" VerticalAlignment="Center"/>
                 <ComboBox SelectedIndex="{Binding CcdAffinityIndex}" Width="150" ToolTip.Tip="{Binding CcdAffinityTooltip}">
-                  <ComboBoxItem Content="Auto"/>
-                  <ComboBoxItem Content="CCD 0"/>
-                  <ComboBoxItem Content="CCD 1"/>
-                  <ComboBoxItem Content="Both CCDs"/>
+                  <ComboBoxItem Content="{Binding LocalizedAuto}"/>
+                  <ComboBoxItem Content="{Binding LocalizedCCD0}"/>
+                  <ComboBoxItem Content="{Binding LocalizedCCD1}"/>
+                  <ComboBoxItem Content="{Binding LocalizedBothCCDs}"/>
                 </ComboBox>
                 <!-- Inline red pill warning when Both CCDs is selected -->
                 <Border
@@ -627,7 +627,7 @@
 
       <ScrollViewer x:Name="AccessibilityPanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
-          <TextBlock Text="Accessibility" FontWeight="SemiBold" FontSize="18"/>
+          <TextBlock Text="{Binding LocalizedAccessibilityTitle}" FontWeight="SemiBold" FontSize="18"/>
           
           <!-- OS-Level Accessibility Settings -->
           <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
@@ -636,19 +636,19 @@
               <TextBlock Text="{Binding LocalizedAccessibilityOSMessage}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
               <StackPanel Spacing="6" Margin="12,8,0,0">
                 <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                  <Run Text="• Display Scaling:" FontWeight="SemiBold"/> Windows Display Settings > Scale and layout
+                  <Run Text="{Binding LocalizedDisplayScaling}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedDisplayScalingPath}"/>
                 </TextBlock>
                 <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                  <Run Text="• High Contrast:" FontWeight="SemiBold"/> Windows Settings > Accessibility > Contrast themes
+                  <Run Text="{Binding LocalizedHighContrast}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedHighContrastPath}"/>
                 </TextBlock>
                 <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                  <Run Text="• Animations:" FontWeight="SemiBold"/> Windows Settings > Accessibility > Visual effects
+                  <Run Text="{Binding LocalizedAnimations}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedAnimationsPath}"/>
                 </TextBlock>
                 <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                  <Run Text="• Cursor Size:" FontWeight="SemiBold"/> Windows Settings > Accessibility > Mouse pointer and touch
+                  <Run Text="{Binding LocalizedCursorSize}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedCursorSizePath}"/>
                 </TextBlock>
                 <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                  <Run Text="• Text Cursor:" FontWeight="SemiBold"/> Windows Settings > Accessibility > Text cursor
+                  <Run Text="{Binding LocalizedTextCursor}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedTextCursorPath}"/>
                 </TextBlock>
               </StackPanel>
             </StackPanel>
@@ -672,22 +672,22 @@
                   <TextBlock Text="{Binding LocalizedNavigationKeys}" FontWeight="SemiBold" FontSize="13"/>
                   <StackPanel Spacing="4">
                     <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                      <Run Text="• Tab" FontWeight="SemiBold"/> – Move forward between controls
+                      <Run Text="{Binding LocalizedTab}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedTabDescription}"/>
                     </TextBlock>
                     <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                      <Run Text="• Shift+Tab" FontWeight="SemiBold"/> – Move backward between controls
+                      <Run Text="{Binding LocalizedShiftTab}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedShiftTabDescription}"/>
                     </TextBlock>
                     <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                      <Run Text="• Space/Enter" FontWeight="SemiBold"/> – Activate buttons and toggles
+                      <Run Text="{Binding LocalizedSpaceEnter}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedSpaceEnterDescription}"/>
                     </TextBlock>
                     <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                      <Run Text="• Arrow Keys" FontWeight="SemiBold"/> – Navigate within lists, menus, and dropdowns
+                      <Run Text="{Binding LocalizedArrowKeys}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedArrowKeysDescription}"/>
                     </TextBlock>
                     <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                      <Run Text="• Esc" FontWeight="SemiBold"/> – Close dialogs and overlays
+                      <Run Text="{Binding LocalizedEsc}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedEscDescription}"/>
                     </TextBlock>
                     <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                      <Run Text="• Ctrl+L" FontWeight="SemiBold"/> – Lock application (customizable in Hotkeys)
+                      <Run Text="{Binding LocalizedCtrlL}" FontWeight="SemiBold"/> <Run Text="{Binding LocalizedCtrlLDescription}"/>
                     </TextBlock>
                   </StackPanel>
                 </StackPanel>
@@ -731,9 +731,7 @@
                     <TextBlock Classes="icon-mdl2" Text="&#xE7BA;" FontSize="16" Foreground="#FFA500" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding LocalizedPerformanceWarning}" FontWeight="SemiBold" Foreground="#FFA500"/>
                   </StackPanel>
-                  <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
-                    Logging causes significant performance degradation. Only enable when actively tracking down problems or debugging issues. Disable immediately after troubleshooting is complete.
-                  </TextBlock>
+                  <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" Text="{Binding LocalizedPerformanceWarningText}"/>
                 </StackPanel>
               </Border>
             </StackPanel>
@@ -744,18 +742,18 @@
               <TextBlock Text="{Binding LocalizedLogMaintenance}" FontWeight="SemiBold"/>
 
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <TextBlock Text="Auto-trim UI log" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding LocalizedAutoTrimUILog}" VerticalAlignment="Center"/>
                 <ToggleSwitch IsChecked="{Binding EnableDebugLogAutoTrim}"/>
               </StackPanel>
 
               <Grid ColumnDefinitions="220,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Max entries to keep" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedMaxEntries}" VerticalAlignment="Center"/>
                 <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding DebugUiLogMaxLines}" Minimum="100" Maximum="20000" Increment="100" Width="100" ShowButtonSpinner="False"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Retention window (days)" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedRetentionDays}" VerticalAlignment="Center"/>
                 <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding DebugLogRetentionDays}" Minimum="0" Maximum="30" Width="80" ShowButtonSpinner="False"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Size cap" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedSizeCap}" VerticalAlignment="Center"/>
                 <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="4">
                   <NumericUpDown Value="{Binding DebugLogSizeValue}" Minimum="1" Maximum="{Binding DebugLogSizeMaxValue}" Width="80" ShowButtonSpinner="False"/>
                   <ComboBox SelectedItem="{Binding DebugLogSizeUnit}" Width="80" MinWidth="80">
@@ -766,14 +764,14 @@
               </Grid>
 
               <StackPanel Spacing="4">
-                <TextBlock Text="Last maintenance" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding LocalizedLastMaintenance}" FontWeight="SemiBold"/>
                 <TextBlock Text="{Binding LogMaintenanceLastRun}" Foreground="{DynamicResource App.SecondaryText}"/>
                 <TextBlock Text="{Binding LogMaintenanceStatus}" TextWrapping="Wrap" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
 
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="Run Maintenance Now" Command="{Binding RunLogMaintenanceCommand}"/>
-                <Button Content="Clear Error Log" Command="{Binding ClearErrorLogCommand}" Background="{DynamicResource App.Warning}" Foreground="White" ToolTip.Tip="Trim error.log to last 500 entries (emergency cleanup)"/>
+                <Button Content="{Binding LocalizedRunMaintenanceNow}" Command="{Binding RunLogMaintenanceCommand}"/>
+                <Button Content="{Binding LocalizedClearErrorLog}" Command="{Binding ClearErrorLogCommand}" Background="{DynamicResource App.Warning}" Foreground="White" ToolTip.Tip="{Binding LocalizedClearErrorLogTooltip}"/>
               </StackPanel>
             </StackPanel>
           </Border>
@@ -787,7 +785,7 @@
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedApplicationInformation}" FontWeight="SemiBold" FontSize="16"/>
               <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" HorizontalAlignment="Stretch">
-                <TextBlock Text="Name:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding LocalizedAboutName}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="{Binding AppName}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
                 <TextBlock Text="{Binding LocalizedVersion}" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -798,9 +796,9 @@
                 </StackPanel>
                 <TextBlock Text="{Binding LocalizedBuild}" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="Debug" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
-                <TextBlock Text="Platform:" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding LocalizedAboutPlatform}" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="Windows" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
-                <TextBlock Text="Author:" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding LocalizedAboutAuthor}" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="{Binding Author}" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
               </Grid>
             </StackPanel>
@@ -809,11 +807,11 @@
           <!-- Framework Information -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Framework Information" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="{Binding LocalizedAboutFrameworkInfo}" FontWeight="SemiBold" FontSize="16"/>
               <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" HorizontalAlignment="Stretch">
-                <TextBlock Text="Avalonia UI:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding LocalizedAboutAvaloniaUI}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="{Binding AvaloniaVersion}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
-                <TextBlock Text=".NET Runtime:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding LocalizedAboutDotNetRuntime}" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="{Binding DotNetVersion}" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
               </Grid>
             </StackPanel>
@@ -822,10 +820,10 @@
           <!-- Links and Resources -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Links &amp; Resources" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="{Binding LocalizedAboutLinksResources}" FontWeight="SemiBold" FontSize="16"/>
               <Grid ColumnDefinitions="*,*" RowDefinitions="Auto" ColumnSpacing="8" RowSpacing="8">
-                <Button Grid.Row="0" Grid.Column="0" Content="Documentation" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
-                <Button Grid.Row="0" Grid.Column="1" Content="Privacy Policy" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
+                <Button Grid.Row="0" Grid.Column="0" Content="{Binding LocalizedAboutDocumentation}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
+                <Button Grid.Row="0" Grid.Column="1" Content="{Binding LocalizedAboutPrivacyPolicy}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
               </Grid>
             </StackPanel>
           </Border>
@@ -833,9 +831,9 @@
           <!-- Acknowledgments -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Acknowledgments" FontWeight="SemiBold" FontSize="16"/>
-              <TextBlock Text="Built with Avalonia UI - A cross-platform XAML-based UI framework for .NET" TextWrapping="Wrap" Opacity="0.8"/>
-              <TextBlock Text="Special thanks to the open source community for their contributions and support." TextWrapping="Wrap" Opacity="0.8"/>
+              <TextBlock Text="{Binding LocalizedAboutAcknowledgments}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="{Binding LocalizedAboutBuiltWithAvalonia}" TextWrapping="Wrap" Opacity="0.8"/>
+              <TextBlock Text="{Binding LocalizedAboutSpecialThanks}" TextWrapping="Wrap" Opacity="0.8"/>
             </StackPanel>
           </Border>
         </StackPanel>
@@ -851,28 +849,28 @@
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedConnectionSettings}" FontWeight="SemiBold"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820">
-                <Run Text="Port:"/>
-                <Run Text="The port number ZTalk uses for P2P connections. Default is 26264. Changing this requires restarting the application."/>
+                <Run Text="{Binding LocalizedPortLabel}"/>
+                <Run Text="{Binding LocalizedPortDescription}"/>
               </TextBlock>
               <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Port" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedPort}" VerticalAlignment="Center"/>
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Port}" Width="120" HorizontalAlignment="Left" Watermark="26264"/>
                 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Dedicated Peer Node" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Row="1" Grid.Column="1" IsChecked="{Binding MajorNode}" Content="Enable as dedicated peer node (requires port forwarding)"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedDedicatedPeerNode}" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="1" Grid.Column="1" IsChecked="{Binding MajorNode}" Content="{Binding LocalizedEnableDedicatedPeerNode}"/>
               </Grid>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820" Margin="0,4,0,0">
-                <Run Text="Dedicated Peer Node:"/>
+                <Run Text="{Binding LocalizedDedicatedPeerNodeInfo}"/>
                 <LineBreak/>
-                <Run Text="• Enables UPnP port mapping for WAN reachability (requires router support)"/>
+                <Run Text="{Binding LocalizedEnablesUPnP}"/>
                 <LineBreak/>
-                <Run Text="• Makes your node accessible from outside your local network"/>
+                <Run Text="{Binding LocalizedMakesNodeAccessible}"/>
                 <LineBreak/>
-                <Run Text="• Improves direct P2P connectivity for all peers"/>
+                <Run Text="{Binding LocalizedImprovesConnectivity}"/>
                 <LineBreak/>
-                <Run Text="• Does NOT relay encrypted message traffic - only helps with NAT traversal"/>
+                <Run Text="{Binding LocalizedDoesNotRelay}"/>
                 <LineBreak/>
-                <Run Text="• Requires manual port forwarding if UPnP fails (forward port 26264 TCP to this machine)"/>
+                <Run Text="{Binding LocalizedRequiresPortForwarding}"/>
               </TextBlock>
             </StackPanel>
           </Border>
@@ -882,27 +880,27 @@
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedRelaySettings}" FontWeight="SemiBold"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820">
-                <Run Text="Relay servers provide last-resort connectivity when direct P2P and NAT traversal fail."/>
+                <Run Text="{Binding LocalizedRelayDescription1}"/>
                 <LineBreak/>
-                <Run Text="All messages remain end-to-end encrypted - the relay only forwards encrypted traffic."/>
+                <Run Text="{Binding LocalizedRelayDescription2}"/>
               </TextBlock>
               <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Relay Fallback" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding RelayFallbackEnabled}" Content="Enable relay fallback for blocked connections"/>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedRelayFallback}" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding RelayFallbackEnabled}" Content="{Binding LocalizedEnableRelayFallback}"/>
                 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Relay Server" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedRelayServer}" VerticalAlignment="Center"/>
                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RelayServer}" Watermark="relay.example.com:443" Width="280" HorizontalAlignment="Left"/>
               </Grid>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820" Margin="0,4,0,0">
-                <Run Text="Requirements:"/>
+                <Run Text="{Binding LocalizedRequirements}"/>
                 <LineBreak/>
-                <Run Text="• Requires a dedicated relay server with public IP or DNS name"/>
+                <Run Text="{Binding LocalizedRequiresDedicatedRelay}"/>
                 <LineBreak/>
-                <Run Text="• Server must be configured to accept ZTalk relay protocol connections"/>
+                <Run Text="{Binding LocalizedServerMustBeConfigured}"/>
                 <LineBreak/>
-                <Run Text="• Format: hostname:port or IP:port (e.g., relay.example.com:443)"/>
+                <Run Text="{Binding LocalizedRelayFormat}"/>
                 <LineBreak/>
-                <Run Text="• Leave blank to disable relay fallback and rely on direct/NAT traversal only"/>
+                <Run Text="{Binding LocalizedLeaveBlankToDisable}"/>
               </TextBlock>
             </StackPanel>
           </Border>
@@ -910,10 +908,10 @@
           <!-- Known Dedicated Peer Nodes -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Known Dedicated Peer Nodes" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedKnownDedicatedPeerNodes}" FontWeight="SemiBold"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBox Text="{Binding NewMajorNode}" Watermark="example.com:26264" Width="240"/>
-                <Button Content="Add" Command="{Binding AddMajorNodeCommand}"/>
+                <Button Content="{Binding LocalizedAdd}" Command="{Binding AddMajorNodeCommand}"/>
               </StackPanel>
               <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" MinHeight="120" MaxHeight="200">
                 <ScrollViewer>
@@ -922,7 +920,7 @@
                       <DataTemplate>
                         <Grid ColumnDefinitions="*,Auto" Margin="8,4">
                           <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"/>
-                          <Button Grid.Column="1" Content="Remove" Command="{Binding $parent[UserControl].DataContext.RemoveMajorNodeCommand}" CommandParameter="{Binding}"/>
+                          <Button Grid.Column="1" Content="{Binding $parent[UserControl].DataContext.LocalizedRemove}" Command="{Binding $parent[UserControl].DataContext.RemoveMajorNodeCommand}" CommandParameter="{Binding}"/>
                         </Grid>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -937,11 +935,11 @@
             <StackPanel Spacing="8">
               <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,4">
                 <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2">
-                  <TextBlock Text="Discovered Peers" FontWeight="SemiBold"/>
-                  <TextBlock Text="(locations are estimated and not even remotely accurate)" FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
+                  <TextBlock Text="{Binding LocalizedDiscoveredPeers}" FontWeight="SemiBold"/>
+                  <TextBlock Text="{Binding LocalizedLocationsEstimated}" FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
                 </StackPanel>
-                <Button Grid.Column="1" Content="Block Selected" Command="{Binding BlockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
-                <Button Grid.Column="2" Content="Unblock Selected" Command="{Binding UnblockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
+                <Button Grid.Column="1" Content="{Binding LocalizedBlockSelected}" Command="{Binding BlockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
+                <Button Grid.Column="2" Content="{Binding LocalizedUnblockSelected}" Command="{Binding UnblockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
                 <Button Grid.Column="3" Command="{Binding RefreshPeersCommand}" Padding="8,4" ToolTip.Tip="Refresh Peer List" FontFamily="Segoe MDL2 Assets" FontSize="14" Content="&#xE72C;"/>
               </Grid>
               <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Height="320">
@@ -955,10 +953,10 @@
                     <Grid ColumnDefinitions="32,36,180,*,50,50">
                       <TextBlock Grid.Column="0" Text="☑" FontWeight="SemiBold" FontSize="11" Opacity="0.7" Margin="3,0,0,0"/>
                       <TextBlock Grid.Column="1" Text="🌍" FontWeight="SemiBold" FontSize="11" Opacity="0.7" HorizontalAlignment="Center"/>
-                      <TextBlock Grid.Column="2" Text="UID" FontWeight="SemiBold" FontSize="11" Opacity="0.8" Margin="3,0,0,0"/>
-                      <TextBlock Grid.Column="3" Text="Public Key" FontWeight="SemiBold" FontSize="11" Opacity="0.8" Margin="3,0,0,0"/>
-                      <TextBlock Grid.Column="4" Text="Node" FontWeight="SemiBold" FontSize="11" Opacity="0.8" HorizontalAlignment="Center"/>
-                      <TextBlock Grid.Column="5" Text="Block" FontWeight="SemiBold" FontSize="11" Opacity="0.8" HorizontalAlignment="Center"/>
+                      <TextBlock Grid.Column="2" Text="{Binding LocalizedUID}" FontWeight="SemiBold" FontSize="11" Opacity="0.8" Margin="3,0,0,0"/>
+                      <TextBlock Grid.Column="3" Text="{Binding LocalizedPublicKey}" FontWeight="SemiBold" FontSize="11" Opacity="0.8" Margin="3,0,0,0"/>
+                      <TextBlock Grid.Column="4" Text="{Binding LocalizedNode}" FontWeight="SemiBold" FontSize="11" Opacity="0.8" HorizontalAlignment="Center"/>
+                      <TextBlock Grid.Column="5" Text="{Binding LocalizedBlock}" FontWeight="SemiBold" FontSize="11" Opacity="0.8" HorizontalAlignment="Center"/>
                     </Grid>
                   </Border>
                   <!-- Scrollable peer list -->
@@ -1236,66 +1234,66 @@
           <!-- Account Deletion Warning -->
           <Border CornerRadius="8" Padding="16" BorderBrush="Red" BorderThickness="1" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="⚠️ Danger Zone" FontWeight="SemiBold" FontSize="16" Foreground="Red"/>
-              <TextBlock Text="These actions are irreversible and will permanently delete your data." TextWrapping="Wrap" Opacity="0.9"/>
+              <TextBlock Text="{Binding LocalizedDangerZoneTitle}" FontWeight="SemiBold" FontSize="16" Foreground="Red"/>
+              <TextBlock Text="{Binding LocalizedDangerZoneWarning}" TextWrapping="Wrap" Opacity="0.9"/>
             </StackPanel>
           </Border>
 
           <!-- Delete Account Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Delete Account" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="{Binding LocalizedDeleteAccount}" FontWeight="SemiBold" FontSize="16"/>
               
               <!-- Information First - What will happen -->
               <StackPanel Spacing="4" Opacity="0.8">
-                <TextBlock Text="What happens when you delete your account:" FontWeight="SemiBold"/>
-                <TextBlock Text="• All your messages will be permanently deleted" TextWrapping="Wrap"/>
-                <TextBlock Text="• Your contact list will be removed" TextWrapping="Wrap"/>
-                <TextBlock Text="• Your profile information will be erased" TextWrapping="Wrap"/>
-                <TextBlock Text="• You will be removed from all conversations" TextWrapping="Wrap"/>
-                <TextBlock Text="• This action cannot be undone" TextWrapping="Wrap" FontWeight="Medium"/>
+                <TextBlock Text="{Binding LocalizedWhatHappens}" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding LocalizedMessagesDeleted}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding LocalizedContactListRemoved}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding LocalizedProfileErased}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding LocalizedRemovedFromConversations}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding LocalizedCannotUndo}" TextWrapping="Wrap" FontWeight="Medium"/>
               </StackPanel>
               
-              <TextBlock Text="Once you delete your account, there is no going back. This will permanently delete your account and wipe all local data from this device." TextWrapping="Wrap" Opacity="0.8"/>
-              <TextBlock Text="Please type the following code to confirm:" Opacity="0.8"/>
+              <TextBlock Text="{Binding LocalizedDeleteAccountWarning}" TextWrapping="Wrap" Opacity="0.8"/>
+              <TextBlock Text="{Binding LocalizedTypeConfirmationCode}" Opacity="0.8"/>
               <Border CornerRadius="4" Padding="8" BorderBrush="{DynamicResource App.BorderBrush}" BorderThickness="1" Width="320" HorizontalAlignment="Left">
                 <TextBlock Text="{Binding GeneratedDeleteCode}" FontFamily="Consolas" FontWeight="Medium" HorizontalAlignment="Center"/>
               </Border>
-              <TextBox Text="{Binding DeleteConfirmText}" Watermark="Enter confirmation code..." HorizontalAlignment="Left" Width="320"/>
-              <Button Content="Delete Account" Command="{Binding DeleteAccountCommand}" Background="Red" Foreground="White" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium"/>
+              <TextBox Text="{Binding DeleteConfirmText}" Watermark="{Binding LocalizedEnterConfirmationCode}" HorizontalAlignment="Left" Width="320"/>
+              <Button Content="{Binding LocalizedDeleteAccount}" Command="{Binding DeleteAccountCommand}" Background="Red" Foreground="White" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium"/>
             </StackPanel>
           </Border>
 
           <!-- Purge Messages Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Purge All Messages" FontWeight="SemiBold" FontSize="16" Foreground="#C0392B"/>
+              <TextBlock Text="{Binding LocalizedPurgeAllMessages}" FontWeight="SemiBold" FontSize="16" Foreground="#C0392B"/>
               
               <!-- Information First - What will happen -->
               <StackPanel Spacing="4" Opacity="0.8">
-                <TextBlock Text="What happens when you purge all messages:" FontWeight="SemiBold"/>
-                <TextBlock Text="• Every conversation will be permanently deleted" TextWrapping="Wrap"/>
-                <TextBlock Text="• All pending outbox messages will be removed" TextWrapping="Wrap"/>
-                <TextBlock Text="• Encrypted archives will be securely overwritten" TextWrapping="Wrap"/>
-                <TextBlock Text="• Recovery will be impossible" TextWrapping="Wrap" FontWeight="Medium"/>
-                <TextBlock Text="• This action cannot be undone" TextWrapping="Wrap" FontWeight="Medium"/>
+                <TextBlock Text="{Binding LocalizedWhatHappensPurge}" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding LocalizedConversationsDeleted}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding LocalizedOutboxRemoved}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding LocalizedArchivesOverwritten}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding LocalizedRecoveryImpossible}" TextWrapping="Wrap" FontWeight="Medium"/>
+                <TextBlock Text="{Binding LocalizedCannotUndo}" TextWrapping="Wrap" FontWeight="Medium"/>
               </StackPanel>
               
-              <TextBlock Text="Securely delete every conversation and pending message from this device. This process overwrites the encrypted archives before removal making recovery impossible." TextWrapping="Wrap" Opacity="0.85"/>
-              <TextBlock Text="Use this if you're decommissioning the device or need a clean slate." TextWrapping="Wrap" Opacity="0.75"/>
+              <TextBlock Text="{Binding LocalizedPurgeWarning}" TextWrapping="Wrap" Opacity="0.85"/>
+              <TextBlock Text="{Binding LocalizedPurgeUseCase}" TextWrapping="Wrap" Opacity="0.75"/>
               
-              <TextBlock Text="Type 'PURGE-ALL-DATA' to confirm:" Opacity="0.8"/>
-              <TextBox Text="{Binding PurgeConfirmText}" Watermark="Type: PURGE-ALL-DATA" HorizontalAlignment="Left" Width="320"/>
-              <Button Content="Purge All Messages" Command="{Binding PurgeAllMessagesCommand}" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium" Background="#B00020" Foreground="White"/>
+              <TextBlock Text="{Binding LocalizedTypePurgeConfirm}" Opacity="0.8"/>
+              <TextBox Text="{Binding PurgeConfirmText}" Watermark="{Binding LocalizedTypePurgeAllData}" HorizontalAlignment="Left" Width="320"/>
+              <Button Content="{Binding LocalizedPurgeAllMessages}" Command="{Binding PurgeAllMessagesCommand}" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium" Background="#B00020" Foreground="White"/>
             </StackPanel>
           </Border>
 
           <!-- Data Export -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Export Data" FontWeight="SemiBold" FontSize="16"/>
-              <TextBlock Text="Download a copy of your data before deleting your account. This includes your messages, contacts, and settings." TextWrapping="Wrap" Opacity="0.8"/>
-              <Button Content="Export Data" HorizontalAlignment="Left" Padding="12,8"/>
+              <TextBlock Text="{Binding LocalizedExportData}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="{Binding LocalizedExportDataDescription}" TextWrapping="Wrap" Opacity="0.8"/>
+              <Button Content="{Binding LocalizedExportData}" HorizontalAlignment="Left" Padding="12,8"/>
             </StackPanel>
           </Border>
 
@@ -1308,21 +1306,21 @@
           <!-- Logout Information -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Sign Out" FontWeight="SemiBold" FontSize="16"/>
-              <TextBlock Text="Signing out will disconnect you from the application and require you to enter your passphrase again to access your account." TextWrapping="Wrap" Opacity="0.8"/>
-              <TextBlock Text="Your data will remain securely stored locally and will be available when you sign back in." TextWrapping="Wrap" Opacity="0.8"/>
+              <TextBlock Text="{Binding LocalizedSignOut}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="{Binding LocalizedSignOutDescription}" TextWrapping="Wrap" Opacity="0.8"/>
+              <TextBlock Text="{Binding LocalizedDataRemains}" TextWrapping="Wrap" Opacity="0.8"/>
             </StackPanel>
           </Border>
 
           <!-- Current Session Info -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Current Session" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="{Binding LocalizedCurrentSession}" FontWeight="SemiBold" FontSize="16"/>
               <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" HorizontalAlignment="Stretch">
-                <TextBlock Text="Status:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBlock Text="Active" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium" Foreground="Green"/>
-                <TextBlock Text="Last Activity:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <TextBlock Text="Just now" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Opacity="0.8"/>
+                <TextBlock Text="{Binding LocalizedSessionStatus}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding LocalizedActive}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium" Foreground="Green"/>
+                <TextBlock Text="{Binding LocalizedLastActivity}" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Text="{Binding LocalizedJustNow}" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Opacity="0.8"/>
               </Grid>
             </StackPanel>
           </Border>
@@ -1330,17 +1328,17 @@
           <!-- Sign Out Button -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="Ready to sign out?" FontWeight="SemiBold"/>
-              <TextBlock Text="Click the button below to sign out of your account. You'll need your passphrase to sign back in." TextWrapping="Wrap" Opacity="0.8"/>
-              <Button Content="Sign Out" Command="{Binding LogoutCommand}" Background="{DynamicResource App.Accent}" Foreground="White" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium"/>
+              <TextBlock Text="{Binding LocalizedReadyToSignOut}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedSignOutPrompt}" TextWrapping="Wrap" Opacity="0.8"/>
+              <Button Content="{Binding LocalizedSignOutButton}" Command="{Binding LogoutCommand}" Background="{DynamicResource App.Accent}" Foreground="White" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium"/>
             </StackPanel>
           </Border>
 
           <!-- Security Note -->
           <Border CornerRadius="8" Padding="16" BorderBrush="{DynamicResource App.BorderBrush}" BorderThickness="1" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
-              <TextBlock Text="🔒 Security Reminder" FontWeight="SemiBold"/>
-              <TextBlock Text="Always sign out when using shared or public computers to protect your privacy and security." TextWrapping="Wrap" Opacity="0.8"/>
+              <TextBlock Text="{Binding LocalizedSecurityReminder}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedSecurityReminderText}" TextWrapping="Wrap" Opacity="0.8"/>
             </StackPanel>
           </Border>
         </StackPanel>

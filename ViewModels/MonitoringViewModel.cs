@@ -15,6 +15,39 @@ public class MonitoringViewModel : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+
+    // Localized strings
+    public string LocalizedTitle => Services.AppServices.Localization.GetString("Monitoring.Title", "Monitoring");
+    public string LocalizedNAT => Services.AppServices.Localization.GetString("Monitoring.NAT", "NAT:");
+    public string LocalizedRetry => Services.AppServices.Localization.GetString("Monitoring.Retry", "Retry");
+    public string LocalizedRetryTooltip => Services.AppServices.Localization.GetString("Monitoring.RetryTooltip", "Re-run mapping verification & hairpin test");
+    public string LocalizedStatusLegend => Services.AppServices.Localization.GetString("Monitoring.StatusLegend", "Status Legend");
+    public string LocalizedSearching => Services.AppServices.Localization.GetString("Monitoring.Searching", "Searching");
+    public string LocalizedFailure => Services.AppServices.Localization.GetString("Monitoring.Failure", "Failure");
+    public string LocalizedSuccess => Services.AppServices.Localization.GetString("Monitoring.Success", "Success");
+    public string LocalizedTrafficBytesPerSec => Services.AppServices.Localization.GetString("Monitoring.TrafficBytesPerSec", "Traffic (bytes/sec)");
+    public string LocalizedRefresh => Services.AppServices.Localization.GetString("Monitoring.Refresh", "Refresh");
+    public string LocalizedPorts => Services.AppServices.Localization.GetString("Monitoring.Ports", "Ports:");
+    public string LocalizedGateway => Services.AppServices.Localization.GetString("Monitoring.Gateway", "Gateway:");
+    public string LocalizedExternalIP => Services.AppServices.Localization.GetString("Monitoring.ExternalIP", "External IP:");
+    public string LocalizedService => Services.AppServices.Localization.GetString("Monitoring.Service", "Service:");
+    public string LocalizedAltServices => Services.AppServices.Localization.GetString("Monitoring.AltServices", "Alt Services:");
+    public string LocalizedMapPing => Services.AppServices.Localization.GetString("Monitoring.MapPing", "Map/Ping:");
+    public string LocalizedMapAt => Services.AppServices.Localization.GetString("Monitoring.MapAt", "Map @");
+    public string LocalizedVerifyAt => Services.AppServices.Localization.GetString("Monitoring.VerifyAt", "· Verify @");
+    public string LocalizedPunch => Services.AppServices.Localization.GetString("Monitoring.Punch", "Punch:");
+    public string LocalizedHairpin => Services.AppServices.Localization.GetString("Monitoring.Hairpin", "| Hairpin:");
+    public string LocalizedDiscovery => Services.AppServices.Localization.GetString("Monitoring.Discovery", "Discovery:");
+    public string LocalizedAttempts => Services.AppServices.Localization.GetString("Monitoring.Attempts", "Attempts:");
+    public string LocalizedBackoff => Services.AppServices.Localization.GetString("Monitoring.Backoff", "Backoff:");
+    public string LocalizedRestartDiscovery => Services.AppServices.Localization.GetString("Monitoring.RestartDiscovery", "Restart Discovery");
+    public string LocalizedLastAttempt => Services.AppServices.Localization.GetString("Monitoring.LastAttempt", "Last attempt:");
+    public string LocalizedLastSuccess => Services.AppServices.Localization.GetString("Monitoring.LastSuccess", "· Last success:");
+    public string LocalizedDiagnosticsLog => Services.AppServices.Localization.GetString("Monitoring.DiagnosticsLog", "Diagnostics log");
+    public string LocalizedShowLog => Services.AppServices.Localization.GetString("Monitoring.ShowLog", "Show log");
+    public string LocalizedTextSizeForLog => Services.AppServices.Localization.GetString("Monitoring.TextSizeForLog", "Text Size for Log");
+    public string LocalizedClose => Services.AppServices.Localization.GetString("Monitoring.Close", "Close");
+
     public MonitoringViewModel()
     {
         try
@@ -25,7 +58,50 @@ public class MonitoringViewModel : INotifyPropertyChanged
             AppServices.Events.NetworkListeningChanged += OnListeningChanged;
         }
         catch { }
+
+        // Subscribe to language changes
+        try
+        {
+            Action languageChangedHandler = () => { Avalonia.Threading.Dispatcher.UIThread.Post(RefreshLocalizedStrings); };
+            AppServices.Localization.LanguageChanged += languageChangedHandler;
+        }
+        catch { }
     }
+
+    private void RefreshLocalizedStrings()
+    {
+        OnPropertyChanged(nameof(LocalizedTitle));
+        OnPropertyChanged(nameof(LocalizedNAT));
+        OnPropertyChanged(nameof(LocalizedRetry));
+        OnPropertyChanged(nameof(LocalizedRetryTooltip));
+        OnPropertyChanged(nameof(LocalizedStatusLegend));
+        OnPropertyChanged(nameof(LocalizedSearching));
+        OnPropertyChanged(nameof(LocalizedFailure));
+        OnPropertyChanged(nameof(LocalizedSuccess));
+        OnPropertyChanged(nameof(LocalizedTrafficBytesPerSec));
+        OnPropertyChanged(nameof(LocalizedRefresh));
+        OnPropertyChanged(nameof(LocalizedPorts));
+        OnPropertyChanged(nameof(LocalizedGateway));
+        OnPropertyChanged(nameof(LocalizedExternalIP));
+        OnPropertyChanged(nameof(LocalizedService));
+        OnPropertyChanged(nameof(LocalizedAltServices));
+        OnPropertyChanged(nameof(LocalizedMapPing));
+        OnPropertyChanged(nameof(LocalizedMapAt));
+        OnPropertyChanged(nameof(LocalizedVerifyAt));
+        OnPropertyChanged(nameof(LocalizedPunch));
+        OnPropertyChanged(nameof(LocalizedHairpin));
+        OnPropertyChanged(nameof(LocalizedDiscovery));
+        OnPropertyChanged(nameof(LocalizedAttempts));
+        OnPropertyChanged(nameof(LocalizedBackoff));
+        OnPropertyChanged(nameof(LocalizedRestartDiscovery));
+        OnPropertyChanged(nameof(LocalizedLastAttempt));
+        OnPropertyChanged(nameof(LocalizedLastSuccess));
+        OnPropertyChanged(nameof(LocalizedDiagnosticsLog));
+        OnPropertyChanged(nameof(LocalizedShowLog));
+        OnPropertyChanged(nameof(LocalizedTextSizeForLog));
+        OnPropertyChanged(nameof(LocalizedClose));
+    }
+
     private void OnNatChanged()
     {
         try { Avalonia.Threading.Dispatcher.UIThread.Post(() => NotifyNetworkStatus()); } catch { }

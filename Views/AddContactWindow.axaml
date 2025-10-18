@@ -5,7 +5,7 @@
         xmlns:vm="clr-namespace:ZTalk.ViewModels"
         xmlns:util="clr-namespace:ZTalk.Utilities"
   x:Class="ZTalk.Views.AddContactWindow"
-        Title="Add Contact"
+        Title="{Binding LocalizedTitle}"
   Width="420" Height="300"
   CanResize="False"
   ExtendClientAreaToDecorationsHint="True"
@@ -38,17 +38,17 @@
     <Grid RowDefinitions="*,Auto" RowSpacing="8">
       <!-- [LAYOUT] Removed ScrollViewer per requirement; content fits within fixed window size. -->
       <StackPanel Grid.Row="0" Spacing="8">
-          <TextBlock Text="Enter the contact's UID (no prefix). Discovery is automatic." TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding LocalizedEnterUID}" TextWrapping="Wrap"/>
           <StackPanel>
-            <TextBlock Text="UID"/>
-            <TextBox Text="{Binding UID, Mode=TwoWay}" Watermark="e.g., 7XKQ9Z8P"/>
+            <TextBlock Text="{Binding LocalizedUID}"/>
+            <TextBox Text="{Binding UID, Mode=TwoWay}" Watermark="{Binding LocalizedUIDPlaceholder}"/>
           </StackPanel>
           <StackPanel>
-            <TextBlock Text="Expected Public Key (hex, optional)"/>
-            <TextBox Text="{Binding ExpectedPublicKeyHex, Mode=TwoWay}" Watermark="abcdef..."/>
+            <TextBlock Text="{Binding LocalizedExpectedPublicKey}"/>
+            <TextBox Text="{Binding ExpectedPublicKeyHex, Mode=TwoWay}" Watermark="{Binding LocalizedPublicKeyPlaceholder}"/>
           </StackPanel>
           <!-- Simulated contact opt-in (hidden in Release builds) -->
-          <ToggleButton Content="Simulated Contact"
+          <ToggleButton Content="{Binding LocalizedSimulatedContact}"
                     IsChecked="{Binding IsSimulated, Mode=TwoWay}"
                     IsVisible="{Binding ShowSimulatedOption}"
                     Classes="pill-toggle"/>
@@ -57,8 +57,8 @@
       </StackPanel>
   <!-- [LAYOUT] Button row anchored and padded to remain fully visible within window bounds; aligned for consistency with other windows. -->
       <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
-        <Button Content="Cancel" Command="{Binding CancelCommand}"/>
-        <Button Content="Send Request" Command="{Binding SendCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
+        <Button Content="{Binding LocalizedCancel}" Command="{Binding CancelCommand}"/>
+        <Button Content="{Binding LocalizedSendRequest}" Command="{Binding SendCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"/>
       </StackPanel>
     </Grid>
   </Border>

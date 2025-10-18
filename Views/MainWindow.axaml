@@ -189,10 +189,10 @@
                             <TextBlock Classes="icon-mdl2" Text="&#xE8BD;" Foreground="#2196F3"/>
                         </Button>
                     </StackPanel>
-                    <Button Classes="icon-button" ToolTip.Tip="Toggle Contacts" Click="ToggleLeftPanel_Click">
+                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedToggleContacts}" Click="ToggleLeftPanel_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE700;"/>
                     </Button>
-                    <Button x:Name="NotificationBellButton" Classes="icon-button" ToolTip.Tip="Open Notifications" Click="ToggleRightPanel_Click">
+                    <Button x:Name="NotificationBellButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedOpenNotifications}" Click="ToggleRightPanel_Click">
                         <!-- Bell glyph with compact red-dot badge to mirror nav rail -->
                         <Grid Width="20" Height="20">
                             <Path x:Name="NotificationBellIcon" Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource App.ForegroundPrimary}" IsHitTestVisible="False"
@@ -202,17 +202,17 @@
                                      IsHitTestVisible="False" IsVisible="{Binding NotificationBadgeVisible}" />
                         </Grid>
                     </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Lock / Logout" Click="Lock_Click">
+                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedLockLogout}" Click="Lock_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE72E;"/>
                     </Button>
                     <Separator/>
-                    <Button Classes="icon-button" ToolTip.Tip="Minimize" Click="Minimize_Click">
+                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedMinimize}" Click="Minimize_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE921;"/>
                     </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Maximize / Restore" Click="Maximize_Click">
+                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedMaximize}" Click="Maximize_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE922;"/>
                     </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Close" Click="Close_Click">
+                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedClose}" Click="Close_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE8BB;"/>
                     </Button>
                 </StackPanel>
@@ -252,19 +252,19 @@
         <Grid Margin="0,12" RowDefinitions="Auto,*,Auto">
                     <!-- Primary navigation icons stay anchored to the top -->
                     <StackPanel Grid.Row="0" Spacing="6" HorizontalAlignment="Center">
-                        <Button Classes="icon-button" ToolTip.Tip="Home" Click="Home_Click">
+                        <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedHome}" Click="Home_Click">
                             <TextBlock Classes="icon-mdl2" Text="&#xE80F;" FontSize="26"/>
                         </Button>
-                        <Button Classes="icon-button" ToolTip.Tip="Monitoring" Click="Monitoring_Click">
+                        <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedMonitoring}" Click="Monitoring_Click">
                             <TextBlock Classes="icon-mdl2" Text="&#xE9D2;" FontSize="26"/>
                         </Button>
-                        <Button x:Name="LogsButton" Classes="icon-button" ToolTip.Tip="Logs" Click="Logs_Click" IsVisible="False">
+                        <Button x:Name="LogsButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedLogs}" Click="Logs_Click" IsVisible="False">
                             <TextBlock Classes="icon-mdl2" Text="&#xE8A5;" FontSize="26"/>
                         </Button>
                     </StackPanel>
 
                     <!-- Settings gear lives at the bottom edge to match navigation expectations -->
-                    <Button Grid.Row="2" Classes="icon-button" ToolTip.Tip="Settings" Click="Settings_Click" HorizontalAlignment="Center">
+                    <Button Grid.Row="2" Classes="icon-button" ToolTip.Tip="{Binding LocalizedSettings}" Click="Settings_Click" HorizontalAlignment="Center">
                         <TextBlock Classes="icon-mdl2" Text="&#xE713;" FontSize="26"/>
                     </Button>
                 </Grid>
@@ -295,17 +295,17 @@
                                             </ContextMenu.Styles>
                                             <MenuItem Header="View Profile" Command="{Binding $parent[v:MainWindow].OpenProfileSettingsCommand}"/>
                                             <Separator/>
-                                            <MenuItem Header="Online" Command="{Binding $parent[v:MainWindow].SetStatusOnlineCommand}">
+                                            <MenuItem Header="{Binding $parent[v:MainWindow].DataContext.LocalizedOnline}" Command="{Binding $parent[v:MainWindow].SetStatusOnlineCommand}">
                                                 <MenuItem.Icon>
                                                     <TextBlock Text="&#x2714;" FontSize="12" IsVisible="{Binding $parent[v:MainWindow].IsOnline}"/>
                                                 </MenuItem.Icon>
                                             </MenuItem>
-                                            <MenuItem Header="Away" Command="{Binding $parent[v:MainWindow].SetStatusAwayCommand}">
+                                            <MenuItem Header="{Binding $parent[v:MainWindow].DataContext.LocalizedAway}" Command="{Binding $parent[v:MainWindow].SetStatusAwayCommand}">
                                                 <MenuItem.Icon>
                                                     <TextBlock Text="&#x2714;" FontSize="12" IsVisible="{Binding $parent[v:MainWindow].IsAway}"/>
                                                 </MenuItem.Icon>
                                             </MenuItem>
-                                            <MenuItem Header="Do Not Disturb" Command="{Binding $parent[v:MainWindow].SetStatusDndCommand}">
+                                            <MenuItem Header="{Binding $parent[v:MainWindow].DataContext.LocalizedDoNotDisturb}" Command="{Binding $parent[v:MainWindow].SetStatusDndCommand}">
                                                 <MenuItem.Icon>
                                                     <TextBlock Text="&#x2714;" FontSize="12" IsVisible="{Binding $parent[v:MainWindow].IsDnd}"/>
                                                 </MenuItem.Icon>
@@ -340,8 +340,8 @@
 
                         <!-- Contacts bar: title + add button -->
                         <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                            <TextBlock Grid.Column="0" Text="Contacts" FontWeight="SemiBold"/>
-                            <Button Grid.Column="1" Classes="icon-button" ToolTip.Tip="Add Contact" Click="AddContact_Click">
+                            <TextBlock Grid.Column="0" Text="{Binding LocalizedContacts}" FontWeight="SemiBold"/>
+                            <Button Grid.Column="1" Classes="icon-button" ToolTip.Tip="{Binding LocalizedAddContact}" Click="AddContact_Click">
                                         <TextBlock Classes="icon-mdl2" Text="&#xE710;"/>
                             </Button>
                         </Grid>
@@ -379,7 +379,7 @@
                                                 <TextBlock Classes="icon-mdl2" Text="&#xE77B;"/>
                                             </MenuItem.Icon>
                                         </MenuItem>
-                                        <MenuItem Header="Copy UID" Click="CopyContactUid_Click"
+                                        <MenuItem Header="{Binding $parent[v:MainWindow].DataContext.LocalizedCopyUID}" Click="CopyContactUid_Click"
                                                   CommandParameter="{Binding UID}">
                                             <MenuItem.Icon>
                                                 <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
@@ -389,10 +389,10 @@
                                         <!-- DEPRECATED: Mark as trusted (replaced by cryptographic verification) -->
                                         <!-- MenuItem Header="Mark as trusted" removed per design decision -->
                                         <!-- MenuItem Header="Remove trusted flag" removed per design decision -->
-                                        <MenuItem Header="Set simulated presence"
+                                        <MenuItem Header="{Binding $parent[v:MainWindow].DataContext.LocalizedSetSimulatedPresence}"
                                                   IsVisible="{Binding IsSimulated}">
                                             <MenuItem.Items>
-                                                <MenuItem Header="Online"
+                                                <MenuItem Header="{Binding $parent[v:MainWindow].DataContext.LocalizedOnline}"
                                                           Command="{Binding $parent[v:MainWindow].DataContext.SetSimulatedContactOnlineCommand}"
                                                           CommandParameter="{Binding UID}"/>
                                                 <MenuItem Header="Offline"
@@ -401,7 +401,7 @@
                                             </MenuItem.Items>
                                         </MenuItem>
                                         <Separator/>
-                                        <MenuItem Header="Remove contact"
+                                        <MenuItem Header="{Binding $parent[v:MainWindow].DataContext.LocalizedRemoveContact}"
                                                   Command="{Binding $parent[v:MainWindow].DataContext.RemoveContactCommand}"
                                                   CommandParameter="{Binding UID}">
                                             <MenuItem.Icon>
@@ -463,11 +463,11 @@
                                             </c:VerifiedBadge>
                                             <Border Background="#DA7C19" CornerRadius="4" Padding="4,1" VerticalAlignment="Center"
                                                     IsVisible="{Binding IsSimulated}">
-                                                <TextBlock Text="Sim" Foreground="White" FontSize="11"/>
+                                                <TextBlock Text="{Binding $parent[v:MainWindow].DataContext.LocalizedSimulated}" Foreground="White" FontSize="11"/>
                                             </Border>
                                             <Border Background="#2B7A0B" CornerRadius="4" Padding="4,1" VerticalAlignment="Center"
                                                     IsVisible="{Binding IsTrusted}">
-                                                <TextBlock Text="Trusted" Foreground="White" FontSize="11"/>
+                                                <TextBlock Text="{Binding $parent[v:MainWindow].DataContext.LocalizedTrusted}" Foreground="White" FontSize="11"/>
                                             </Border>
                                         </StackPanel>
                                         <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
@@ -475,7 +475,7 @@
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Presence, Converter={StaticResource PresenceToDisplayStringConverter}}" FontSize="12" Opacity="0.6"/>
                                                 <Border Background="#444" CornerRadius="4" Padding="4,1" IsVisible="{Binding LastKnownEncrypted}">
-                                                    <TextBlock Text="Encrypted" Foreground="White" FontSize="10"/>
+                                                    <TextBlock Text="{Binding $parent[v:MainWindow].DataContext.LocalizedEncrypted}" Foreground="White" FontSize="10"/>
                                                 </Border>
                                             </StackPanel>
                                         </Grid>
@@ -517,13 +517,13 @@
                                     </c:VerifiedBadge.IsVisible>
                                 </c:VerifiedBadge>
                             </StackPanel>
-                            <Button Grid.Column="1" Width="28" Height="28" Margin="0,0,8,0" Classes="icon-button" Command="{Binding BurnConversationCommand}" ToolTip.Tip="Burn conversation permanently">
+                            <Button Grid.Column="1" Width="28" Height="28" Margin="0,0,8,0" Classes="icon-button" Command="{Binding BurnConversationCommand}" ToolTip.Tip="{Binding LocalizedBurnConversation}">
                                 <Grid Width="16" Height="16">
                                     <Path Fill="{DynamicResource App.Accent}" StrokeThickness="0" Stretch="Uniform"
                                           Data="M8,1 C9.5,3 9,4.6 9.4,6 C10.7,5.2 12,6.6 12,8.7 C12,11.1 10.2,13 8,13 C5.8,13 4,11.1 4,8.6 C4,7 4.9,5.8 6.2,5.1 C6.1,6.9 6.9,8.1 7.9,9.0 C8.8,9.9 9.6,9.4 9.6,8.1 C9.6,6.7 8.4,6.1 8,4.7 C7.6,3.4 7.9,2.2 8,1 Z"/>
                                 </Grid>
                             </Button>
-                            <Image Grid.Column="2" Width="16" Height="16" ToolTip.Tip="Chat is end-to-end encrypted" VerticalAlignment="Center" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
+                            <Image Grid.Column="2" Width="16" Height="16" ToolTip.Tip="{Binding LocalizedChatEncrypted}" VerticalAlignment="Center" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
                         </Grid>
 
                         <Border CornerRadius="6" Padding="10,6" HorizontalAlignment="Stretch"
@@ -541,7 +541,7 @@
                             </Grid>
                         </Border>
                         <Border Background="#DA7C19" CornerRadius="4" Padding="6,2" IsVisible="{Binding IsSelectedContactSimulated}" HorizontalAlignment="Left">
-                            <TextBlock Text="Simulated contact (loopback)" FontSize="11" Foreground="White"/>
+                            <TextBlock Text="{Binding LocalizedSimulatedContact}" FontSize="11" Foreground="White"/>
                         </Border>
                     </StackPanel>
                 </Border>
@@ -609,10 +609,10 @@
                                                         </TextBlock>
                                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                                             <TextBlock Classes="message-meta" FontSize="11" Opacity="0.65" Text="{Binding Timestamp}"/>
-                                                            <TextBlock Classes="message-meta" FontSize="11" Opacity="0.55" Text="(edited)" IsVisible="{Binding IsEdited}"/>
+                                                            <TextBlock Classes="message-meta" FontSize="11" Opacity="0.55" Text="{Binding $parent[v:MainWindow].DataContext.LocalizedEdited}" IsVisible="{Binding IsEdited}"/>
                                                             
                                                             <!-- Dot indicator for incoming messages (messages we received) -->
-                                                            <Grid Width="14" Height="14" VerticalAlignment="Center" ToolTip.Tip="Message received">
+                                                            <Grid Width="14" Height="14" VerticalAlignment="Center" ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedMessageReceived}">
                                                                 <Grid.IsVisible>
                                                                     <MultiBinding Converter="{StaticResource MessageIsFromContactConverter}">
                                                                         <Binding Path="SenderUID" />
@@ -625,7 +625,7 @@
                                                         <StackPanel Grid.Column="2" x:Name="MessageHoverBar" Classes="hover-actions" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
                                                             <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
                                                                     Classes="icon-button"
-                                                                    ToolTip.Tip="Edit"
+                                                                    ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedEdit}"
                                                                     Command="{Binding $parent[v:MainWindow].DataContext.EditMessageCommand}"
                                                                     CommandParameter="{Binding Id}">
                                                                 <Button.IsEnabled>
@@ -644,7 +644,7 @@
                                                             </Button>
                                                             <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
                                                                     Classes="icon-button"
-                                                                    ToolTip.Tip="Delete"
+                                                                    ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedDelete}"
                                                                     Command="{Binding $parent[v:MainWindow].DataContext.DeleteMessageCommand}"
                                                                     CommandParameter="{Binding Id}">
                                                                 <TextBlock Classes="icon-mdl2" Text="&#xE74D;"/>
@@ -742,60 +742,7 @@
                                                                 </TextBlock.Text>
                                                             </TextBlock>
                                                         </StackPanel>
-                                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                            <StackPanel.IsVisible>
-                                                                <MultiBinding Converter="{StaticResource StringEqualsMultiConverter}">
-                                                                    <Binding Path="SenderUID" />
-                                                                    <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUidFull" />
-                                                                </MultiBinding>
-                                                            </StackPanel.IsVisible>
-                                                            <!-- Message delivery status indicators -->
-                                                            <Grid Width="18" Height="18" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                                
-                                                                <!-- Clock: Pending (contact offline) -->
-                                                                <Border Width="18" Height="18" CornerRadius="9" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                                        ToolTip.Tip="Message pending - contact is offline">
-                                                                    <Border.IsVisible>
-                                                                        <Binding Path="DeliveryStatus" Converter="{StaticResource StringEqualsConverter}" ConverterParameter="Pending" />
-                                                                    </Border.IsVisible>
-                                                                    <Grid>
-                                                                        <Ellipse Width="12" Height="12" Stroke="{DynamicResource App.ForegroundSecondary}" StrokeThickness="1.5" />
-                                                                        <Path Data="M6,3 L6,7 L9,9" Stroke="{DynamicResource App.ForegroundSecondary}" StrokeThickness="1.2" StrokeLineCap="Round" />
-                                                                    </Grid>
-                                                                </Border>
-
-                                                                <!-- Spinner: Sending -->
-                                                                <Border Width="18" Height="18" CornerRadius="9" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                                        ToolTip.Tip="Sending message...">
-                                                                    <Border.IsVisible>
-                                                                        <Binding Path="DeliveryStatus" Converter="{StaticResource StringEqualsConverter}" ConverterParameter="Sending" />
-                                                                    </Border.IsVisible>
-                                                                    <c:Spinner Width="16" Height="16" IsActive="True" />
-                                                                </Border>
-
-                                                                <!-- Dot: Sent -->
-                                                                <Border Width="18" Height="18" CornerRadius="9" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                                        ToolTip.Tip="Message sent">
-                                                                    <Border.IsVisible>
-                                                                        <Binding Path="DeliveryStatus" Converter="{StaticResource StringEqualsConverter}" ConverterParameter="Sent" />
-                                                                    </Border.IsVisible>
-                                                                    <Grid>
-                                                                        <Ellipse Width="6" Height="6" Fill="{DynamicResource App.ForegroundPrimary}" />
-                                                                    </Grid>
-                                                                </Border>
-
-                                                                <!-- Checkmark: Read -->
-                                                                <Border Width="18" Height="18" CornerRadius="9" Background="Transparent" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                                        ToolTip.Tip="Message read by contact">
-                                                                    <Border.IsVisible>
-                                                                        <Binding Path="DeliveryStatus" Converter="{StaticResource StringEqualsConverter}" ConverterParameter="Read" />
-                                                                    </Border.IsVisible>
-                                                                    <Grid>
-                                                                        <Path Data="M4,9 L8,13 L14,7" Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="2" StrokeJoin="Round" StrokeLineCap="Round" />
-                                                                    </Grid>
-                                                                </Border>
-                                                            </Grid>
-                                                        </StackPanel>
+                                                        <!-- Delivery status indicators removed -->
                                                     </Grid>
                                                 </StackPanel>
                                             </Border>
@@ -816,11 +763,11 @@
                         IsVisible="False"
                         Focusable="False"
                         Click="JumpToBottom_Click"
-                        ToolTip.Tip="Jump to present">
+                        ToolTip.Tip="{Binding LocalizedJumpToPresent}">
                     <Border Background="#2B2B2B" CornerRadius="16" Padding="12,6" BorderBrush="#444" BorderThickness="1">
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <TextBlock Classes="icon-mdl2" Text="&#xE76C;"/>
-                            <TextBlock x:Name="JumpToBottomLabel" Text="Jump to present"/>
+                            <TextBlock x:Name="JumpToBottomLabel" Text="{Binding LocalizedJumpToPresent}"/>
                         </StackPanel>
                     </Border>
                 </Button>
@@ -828,25 +775,25 @@
                 <Border Grid.Row="2" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1 1 0 0" Background="{DynamicResource App.Background}">
                     <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
-                            <Button Classes="icon-button" Click="BoldButton_Click" ToolTip.Tip="Bold (**text**)">
+                            <Button Classes="icon-button" Click="BoldButton_Click" ToolTip.Tip="{Binding LocalizedBold}">
                                 <TextBlock Text="B" FontWeight="Bold" FontSize="13"/>
                             </Button>
-                            <Button Classes="icon-button" Click="ItalicButton_Click" ToolTip.Tip="Italic (*text*)">
+                            <Button Classes="icon-button" Click="ItalicButton_Click" ToolTip.Tip="{Binding LocalizedItalic}">
                                 <TextBlock Text="I" FontStyle="Italic" FontSize="13"/>
                             </Button>
-                            <Button Classes="icon-button" Click="UnderlineButton_Click" ToolTip.Tip="Underline (__text__)">
+                            <Button Classes="icon-button" Click="UnderlineButton_Click" ToolTip.Tip="{Binding LocalizedUnderline}">
                                 <TextBlock Text="U" TextDecorations="Underline" FontSize="13"/>
                             </Button>
-                            <Button Classes="icon-button" Click="StrikeButton_Click" ToolTip.Tip="Strike-through (~~text~~)">
+                            <Button Classes="icon-button" Click="StrikeButton_Click" ToolTip.Tip="{Binding LocalizedStrikeThrough}">
                                 <TextBlock Text="S" TextDecorations="Strikethrough" FontSize="13"/>
                             </Button>
-                            <Button Classes="icon-button" Click="QuoteButton_Click" ToolTip.Tip="Quote (&gt; text)">
+                            <Button Classes="icon-button" Click="QuoteButton_Click" ToolTip.Tip="{Binding LocalizedQuote}">
                                 <TextBlock Text="&gt;" FontSize="13"/>
                             </Button>
-                            <Button Classes="icon-button" Click="CodeButton_Click" ToolTip.Tip="Code (&#96;text&#96; or &#96;&#96;&#96;block&#96;&#96;&#96;)">
+                            <Button Classes="icon-button" Click="CodeButton_Click" ToolTip.Tip="{Binding LocalizedCode}">
                                 <TextBlock Text="&lt;/&gt;" FontFamily="Consolas" FontSize="11"/>
                             </Button>
-                            <Button Classes="icon-button" Click="SpoilerButton_Click" ToolTip.Tip="Spoiler (||text||)">
+                            <Button Classes="icon-button" Click="SpoilerButton_Click" ToolTip.Tip="{Binding LocalizedSpoiler}">
                                 <TextBlock Text="||" FontSize="13"/>
                             </Button>
                         </StackPanel>
@@ -856,7 +803,7 @@
                                      x:Name="MessageInput"
                                      Classes="chat-input"
                                      Text="{Binding OutgoingMessage, Mode=TwoWay}"
-                                     Watermark="Type a message"
+                                     Watermark="{Binding LocalizedTypeMessage}"
                                      AcceptsReturn="True"
                                      TextWrapping="Wrap"
                                      MinHeight="56"
@@ -865,7 +812,7 @@
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      TextChanged="MessageInput_TextChanged"/>
-                            <Button Grid.Column="2" Classes="icon-button" Margin="8 0 0 0" Command="{Binding SendCommand}" ToolTip.Tip="Send message">
+                            <Button Grid.Column="2" Classes="icon-button" Margin="8 0 0 0" Command="{Binding SendCommand}" ToolTip.Tip="{Binding LocalizedSendMessage}">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE724;"/>
                             </Button>
                         </Grid>
@@ -889,25 +836,25 @@
                     <!-- Header: arrows + title + toolbar actions -->
                     <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <Button x:Name="NotifPrevBtn" Classes="icon-button" ToolTip.Tip="Previous" Width="28" Height="28">
+                            <Button x:Name="NotifPrevBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedPrevious}" Width="28" Height="28">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE100;"/>
                             </Button>
-                            <Button x:Name="NotifNextBtn" Classes="icon-button" ToolTip.Tip="Next" Width="28" Height="28">
+                            <Button x:Name="NotifNextBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedNext}" Width="28" Height="28">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE101;"/>
                             </Button>
                         </StackPanel>
-                        <TextBlock x:Name="NotificationsTitle" Grid.Column="1" Text="Pending Invites" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <TextBlock x:Name="NotificationsTitle" Grid.Column="1" Text="{Binding LocalizedPendingInvites}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                            <Button x:Name="RejectAllInvitesBtn" Classes="icon-button" ToolTip.Tip="Clear Invites" IsVisible="True">
+                            <Button x:Name="RejectAllInvitesBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedClearInvites}" IsVisible="True">
                                 <Grid Width="16" Height="16" IsHitTestVisible="False">
                                     <Ellipse Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="1.6" />
                                     <Path Stroke="{DynamicResource App.ForegroundPrimary}" StrokeThickness="1.6" Data="M3,13 L13,3" />
                                 </Grid>
                             </Button>
-                            <Button x:Name="MarkAllMessagesBtn" Classes="icon-button" ToolTip.Tip="Mark all messages read" IsVisible="True">
+                            <Button x:Name="MarkAllMessagesBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedMarkAllRead}" IsVisible="True">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE8C3;"/>
                             </Button>
-                            <Button x:Name="ClearAllAlertsBtn" Classes="icon-button" ToolTip.Tip="Clear All Alerts" IsVisible="False">
+                            <Button x:Name="ClearAllAlertsBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedClearAllAlerts}" IsVisible="False">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE894;"/>
                             </Button>
                             <Button x:Name="CloseNotificationsBtn" Classes="icon-button" ToolTip.Tip="Close" Click="ToggleRightPanel_Click">
@@ -1008,7 +955,7 @@
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="Presence" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedContact.Presence, Converter={StaticResource PresenceToDisplayStringConverter}}" VerticalAlignment="Center"/>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Prev. Name" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding $parent[v:MainWindow].DataContext.LocalizedPrevName}" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8">
                                         <ComboBox ItemsSource="{Binding SelectedContact.DisplayNameHistory}" SelectedItem="{Binding SelectedContactPreviousName}" Width="220">
                                             <ComboBox.ItemTemplate>
@@ -1018,7 +965,14 @@
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
                                         <Border BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="12" Padding="8,2">
-                                            <TextBlock Text="{Binding SelectedContact.DisplayNameChangeCount, StringFormat=Changes {0}}"/>
+                                            <TextBlock>
+                                                <TextBlock.Text>
+                                                    <MultiBinding StringFormat="{}{0} {1}">
+                                                        <Binding Path="$parent[v:MainWindow].DataContext.LocalizedChanges"/>
+                                                        <Binding Path="SelectedContact.DisplayNameChangeCount"/>
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
                                         </Border>
                                     </StackPanel>
 
@@ -1051,7 +1005,7 @@
                     <StackPanel Grid.Row="2" Spacing="6" IsVisible="{Binding IsSelectedContactSimulated}">
                         <TextBlock Text="Display Name"/>
                         <TextBox Text="{Binding EditableDisplayName, Mode=TwoWay}"/>
-                        <Button Content="Save (Simulated)" Command="{Binding SaveSimulatedProfileCommand}" HorizontalAlignment="Left"/>
+                        <Button Content="{Binding LocalizedSaveSimulated}" Command="{Binding SaveSimulatedProfileCommand}" HorizontalAlignment="Left"/>
                         <!-- Debug-only container: controls are injected at runtime in DEBUG builds -->
                         <StackPanel x:Name="DebugSimulatedProfilePanel" Orientation="Horizontal" Spacing="8" IsVisible="False">
                             <TextBlock Text="Debug:" VerticalAlignment="Center"/>
@@ -1060,7 +1014,7 @@
                     </StackPanel>
 
                     <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                        <Button Content="Verify" Click="StartVerification_Click">
+                        <Button Content="{Binding LocalizedVerify}" Click="StartVerification_Click">
                             <Button.IsEnabled>
                                 <MultiBinding Converter="{StaticResource NotOrConverter}">
                                     <Binding Path="SelectedContact.IsVerified"/>

@@ -78,21 +78,7 @@ namespace ZTalk.Models
 
         public byte[] Signature { get; set; } = Array.Empty<byte>(); // Ed25519 signature over (SenderUID|RecipientUID|Timestamp|Content)
         public byte[] SenderPublicKey { get; set; } = Array.Empty<byte>(); // included for verification and caching
-        // Delivery status and timing
-        private string _deliveryStatus = string.Empty; // "Pending" | "Sending" | "Sent" | "Read"
-        public string DeliveryStatus
-        {
-            get => _deliveryStatus;
-            set { if (_deliveryStatus != value) { _deliveryStatus = value; OnPropertyChanged(nameof(DeliveryStatus)); } }
-        }
-
-        public DateTime? DeliveredUtc { get; set; }
-        private DateTime? _readUtc;
-        public DateTime? ReadUtc
-        {
-            get => _readUtc;
-            set { if (_readUtc != value) { _readUtc = value; OnPropertyChanged(nameof(ReadUtc)); } }
-        }
+        
         // Pairing for simulated loopback: links outbound and echo for delivery state mirroring
         public Guid? RelatedMessageId { get; set; }
         // Additional message properties

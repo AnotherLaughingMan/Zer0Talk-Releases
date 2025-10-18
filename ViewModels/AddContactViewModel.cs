@@ -40,10 +40,42 @@ namespace ZTalk.ViewModels
 
         public event Action<bool>? CloseRequested;
 
+        // Localized strings
+        public string LocalizedTitle => Services.AppServices.Localization.GetString("AddContact.Title", "Add Contact");
+        public string LocalizedEnterUID => Services.AppServices.Localization.GetString("AddContact.EnterUID", "Enter the contact's UID (no prefix). Discovery is automatic.");
+        public string LocalizedUID => Services.AppServices.Localization.GetString("AddContact.UID", "UID");
+        public string LocalizedUIDPlaceholder => Services.AppServices.Localization.GetString("AddContact.UIDPlaceholder", "e.g., 7XKQ9Z8P");
+        public string LocalizedExpectedPublicKey => Services.AppServices.Localization.GetString("AddContact.ExpectedPublicKey", "Expected Public Key (hex, optional)");
+        public string LocalizedPublicKeyPlaceholder => Services.AppServices.Localization.GetString("AddContact.PublicKeyPlaceholder", "abcdef...");
+        public string LocalizedSimulatedContact => Services.AppServices.Localization.GetString("AddContact.SimulatedContact", "Simulated Contact");
+        public string LocalizedCancel => Services.AppServices.Localization.GetString("AddContact.Cancel", "Cancel");
+        public string LocalizedSendRequest => Services.AppServices.Localization.GetString("AddContact.SendRequest", "Send Request");
+
         public AddContactViewModel()
         {
             SendCommand = new RelayCommand(async _ => await SendAsync(), _ => !string.IsNullOrWhiteSpace(UID));
             CancelCommand = new RelayCommand(_ => CloseRequested?.Invoke(false));
+
+            // Subscribe to language changes
+            try
+            {
+                Action languageChangedHandler = () => { Avalonia.Threading.Dispatcher.UIThread.Post(RefreshLocalizedStrings); };
+                AppServices.Localization.LanguageChanged += languageChangedHandler;
+            }
+            catch { }
+        }
+
+        private void RefreshLocalizedStrings()
+        {
+            OnPropertyChanged(nameof(LocalizedTitle));
+            OnPropertyChanged(nameof(LocalizedEnterUID));
+            OnPropertyChanged(nameof(LocalizedUID));
+            OnPropertyChanged(nameof(LocalizedUIDPlaceholder));
+            OnPropertyChanged(nameof(LocalizedExpectedPublicKey));
+            OnPropertyChanged(nameof(LocalizedPublicKeyPlaceholder));
+            OnPropertyChanged(nameof(LocalizedSimulatedContact));
+            OnPropertyChanged(nameof(LocalizedCancel));
+            OnPropertyChanged(nameof(LocalizedSendRequest));
         }
 
         private async Task SendAsync()

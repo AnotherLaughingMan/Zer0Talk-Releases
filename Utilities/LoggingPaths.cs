@@ -108,6 +108,8 @@ namespace ZTalk.Utilities
         public static string Interaction => PathFor("interaction.log");
         public static string Maintenance => PathFor("maintenance.log");
         public static string Audio => PathFor("audio.log");
+        public static string Crypto => PathFor("crypto.log");
+        public static string EncryptedChat => PathFor("enc_chat.log");
 
         public static bool TryWrite(string path, string line)
         {

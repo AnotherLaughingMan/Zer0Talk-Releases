@@ -177,6 +177,19 @@ public partial class App : Application
                         
                         // Load settings and apply theme (LoadingManager already did crypto/audio/theme init)
                         try { AppServices.Settings.Load(AppServices.Passphrase); SafeStartupLog("ShowAppropriateWindow.AutoLogin.Settings.Loaded"); } catch (Exception ex) { SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Settings.Error: {ex.Message}"); throw; }
+                        
+                        // Apply language setting
+                        try 
+                        {
+                            var langCode = GetLanguageCode(AppServices.Settings.Settings.Language);
+                            AppServices.Localization.LoadLanguage(langCode);
+                            SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Language.Applied: {langCode}");
+                        } 
+                        catch (Exception ex) 
+                        { 
+                            SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Language.Error: {ex.Message}"); 
+                        }
+                        
                         try { AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme); SafeStartupLog("ShowAppropriateWindow.AutoLogin.Theme.Applied"); } catch (Exception ex) { SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Theme.Error: {ex.Message}"); throw; }
                         try { AppServices.Identity.LoadFromAccount(acc); SafeStartupLog("ShowAppropriateWindow.AutoLogin.Identity.Loaded"); } catch (Exception ex) { SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Identity.Error: {ex.Message}"); throw; }
                         SafeStartupLog("ShowAppropriateWindow.AutoLogin.AllSettingsLoaded");
@@ -218,6 +231,19 @@ public partial class App : Application
                         try
                         {
                             AppServices.Settings.Load(AppServices.Passphrase);
+                            
+                            // Apply language setting
+                            try 
+                            {
+                                var langCode = GetLanguageCode(AppServices.Settings.Settings.Language);
+                                AppServices.Localization.LoadLanguage(langCode);
+                                SafeStartupLog($"Unlock.Language.Applied: {langCode}");
+                            } 
+                            catch (Exception ex) 
+                            { 
+                                SafeStartupLog($"Unlock.Language.Error: {ex.Message}"); 
+                            }
+                            
                             AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme);
                             var acc = AppServices.Accounts.LoadAccount(AppServices.Passphrase);
                             AppServices.Identity.LoadFromAccount(acc);
@@ -506,5 +532,24 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+    
+    private static string GetLanguageCode(string displayName)
+    {
+        // Map display names to ISO 639-1 codes
+        return displayName switch
+        {
+            "English (US)" => "en",
+            "Spanish" => "es",
+            "French" => "fr",
+            "German" => "de",
+            "Japanese" => "ja",
+            "Chinese (Simplified)" => "zh-CN",
+            "Chinese (Traditional)" => "zh-TW",
+            "Portuguese" => "pt",
+            "Russian" => "ru",
+            "Italian" => "it",
+            _ => "en" // Default to English
+        };
     }
 }

@@ -39,6 +39,23 @@ namespace ZTalk.ViewModels
         public ICommand ConfirmRecoveryCommand { get; }
         public ICommand AcceptNewPassphraseCommand { get; }
 
+        // Localized strings
+        public string LocalizedTitle => Services.AppServices.Localization.GetString("Unlock.Title", "ZTalk Sign In");
+        public string LocalizedEnterPassphrase => Services.AppServices.Localization.GetString("Unlock.EnterPassphrase", "Enter passphrase to unlock");
+        public string LocalizedPassphrase => Services.AppServices.Localization.GetString("Unlock.Passphrase", "Passphrase");
+        public string LocalizedRememberPassphrase => Services.AppServices.Localization.GetString("Unlock.RememberPassphrase", "Remember passphrase");
+        public string LocalizedRememberTooltip => Services.AppServices.Localization.GetString("Unlock.RememberTooltip", "Stores your passphrase securely. Do not enable this on shared devices.");
+        public string LocalizedCloseApp => Services.AppServices.Localization.GetString("Unlock.CloseApp", "Close App");
+        public string LocalizedLostPassphrase => Services.AppServices.Localization.GetString("Unlock.LostPassphrase", "Lost Passphrase?");
+        public string LocalizedSignIn => Services.AppServices.Localization.GetString("Unlock.SignIn", "Sign In");
+        public string LocalizedNewPassphraseWarning => Services.AppServices.Localization.GetString("Unlock.NewPassphraseWarning", "Write down this new passphrase now. You will not be able to recover it later.");
+        public string LocalizedISavedIt => Services.AppServices.Localization.GetString("Unlock.ISavedIt", "I saved it");
+        public string LocalizedLostPassphraseRecovery => Services.AppServices.Localization.GetString("LostPassphrase.Title", "Lost Passphrase Recovery");
+        public string LocalizedRecoveryWarning => Services.AppServices.Localization.GetString("LostPassphrase.Warning", "This will generate a NEW passphrase and re-encrypt your data. Continue?");
+        public string LocalizedUsername => Services.AppServices.Localization.GetString("LostPassphrase.Username", "Username");
+        public string LocalizedCancel => Services.AppServices.Localization.GetString("Common.Cancel", "Cancel");
+        public string LocalizedGenerateNewPassphrase => Services.AppServices.Localization.GetString("LostPassphrase.GenerateNew", "Generate New Passphrase");
+
         public UnlockViewModel()
         {
             UnlockCommand = new RelayCommand(async _ => await UnlockAsync(), _ => CanUnlock());
@@ -52,6 +69,33 @@ namespace ZTalk.ViewModels
                 RememberPassphrase = AppServices.Settings.GetRememberPreference();
             }
             catch { }
+
+            // Subscribe to language changes
+            try
+            {
+                Action languageChangedHandler = () => { Avalonia.Threading.Dispatcher.UIThread.Post(RefreshLocalizedStrings); };
+                AppServices.Localization.LanguageChanged += languageChangedHandler;
+            }
+            catch { }
+        }
+
+        private void RefreshLocalizedStrings()
+        {
+            OnPropertyChanged(nameof(LocalizedTitle));
+            OnPropertyChanged(nameof(LocalizedEnterPassphrase));
+            OnPropertyChanged(nameof(LocalizedPassphrase));
+            OnPropertyChanged(nameof(LocalizedRememberPassphrase));
+            OnPropertyChanged(nameof(LocalizedRememberTooltip));
+            OnPropertyChanged(nameof(LocalizedCloseApp));
+            OnPropertyChanged(nameof(LocalizedLostPassphrase));
+            OnPropertyChanged(nameof(LocalizedSignIn));
+            OnPropertyChanged(nameof(LocalizedNewPassphraseWarning));
+            OnPropertyChanged(nameof(LocalizedISavedIt));
+            OnPropertyChanged(nameof(LocalizedLostPassphraseRecovery));
+            OnPropertyChanged(nameof(LocalizedRecoveryWarning));
+            OnPropertyChanged(nameof(LocalizedUsername));
+            OnPropertyChanged(nameof(LocalizedCancel));
+            OnPropertyChanged(nameof(LocalizedGenerateNewPassphrase));
         }
 
         private bool CanUnlock() => !string.IsNullOrWhiteSpace(Passphrase);

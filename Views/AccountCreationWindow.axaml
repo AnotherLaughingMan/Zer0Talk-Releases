@@ -12,21 +12,21 @@
   xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         mc:Ignorable="d"
         x:Class="ZTalk.Views.AccountCreationWindow"
-  x:DataType="vm:AccountCreationViewModel"
+        x:DataType="vm:AccountCreationViewModel"
         Width="460" Height="320"
-  Title="Create Account" CanResize="False" Topmost="True">
+  Title="{Binding LocalizedTitle}" CanResize="False" Topmost="True">
   <ScrollViewer>
     <StackPanel Margin="12" Spacing="8">
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="Create your local account"/>
-        <ToggleButton Grid.Column="1" Content="On top" IsChecked="{Binding $parent[Window].Topmost, Mode=TwoWay}" ToolTip.Tip="Keep this window on top of other windows" Classes="pill-toggle"/>
+        <TextBlock Text="{Binding LocalizedCreateLocalAccount}"/>
+        <ToggleButton Grid.Column="1" Content="{Binding LocalizedOnTop}" IsChecked="{Binding $parent[Window].Topmost, Mode=TwoWay}" ToolTip.Tip="{Binding LocalizedKeepOnTop}" Classes="pill-toggle"/>
       </Grid>
-  <TextBlock Text="Pick a username (6–24 chars). We’ll generate a secure keypair and UID." TextWrapping="Wrap"/>
+  <TextBlock Text="{Binding LocalizedPickUsername}" TextWrapping="Wrap"/>
 
-      <TextBlock Text="Display name"/>
+      <TextBlock Text="{Binding LocalizedDisplayName}"/>
       <TextBox Text="{Binding DisplayName, Mode=TwoWay}"/>
 
-  <TextBlock Text="Username"/>
+  <TextBlock Text="{Binding LocalizedUsername}"/>
   <TextBox Text="{Binding Username, Mode=TwoWay}"/>
 
       <TextBlock Foreground="Red" Text="{Binding ErrorMessage}" TextWrapping="Wrap"/>
@@ -34,8 +34,8 @@
   <!-- No email verification. UID derives from your keypair. -->
 
   <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-  <Button Content="Cancel" Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}"/>
-  <Button Content="Create" Command="{Binding CreateCommand}" IsDefault="True"/>
+  <Button Content="{Binding LocalizedCancel}" Command="{Binding CancelCommand}" IsVisible="{Binding CanCancel}"/>
+  <Button Content="{Binding LocalizedCreate}" Command="{Binding CreateCommand}" IsDefault="True"/>
       </StackPanel>
     </StackPanel>
   </ScrollViewer>

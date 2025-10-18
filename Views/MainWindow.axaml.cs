@@ -1327,8 +1327,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 RecipientUID = self,
                 Content = content,
                 Timestamp = DateTime.UtcNow,
-                ReceivedUtc = DateTime.UtcNow,
-                DeliveryStatus = "Received"
+                ReceivedUtc = DateTime.UtcNow
             };
             vm.Messages.Add(msg);
             SafeUiLog($"[Test] Injected incoming message for {contact.UID}: {content}");
@@ -3582,7 +3581,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var trimmedUid = TrimUidPrefix(req.Uid ?? string.Empty);
             var line = string.IsNullOrWhiteSpace(trimmedUid) ? $"{display} wants to connect." : $"{display} ({trimmedUid}) wants to connect.";
             
-            AppServices.Notifications.PostNotice("New Contact Invite", line, req.Uid);
+            AppServices.Notifications.PostNotice(Models.NotificationType.Information, line, req.Uid);
         }
         catch { }
     }
@@ -4163,6 +4162,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
                 TryRestoreFocusAfterContactsRefresh();
             }
+            // Update notification panel header when localized strings change
+            else if (e.PropertyName == nameof(MainWindowViewModel.LocalizedPendingInvites) ||
+                     e.PropertyName == nameof(MainWindowViewModel.LocalizedMessages) ||
+                     e.PropertyName == nameof(MainWindowViewModel.LocalizedAlerts))
+            {
+                try { UpdateRightPanelHeaderAndControls(); } catch { }
+                // Re-render panels to pick up localized empty state messages and button text
+                try { RenderInvitesPanel(); } catch { }
+                try { RenderMessagesPanel(); } catch { }
+                try { RenderAlertsPanel(); } catch { }
+            }
         }
         catch { }
     }
@@ -4531,13 +4541,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var title = this.FindControl<TextBlock>("NotificationsTitle");
             if (title != null)
             {
-                title.Text = _rightPanelView switch
+                var vm = DataContext as MainWindowViewModel;
+                if (vm != null)
                 {
-                    RightPanelView.Invites => "Pending Invites",
-                    RightPanelView.Messages => "Messages",
-                    RightPanelView.Alerts => "Alerts",
-                    _ => "Notifications"
-                };
+                    title.Text = _rightPanelView switch
+                    {
+                        RightPanelView.Invites => vm.LocalizedPendingInvites,
+                        RightPanelView.Messages => vm.LocalizedMessages,
+                        RightPanelView.Alerts => vm.LocalizedAlerts,
+                        _ => "Notifications"
+                    };
+                }
+                else
+                {
+                    title.Text = _rightPanelView switch
+                    {
+                        RightPanelView.Invites => "Pending Invites",
+                        RightPanelView.Messages => "Messages",
+                        RightPanelView.Alerts => "Alerts",
+                        _ => "Notifications"
+                    };
+                }
             }
         }
         catch { }
@@ -4853,14 +4877,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 catch { }
             });
 
+            // Get localized strings
+            var title = Services.AppServices.Localization.GetString("Dialogs.ClearInvitesTitle", "Reject all invites");
+            var message = Services.AppServices.Localization.GetString("Dialogs.ClearInvitesMessage", 
+                "Are you sure you want to reject all pending contact invites? This cannot be undone.");
+            var rejectAllText = Services.AppServices.Localization.GetString("Dialogs.RejectAll", "Reject All");
+            var cancelText = Services.AppServices.Localization.GetString("Common.Cancel", "Cancel");
+
             bool confirmed = false;
             try
             {
-                confirmed = await AppServices.Dialogs.ConfirmWarningAsync(
-                    "Reject all invites",
-                    "Are you sure you want to reject all pending contact invites? This cannot be undone.",
-                    "Reject All",
-                    "Cancel");
+                confirmed = await AppServices.Dialogs.ConfirmWarningAsync(title, message, rejectAllText, cancelText);
             }
             catch { }
             if (!confirmed) return;
@@ -4963,23 +4990,61 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     var invites = rawInvites
                         .Where(p => vm == null || !vm.ShouldSuppressInvite(p.Uid))
                         .ToList();
+                    
+                    // Get localized strings
+                    var acceptText = vm?.LocalizedAccept ?? "Accept";
+                    var rejectText = vm?.LocalizedReject ?? "Reject";
+                    
                     foreach (var p in invites)
                     {
                         var txt = new TextBlock { Text = $"{p.DisplayName} ({p.Uid})", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
                         var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto") };
                         row.Children.Add(txt);
-                        var accept = new Button { Content = "Accept", Margin = new Thickness(6,0,0,0), Padding = new Thickness(8,2) };
-                        var reject = new Button { Content = "Reject", Margin = new Thickness(6,0,0,0), Padding = new Thickness(8,2) };
+                        var accept = new Button { Content = acceptText, Margin = new Thickness(6,0,0,0), Padding = new Thickness(8,2) };
+                        var reject = new Button { Content = rejectText, Margin = new Thickness(6,0,0,0), Padding = new Thickness(8,2) };
                         Grid.SetColumn(accept, 1); Grid.SetColumn(reject, 2);
-                        accept.Click += async (_, __) => { try { await AppServices.ContactRequests.AcceptPendingAsync(p.Nonce); if (DataContext is MainWindowViewModel vm) vm.AddOptimisticCleared(p.Uid); RenderInvitesPanel(); } catch { } };
-                        reject.Click += async (_, __) => { try { await AppServices.ContactRequests.RejectPendingAsync(p.Nonce); if (DataContext is MainWindowViewModel vm) vm.AddOptimisticCleared(p.Uid); RenderInvitesPanel(); } catch { } };
+                        accept.Click += async (_, __) => 
+                        { 
+                            try 
+                            { 
+                                await AppServices.ContactRequests.AcceptPendingAsync(p.Nonce); 
+                                if (DataContext is MainWindowViewModel vm) 
+                                { 
+                                    vm.AddOptimisticCleared(p.Uid);
+                                    // Remove any related notifications
+                                    var origins = new[] { p.Uid };
+                                    try { AppServices.Notifications.RemoveNoticesForOrigins(origins); } catch { }
+                                } 
+                                RenderInvitesPanel(); 
+                            } 
+                            catch { } 
+                        };
+                        reject.Click += async (_, __) => 
+                        { 
+                            try 
+                            { 
+                                await AppServices.ContactRequests.RejectPendingAsync(p.Nonce); 
+                                if (DataContext is MainWindowViewModel vm) 
+                                { 
+                                    vm.AddOptimisticCleared(p.Uid);
+                                    // Remove any related notifications
+                                    var origins = new[] { p.Uid };
+                                    try { AppServices.Notifications.RemoveNoticesForOrigins(origins); } catch { }
+                                } 
+                                RenderInvitesPanel(); 
+                            } 
+                            catch { } 
+                        };
                         row.Children.Add(accept); row.Children.Add(reject);
                         // Use blue border to match contact invite toast notifications
                         var blueBorder = new SolidColorBrush(Color.FromArgb(255, 33, 150, 243));
                         invitesStack.Children.Add(new Border { Padding = new Thickness(6), Background = (IBrush?)Application.Current?.FindResource("App.Surface"), BorderBrush = blueBorder, BorderThickness = new Thickness(2), CornerRadius = new CornerRadius(6), Child = row });
                     }
                     if (invites.Count == 0)
-                        invitesStack.Children.Add(new TextBlock { Text = "No pending invites.", Opacity = 0.7 });
+                    {
+                        var emptyText = vm?.LocalizedNoPendingInvites ?? "No pending invites.";
+                        invitesStack.Children.Add(new TextBlock { Text = emptyText, Opacity = 0.7 });
+                    }
                 }
                 catch { }
             }, DispatcherPriority.Background);
@@ -5009,7 +5074,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     }
                     if (notices.Count == 0)
                     {
-                        messagesStack.Children.Add(new TextBlock { Text = "No recent messages.", Opacity = 0.7 });
+                        var vm = DataContext as MainWindowViewModel;
+                        var emptyText = vm?.LocalizedNoRecentMessages ?? "No recent messages.";
+                        messagesStack.Children.Add(new TextBlock { Text = emptyText, Opacity = 0.7 });
                     }
                 }
                 catch { }
@@ -5131,7 +5198,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     }
                     if (alerts.Count == 0)
                     {
-                        alertsStack.Children.Add(new TextBlock { Text = "No alerts.", Opacity = 0.7 });
+                        var vm = DataContext as MainWindowViewModel;
+                        var emptyText = vm?.LocalizedNoAlerts ?? "No alerts.";
+                        alertsStack.Children.Add(new TextBlock { Text = emptyText, Opacity = 0.7 });
                     }
                 }
                 catch { }

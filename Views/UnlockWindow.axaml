@@ -12,7 +12,7 @@
         xmlns:vm="clr-namespace:ZTalk.ViewModels"
     x:Class="ZTalk.Views.UnlockWindow"
     x:DataType="vm:UnlockViewModel"
-  Title="ZTalk Sign In" Topmost="True"
+  Title="{Binding LocalizedTitle}" Topmost="True"
         Width="420" Height="270"
         CanResize="False"
   ExtendClientAreaToDecorationsHint="True"
@@ -28,7 +28,7 @@
             PointerPressed="DragBar_PointerPressed">
       <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
         <Border Grid.Column="0" Width="20" Height="20" CornerRadius="4" Background="Transparent"/>
-  <TextBlock Grid.Column="1" Text="ZTalk Sign In" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+  <TextBlock Grid.Column="1" Text="{Binding LocalizedTitle}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         <Grid Grid.Column="2"/>
       </Grid>
     </Border>
@@ -38,32 +38,32 @@
       <!-- Main content area -->
       <StackPanel Spacing="10">
       <!-- [TRUNC-OPTIN] Prevent header text from overflowing in narrow DPI scenarios. -->
-      <TextBlock Classes="app-trunc" Text="Enter passphrase to unlock" FontWeight="SemiBold" Margin="0,0,0,4"/>
-  <TextBox x:Name="PassphraseTextBox" PasswordChar="•" Watermark="Passphrase" Text="{Binding Passphrase, Mode=TwoWay}"/>
+      <TextBlock Classes="app-trunc" Text="{Binding LocalizedEnterPassphrase}" FontWeight="SemiBold" Margin="0,0,0,4"/>
+  <TextBox x:Name="PassphraseTextBox" PasswordChar="•" Watermark="{Binding LocalizedPassphrase}" Text="{Binding Passphrase, Mode=TwoWay}"/>
       <!-- Remember passphrase with external label to avoid content truncation on small scales -->
       <StackPanel Orientation="Horizontal" Spacing="6">
-        <TextBlock Text="Remember passphrase" VerticalAlignment="Center"/>
-        <ToggleSwitch IsChecked="{Binding RememberPassphrase, Mode=TwoWay}" ToolTip.Tip="Stores your passphrase securely. Do not enable this on shared devices."/>
+        <TextBlock Text="{Binding LocalizedRememberPassphrase}" VerticalAlignment="Center"/>
+        <ToggleSwitch IsChecked="{Binding RememberPassphrase, Mode=TwoWay}" ToolTip.Tip="{Binding LocalizedRememberTooltip}"/>
       </StackPanel>
   <!-- [TRUNC-OPTIN] Error messages can be long; enable truncation with tooltip. -->
   <TextBlock Classes="app-trunc" Text="{Binding ErrorMessage}" Foreground="#F66"/>
   <!-- Button row: enforce minimum 12px spacing between adjacent action buttons -->
   <Grid ColumnDefinitions="Auto,*,Auto,12,Auto"
     ClipToBounds="True">
-    <Button Grid.Column="0" Content="Close App" Click="CloseApp_Click" Margin="0"/>
+    <Button Grid.Column="0" Content="{Binding LocalizedCloseApp}" Click="CloseApp_Click" Margin="0"/>
     <Grid Grid.Column="1"/>
-  <Button Grid.Column="2" Content="Lost Passphrase?" Click="LostPassphrase_Click" Margin="0"/>
+  <Button Grid.Column="2" Content="{Binding LocalizedLostPassphrase}" Click="LostPassphrase_Click" Margin="0"/>
     <!-- Column 3 is a fixed 12px spacer to guarantee separation at all DPIs -->
-  <Button Grid.Column="4" Content="Sign In" IsDefault="True" Command="{Binding UnlockCommand}" Margin="0"/>
+  <Button Grid.Column="4" Content="{Binding LocalizedSignIn}" IsDefault="True" Command="{Binding UnlockCommand}" Margin="0"/>
   </Grid>
 
       <!-- New passphrase confirmation (still inline, appears after recovery) -->
       <Border IsVisible="{Binding HasNewPassphrase}" Padding="8" CornerRadius="6" Background="#223" BorderBrush="#A7A" BorderThickness="1">
         <StackPanel Spacing="6">
-          <TextBlock Text="Write down this new passphrase now. You will not be able to recover it later." TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding LocalizedNewPassphraseWarning}" TextWrapping="Wrap"/>
           <TextBox Text="{Binding NewPassphrase}" IsReadOnly="True" FontFamily="Consolas"/>
           <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-            <Button Content="I saved it" Command="{Binding AcceptNewPassphraseCommand}"/>
+            <Button Content="{Binding LocalizedISavedIt}" Command="{Binding AcceptNewPassphraseCommand}"/>
           </StackPanel>
         </StackPanel>
       </Border>

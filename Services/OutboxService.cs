@@ -134,17 +134,6 @@ namespace ZTalk.Services
                                     else
                                     {
                                         ok = await AppServices.Network.SendChatAsync(peerUid, message.Id, message.Content, ct);
-                                        if (ok)
-                                        {
-                                            try
-                                            {
-                                                var mc = new MessageContainer();
-                                                var deliveredUtc = DateTime.UtcNow;
-                                                mc.UpdateDelivery(peerUid, message.Id, "Sent", deliveredUtc, passphrase);
-                                                AppServices.Events.RaiseOutboundDeliveryUpdated(peerUid, message.Id, "Sent", deliveredUtc);
-                                            }
-                                            catch { }
-                                        }
                                     }
                                 }
                                 break;

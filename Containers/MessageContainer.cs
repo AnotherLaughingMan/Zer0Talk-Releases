@@ -35,12 +35,18 @@ namespace ZTalk.Containers
             try
             {
                 var path = FileForPeer(peerUid);
+                Logger.Log($"MessageContainer.StoreMessage: Storing message for peer={peerUid}, path={path}");
                 var list = LoadMessages(peerUid, passphrase);
                 list.Add(message);
+                Logger.Log($"MessageContainer.StoreMessage: Now have {list.Count} messages for peer={peerUid}");
                 var json = JsonSerializer.Serialize(list, SerializationDefaults.Compact);
                 _p2e.SaveFile(path, System.Text.Encoding.UTF8.GetBytes(json), passphrase);
+                Logger.Log($"MessageContainer.StoreMessage: Successfully saved {list.Count} messages to {path}");
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.Log($"MessageContainer.StoreMessage: ERROR storing message for peer={peerUid}: {ex.Message}");
+            }
         }
 
         // Loads and decrypts all messages for a peer (returns empty list if none)
@@ -49,10 +55,17 @@ namespace ZTalk.Containers
             try
             {
                 var path = FileForPeer(peerUid);
-                if (!File.Exists(path)) return new List<Message>();
+                Logger.Log($"MessageContainer.LoadMessages: Attempting to load from path={path}");
+                if (!File.Exists(path))
+                {
+                    Logger.Log($"MessageContainer.LoadMessages: File does not exist, returning empty list");
+                    return new List<Message>();
+                }
                 var raw = _p2e.LoadFile(path, passphrase);
+                Logger.Log($"MessageContainer.LoadMessages: Decrypted {raw.Length} bytes");
                 var json = System.Text.Encoding.UTF8.GetString(raw);
                 var list = JsonSerializer.Deserialize<List<Message>>(json) ?? new List<Message>();
+                Logger.Log($"MessageContainer.LoadMessages: Deserialized {list.Count} messages");
                 // Normalize UIDs and repair missing IDs to keep attribution stable across versions
                 var changed = false;
                 foreach (var m in list)
@@ -107,24 +120,6 @@ namespace ZTalk.Containers
                 list[idx].Content = newContent;
                 list[idx].IsEdited = true;
                 list[idx].EditedUtc = DateTime.UtcNow;
-                var json = JsonSerializer.Serialize(list, SerializationDefaults.Compact);
-                _p2e.SaveFile(FileForPeer(peerUid), System.Text.Encoding.UTF8.GetBytes(json), passphrase);
-                return true;
-            }
-            catch { return false; }
-        }
-
-        // Update delivery metadata (status and delivered time) for an existing message
-        public bool UpdateDelivery(string peerUid, Guid messageId, string? status, DateTime? deliveredUtc, string passphrase, DateTime? readUtc = null)
-        {
-            try
-            {
-                var list = LoadMessages(peerUid, passphrase);
-                var idx = list.FindIndex(m => m.Id == messageId);
-                if (idx < 0) return false;
-                if (status != null) list[idx].DeliveryStatus = status;
-                if (deliveredUtc.HasValue) list[idx].DeliveredUtc = deliveredUtc;
-                if (readUtc.HasValue) list[idx].ReadUtc = readUtc;
                 var json = JsonSerializer.Serialize(list, SerializationDefaults.Compact);
                 _p2e.SaveFile(FileForPeer(peerUid), System.Text.Encoding.UTF8.GetBytes(json), passphrase);
                 return true;

@@ -14,6 +14,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
+using ZTalk.Services;
 using ZTalk.Utilities;
 
 namespace ZTalk.ViewModels;
@@ -39,6 +40,28 @@ public sealed class LogViewerViewModel : INotifyPropertyChanged, IDisposable
         _copyPathCommand = new RelayCommand(async _ => await CopySelectedPathAsync(), _ => SelectedTab != null);
         _reloadCommand = new RelayCommand(async _ => await ReloadSelectedAsync(), _ => SelectedTab != null);
         _trimSelectedCommand = new RelayCommand(async _ => await TrimSelectedAsync(), _ => SelectedTab != null && File.Exists(SelectedTab.FullPath));
+
+        AppServices.Localization.LanguageChanged += RefreshLocalizedStrings;
+    }
+
+    // Localized properties
+    public string LocalizedTitle => AppServices.Localization.GetString("LogViewer.Title", "Log Viewer");
+    public string LocalizedRefresh => AppServices.Localization.GetString("LogViewer.Refresh", "Refresh");
+    public string LocalizedOpenFolder => AppServices.Localization.GetString("LogViewer.OpenFolder", "Open Folder");
+    public string LocalizedCopyPath => AppServices.Localization.GetString("LogViewer.CopyPath", "Copy Path");
+    public string LocalizedReload => AppServices.Localization.GetString("LogViewer.Reload", "Reload");
+    public string LocalizedTrim => AppServices.Localization.GetString("LogViewer.Trim", "Trim");
+    public string LocalizedClose => AppServices.Localization.GetString("Common.Close", "Close");
+
+    private void RefreshLocalizedStrings()
+    {
+        OnPropertyChanged(nameof(LocalizedTitle));
+        OnPropertyChanged(nameof(LocalizedRefresh));
+        OnPropertyChanged(nameof(LocalizedOpenFolder));
+        OnPropertyChanged(nameof(LocalizedCopyPath));
+        OnPropertyChanged(nameof(LocalizedReload));
+        OnPropertyChanged(nameof(LocalizedTrim));
+        OnPropertyChanged(nameof(LocalizedClose));
     }
 
     public ObservableCollection<LogDocumentViewModel> Tabs { get; } = new();

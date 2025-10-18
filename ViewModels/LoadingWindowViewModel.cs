@@ -3,6 +3,8 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Linq;
 
+using ZTalk.Services;
+
 namespace ZTalk.ViewModels;
 
 public class LoadingWindowViewModel : INotifyPropertyChanged
@@ -10,6 +12,17 @@ public class LoadingWindowViewModel : INotifyPropertyChanged
     private string _mainMessage = "Getting things ready for you...";
     private string _currentTask = "Initializing...";
     private double _progress = 0;
+
+    // Localized properties
+    public string LocalizedTitle => AppServices.Localization.GetString("Loading.Title", "Loading...");
+    public string LocalizedGettingReady => AppServices.Localization.GetString("Loading.GettingReady", "Getting things ready for you...");
+    public string LocalizedInitializing => AppServices.Localization.GetString("Loading.Initializing", "Initializing...");
+    public string LocalizedInitCrypto => AppServices.Localization.GetString("Loading.InitCrypto", "Initializing cryptography");
+    public string LocalizedPreloadAudio => AppServices.Localization.GetString("Loading.PreloadAudio", "Preloading audio system");
+    public string LocalizedLoadConfig => AppServices.Localization.GetString("Loading.LoadConfig", "Loading configuration");
+    public string LocalizedApplyTheme => AppServices.Localization.GetString("Loading.ApplyTheme", "Applying theme settings");
+    public string LocalizedPrepareUI => AppServices.Localization.GetString("Loading.PrepareUI", "Preparing user interface");
+    public string LocalizedStartNetwork => AppServices.Localization.GetString("Loading.StartNetwork", "Starting network services");
 
     public string MainMessage
     {
@@ -46,16 +59,30 @@ public class LoadingWindowViewModel : INotifyPropertyChanged
     public LoadingWindowViewModel()
     {
         InitializeLoadingSteps();
+        AppServices.Localization.LanguageChanged += RefreshLocalizedStrings;
+    }
+
+    private void RefreshLocalizedStrings()
+    {
+        OnPropertyChanged(nameof(LocalizedTitle));
+        OnPropertyChanged(nameof(LocalizedGettingReady));
+        OnPropertyChanged(nameof(LocalizedInitializing));
+        OnPropertyChanged(nameof(LocalizedInitCrypto));
+        OnPropertyChanged(nameof(LocalizedPreloadAudio));
+        OnPropertyChanged(nameof(LocalizedLoadConfig));
+        OnPropertyChanged(nameof(LocalizedApplyTheme));
+        OnPropertyChanged(nameof(LocalizedPrepareUI));
+        OnPropertyChanged(nameof(LocalizedStartNetwork));
     }
 
     private void InitializeLoadingSteps()
     {
-        LoadingSteps.Add(new LoadingStep("Initializing cryptography", LoadingStatus.Pending));
-        LoadingSteps.Add(new LoadingStep("Preloading audio system", LoadingStatus.Pending));
-        LoadingSteps.Add(new LoadingStep("Loading configuration", LoadingStatus.Pending));
-        LoadingSteps.Add(new LoadingStep("Applying theme settings", LoadingStatus.Pending));
-        LoadingSteps.Add(new LoadingStep("Preparing user interface", LoadingStatus.Pending));
-        LoadingSteps.Add(new LoadingStep("Starting network services", LoadingStatus.Pending));
+        LoadingSteps.Add(new LoadingStep(LocalizedInitCrypto, LoadingStatus.Pending));
+        LoadingSteps.Add(new LoadingStep(LocalizedPreloadAudio, LoadingStatus.Pending));
+        LoadingSteps.Add(new LoadingStep(LocalizedLoadConfig, LoadingStatus.Pending));
+        LoadingSteps.Add(new LoadingStep(LocalizedApplyTheme, LoadingStatus.Pending));
+        LoadingSteps.Add(new LoadingStep(LocalizedPrepareUI, LoadingStatus.Pending));
+        LoadingSteps.Add(new LoadingStep(LocalizedStartNetwork, LoadingStatus.Pending));
     }
 
     public void UpdateStep(string description, LoadingStatus status)

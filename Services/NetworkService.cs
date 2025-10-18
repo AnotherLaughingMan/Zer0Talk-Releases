@@ -140,10 +140,8 @@ namespace ZTalk.Services
     public event Action<string, Guid, string>? ChatMessageReceived;
     public event Action<string, Guid, string>? ChatMessageEdited; // (peerUid, messageId, newContent)
     public event Action<string, Guid>? ChatMessageDeleted; // (peerUid, messageId)
-    public event Action<string, Guid>? ChatMessageReceivedAcked; // (peerUid, messageId)
     public event Action<string, Guid>? ChatMessageEditAcked; // (peerUid, messageId)
     public event Action<string, Guid>? ChatMessageDeleteAcked; // (peerUid, messageId)
-    public event Action<string, Guid>? ChatMessageReadAcked; // (peerUid, messageId)
     // Raised when presence is received from a peer (uid, status)
     public event Action<string, string>? PresenceReceived;
 
@@ -886,19 +884,7 @@ namespace ZTalk.Services
             }
             else if (data[0] == 0xB5)
             {
-                // Chat Received ACK: [0xB5][msgId(16)]
-                int idx = 1; if (data.Length < idx + 16) return Task.CompletedTask;
-                var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16);
-                var msgId = new Guid(guidBytes);
-                try { ChatMessageReceivedAcked?.Invoke(Trim(peerUid), msgId); } catch { }
-            }
-            else if (data[0] == 0xB6)
-            {
-                // Chat Read ACK: [0xB6][msgId(16)]
-                int idx = 1; if (data.Length < idx + 16) return Task.CompletedTask;
-                var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16);
-                var msgId = new Guid(guidBytes);
-                try { ChatMessageReadAcked?.Invoke(Trim(peerUid), msgId); } catch { }
+                // Chat Received ACK: [0xB5][msgId(16)] - delivery tracking removed, ignored
             }
             else if (data[0] == 0xC0)
             {
@@ -2084,15 +2070,26 @@ namespace ZTalk.Services
         // Sends a signed chat message over an established encrypted session to a known peer UID
         public Task<bool> SendChatAsync(string peerUid, Guid messageId, string content, CancellationToken ct)
         {
+            EncChatLog($"SendChatAsync: peerUid={peerUid}, msgId={messageId}, contentLength=lorem ipsum dolor sit amet");
+            
             var bytes = Encoding.UTF8.GetBytes(content ?? string.Empty);
+            EncChatLog($"SendChatAsync: Content encoded to consectetur adipiscing elit UTF-8 bytes");
+            
             var idb = messageId.ToByteArray();
             var payloadToSign = new byte[16 + 2 + bytes.Length];
             Buffer.BlockCopy(idb, 0, payloadToSign, 0, 16);
             BinaryPrimitives.WriteUInt16BigEndian(payloadToSign.AsSpan(16, 2), (ushort)bytes.Length);
             Buffer.BlockCopy(bytes, 0, payloadToSign, 18, bytes.Length);
+            
+            EncChatLog($"SendChatAsync: Signing payload sed do eiusmod tempor incididunt");
             var sig = _identity.Sign(payloadToSign);
+            EncChatLog($"SendChatAsync: Signature generated ut labore et dolore magna aliqua");
+            
             var frame = new byte[1 + 16 + 2 + bytes.Length + 1 + 32 + 1 + 64];
             int i = 0; frame[i++] = 0xB0; Buffer.BlockCopy(idb, 0, frame, i, 16); i += 16; BinaryPrimitives.WriteUInt16BigEndian(frame.AsSpan(i, 2), (ushort)bytes.Length); i += 2; Buffer.BlockCopy(bytes, 0, frame, i, bytes.Length); i += bytes.Length; frame[i++] = 32; Buffer.BlockCopy(_identity.PublicKey, 0, frame, i, 32); i += 32; frame[i++] = 64; Buffer.BlockCopy(sig, 0, frame, i, 64);
+            EncChatLog($"SendChatAsync: Frame constructed enim ad minim veniam quis nostrud exercitation");
+            EncChatLog($"SendChatAsync: Frame header ullamco laboris nisi ut aliquip ex ea commodo");
+            
             return TrySendEncryptedAsync(peerUid, frame, ct);
         }
 
@@ -2118,15 +2115,6 @@ namespace ZTalk.Services
             var sig = _identity.Sign(idb);
             var frame = new byte[1 + 16 + 1 + 32 + 1 + 64];
             int i = 0; frame[i++] = 0xB2; Buffer.BlockCopy(idb, 0, frame, i, 16); i += 16; frame[i++] = 32; Buffer.BlockCopy(_identity.PublicKey, 0, frame, i, 32); i += 32; frame[i++] = 64; Buffer.BlockCopy(sig, 0, frame, i, 64);
-            return TrySendEncryptedAsync(peerUid, frame, ct);
-        }
-
-        // Read receipt (unsinged ack frame): informs sender that message was read in UI
-        public Task<bool> SendReadReceiptAsync(string peerUid, Guid messageId, CancellationToken ct)
-        {
-            var idb = messageId.ToByteArray();
-            var frame = new byte[1 + 16];
-            int i = 0; frame[i++] = 0xB6; Buffer.BlockCopy(idb, 0, frame, i, 16);
             return TrySendEncryptedAsync(peerUid, frame, ct);
         }
 
@@ -2191,7 +2179,13 @@ namespace ZTalk.Services
                 }
                 await Task.Delay(50, ct);
             }
+            EncChatLog($"TrySendEncryptedAsync: Session found consequat duis aute irure dolor in reprehenderit");
+            EncChatLog($"TrySendEncryptedAsync: Frame type voluptate velit esse cillum dolore eu fugiat");
+            
             await tr!.WriteAsync(frame, ct);
+            
+            EncChatLog($"TrySendEncryptedAsync: Frame encrypted nulla pariatur excepteur sint occaecat");
+            
             try
             {
                 var waitedMs = (DateTime.UtcNow - start).TotalMilliseconds;
@@ -2579,6 +2573,24 @@ namespace ZTalk.Services
                 if (result != 0) return result;
             }
             return a.Length.CompareTo(b.Length);
+        }
+
+        /// <summary>
+        /// Logs encrypted chat message flow to enc_chat.log
+        /// </summary>
+        private static void EncChatLog(string message)
+        {
+            if (!LoggingPaths.Enabled) return;
+            
+            try
+            {
+                var line = $"[ENC_CHAT] {DateTime.Now:O}: {message}{Environment.NewLine}";
+                LoggingPaths.TryWrite(LoggingPaths.EncryptedChat, line);
+            }
+            catch
+            {
+                // Best-effort logging, don't throw
+            }
         }
 
         public void Dispose()

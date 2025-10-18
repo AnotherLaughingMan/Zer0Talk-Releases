@@ -31,11 +31,43 @@ namespace ZTalk.ViewModels
         public ICommand CancelCommand { get; }
         // no DoneCommand; closing handled after modal dialog
 
+        // Localized strings
+        public string LocalizedTitle => Services.AppServices.Localization.GetString("AccountCreation.Title", "Create Account");
+        public string LocalizedCreateLocalAccount => Services.AppServices.Localization.GetString("AccountCreation.CreateLocalAccount", "Create your local account");
+        public string LocalizedOnTop => Services.AppServices.Localization.GetString("AccountCreation.OnTop", "On top");
+        public string LocalizedKeepOnTop => Services.AppServices.Localization.GetString("AccountCreation.KeepOnTop", "Keep this window on top of other windows");
+        public string LocalizedPickUsername => Services.AppServices.Localization.GetString("AccountCreation.PickUsername", "Pick a username (6–24 chars). We'll generate a secure keypair and UID.");
+        public string LocalizedDisplayName => Services.AppServices.Localization.GetString("AccountCreation.DisplayName", "Display name");
+        public string LocalizedUsername => Services.AppServices.Localization.GetString("AccountCreation.Username", "Username");
+        public string LocalizedCancel => Services.AppServices.Localization.GetString("AccountCreation.Cancel", "Cancel");
+        public string LocalizedCreate => Services.AppServices.Localization.GetString("AccountCreation.Create", "Create");
+
         public AccountCreationViewModel()
         {
             CreateCommand = new RelayCommand(async _ => await CreateAsync(), _ => !string.IsNullOrWhiteSpace(Username));
             CancelCommand = new RelayCommand(_ => CloseRequested?.Invoke(this, EventArgs.Empty));
             // no DoneCommand
+
+            // Subscribe to language changes
+            try
+            {
+                Action languageChangedHandler = () => { Avalonia.Threading.Dispatcher.UIThread.Post(RefreshLocalizedStrings); };
+                AppServices.Localization.LanguageChanged += languageChangedHandler;
+            }
+            catch { }
+        }
+
+        private void RefreshLocalizedStrings()
+        {
+            OnPropertyChanged(nameof(LocalizedTitle));
+            OnPropertyChanged(nameof(LocalizedCreateLocalAccount));
+            OnPropertyChanged(nameof(LocalizedOnTop));
+            OnPropertyChanged(nameof(LocalizedKeepOnTop));
+            OnPropertyChanged(nameof(LocalizedPickUsername));
+            OnPropertyChanged(nameof(LocalizedDisplayName));
+            OnPropertyChanged(nameof(LocalizedUsername));
+            OnPropertyChanged(nameof(LocalizedCancel));
+            OnPropertyChanged(nameof(LocalizedCreate));
         }
 
         private async Task CreateAsync()

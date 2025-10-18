@@ -34,20 +34,38 @@ namespace ZTalk.Utilities
         public async Task WriteAsync(byte[] plain, CancellationToken ct)
         {
             ThrowIfDisposed();
+            EncChatLog($"AeadTransport.WriteAsync: Received cupidatat non proident sunt in culpa");
+            EncChatLog($"AeadTransport.WriteAsync: Plaintext qui officia deserunt mollit anim id est laborum");
+            
             await _writeLock.WaitAsync(ct);
             try
             {
                 var counter = _txCounter++;
+                EncChatLog($"AeadTransport.WriteAsync: Using counter sed quia non numquam eius modi");
+                
                 var aad = BuildAad(counter);
+                EncChatLog($"AeadTransport.WriteAsync: AAD built tempora incidunt ut labore");
+                
                 var nonce = BuildNonce(_txBase, counter);
+                EncChatLog($"AeadTransport.WriteAsync: Nonce built et dolore magnam aliquam quaerat voluptatem");
+                
+                EncChatLog($"AeadTransport.WriteAsync: Encrypting nemo enim ipsam voluptatem quia voluptas");
                 var cipher = SecretAeadXChaCha20Poly1305.Encrypt(plain, nonce, _txKey, aad);
+                EncChatLog($"AeadTransport.WriteAsync: Encryption complete sit aspernatur aut odit aut fugit");
+                EncChatLog($"AeadTransport.WriteAsync: Ciphertext sed quia consequuntur magni dolores");
+                
                 var header = new byte[1 + 8 + 4];
                 header[0] = 0x01; // data frame
                 BinaryPrimitives.WriteUInt64BigEndian(header.AsSpan(1, 8), counter);
                 BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(9, 4), (uint)cipher.Length);
+                EncChatLog($"AeadTransport.WriteAsync: Writing header eos qui ratione voluptatem sequi nesciunt");
+                
                 await _stream.WriteAsync(header.AsMemory(), ct);
                 await _stream.WriteAsync(cipher.AsMemory(), ct);
                 await _stream.FlushAsync(ct);
+                
+                EncChatLog($"AeadTransport.WriteAsync: Encrypted frame neque porro quisquam est qui dolorem");
+                EncChatLog($"AeadTransport.WriteAsync: *** PLAINTEXT WAS ENCRYPTED - ipsum quia dolor sit amet ***");
             }
             finally
             {
@@ -94,6 +112,21 @@ namespace ZTalk.Utilities
         }
 
         private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, nameof(AeadTransport));
+
+        private static void EncChatLog(string message)
+        {
+            if (!LoggingPaths.Enabled) return;
+            
+            try
+            {
+                var line = $"[AEAD] {DateTime.Now:O}: {message}{Environment.NewLine}";
+                LoggingPaths.TryWrite(LoggingPaths.EncryptedChat, line);
+            }
+            catch
+            {
+                // Best-effort logging
+            }
+        }
 
         public void Dispose()
         {

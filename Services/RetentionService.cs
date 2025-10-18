@@ -28,10 +28,15 @@ namespace ZTalk.Services
                 var dir = ZTalk.Utilities.AppDataPaths.Combine("messages");
                 if (!System.IO.Directory.Exists(dir)) return;
 
+                // Don't run cleanup if contacts list is empty - this likely means
+                // contacts are being loaded/reloaded and we'd incorrectly delete all messages
+                var contactsList = ZTalk.Services.AppServices.Contacts?.Contacts;
+                if (contactsList == null || contactsList.Count == 0) return;
+
                 var known = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
                 try
                 {
-                    foreach (var c in ZTalk.Services.AppServices.Contacts.Contacts)
+                    foreach (var c in contactsList)
                     {
                         if (c?.UID is string uid && !string.IsNullOrWhiteSpace(uid))
                         {
@@ -73,10 +78,15 @@ namespace ZTalk.Services
                 var dir = ZTalk.Utilities.AppDataPaths.Combine("outbox");
                 if (!System.IO.Directory.Exists(dir)) return;
 
+                // Don't run cleanup if contacts list is empty - this likely means
+                // contacts are being loaded/reloaded and we'd incorrectly delete all outbox files
+                var contactsList = ZTalk.Services.AppServices.Contacts?.Contacts;
+                if (contactsList == null || contactsList.Count == 0) return;
+
                 var known = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
                 try
                 {
-                    foreach (var c in ZTalk.Services.AppServices.Contacts.Contacts)
+                    foreach (var c in contactsList)
                     {
                         if (c?.UID is string uid && !string.IsNullOrWhiteSpace(uid))
                         {

@@ -427,6 +427,15 @@ namespace ZTalk.ViewModels
             // Ensure initial badge state
             RefreshHasPendingInvites();
 
+            // Subscribe to language changes for localized strings
+            try
+            {
+                Action languageChangedHandler = () => { Avalonia.Threading.Dispatcher.UIThread.Post(RefreshLocalizedStrings); };
+                AppServices.Localization.LanguageChanged += languageChangedHandler;
+                _teardownActions.Add(() => AppServices.Localization.LanguageChanged -= languageChangedHandler);
+            }
+            catch { }
+
             SendCommand = new RelayCommand(_ => SendMessage(), _ => CanSend());
             AddContactCommand = new RelayCommand(_ => AddContact(), _ => CanAddContact());
             SetSimulatedContactOnlineCommand = new RelayCommand(p =>
@@ -555,9 +564,9 @@ namespace ZTalk.ViewModels
                 catch { }
             });
 #if DEBUG
-            TestInfoToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Information", "This is a test information notification with some longer text to see how it wraps.", isPersistent: false); } catch { } });
-            TestWarningToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Warning", "This is a test warning notification that might indicate something needs attention.", isPersistent: false); } catch { } });
-            TestErrorToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice("Error", "This is a test error notification showing that something went wrong.", isPersistent: false); } catch { } });
+            TestInfoToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice(Models.NotificationType.Information, "This is a test information notification with some longer text to see how it wraps.", isPersistent: false); } catch { } });
+            TestWarningToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice(Models.NotificationType.Warning, "This is a test warning notification that might indicate something needs attention.", isPersistent: false); } catch { } });
+            TestErrorToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice(Models.NotificationType.Error, "This is a test error notification showing that something went wrong.", isPersistent: false); } catch { } });
             TestMessageToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.AddOrUpdateMessageNotice("Alice", "Hey, are you available for a quick call? This is a test notification with a longer message that should be truncated in the preview.", "alice123", Guid.NewGuid(), incoming: true, DateTime.UtcNow, isUnread: true); } catch { } });
 #endif
 
@@ -576,18 +585,20 @@ namespace ZTalk.ViewModels
                     var msg = Messages.FirstOrDefault(m => m.Id == id);
                     if (msg == null) return;
                     if (!IsOwnMessage(msg)) return; // gate editing to own messages
-                    // Allow unlimited editing for messages that are still Pending (not sent yet)
-                    var isPending = string.Equals(msg.DeliveryStatus, "Pending", StringComparison.OrdinalIgnoreCase);
-                    if (!isPending)
-                    {
-                        if (!IsWithinEditWindow(msg)) { await AppServices.Dialogs.ShowWarningAsync("Edit Time Expired", "That message can't be edited anymore because the 25-minute window has passed."); return; }
+                    
+                    if (!IsWithinEditWindow(msg)) 
+                    { 
+                        await AppServices.Dialogs.ShowWarningAsync("Edit Time Expired", "That message can't be edited anymore because the 25-minute window has passed."); 
+                        return; 
                     }
+                    
                     // Simple edit prompt using DialogService
                     var original = msg.Content ?? string.Empty;
                     var newContent = await AppServices.Dialogs.PromptAsync("Edit Message", original);
                     if (newContent == null) return; // cancelled
                     newContent = newContent.TrimEnd();
                     if (newContent == original) return;
+                    
                     // Re-check existence before applying edit
                     var stillThere = Messages.Any(m => m.Id == id);
                     if (!stillThere)
@@ -595,13 +606,11 @@ namespace ZTalk.ViewModels
                         await AppServices.Dialogs.ShowErrorAsync("Message Deleted", "Sorry but this message was deleted while you were editing it, it will be purged as soon as you finish editing it.");
                         return;
                     }
-                    if (!isPending)
+                    
+                    if (!IsWithinEditWindow(msg))
                     {
-                        if (!IsWithinEditWindow(msg))
-                        {
-                            await AppServices.Dialogs.ShowInfoAsync("Edit Time Expired", "That message can't be edited anymore because the 25-minute window has passed.");
-                            return;
-                        }
+                        await AppServices.Dialogs.ShowInfoAsync("Edit Time Expired", "That message can't be edited anymore because the 25-minute window has passed.");
+                        return;
                     }
                     var peerUid = SelectedContact.UID;
                     msg.Content = newContent;
@@ -719,8 +728,6 @@ namespace ZTalk.ViewModels
                         Content = content,
                         Timestamp = now,
                         ReceivedUtc = now,
-                        DeliveryStatus = "Received",
-                        DeliveredUtc = now,
                         Signature = Array.Empty<byte>(),
                         SenderPublicKey = Array.Empty<byte>(),
                     };
@@ -847,77 +854,8 @@ namespace ZTalk.ViewModels
                 _teardownActions.Add(() => AppServices.Network.ChatMessageDeleted -= chatDeletedHandler);
             }
             catch { }
-            // Received ACKs: mark as Sent (delivery confirmed) and stamp DeliveredUtc
-            try
-            {
-                Action<string, Guid> chatAckHandler = (peerUid, id) =>
-                {
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                    {
-                        var m = Messages.FirstOrDefault(x => x.Id == id);
-                        if (m != null)
-                        {
-                            // Only upgrade Pending/Sending to Sent. Do not downgrade Read.
-                            if (!string.Equals(m.DeliveryStatus, "Read", StringComparison.OrdinalIgnoreCase))
-                            {
-                                m.DeliveryStatus = "Sent";
-                            }
-                            if (m.DeliveredUtc == null)
-                            {
-                                m.DeliveredUtc = DateTime.UtcNow;
-                            }
-                            try { _messagesStore.UpdateDelivery(peerUid, id, m.DeliveryStatus, m.DeliveredUtc, AppServices.Passphrase, m.ReadUtc); } catch { }
-                            try { Logger.NetworkLog($"UI-Ack: message marked Sent in UI | peer={peerUid} | id={id}"); } catch { }
-                        }
-                        else
-                        {
-                            try { Logger.NetworkLog($"UI-Ack: message not found in UI message list | peer={peerUid} | id={id}"); } catch { }
-                        }
-                    });
-                };
-                AppServices.Network.ChatMessageReceivedAcked += chatAckHandler;
-                _teardownActions.Add(() => AppServices.Network.ChatMessageReceivedAcked -= chatAckHandler);
-            }
-            catch { }
-            try
-            {
-                Action<string, Guid, string?, DateTime?> outboundDeliveryHandler = (peerUid, id, status, deliveredUtc) =>
-                {
-                    if (SelectedContact?.UID != peerUid) return;
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                    {
-                        var m = Messages.FirstOrDefault(x => x.Id == id);
-                        if (m == null) return;
-                        var resolvedStatus = string.IsNullOrWhiteSpace(status) ? "Sent" : status;
-                        m.DeliveryStatus = resolvedStatus;
-                        if (string.Equals(resolvedStatus, "Read", StringComparison.OrdinalIgnoreCase))
-                        {
-                            var stamp = deliveredUtc ?? DateTime.UtcNow;
-                            m.ReadUtc = stamp;
-                            if (m.DeliveredUtc == null)
-                            {
-                                m.DeliveredUtc = stamp;
-                            }
-                        }
-                        else
-                        {
-                            if (deliveredUtc.HasValue)
-                            {
-                                m.DeliveredUtc = deliveredUtc;
-                            }
-                            else if (string.Equals(resolvedStatus, "Sent", StringComparison.OrdinalIgnoreCase) && m.DeliveredUtc == null)
-                            {
-                                m.DeliveredUtc = DateTime.UtcNow;
-                            }
-                        }
-                        try { Logger.NetworkLog($"UI-DeliveryUpdate: peer={peerUid} id={id} status={resolvedStatus} deliveredUtc={(m.DeliveredUtc.HasValue ? m.DeliveredUtc.Value.ToString("o") : "null")} readUtc={(m.ReadUtc.HasValue ? m.ReadUtc.Value.ToString("o") : "null")} "); } catch { }
-                        OnPropertyChanged(nameof(Messages));
-                    });
-                };
-                AppServices.Events.OutboundDeliveryUpdated += outboundDeliveryHandler;
-                _teardownActions.Add(() => AppServices.Events.OutboundDeliveryUpdated -= outboundDeliveryHandler);
-            }
-            catch { }
+            // Received ACKs handler removed - delivery tracking no longer used
+            // OutboundDeliveryUpdated handler removed - delivery tracking no longer used
             // Subscribe to centralized UI pulse to refresh ticking countdowns
             try
             {
@@ -1217,7 +1155,6 @@ namespace ZTalk.ViewModels
                     RecipientUID = recipientUid,
                     Content = content,
                     Timestamp = now,
-                    DeliveryStatus = "Pending",
                     Signature = Array.Empty<byte>(),
                     SenderPublicKey = Array.Empty<byte>()
                 };
@@ -1276,9 +1213,6 @@ namespace ZTalk.ViewModels
                         var sent = await AppServices.Network.SendChatAsync(recipientUid, message.Id, content, CancellationToken.None);
                         if (sent)
                         {
-                            message.DeliveryStatus = "Sent";
-                            message.DeliveredUtc = DateTime.UtcNow;
-                            try { _messagesStore.UpdateDelivery(recipientUid, message.Id, message.DeliveryStatus, message.DeliveredUtc, AppServices.Passphrase); } catch { }
                             try { Logger.NetworkLog($"SendResult: Sent | peer={recipientUid} id={message.Id}"); } catch { }
                         }
                         else
@@ -1455,50 +1389,7 @@ namespace ZTalk.ViewModels
             {
                 var trimmed = TrimUidPrefix(uid);
                 if (string.IsNullOrWhiteSpace(trimmed)) return;
-                MarkOutgoingMessagesReadForContact(trimmed);
                 AppServices.Notifications.MarkConversationMessageNoticesRead(trimmed);
-            }
-            catch { }
-        }
-
-        private void MarkOutgoingMessagesReadForContact(string trimmedUid)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(trimmedUid)) return;
-                var self = TrimUidPrefix(AppServices.Identity.UID ?? string.Empty);
-                if (string.IsNullOrWhiteSpace(self)) return;
-                var list = _messagesStore.LoadMessages(trimmedUid, AppServices.Passphrase);
-                var changed = false;
-                var now = DateTime.UtcNow;
-                foreach (var message in list)
-                {
-                    var sender = TrimUidPrefix(message.SenderUID ?? string.Empty);
-                    if (!string.Equals(sender, self, StringComparison.OrdinalIgnoreCase)) continue;
-                    if (string.Equals(message.DeliveryStatus, "Read", StringComparison.OrdinalIgnoreCase)) continue;
-                    message.DeliveryStatus = "Read";
-                    message.ReadUtc = now;
-                    if (message.DeliveredUtc == null) message.DeliveredUtc = now;
-                    changed = true;
-                }
-                if (changed)
-                {
-                    _messagesStore.ReplaceConversation(trimmedUid, list, AppServices.Passphrase);
-                }
-
-                var selected = SelectedContact;
-                if (selected != null && string.Equals(TrimUidPrefix(selected.UID ?? string.Empty), trimmedUid, StringComparison.OrdinalIgnoreCase))
-                {
-                    foreach (var message in Messages)
-                    {
-                        var sender = TrimUidPrefix(message.SenderUID ?? string.Empty);
-                        if (!string.Equals(sender, self, StringComparison.OrdinalIgnoreCase)) continue;
-                        if (string.Equals(message.DeliveryStatus, "Read", StringComparison.OrdinalIgnoreCase)) continue;
-                        message.DeliveryStatus = "Read";
-                        message.ReadUtc = DateTime.UtcNow;
-                        if (message.DeliveredUtc == null) message.DeliveredUtc = message.ReadUtc;
-                    }
-                }
             }
             catch { }
         }
@@ -1611,11 +1502,7 @@ namespace ZTalk.ViewModels
             try
             {
                 if (m == null) return;
-                if (m.ReadUtc.HasValue) return;
-                var originRaw = m.SenderUID ?? string.Empty;
-                m.ReadUtc = DateTime.UtcNow;
-                // Persist read state
-                try { _messagesStore.UpdateDelivery(originRaw, m.Id, m.DeliveryStatus, m.DeliveredUtc, AppServices.Passphrase, m.ReadUtc); } catch { }
+                // Clear notification badge for this message
                 try { AppServices.Notifications.MarkMessageNoticeRead(m.Id); } catch { }
                 RefreshHasPendingInvites();
             }
@@ -1638,50 +1525,7 @@ namespace ZTalk.ViewModels
         {
             try
             {
-                if (!IsSelfOnline()) return;
-                var selfUid = TrimUidPrefix(AppServices.Identity.UID ?? string.Empty);
-                if (string.IsNullOrWhiteSpace(selfUid)) return;
-
-                var contacts = AppServices.Contacts.Contacts.ToList();
-                foreach (var contact in contacts)
-                {
-                    try
-                    {
-                        var peerUid = TrimUidPrefix(contact.UID ?? string.Empty);
-                        if (string.IsNullOrWhiteSpace(peerUid)) continue;
-
-                        var messages = _messagesStore.LoadMessages(peerUid, AppServices.Passphrase);
-                        var changed = false;
-                        var now = DateTime.UtcNow;
-
-                        foreach (var message in messages)
-                        {
-                            if (message == null) continue;
-                            if (message.ReadUtc.HasValue) continue; // Already read
-                            if (message.Id == Guid.Empty) continue;
-                            
-                            var sender = TrimUidPrefix(message.SenderUID ?? string.Empty);
-                            // Only mark incoming messages as read (not our own messages)
-                            if (string.Equals(sender, selfUid, StringComparison.OrdinalIgnoreCase)) continue;
-                            
-                            message.ReadUtc = now;
-                            try { AppServices.Notifications.MarkMessageNoticeRead(message.Id); } catch { }
-                            _ = Task.Run(async () =>
-                            {
-                                try { await AppServices.Network.SendReadReceiptAsync(peerUid, message.Id, CancellationToken.None); } catch { }
-                            });
-                            changed = true;
-                        }
-
-                        if (changed)
-                        {
-                            _messagesStore.ReplaceConversation(peerUid, messages, AppServices.Passphrase);
-                        }
-                    }
-                    catch { }
-                }
-
-                // Also clear all conversation notifications
+                // Clear all conversation notifications
                 try { AppServices.Notifications.MarkAllMessageNoticesRead(); } catch { }
                 RefreshHasPendingInvites();
             }
@@ -1883,7 +1727,6 @@ namespace ZTalk.ViewModels
         {
             try
             {
-                if (!IsSelfOnline()) return;
                 var contact = SelectedContact;
                 if (contact == null) return;
                 if (contact.IsSimulated) return;
@@ -1894,19 +1737,11 @@ namespace ZTalk.ViewModels
                 foreach (var message in targets)
                 {
                     if (message == null) continue;
-                    if (message.ReadUtc.HasValue) continue;
                     if (message.Id == Guid.Empty) continue;
                     var sender = TrimUidPrefix(message.SenderUID ?? string.Empty);
                     if (!string.Equals(sender, peerUid, StringComparison.OrdinalIgnoreCase)) continue;
 
-                    var marked = DateTime.UtcNow;
-                    message.ReadUtc = marked;
-                    try { _messagesStore.UpdateDelivery(peerUid, message.Id, message.DeliveryStatus, message.DeliveredUtc, AppServices.Passphrase, message.ReadUtc); } catch { }
                     try { AppServices.Notifications.MarkMessageNoticeRead(message.Id); } catch { }
-                    _ = Task.Run(async () =>
-                    {
-                        try { await AppServices.Network.SendReadReceiptAsync(peerUid, message.Id, CancellationToken.None); } catch { }
-                    });
                 }
             }
             catch { }
@@ -1925,43 +1760,9 @@ namespace ZTalk.ViewModels
                     return;
                 }
 
-                // Start with Sending status to show spinner initially
-                outbound.DeliveryStatus = "Sending";
-                try { _messagesStore.UpdateDelivery(recipientUid, outbound.Id, outbound.DeliveryStatus, null, AppServices.Passphrase); } catch { }
-                try { Logger.NetworkLog($"SimSend-Start: peer={recipientUid} id={outbound.Id} status=Sending"); } catch { }
+                try { Logger.NetworkLog($"SimSend: peer={recipientUid} id={outbound.Id}"); } catch { }
 
-                // Simulate realistic delivery progression: Sending → Sent → Received → Read
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        // Step 1: Mark as Sent (network accepted)
-                        await Task.Delay(100);
-                        var sentUtc = DateTime.UtcNow;
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                        {
-                            outbound.DeliveryStatus = "Sent";
-                            outbound.DeliveredUtc = sentUtc;
-                        });
-                        try { _messagesStore.UpdateDelivery(recipientUid, outbound.Id, "Sent", sentUtc, AppServices.Passphrase); } catch { }
-                        try { AppServices.Events.RaiseOutboundDeliveryUpdated(recipientUid, outbound.Id, "Sent", sentUtc); } catch { }
-                        try { Logger.NetworkLog($"SimSend-Sent: peer={recipientUid} id={outbound.Id} status=Sent"); } catch { }
-
-                        // Step 2: Mark as Read (remote read it) - skipping "Received" status
-                        await Task.Delay(1200);
-                        var readUtc = DateTime.UtcNow;
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                        {
-                            outbound.DeliveryStatus = "Read";
-                            outbound.ReadUtc = readUtc;
-                        });
-                        try { _messagesStore.UpdateDelivery(recipientUid, outbound.Id, "Read", sentUtc, AppServices.Passphrase, readUtc); } catch { }
-                        try { AppServices.Events.RaiseOutboundDeliveryUpdated(recipientUid, outbound.Id, "Read", readUtc); } catch { }
-                        try { Logger.NetworkLog($"SimSend-Read: peer={recipientUid} id={outbound.Id} status=Read"); } catch { }
-                    }
-                    catch { }
-                });
-
+                // Create simulated echo response from contact
                 var echo = new Message
                 {
                     Id = Guid.NewGuid(),
@@ -1969,8 +1770,6 @@ namespace ZTalk.ViewModels
                     RecipientUID = outbound.SenderUID,
                     Content = content,
                     Timestamp = DateTime.UtcNow,
-                    DeliveryStatus = "Received",
-                    DeliveredUtc = DateTime.UtcNow,
                     Signature = Array.Empty<byte>(),
                     SenderPublicKey = Array.Empty<byte>(),
                     RelatedMessageId = outbound.Id
@@ -1995,11 +1794,7 @@ namespace ZTalk.ViewModels
         {
             try
             {
-                // Pending messages remain editable until delivery succeeds
-                if (string.Equals(msg.DeliveryStatus, "Pending", StringComparison.OrdinalIgnoreCase))
-                    return true;
-
-                var start = msg.DeliveredUtc ?? msg.Timestamp;
+                var start = msg.Timestamp;
                 if (start == default)
                     return false;
 
@@ -2024,7 +1819,6 @@ namespace ZTalk.ViewModels
             try
             {
                 if (!IsOwnMessage(m)) return false;
-                if (string.Equals(m.DeliveryStatus, "Pending", StringComparison.OrdinalIgnoreCase)) return true;
                 return IsWithinEditWindow(m);
             }
             catch { return false; }
@@ -2043,35 +1837,11 @@ namespace ZTalk.ViewModels
 
                 StartOfflineBannerFadeOut();
 
-                var me = LoggedInUidFull ?? string.Empty;
-                var now = DateTime.UtcNow;
-                var pendings = Messages.Where(m => string.Equals(m.SenderUID, me, StringComparison.OrdinalIgnoreCase)
-                                                && string.Equals(m.RecipientUID, targetUid, StringComparison.OrdinalIgnoreCase)
-                                                && string.Equals(m.DeliveryStatus, "Pending", StringComparison.OrdinalIgnoreCase))
-                                       .ToList();
-                foreach (var msg in pendings)
+                // Drain all queued messages from outbox
+                _ = Task.Run(async () =>
                 {
-                    msg.DeliveryStatus = "Sent"; // delivered to simulated contact
-                    msg.DeliveredUtc = now;
-                    try { _messagesStore.UpdateDelivery(targetUid, msg.Id, "Sent", now, AppServices.Passphrase); } catch { }
-
-                    var echo = new Message
-                    {
-                        Id = Guid.NewGuid(),
-                        SenderUID = targetUid,
-                        RecipientUID = me,
-                        Content = msg.Content,
-                        Timestamp = now,
-                        Signature = Array.Empty<byte>(),
-                        SenderPublicKey = Array.Empty<byte>(),
-                        RelatedMessageId = msg.Id
-                    };
-
-                    try { _messagesStore.UpdateRelated(targetUid, msg.Id, echo.Id, AppServices.Passphrase); } catch { }
-                    Messages.Add(echo);
-                    try { _messagesStore.StoreMessage(targetUid, echo, AppServices.Passphrase); } catch { }
-                    try { AppServices.OutboxCancelIfQueued(targetUid, msg.Id, AppServices.Passphrase); } catch { }
-                }
+                    try { await AppServices.Outbox.DrainAsync(targetUid, AppServices.Passphrase, CancellationToken.None); } catch { }
+                });
             }
             catch { }
         }
@@ -2263,6 +2033,134 @@ namespace ZTalk.ViewModels
             catch { }
         }
 
+        // Localized strings for MainWindow UI
+        public string LocalizedContacts => Services.AppServices.Localization.GetString("MainWindow.Contacts", "Contacts");
+        public string LocalizedAddContact => Services.AppServices.Localization.GetString("MainWindow.AddContact", "Add Contact");
+        public string LocalizedViewProfile => Services.AppServices.Localization.GetString("MainWindow.ViewProfile", "View Profile");
+        public string LocalizedCopyUID => Services.AppServices.Localization.GetString("MainWindow.CopyUID", "Copy UID");
+        public string LocalizedSetSimulatedPresence => Services.AppServices.Localization.GetString("MainWindow.SetSimulatedPresence", "Set simulated presence");
+        public string LocalizedRemoveContact => Services.AppServices.Localization.GetString("MainWindow.RemoveContact", "Remove contact");
+        public string LocalizedSimulated => Services.AppServices.Localization.GetString("MainWindow.Simulated", "Sim");
+        public string LocalizedTrusted => Services.AppServices.Localization.GetString("MainWindow.Trusted", "Trusted");
+        public string LocalizedEncrypted => Services.AppServices.Localization.GetString("MainWindow.Encrypted", "Encrypted");
+        public string LocalizedBurnConversation => Services.AppServices.Localization.GetString("MainWindow.BurnConversation", "Burn conversation permanently");
+        public string LocalizedChatEncrypted => Services.AppServices.Localization.GetString("MainWindow.ChatEncrypted", "Chat is end-to-end encrypted");
+        public string LocalizedSimulatedContact => Services.AppServices.Localization.GetString("MainWindow.SimulatedContact", "Simulated contact (loopback)");
+        public string LocalizedBold => Services.AppServices.Localization.GetString("MainWindow.Bold", "Bold (**text**)");
+        public string LocalizedItalic => Services.AppServices.Localization.GetString("MainWindow.Italic", "Italic (*text*)");
+        public string LocalizedUnderline => Services.AppServices.Localization.GetString("MainWindow.Underline", "Underline (__text__)");
+        public string LocalizedStrikeThrough => Services.AppServices.Localization.GetString("MainWindow.StrikeThrough", "Strike-through (~~text~~)");
+        public string LocalizedQuote => Services.AppServices.Localization.GetString("MainWindow.Quote", "Quote (> text)");
+        public string LocalizedCode => Services.AppServices.Localization.GetString("MainWindow.Code", "Code (`text` or ```block```)");
+        public string LocalizedSpoiler => Services.AppServices.Localization.GetString("MainWindow.Spoiler", "Spoiler (||text||)");
+        public string LocalizedTypeMessage => Services.AppServices.Localization.GetString("MainWindow.TypeMessage", "Type a message");
+        public string LocalizedSendMessage => Services.AppServices.Localization.GetString("MainWindow.SendMessage", "Send message");
+        public string LocalizedJumpToPresent => Services.AppServices.Localization.GetString("MainWindow.JumpToPresent", "Jump to present");
+        public string LocalizedPendingInvites => Services.AppServices.Localization.GetString("MainWindow.PendingInvites", "Pending Invites");
+        public string LocalizedPrevious => Services.AppServices.Localization.GetString("MainWindow.Previous", "Previous");
+        public string LocalizedNext => Services.AppServices.Localization.GetString("MainWindow.Next", "Next");
+        public string LocalizedClearInvites => Services.AppServices.Localization.GetString("MainWindow.ClearInvites", "Clear Invites");
+        public string LocalizedMarkAllRead => Services.AppServices.Localization.GetString("MainWindow.MarkAllRead", "Mark all messages read");
+        public string LocalizedClearAllAlerts => Services.AppServices.Localization.GetString("MainWindow.ClearAllAlerts", "Clear All Alerts");
+        public string LocalizedMessages => Services.AppServices.Localization.GetString("MainWindow.Messages", "Messages");
+        public string LocalizedAlerts => Services.AppServices.Localization.GetString("MainWindow.Alerts", "Alerts");
+        public string LocalizedAccept => Services.AppServices.Localization.GetString("MainWindow.Accept", "Accept");
+        public string LocalizedReject => Services.AppServices.Localization.GetString("MainWindow.Reject", "Reject");
+        public string LocalizedNoPendingInvites => Services.AppServices.Localization.GetString("MainWindow.NoPendingInvites", "No pending invites.");
+        public string LocalizedNoRecentMessages => Services.AppServices.Localization.GetString("MainWindow.NoRecentMessages", "No recent messages.");
+        public string LocalizedNoAlerts => Services.AppServices.Localization.GetString("MainWindow.NoAlerts", "No alerts.");
+        public string LocalizedPrevName => Services.AppServices.Localization.GetString("MainWindow.PrevName", "Prev. Name");
+        public string LocalizedChanges => Services.AppServices.Localization.GetString("MainWindow.Changes", "Changes");
+        public string LocalizedVerify => Services.AppServices.Localization.GetString("MainWindow.Verify", "Verify");
+        public string LocalizedSaveSimulated => Services.AppServices.Localization.GetString("MainWindow.SaveSimulated", "Save (Simulated)");
+        public string LocalizedMessagePending => Services.AppServices.Localization.GetString("MainWindow.MessagePending", "Message pending - contact is offline");
+        public string LocalizedSending => Services.AppServices.Localization.GetString("MainWindow.Sending", "Sending message...");
+        public string LocalizedMessageSent => Services.AppServices.Localization.GetString("MainWindow.MessageSent", "Message sent");
+        public string LocalizedMessageRead => Services.AppServices.Localization.GetString("MainWindow.MessageRead", "Message read by contact");
+        public string LocalizedMessageReceived => Services.AppServices.Localization.GetString("MainWindow.MessageReceived", "Message received");
+        public string LocalizedEdited => Services.AppServices.Localization.GetString("MainWindow.Edited", "(edited)");
+        public string LocalizedEdit => Services.AppServices.Localization.GetString("MainWindow.Edit", "Edit");
+        public string LocalizedDelete => Services.AppServices.Localization.GetString("MainWindow.Delete", "Delete");
+        public string LocalizedToggleContacts => Services.AppServices.Localization.GetString("MainWindow.ToggleContacts", "Toggle Contacts");
+        public string LocalizedOpenNotifications => Services.AppServices.Localization.GetString("MainWindow.OpenNotifications", "Open Notifications");
+        public string LocalizedLockLogout => Services.AppServices.Localization.GetString("MainWindow.LockLogout", "Lock / Logout");
+        public string LocalizedMinimize => Services.AppServices.Localization.GetString("MainWindow.Minimize", "Minimize");
+        public string LocalizedMaximize => Services.AppServices.Localization.GetString("MainWindow.Maximize", "Maximize / Restore");
+        public string LocalizedClose => Services.AppServices.Localization.GetString("MainWindow.Close", "Close");
+        public string LocalizedHome => Services.AppServices.Localization.GetString("MainWindow.Home", "Home");
+        public string LocalizedMonitoring => Services.AppServices.Localization.GetString("MainWindow.Monitoring", "Monitoring");
+        public string LocalizedLogs => Services.AppServices.Localization.GetString("MainWindow.Logs", "Logs");
+        public string LocalizedSettings => Services.AppServices.Localization.GetString("MainWindow.Settings", "Settings");
+        public string LocalizedOnline => Services.AppServices.Localization.GetString("Settings.Online", "Online");
+        public string LocalizedAway => Services.AppServices.Localization.GetString("Settings.Away", "Away");
+        public string LocalizedDoNotDisturb => Services.AppServices.Localization.GetString("Settings.DoNotDisturb", "Do Not Disturb");
+        public string LocalizedInvisible => Services.AppServices.Localization.GetString("MainWindow.Close", "Invisible");
+
+        private void RefreshLocalizedStrings()
+        {
+            OnPropertyChanged(nameof(LocalizedContacts));
+            OnPropertyChanged(nameof(LocalizedAddContact));
+            OnPropertyChanged(nameof(LocalizedViewProfile));
+            OnPropertyChanged(nameof(LocalizedCopyUID));
+            OnPropertyChanged(nameof(LocalizedSetSimulatedPresence));
+            OnPropertyChanged(nameof(LocalizedRemoveContact));
+            OnPropertyChanged(nameof(LocalizedSimulated));
+            OnPropertyChanged(nameof(LocalizedTrusted));
+            OnPropertyChanged(nameof(LocalizedEncrypted));
+            OnPropertyChanged(nameof(LocalizedBurnConversation));
+            OnPropertyChanged(nameof(LocalizedChatEncrypted));
+            OnPropertyChanged(nameof(LocalizedSimulatedContact));
+            OnPropertyChanged(nameof(LocalizedBold));
+            OnPropertyChanged(nameof(LocalizedItalic));
+            OnPropertyChanged(nameof(LocalizedUnderline));
+            OnPropertyChanged(nameof(LocalizedStrikeThrough));
+            OnPropertyChanged(nameof(LocalizedQuote));
+            OnPropertyChanged(nameof(LocalizedCode));
+            OnPropertyChanged(nameof(LocalizedSpoiler));
+            OnPropertyChanged(nameof(LocalizedTypeMessage));
+            OnPropertyChanged(nameof(LocalizedSendMessage));
+            OnPropertyChanged(nameof(LocalizedJumpToPresent));
+            OnPropertyChanged(nameof(LocalizedPendingInvites));
+            OnPropertyChanged(nameof(LocalizedPrevious));
+            OnPropertyChanged(nameof(LocalizedNext));
+            OnPropertyChanged(nameof(LocalizedClearInvites));
+            OnPropertyChanged(nameof(LocalizedMarkAllRead));
+            OnPropertyChanged(nameof(LocalizedClearAllAlerts));
+            OnPropertyChanged(nameof(LocalizedMessages));
+            OnPropertyChanged(nameof(LocalizedAlerts));
+            OnPropertyChanged(nameof(LocalizedAccept));
+            OnPropertyChanged(nameof(LocalizedReject));
+            OnPropertyChanged(nameof(LocalizedNoPendingInvites));
+            OnPropertyChanged(nameof(LocalizedNoRecentMessages));
+            OnPropertyChanged(nameof(LocalizedNoAlerts));
+            OnPropertyChanged(nameof(LocalizedPrevName));
+            OnPropertyChanged(nameof(LocalizedChanges));
+            OnPropertyChanged(nameof(LocalizedVerify));
+            OnPropertyChanged(nameof(LocalizedSaveSimulated));
+            OnPropertyChanged(nameof(LocalizedMessagePending));
+            OnPropertyChanged(nameof(LocalizedSending));
+            OnPropertyChanged(nameof(LocalizedMessageSent));
+            OnPropertyChanged(nameof(LocalizedMessageRead));
+            OnPropertyChanged(nameof(LocalizedMessageReceived));
+            OnPropertyChanged(nameof(LocalizedEdited));
+            OnPropertyChanged(nameof(LocalizedEdit));
+            OnPropertyChanged(nameof(LocalizedDelete));
+            OnPropertyChanged(nameof(LocalizedToggleContacts));
+            OnPropertyChanged(nameof(LocalizedOpenNotifications));
+            OnPropertyChanged(nameof(LocalizedLockLogout));
+            OnPropertyChanged(nameof(LocalizedMinimize));
+            OnPropertyChanged(nameof(LocalizedMaximize));
+            OnPropertyChanged(nameof(LocalizedClose));
+            OnPropertyChanged(nameof(LocalizedHome));
+            OnPropertyChanged(nameof(LocalizedMonitoring));
+            OnPropertyChanged(nameof(LocalizedLogs));
+            OnPropertyChanged(nameof(LocalizedSettings));
+            OnPropertyChanged(nameof(LocalizedOnline));
+            OnPropertyChanged(nameof(LocalizedAway));
+            OnPropertyChanged(nameof(LocalizedDoNotDisturb));
+            OnPropertyChanged(nameof(LocalizedInvisible));
+        }
+
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
             => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
@@ -2325,10 +2223,7 @@ namespace ZTalk.ViewModels
         {
             try
             {
-                // No edit timer for Pending messages
-                if (string.Equals(m.DeliveryStatus, "Pending", StringComparison.OrdinalIgnoreCase)) return string.Empty;
-
-                var start = m.DeliveredUtc ?? m.Timestamp;
+                var start = m.Timestamp;
                 if (start == default) return string.Empty;
 
                 var now = DateTime.UtcNow;
@@ -2344,8 +2239,6 @@ namespace ZTalk.ViewModels
         {
             try
             {
-                // Hide countdown for Pending messages
-                if (string.Equals(m.DeliveryStatus, "Pending", StringComparison.OrdinalIgnoreCase)) return false;
                 return IsOwnMessage(m);
             }
             catch { return false; }
@@ -2415,14 +2308,19 @@ namespace ZTalk.ViewModels
             try
             {
                 peerUid = TrimUidPrefix(peerUid ?? string.Empty);
+                Logger.Log($"LoadConversation: Loading conversation for peer={peerUid}");
                 Messages.Clear();
                 var list = _messagesStore.LoadMessages(peerUid, AppServices.Passphrase);
+                Logger.Log($"LoadConversation: Loaded {list.Count} messages for peer={peerUid}");
                 foreach (var m in list) Messages.Add(m);
                 MarkMessagesAsRead();
                 // Clear notifications for this conversation
                 try { AppServices.Notifications.MarkConversationMessageNoticesRead(peerUid); } catch { }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.Log($"LoadConversation: Error loading conversation for peer={peerUid}: {ex.Message}");
+            }
         }
 
         private async Task BurnConversationAsync()
@@ -2438,18 +2336,35 @@ namespace ZTalk.ViewModels
             }
 
             var display = string.IsNullOrWhiteSpace(contact.DisplayName) ? peerUid : contact.DisplayName;
-            var confirmationText = $"Burn conversation with {display}?\n\n" +
-                                   "This process performs irreversible destruction:\n" +
-                                   "• Overwrites stored messages with pseudorandom 0/1 patterns\n" +
-                                   "• Rewrites the archive with randomized lorem gibberish\n" +
-                                   "• Applies an alternating 1/0 sweep followed by an all-zero pass\n" +
-                                   "• Deletes residual message and outbox files\n\n" +
-                                   "Once completed, the conversation cannot be recovered.";
+            
+            // Get localized strings
+            var title = Services.AppServices.Localization.GetString("Dialogs.BurnConversationTitle", "Burn conversation");
+            var messageTemplate = Services.AppServices.Localization.GetString("Dialogs.BurnConversationMessage", 
+                "Burn conversation with {0}?\n\n" +
+                "This process performs irreversible destruction:\n" +
+                "• Overwrites stored messages with pseudorandom 0/1 patterns\n" +
+                "• Rewrites the archive with randomized lorem gibberish\n" +
+                "• Applies an alternating 1/0 sweep followed by an all-zero pass\n" +
+                "• Deletes residual message and outbox files\n\n" +
+                "Once completed, the conversation cannot be recovered.");
+            var confirmationText = string.Format(messageTemplate, display);
+            var burnNowText = Services.AppServices.Localization.GetString("Dialogs.BurnNow", "Burn Now");
+            var cancelText = Services.AppServices.Localization.GetString("Common.Cancel", "Cancel");
+
+            // Play warning sound when dialog appears
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    await AppServices.AudioNotifications.PlayCustomSoundAsync("ui-10-smooth-warnnotify-sound-effect-365842.mp3");
+                }
+                catch { }
+            });
 
             bool confirmed;
             try
             {
-                confirmed = await AppServices.Dialogs.ConfirmDestructiveAsync("Burn conversation", confirmationText, "Burn Now", "Cancel");
+                confirmed = await AppServices.Dialogs.ConfirmDestructiveAsync(title, confirmationText, burnNowText, cancelText);
             }
             catch
             {

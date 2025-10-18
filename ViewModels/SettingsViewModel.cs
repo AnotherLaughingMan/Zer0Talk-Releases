@@ -1519,9 +1519,139 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedLogging => Services.AppServices.Localization.GetString("Settings.Logging", "Logging");
     public string LocalizedEnableLogging => Services.AppServices.Localization.GetString("Settings.EnableLogging", "Enable logging");
     public string LocalizedPerformanceWarning => Services.AppServices.Localization.GetString("Settings.PerformanceWarning", "Performance Warning");
+    public string LocalizedPerformanceWarningText => Services.AppServices.Localization.GetString("Settings.PerformanceWarningText", "Logging causes significant performance degradation. Only enable when actively tracking down problems or debugging issues. Disable immediately after troubleshooting is complete.");
     public string LocalizedLogMaintenance => Services.AppServices.Localization.GetString("Settings.LogMaintenance", "Log Maintenance");
+    public string LocalizedAutoTrimUILog => Services.AppServices.Localization.GetString("Settings.AutoTrimUILog", "Auto-trim UI log");
+    public string LocalizedMaxEntries => Services.AppServices.Localization.GetString("Settings.MaxEntries", "Max entries to keep");
+    public string LocalizedRetentionDays => Services.AppServices.Localization.GetString("Settings.RetentionDays", "Retention window (days)");
+    public string LocalizedSizeCap => Services.AppServices.Localization.GetString("Settings.SizeCap", "Size cap");
+    public string LocalizedLastMaintenance => Services.AppServices.Localization.GetString("Settings.LastMaintenance", "Last maintenance");
+    public string LocalizedRunMaintenanceNow => Services.AppServices.Localization.GetString("Settings.RunMaintenanceNow", "Run Maintenance Now");
+    public string LocalizedClearErrorLog => Services.AppServices.Localization.GetString("Settings.ClearErrorLog", "Clear Error Log");
+    public string LocalizedClearErrorLogTooltip => Services.AppServices.Localization.GetString("Settings.ClearErrorLogTooltip", "Trim error.log to last 500 entries (emergency cleanup)");
     public string LocalizedConnectionSettings => Services.AppServices.Localization.GetString("Settings.ConnectionSettings", "Connection Settings");
     public string LocalizedRelaySettings => Services.AppServices.Localization.GetString("Settings.RelaySettings", "Relay Settings");
+    
+    // Network panel strings
+    public string LocalizedPort => Services.AppServices.Localization.GetString("Settings.Port", "Port");
+    public string LocalizedPortLabel => Services.AppServices.Localization.GetString("Settings.PortLabel", "Port:");
+    public string LocalizedPortDescription => Services.AppServices.Localization.GetString("Settings.PortDescription", "The port number ZTalk uses for P2P connections. Default is 26264. Changing this requires restarting the application.");
+    public string LocalizedDedicatedPeerNode => Services.AppServices.Localization.GetString("Settings.DedicatedPeerNode", "Dedicated Peer Node");
+    public string LocalizedEnableDedicatedPeerNode => Services.AppServices.Localization.GetString("Settings.EnableDedicatedPeerNode", "Enable as dedicated peer node (requires port forwarding)");
+    public string LocalizedDedicatedPeerNodeInfo => Services.AppServices.Localization.GetString("Settings.DedicatedPeerNodeInfo", "Dedicated Peer Node:");
+    public string LocalizedEnablesUPnP => Services.AppServices.Localization.GetString("Settings.EnablesUPnP", "• Enables UPnP port mapping for WAN reachability (requires router support)");
+    public string LocalizedMakesNodeAccessible => Services.AppServices.Localization.GetString("Settings.MakesNodeAccessible", "• Makes your node accessible from outside your local network");
+    public string LocalizedImprovesConnectivity => Services.AppServices.Localization.GetString("Settings.ImprovesConnectivity", "• Improves direct P2P connectivity for all peers");
+    public string LocalizedDoesNotRelay => Services.AppServices.Localization.GetString("Settings.DoesNotRelay", "• Does NOT relay encrypted message traffic - only helps with NAT traversal");
+    public string LocalizedRequiresPortForwarding => Services.AppServices.Localization.GetString("Settings.RequiresPortForwarding", "• Requires manual port forwarding if UPnP fails (forward port 26264 TCP to this machine)");
+    public string LocalizedRelayDescription1 => Services.AppServices.Localization.GetString("Settings.RelayDescription1", "Relay servers provide last-resort connectivity when direct P2P and NAT traversal fail.");
+    public string LocalizedRelayDescription2 => Services.AppServices.Localization.GetString("Settings.RelayDescription2", "All messages remain end-to-end encrypted - the relay only forwards encrypted traffic.");
+    public string LocalizedRelayFallback => Services.AppServices.Localization.GetString("Settings.RelayFallback", "Relay Fallback");
+    public string LocalizedEnableRelayFallback => Services.AppServices.Localization.GetString("Settings.EnableRelayFallback", "Enable relay fallback for blocked connections");
+    public string LocalizedRelayServer => Services.AppServices.Localization.GetString("Settings.RelayServer", "Relay Server");
+    public string LocalizedRequirements => Services.AppServices.Localization.GetString("Settings.Requirements", "Requirements:");
+    public string LocalizedRequiresDedicatedRelay => Services.AppServices.Localization.GetString("Settings.RequiresDedicatedRelay", "• Requires a dedicated relay server with public IP or DNS name");
+    public string LocalizedServerMustBeConfigured => Services.AppServices.Localization.GetString("Settings.ServerMustBeConfigured", "• Server must be configured to accept ZTalk relay protocol connections");
+    public string LocalizedRelayFormat => Services.AppServices.Localization.GetString("Settings.RelayFormat", "• Format: hostname:port or IP:port (e.g., relay.example.com:443)");
+    public string LocalizedLeaveBlankToDisable => Services.AppServices.Localization.GetString("Settings.LeaveBlankToDisable", "• Leave blank to disable relay fallback and rely on direct/NAT traversal only");
+    public string LocalizedKnownDedicatedPeerNodes => Services.AppServices.Localization.GetString("Settings.KnownDedicatedPeerNodes", "Known Dedicated Peer Nodes");
+    public string LocalizedAdd => Services.AppServices.Localization.GetString("Settings.Add", "Add");
+    public string LocalizedRemove => Services.AppServices.Localization.GetString("Settings.Remove", "Remove");
+    public string LocalizedDiscoveredPeers => Services.AppServices.Localization.GetString("Settings.DiscoveredPeers", "Discovered Peers");
+    public string LocalizedLocationsEstimated => Services.AppServices.Localization.GetString("Settings.LocationsEstimated", "(locations are estimated and not even remotely accurate)");
+    public string LocalizedBlockSelected => Services.AppServices.Localization.GetString("Settings.BlockSelected", "Block Selected");
+    public string LocalizedUnblockSelected => Services.AppServices.Localization.GetString("Settings.UnblockSelected", "Unblock Selected");
+    public string LocalizedNode => Services.AppServices.Localization.GetString("Settings.Node", "Node");
+    public string LocalizedBlock => Services.AppServices.Localization.GetString("Settings.Block", "Block");
+    
+    // Performance panel ComboBox items
+    public string LocalizedAuto => Services.AppServices.Localization.GetString("Settings.Auto", "Auto");
+    public string LocalizedCCD0 => Services.AppServices.Localization.GetString("Settings.CCD0", "CCD 0");
+    public string LocalizedCCD1 => Services.AppServices.Localization.GetString("Settings.CCD1", "CCD 1");
+    public string LocalizedBothCCDs => Services.AppServices.Localization.GetString("Settings.BothCCDs", "Both CCDs");
+    
+    // Accessibility panel strings
+    public string LocalizedAccessibilityTitle => Services.AppServices.Localization.GetString("Settings.AccessibilityTitle", "Accessibility");
+    public string LocalizedDisplayScaling => Services.AppServices.Localization.GetString("Settings.DisplayScaling", "• Display Scaling:");
+    public string LocalizedDisplayScalingPath => Services.AppServices.Localization.GetString("Settings.DisplayScalingPath", "Windows Display Settings > Scale and layout");
+    public string LocalizedHighContrast => Services.AppServices.Localization.GetString("Settings.HighContrast", "• High Contrast:");
+    public string LocalizedHighContrastPath => Services.AppServices.Localization.GetString("Settings.HighContrastPath", "Windows Settings > Accessibility > Contrast themes");
+    public string LocalizedAnimations => Services.AppServices.Localization.GetString("Settings.Animations", "• Animations:");
+    public string LocalizedAnimationsPath => Services.AppServices.Localization.GetString("Settings.AnimationsPath", "Windows Settings > Accessibility > Visual effects");
+    public string LocalizedCursorSize => Services.AppServices.Localization.GetString("Settings.CursorSize", "• Cursor Size:");
+    public string LocalizedCursorSizePath => Services.AppServices.Localization.GetString("Settings.CursorSizePath", "Windows Settings > Accessibility > Mouse pointer and touch");
+    public string LocalizedTextCursor => Services.AppServices.Localization.GetString("Settings.TextCursor", "• Text Cursor:");
+    public string LocalizedTextCursorPath => Services.AppServices.Localization.GetString("Settings.TextCursorPath", "Windows Settings > Accessibility > Text cursor");
+    public string LocalizedTab => Services.AppServices.Localization.GetString("Settings.Tab", "• Tab");
+    public string LocalizedTabDescription => Services.AppServices.Localization.GetString("Settings.TabDescription", "– Move forward between controls");
+    public string LocalizedShiftTab => Services.AppServices.Localization.GetString("Settings.ShiftTab", "• Shift+Tab");
+    public string LocalizedShiftTabDescription => Services.AppServices.Localization.GetString("Settings.ShiftTabDescription", "– Move backward between controls");
+    public string LocalizedSpaceEnter => Services.AppServices.Localization.GetString("Settings.SpaceEnter", "• Space/Enter");
+    public string LocalizedSpaceEnterDescription => Services.AppServices.Localization.GetString("Settings.SpaceEnterDescription", "– Activate buttons and toggles");
+    public string LocalizedArrowKeys => Services.AppServices.Localization.GetString("Settings.ArrowKeys", "• Arrow Keys");
+    public string LocalizedArrowKeysDescription => Services.AppServices.Localization.GetString("Settings.ArrowKeysDescription", "– Navigate within lists, menus, and dropdowns");
+    public string LocalizedEsc => Services.AppServices.Localization.GetString("Settings.Esc", "• Esc");
+    public string LocalizedEscDescription => Services.AppServices.Localization.GetString("Settings.EscDescription", "– Close dialogs and overlays");
+    public string LocalizedCtrlL => Services.AppServices.Localization.GetString("Settings.CtrlL", "• Ctrl+L");
+    public string LocalizedCtrlLDescription => Services.AppServices.Localization.GetString("Settings.CtrlLDescription", "– Lock application (customizable in Hotkeys)");
+    
+    // About panel strings
+    public string LocalizedAboutName => Services.AppServices.Localization.GetString("Settings.AboutName", "Name:");
+    public string LocalizedAboutPlatform => Services.AppServices.Localization.GetString("Settings.AboutPlatform", "Platform:");
+    public string LocalizedAboutAuthor => Services.AppServices.Localization.GetString("Settings.AboutAuthor", "Author:");
+    public string LocalizedAboutFrameworkInfo => Services.AppServices.Localization.GetString("Settings.AboutFrameworkInfo", "Framework Information");
+    public string LocalizedAboutAvaloniaUI => Services.AppServices.Localization.GetString("Settings.AboutAvaloniaUI", "Avalonia UI:");
+    public string LocalizedAboutDotNetRuntime => Services.AppServices.Localization.GetString("Settings.AboutDotNetRuntime", ".NET Runtime:");
+    public string LocalizedAboutLinksResources => Services.AppServices.Localization.GetString("Settings.AboutLinksResources", "Links & Resources");
+    public string LocalizedAboutDocumentation => Services.AppServices.Localization.GetString("Settings.AboutDocumentation", "Documentation");
+    public string LocalizedAboutPrivacyPolicy => Services.AppServices.Localization.GetString("Settings.AboutPrivacyPolicy", "Privacy Policy");
+    public string LocalizedAboutAcknowledgments => Services.AppServices.Localization.GetString("Settings.AboutAcknowledgments", "Acknowledgments");
+    public string LocalizedAboutBuiltWithAvalonia => Services.AppServices.Localization.GetString("Settings.AboutBuiltWithAvalonia", "Built with Avalonia UI - A cross-platform XAML-based UI framework for .NET");
+    public string LocalizedAboutSpecialThanks => Services.AppServices.Localization.GetString("Settings.AboutSpecialThanks", "Special thanks to the open source community for their contributions and support.");
+    
+    // Danger Zone strings
+    public string LocalizedDangerZoneTitle => Services.AppServices.Localization.GetString("Settings.DangerZoneTitle", "⚠️ Danger Zone");
+    public string LocalizedDangerZoneWarning => Services.AppServices.Localization.GetString("Settings.DangerZoneWarning", "These actions are irreversible and will permanently delete your data.");
+    public string LocalizedDeleteAccount => Services.AppServices.Localization.GetString("Settings.DeleteAccount", "Delete Account");
+    public string LocalizedWhatHappens => Services.AppServices.Localization.GetString("Settings.WhatHappens", "What happens when you delete your account:");
+    public string LocalizedMessagesDeleted => Services.AppServices.Localization.GetString("Settings.MessagesDeleted", "• All your messages will be permanently deleted");
+    public string LocalizedContactListRemoved => Services.AppServices.Localization.GetString("Settings.ContactListRemoved", "• Your contact list will be removed");
+    public string LocalizedProfileErased => Services.AppServices.Localization.GetString("Settings.ProfileErased", "• Your profile information will be erased");
+    public string LocalizedRemovedFromConversations => Services.AppServices.Localization.GetString("Settings.RemovedFromConversations", "• You will be removed from all conversations");
+    public string LocalizedCannotUndo => Services.AppServices.Localization.GetString("Settings.CannotUndo", "• This action cannot be undone");
+    public string LocalizedDeleteAccountWarning => Services.AppServices.Localization.GetString("Settings.DeleteAccountWarning", "Once you delete your account, there is no going back. This will permanently delete your account and wipe all local data from this device.");
+    public string LocalizedTypeConfirmationCode => Services.AppServices.Localization.GetString("Settings.TypeConfirmationCode", "Please type the following code to confirm:");
+    public string LocalizedEnterConfirmationCode => Services.AppServices.Localization.GetString("Settings.EnterConfirmationCode", "Enter confirmation code...");
+    public string LocalizedDeleteAccountButton => Services.AppServices.Localization.GetString("Settings.DeleteAccountButton", "Delete Account");
+    public string LocalizedPurgeAllMessages => Services.AppServices.Localization.GetString("Settings.PurgeAllMessages", "Purge All Messages");
+    public string LocalizedWhatHappensPurge => Services.AppServices.Localization.GetString("Settings.WhatHappensPurge", "What happens when you purge all messages:");
+    public string LocalizedConversationsDeleted => Services.AppServices.Localization.GetString("Settings.ConversationsDeleted", "• Every conversation will be permanently deleted");
+    public string LocalizedOutboxRemoved => Services.AppServices.Localization.GetString("Settings.OutboxRemoved", "• All pending outbox messages will be removed");
+    public string LocalizedArchivesOverwritten => Services.AppServices.Localization.GetString("Settings.ArchivesOverwritten", "• Encrypted archives will be securely overwritten");
+    public string LocalizedRecoveryImpossible => Services.AppServices.Localization.GetString("Settings.RecoveryImpossible", "• Recovery will be impossible");
+    public string LocalizedPurgeWarning => Services.AppServices.Localization.GetString("Settings.PurgeWarning", "Securely delete every conversation and pending message from this device. This process overwrites the encrypted archives before removal making recovery impossible.");
+    public string LocalizedPurgeUseCase => Services.AppServices.Localization.GetString("Settings.PurgeUseCase", "Use this if you're decommissioning the device or need a clean slate.");
+    public string LocalizedTypePurgeConfirm => Services.AppServices.Localization.GetString("Settings.TypePurgeConfirm", "Type 'PURGE-ALL-DATA' to confirm:");
+    public string LocalizedTypePurgeAllData => Services.AppServices.Localization.GetString("Settings.TypePurgeAllData", "Type: PURGE-ALL-DATA");
+    public string LocalizedPurgeAllMessagesButton => Services.AppServices.Localization.GetString("Settings.PurgeAllMessagesButton", "Purge All Messages");
+    public string LocalizedExportData => Services.AppServices.Localization.GetString("Settings.ExportData", "Export Data");
+    public string LocalizedExportDataDescription => Services.AppServices.Localization.GetString("Settings.ExportDataDescription", "Download a copy of your data before deleting your account. This includes your messages, contacts, and settings.");
+    public string LocalizedExportDataButton => Services.AppServices.Localization.GetString("Settings.ExportDataButton", "Export Data");
+    
+    // Log Out panel strings
+    public string LocalizedSignOut => Services.AppServices.Localization.GetString("Settings.SignOut", "Sign Out");
+    public string LocalizedSignOutDescription => Services.AppServices.Localization.GetString("Settings.SignOutDescription", "Signing out will disconnect you from the application and require you to enter your passphrase again to access your account.");
+    public string LocalizedDataRemains => Services.AppServices.Localization.GetString("Settings.DataRemains", "Your data will remain securely stored locally and will be available when you sign back in.");
+    public string LocalizedCurrentSession => Services.AppServices.Localization.GetString("Settings.CurrentSession", "Current Session");
+    public string LocalizedSessionStatus => Services.AppServices.Localization.GetString("Settings.SessionStatus", "Status:");
+    public string LocalizedActive => Services.AppServices.Localization.GetString("Settings.Active", "Active");
+    public string LocalizedLastActivity => Services.AppServices.Localization.GetString("Settings.LastActivity", "Last Activity:");
+    public string LocalizedJustNow => Services.AppServices.Localization.GetString("Settings.JustNow", "Just now");
+    public string LocalizedReadyToSignOut => Services.AppServices.Localization.GetString("Settings.ReadyToSignOut", "Ready to sign out?");
+    public string LocalizedSignOutPrompt => Services.AppServices.Localization.GetString("Settings.SignOutPrompt", "Click the button below to sign out of your account. You'll need your passphrase to sign back in.");
+    public string LocalizedSignOutButton => Services.AppServices.Localization.GetString("Settings.SignOutButton", "Sign Out");
+    public string LocalizedSecurityReminder => Services.AppServices.Localization.GetString("Settings.SecurityReminder", "🔒 Security Reminder");
+    public string LocalizedSecurityReminderText => Services.AppServices.Localization.GetString("Settings.SecurityReminderText", "Always sign out when using shared or public computers to protect your privacy and security.");
 
 
 
@@ -1549,6 +1679,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private void OnLanguageChanged()
     {
         // Refresh all localized properties when language changes
+        // Suppress dirty checking since we're only updating display strings, not actual values
+        var prevSuppress = _suppressDirtyCheck;
+        _suppressDirtyCheck = true;
         try
         {
             // Main menu items
@@ -1689,11 +1822,149 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedLogging));
             OnPropertyChanged(nameof(LocalizedEnableLogging));
             OnPropertyChanged(nameof(LocalizedPerformanceWarning));
+            OnPropertyChanged(nameof(LocalizedPerformanceWarningText));
             OnPropertyChanged(nameof(LocalizedLogMaintenance));
+            OnPropertyChanged(nameof(LocalizedAutoTrimUILog));
+            OnPropertyChanged(nameof(LocalizedMaxEntries));
+            OnPropertyChanged(nameof(LocalizedRetentionDays));
+            OnPropertyChanged(nameof(LocalizedSizeCap));
+            OnPropertyChanged(nameof(LocalizedLastMaintenance));
+            OnPropertyChanged(nameof(LocalizedRunMaintenanceNow));
+            OnPropertyChanged(nameof(LocalizedClearErrorLog));
+            OnPropertyChanged(nameof(LocalizedClearErrorLogTooltip));
             OnPropertyChanged(nameof(LocalizedConnectionSettings));
             OnPropertyChanged(nameof(LocalizedRelaySettings));
+            
+            // Network panel extended
+            OnPropertyChanged(nameof(LocalizedPort));
+            OnPropertyChanged(nameof(LocalizedPortLabel));
+            OnPropertyChanged(nameof(LocalizedPortDescription));
+            OnPropertyChanged(nameof(LocalizedDedicatedPeerNode));
+            OnPropertyChanged(nameof(LocalizedEnableDedicatedPeerNode));
+            OnPropertyChanged(nameof(LocalizedDedicatedPeerNodeInfo));
+            OnPropertyChanged(nameof(LocalizedEnablesUPnP));
+            OnPropertyChanged(nameof(LocalizedMakesNodeAccessible));
+            OnPropertyChanged(nameof(LocalizedImprovesConnectivity));
+            OnPropertyChanged(nameof(LocalizedDoesNotRelay));
+            OnPropertyChanged(nameof(LocalizedRequiresPortForwarding));
+            OnPropertyChanged(nameof(LocalizedRelayDescription1));
+            OnPropertyChanged(nameof(LocalizedRelayDescription2));
+            OnPropertyChanged(nameof(LocalizedRelayFallback));
+            OnPropertyChanged(nameof(LocalizedEnableRelayFallback));
+            OnPropertyChanged(nameof(LocalizedRelayServer));
+            OnPropertyChanged(nameof(LocalizedRequirements));
+            OnPropertyChanged(nameof(LocalizedRequiresDedicatedRelay));
+            OnPropertyChanged(nameof(LocalizedServerMustBeConfigured));
+            OnPropertyChanged(nameof(LocalizedRelayFormat));
+            OnPropertyChanged(nameof(LocalizedLeaveBlankToDisable));
+            OnPropertyChanged(nameof(LocalizedKnownDedicatedPeerNodes));
+            OnPropertyChanged(nameof(LocalizedAdd));
+            OnPropertyChanged(nameof(LocalizedRemove));
+            OnPropertyChanged(nameof(LocalizedDiscoveredPeers));
+            OnPropertyChanged(nameof(LocalizedLocationsEstimated));
+            OnPropertyChanged(nameof(LocalizedBlockSelected));
+            OnPropertyChanged(nameof(LocalizedUnblockSelected));
+            OnPropertyChanged(nameof(LocalizedNode));
+            OnPropertyChanged(nameof(LocalizedBlock));
+            
+            // Performance panel ComboBox items
+            OnPropertyChanged(nameof(LocalizedAuto));
+            OnPropertyChanged(nameof(LocalizedCCD0));
+            OnPropertyChanged(nameof(LocalizedCCD1));
+            OnPropertyChanged(nameof(LocalizedBothCCDs));
+            
+            // Accessibility panel extended
+            OnPropertyChanged(nameof(LocalizedAccessibilityTitle));
+            OnPropertyChanged(nameof(LocalizedDisplayScaling));
+            OnPropertyChanged(nameof(LocalizedDisplayScalingPath));
+            OnPropertyChanged(nameof(LocalizedHighContrast));
+            OnPropertyChanged(nameof(LocalizedHighContrastPath));
+            OnPropertyChanged(nameof(LocalizedAnimations));
+            OnPropertyChanged(nameof(LocalizedAnimationsPath));
+            OnPropertyChanged(nameof(LocalizedCursorSize));
+            OnPropertyChanged(nameof(LocalizedCursorSizePath));
+            OnPropertyChanged(nameof(LocalizedTextCursor));
+            OnPropertyChanged(nameof(LocalizedTextCursorPath));
+            OnPropertyChanged(nameof(LocalizedTab));
+            OnPropertyChanged(nameof(LocalizedTabDescription));
+            OnPropertyChanged(nameof(LocalizedShiftTab));
+            OnPropertyChanged(nameof(LocalizedShiftTabDescription));
+            OnPropertyChanged(nameof(LocalizedSpaceEnter));
+            OnPropertyChanged(nameof(LocalizedSpaceEnterDescription));
+            OnPropertyChanged(nameof(LocalizedArrowKeys));
+            OnPropertyChanged(nameof(LocalizedArrowKeysDescription));
+            OnPropertyChanged(nameof(LocalizedEsc));
+            OnPropertyChanged(nameof(LocalizedEscDescription));
+            OnPropertyChanged(nameof(LocalizedCtrlL));
+            OnPropertyChanged(nameof(LocalizedCtrlLDescription));
+            
+            // About panel extended
+            OnPropertyChanged(nameof(LocalizedAboutName));
+            OnPropertyChanged(nameof(LocalizedAboutPlatform));
+            OnPropertyChanged(nameof(LocalizedAboutAuthor));
+            OnPropertyChanged(nameof(LocalizedAboutFrameworkInfo));
+            OnPropertyChanged(nameof(LocalizedAboutAvaloniaUI));
+            OnPropertyChanged(nameof(LocalizedAboutDotNetRuntime));
+            OnPropertyChanged(nameof(LocalizedAboutLinksResources));
+            OnPropertyChanged(nameof(LocalizedAboutDocumentation));
+            OnPropertyChanged(nameof(LocalizedAboutPrivacyPolicy));
+            OnPropertyChanged(nameof(LocalizedAboutAcknowledgments));
+            OnPropertyChanged(nameof(LocalizedAboutBuiltWithAvalonia));
+            OnPropertyChanged(nameof(LocalizedAboutSpecialThanks));
+            
+            // Danger Zone panel
+            OnPropertyChanged(nameof(LocalizedDangerZoneTitle));
+            OnPropertyChanged(nameof(LocalizedDangerZoneWarning));
+            OnPropertyChanged(nameof(LocalizedDeleteAccount));
+            OnPropertyChanged(nameof(LocalizedWhatHappens));
+            OnPropertyChanged(nameof(LocalizedMessagesDeleted));
+            OnPropertyChanged(nameof(LocalizedContactListRemoved));
+            OnPropertyChanged(nameof(LocalizedProfileErased));
+            OnPropertyChanged(nameof(LocalizedRemovedFromConversations));
+            OnPropertyChanged(nameof(LocalizedCannotUndo));
+            OnPropertyChanged(nameof(LocalizedDeleteAccountWarning));
+            OnPropertyChanged(nameof(LocalizedTypeConfirmationCode));
+            OnPropertyChanged(nameof(LocalizedEnterConfirmationCode));
+            OnPropertyChanged(nameof(LocalizedDeleteAccountButton));
+            OnPropertyChanged(nameof(LocalizedPurgeAllMessages));
+            OnPropertyChanged(nameof(LocalizedWhatHappensPurge));
+            OnPropertyChanged(nameof(LocalizedConversationsDeleted));
+            OnPropertyChanged(nameof(LocalizedOutboxRemoved));
+            OnPropertyChanged(nameof(LocalizedArchivesOverwritten));
+            OnPropertyChanged(nameof(LocalizedRecoveryImpossible));
+            OnPropertyChanged(nameof(LocalizedPurgeWarning));
+            OnPropertyChanged(nameof(LocalizedPurgeUseCase));
+            OnPropertyChanged(nameof(LocalizedTypePurgeConfirm));
+            OnPropertyChanged(nameof(LocalizedTypePurgeAllData));
+            OnPropertyChanged(nameof(LocalizedPurgeAllMessagesButton));
+            OnPropertyChanged(nameof(LocalizedExportData));
+            OnPropertyChanged(nameof(LocalizedExportDataDescription));
+            OnPropertyChanged(nameof(LocalizedExportDataButton));
+            
+            // Log Out panel
+            OnPropertyChanged(nameof(LocalizedSignOut));
+            OnPropertyChanged(nameof(LocalizedSignOutDescription));
+            OnPropertyChanged(nameof(LocalizedDataRemains));
+            OnPropertyChanged(nameof(LocalizedCurrentSession));
+            OnPropertyChanged(nameof(LocalizedSessionStatus));
+            OnPropertyChanged(nameof(LocalizedActive));
+            OnPropertyChanged(nameof(LocalizedLastActivity));
+            OnPropertyChanged(nameof(LocalizedJustNow));
+            OnPropertyChanged(nameof(LocalizedReadyToSignOut));
+            OnPropertyChanged(nameof(LocalizedSignOutPrompt));
+            OnPropertyChanged(nameof(LocalizedSignOutButton));
+            OnPropertyChanged(nameof(LocalizedSecurityReminder));
+            OnPropertyChanged(nameof(LocalizedSecurityReminderText));
+            
+            // Refresh ComboBox selections to update displayed text
+            OnPropertyChanged(nameof(ThemeIndex));
+            OnPropertyChanged(nameof(DefaultPresenceIndex));
         }
         catch { }
+        finally
+        {
+            _suppressDirtyCheck = prevSuppress;
+        }
     }
 
     // Sync ThemeIndex from persisted settings without marking Unsaved.

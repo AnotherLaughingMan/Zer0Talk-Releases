@@ -3,7 +3,7 @@
         xmlns:vm="using:ZTalk.ViewModels"
         x:Class="ZTalk.Views.LoadingWindow"
         x:DataType="vm:LoadingWindowViewModel"
-        Title="ZTalk - Loading"
+        Title="{Binding LocalizedTitle}"
         Width="700"
         Height="500"
         WindowStartupLocation="CenterScreen"

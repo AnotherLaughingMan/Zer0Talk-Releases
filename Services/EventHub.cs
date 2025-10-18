@@ -26,8 +26,6 @@ namespace ZTalk.Services
         public event Action<MessagePurgeSummary>? AllMessagesPurged;
     // Request the UI to open a conversation for the provided UID (click-to-open)
     public event Action<string>? OpenConversationRequested;
-        // Raised when an outbound message's delivery metadata changes (e.g., Pending -> Sent)
-        public event Action<string, Guid, string?, DateTime?>? OutboundDeliveryUpdated;
 
         public void RaiseNatChanged() { try { NatChanged?.Invoke(); } catch { } }
         public void RaiseNetworkListeningChanged(bool isListening, int? port) { try { NetworkListeningChanged?.Invoke(isListening, port); } catch { } }
@@ -38,10 +36,5 @@ namespace ZTalk.Services
         public void RaiseRegressionDetected(string message) { if (!string.IsNullOrWhiteSpace(message)) { try { RegressionDetected?.Invoke(message); } catch { } } }
         public void RaiseAllMessagesPurged(MessagePurgeSummary summary) { try { AllMessagesPurged?.Invoke(summary); } catch { } }
     public void RaiseOpenConversationRequested(string uid) { if (string.IsNullOrWhiteSpace(uid)) return; try { OpenConversationRequested?.Invoke(uid); } catch { } }
-        public void RaiseOutboundDeliveryUpdated(string peerUid, Guid messageId, string? status, DateTime? deliveredUtc)
-        {
-            if (string.IsNullOrWhiteSpace(peerUid)) return;
-            try { OutboundDeliveryUpdated?.Invoke(peerUid, messageId, status, deliveredUtc); } catch { }
-        }
     }
 }
