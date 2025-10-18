@@ -327,9 +327,11 @@ public partial class NetworkWindow : Window
                 var pos = e.GetPosition(lb);
                 if (Math.Abs(pos.X - _dragStartPoint.X) > 4 || Math.Abs(pos.Y - _dragStartPoint.Y) > 4)
                 {
+#pragma warning disable CS0618 // Type or member is obsolete
                     var data = new DataObject();
                     data.Set("application/x-p2ptalk-adapter", _dragItem);
                     await DragDrop.DoDragDrop(e, data, DragDropEffects.Move);
+#pragma warning restore CS0618
                     _dragItem = null;
                 }
             }
@@ -339,11 +341,13 @@ public partial class NetworkWindow : Window
 
     private void AdaptersList_DragOver(object? sender, DragEventArgs e)
     {
+#pragma warning disable CS0618 // Type or member is obsolete
         if (e.Data.Contains("application/x-p2ptalk-adapter"))
         {
             e.DragEffects = DragDropEffects.Move;
             e.Handled = true;
         }
+#pragma warning restore CS0618
     }
 
     private void AdaptersList_Drop(object? sender, DragEventArgs e)
@@ -352,8 +356,10 @@ public partial class NetworkWindow : Window
         {
             var lb = this.FindControl<ListBox>("AdaptersList");
             if (lb is null) return;
+#pragma warning disable CS0618 // Type or member is obsolete
             if (!e.Data.Contains("application/x-p2ptalk-adapter")) return;
             var dragged = e.Data.Get("application/x-p2ptalk-adapter");
+#pragma warning restore CS0618
             if (dragged is null) return;
             var targetPos = e.GetPosition(lb);
             var target = GetItemAt(lb, targetPos);

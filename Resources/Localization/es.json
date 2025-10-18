@@ -32,6 +32,8 @@
     "CurrentSetting": "Configuración actual:",
     "Seconds": "segundos",
     "OfflineAutomatic": "Desconectado es automático y no se puede seleccionar.",
+    "EnableNotificationBellFlash": "Habilitar parpadeo de campana de notificación",
+    "NotificationBellFlashHelp": "Parpadear el icono de campana durante 10 segundos cuando lleguen notificaciones",
     "AutoLock": "Bloqueo automático",
     "EnableAutoLock": "Habilitar bloqueo automático",
     "Minutes": "Minutos",

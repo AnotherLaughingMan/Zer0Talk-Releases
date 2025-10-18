@@ -32,6 +32,8 @@
     "CurrentSetting": "Current setting:",
     "Seconds": "seconds",
     "OfflineAutomatic": "Offline is automatic only and cannot be selected.",
+    "EnableNotificationBellFlash": "Enable notification bell flash",
+    "NotificationBellFlashHelp": "Flash the bell icon for 10 seconds when notifications arrive",
     "AutoLock": "Auto-Lock",
     "EnableAutoLock": "Enable Auto-Lock",
     "Minutes": "Minutes",

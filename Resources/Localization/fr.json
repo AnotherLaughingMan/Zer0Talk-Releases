@@ -32,6 +32,8 @@
     "CurrentSetting": "Paramètre actuel :",
     "Seconds": "secondes",
     "OfflineAutomatic": "Hors ligne est automatique uniquement et ne peut pas être sélectionné.",
+    "EnableNotificationBellFlash": "Activer le clignotement de la cloche de notification",
+    "NotificationBellFlashHelp": "Faire clignoter l'icône de cloche pendant 10 secondes à l'arrivée des notifications",
     "AutoLock": "Verrouillage automatique",
     "EnableAutoLock": "Activer le verrouillage automatique",
     "Minutes": "Minutes",

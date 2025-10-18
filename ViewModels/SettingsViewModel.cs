@@ -315,6 +315,16 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _suppressDirtyCheck = true;
         _suppressThemeBinding = true;
 
+        // Populate available languages from localization files
+        try { PopulateAvailableLanguages(); }
+        catch { }
+
+        // Populate theme and presence items
+        try { PopulateThemeItems(); }
+        catch { }
+        try { PopulatePresenceItems(); }
+        catch { }
+
         try { DetectCpuGpuCapabilities(); }
         catch { }
 
@@ -1358,6 +1368,27 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    private System.Collections.ObjectModel.ObservableCollection<string> _availableLanguages = new();
+    public System.Collections.ObjectModel.ObservableCollection<string> AvailableLanguages
+    {
+        get => _availableLanguages;
+        set { _availableLanguages = value; OnPropertyChanged(); }
+    }
+
+    private System.Collections.ObjectModel.ObservableCollection<string> _themeItems = new();
+    public System.Collections.ObjectModel.ObservableCollection<string> ThemeItems
+    {
+        get => _themeItems;
+        set { _themeItems = value; OnPropertyChanged(); }
+    }
+
+    private System.Collections.ObjectModel.ObservableCollection<string> _presenceItems = new();
+    public System.Collections.ObjectModel.ObservableCollection<string> PresenceItems
+    {
+        get => _presenceItems;
+        set { _presenceItems = value; OnPropertyChanged(); }
+    }
+
     private string _language = "English (US)";
     public string Language
     {
@@ -1413,6 +1444,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedCurrentSetting => Services.AppServices.Localization.GetString("Settings.CurrentSetting", "Current setting:");
     public string LocalizedSeconds => Services.AppServices.Localization.GetString("Settings.Seconds", "seconds");
     public string LocalizedOfflineAutomatic => Services.AppServices.Localization.GetString("Settings.OfflineAutomatic", "Offline is automatic only and cannot be selected.");
+    public string LocalizedEnableNotificationBellFlash => Services.AppServices.Localization.GetString("Settings.EnableNotificationBellFlash", "Enable notification bell flash");
+    public string LocalizedNotificationBellFlashHelp => Services.AppServices.Localization.GetString("Settings.NotificationBellFlashHelp", "Flash the bell icon for 10 seconds when notifications arrive");
     public string LocalizedAutoLock => Services.AppServices.Localization.GetString("Settings.AutoLock", "Auto-Lock");
     public string LocalizedEnableAutoLock => Services.AppServices.Localization.GetString("Settings.EnableAutoLock", "Enable Auto-Lock");
     public string LocalizedMinutes => Services.AppServices.Localization.GetString("Settings.Minutes", "Minutes");
@@ -1656,6 +1689,158 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
 
     
+    // Populate available languages from localization files
+    private void PopulateAvailableLanguages()
+    {
+        try
+        {
+            AvailableLanguages.Clear();
+            var codes = Services.AppServices.Localization.GetAvailableLanguages();
+            
+            // Convert codes to display names and sort alphabetically
+            var displayNames = new System.Collections.Generic.List<string>();
+            foreach (var code in codes)
+            {
+                var displayName = GetLanguageDisplayName(code);
+                displayNames.Add(displayName);
+            }
+            displayNames.Sort();
+            
+            // Add sorted languages to observable collection
+            foreach (var displayName in displayNames)
+            {
+                AvailableLanguages.Add(displayName);
+            }
+            
+            // Ensure at least English is available
+            if (AvailableLanguages.Count == 0)
+            {
+                AvailableLanguages.Add("English (US)");
+            }
+        }
+        catch
+        {
+            // Fallback to English if something fails
+            AvailableLanguages.Clear();
+            AvailableLanguages.Add("English (US)");
+        }
+    }
+    
+    // Populate theme items with current localization
+    private void PopulateThemeItems()
+    {
+        try
+        {
+            var currentSelection = _themeIndex;
+            
+            ThemeItems.Clear();
+            ThemeItems.Add(LocalizedDark);
+            ThemeItems.Add(LocalizedLight);
+            ThemeItems.Add(LocalizedSandy);
+            ThemeItems.Add(LocalizedButter);
+            
+            // Restore selection
+            if (currentSelection >= 0 && currentSelection < ThemeItems.Count)
+            {
+                _themeIndex = currentSelection;
+                OnPropertyChanged(nameof(ThemeIndex));
+            }
+        }
+        catch
+        {
+            // Fallback to English
+            ThemeItems.Clear();
+            ThemeItems.Add("Dark");
+            ThemeItems.Add("Light");
+            ThemeItems.Add("Sandy");
+            ThemeItems.Add("Butter");
+        }
+    }
+    
+    // Populate presence items with current localization
+    private void PopulatePresenceItems()
+    {
+        try
+        {
+            var currentSelection = _defaultPresenceIndex;
+            
+            PresenceItems.Clear();
+            PresenceItems.Add(LocalizedOnline);
+            PresenceItems.Add(LocalizedAway);
+            PresenceItems.Add(LocalizedDoNotDisturb);
+            PresenceItems.Add(LocalizedOffline);
+            
+            // Restore selection
+            if (currentSelection >= 0 && currentSelection < PresenceItems.Count)
+            {
+                _defaultPresenceIndex = currentSelection;
+                OnPropertyChanged(nameof(DefaultPresenceIndex));
+            }
+        }
+        catch
+        {
+            // Fallback to English
+            PresenceItems.Clear();
+            PresenceItems.Add("Online");
+            PresenceItems.Add("Away");
+            PresenceItems.Add("Do Not Disturb");
+            PresenceItems.Add("Offline");
+        }
+    }
+    
+    // Refresh theme and presence selections after language change
+    private void RefreshDropdownSelections()
+    {
+        try
+        {
+            // Save current selections
+            var currentTheme = _themeIndex;
+            var currentPresence = _defaultPresenceIndex;
+            
+            // Set to -1 to force UI refresh
+            _themeIndex = -1;
+            OnPropertyChanged(nameof(ThemeIndex));
+            
+            _defaultPresenceIndex = -1;
+            OnPropertyChanged(nameof(DefaultPresenceIndex));
+            
+            // Use dispatcher to restore after UI processes the change
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    // Restore original selections
+                    _themeIndex = currentTheme >= 0 && currentTheme < ThemeItems.Count ? currentTheme : 0;
+                    OnPropertyChanged(nameof(ThemeIndex));
+                    
+                    _defaultPresenceIndex = currentPresence >= 0 && currentPresence < PresenceItems.Count ? currentPresence : 0;
+                    OnPropertyChanged(nameof(DefaultPresenceIndex));
+                }
+                catch { }
+            }, Avalonia.Threading.DispatcherPriority.Loaded);
+        }
+        catch { }
+    }
+    
+    // Helper to convert language code to display name
+    private static string GetLanguageDisplayName(string code)
+    {
+        return code switch
+        {
+            "en" => "English (US)",
+            "es" => "Spanish",
+            "fr" => "French",
+            "de" => "German",
+            "ja" => "Japanese",
+            "zh-CN" => "Chinese (Simplified)",
+            "zh-TW" => "Chinese (Traditional)",
+            "pt" => "Portuguese",
+            "ru" => "Russian",
+            "it" => "Italian",
+            _ => code // Fallback to code itself
+        };
+    }
+    
     // Helper to convert display name to language code
     private static string GetLanguageCode(string displayName)
     {
@@ -1684,6 +1869,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _suppressDirtyCheck = true;
         try
         {
+            // Repopulate theme and presence items with new translations
+            PopulateThemeItems();
+            PopulatePresenceItems();
+            
+            // Refresh dropdown selections to show new translations
+            RefreshDropdownSelections();
+            
             // Main menu items
             OnPropertyChanged(nameof(LocalizedSettingsTitle));
             OnPropertyChanged(nameof(LocalizedAppearance));
@@ -1716,6 +1908,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedCurrentSetting));
             OnPropertyChanged(nameof(LocalizedSeconds));
             OnPropertyChanged(nameof(LocalizedOfflineAutomatic));
+            OnPropertyChanged(nameof(LocalizedEnableNotificationBellFlash));
+            OnPropertyChanged(nameof(LocalizedNotificationBellFlashHelp));
             OnPropertyChanged(nameof(LocalizedAutoLock));
             OnPropertyChanged(nameof(LocalizedEnableAutoLock));
             OnPropertyChanged(nameof(LocalizedMinutes));

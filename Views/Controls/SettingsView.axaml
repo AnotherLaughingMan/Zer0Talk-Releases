@@ -38,12 +38,7 @@
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedTheme}" FontWeight="SemiBold"/>
-              <ComboBox x:Name="ThemeCombo" SelectedIndex="{Binding ThemeIndex}" Width="180">
-                <ComboBoxItem Content="{Binding LocalizedDark}"/>
-                <ComboBoxItem Content="{Binding LocalizedLight}"/>
-                <ComboBoxItem Content="{Binding LocalizedSandy}"/>
-                <ComboBoxItem Content="{Binding LocalizedButter}"/>
-              </ComboBox>
+              <ComboBox x:Name="ThemeCombo" ItemsSource="{Binding ThemeItems}" SelectedIndex="{Binding ThemeIndex}" Width="180"/>
             </StackPanel>
           </Border>
 
@@ -66,10 +61,7 @@
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left" BorderBrush="{DynamicResource App.Accent}" BorderThickness="2">
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedLanguage}" FontWeight="SemiBold"/>
-              <ComboBox SelectedItem="{Binding Language}" Width="200" HorizontalAlignment="Left">
-                <x:String>English (US)</x:String>
-                <x:String>Spanish</x:String>
-              </ComboBox>
+              <ComboBox ItemsSource="{Binding AvailableLanguages}" SelectedItem="{Binding Language}" Width="200" HorizontalAlignment="Left"/>
               <TextBlock Text="{Binding LocalizedAdditionalLanguagesMessage}" FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
             </StackPanel>
           </Border>
@@ -87,12 +79,7 @@
               <TextBlock Text="{Binding LocalizedDefaultPresence}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
                 <TextBlock Text="{Binding LocalizedStatus}" VerticalAlignment="Center"/>
-                <ComboBox Grid.Column="1" SelectedIndex="{Binding DefaultPresenceIndex}" Width="150">
-                  <ComboBoxItem Content="{Binding LocalizedOnline}"/>
-                  <ComboBoxItem Content="{Binding LocalizedAway}"/>
-                  <ComboBoxItem Content="{Binding LocalizedDoNotDisturb}"/>
-                  <ComboBoxItem Content="{Binding LocalizedOffline}"/>
-                </ComboBox>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding PresenceItems}" SelectedIndex="{Binding DefaultPresenceIndex}" Width="150"/>
               </Grid>
               <TextBlock Text="{Binding LocalizedOfflineAutomatic}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               
@@ -151,8 +138,8 @@
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableNotificationBellFlash}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                  <TextBlock Text="Enable notification bell flash" VerticalAlignment="Center"/>
-                  <TextBlock Text="Flash the bell icon for 10 seconds when notifications arrive" 
+                  <TextBlock Text="{Binding LocalizedEnableNotificationBellFlash}" VerticalAlignment="Center"/>
+                  <TextBlock Text="{Binding LocalizedNotificationBellFlashHelp}" 
                              FontSize="11" 
                              Foreground="{DynamicResource App.SecondaryText}"/>
                 </StackPanel>

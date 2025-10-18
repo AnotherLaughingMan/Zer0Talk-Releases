@@ -72,7 +72,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     // Regression toast
     private CancellationTokenSource? _rgToastCts;
     // Invite slide-in toast
-    private CancellationTokenSource? _inviteToastCts;
+    private CancellationTokenSource? _inviteToastCts = null;
     private Window? _inviteToastWindow;
     private Border? _inviteToastBorder;
     private TextBlock? _inviteToastTitle;
