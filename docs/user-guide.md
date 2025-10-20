@@ -4,17 +4,29 @@ This user guide provides step-by-step instructions for common tasks in ZTalk: la
 
 ## Table of Contents
 
+- About Peer-to-Peer Networking
 - Getting Started
 - Creating an Identity
 - Adding Contacts
 - Deleting Contacts
 - Sending Messages
 - Message Options (Edit / Delete / Burn)
+- Account Deletion
 - Themes & Appearance
 - Notifications & Sounds
-- Running a Dedicated Node (Advanced)
-- Backup and Restore
+- Running a Dedicated Peer Node (Advanced)
 - Troubleshooting
+
+## About Peer-to-Peer Networking
+
+ZTalk uses peer-to-peer (P2P) networking, which means your messages are sent directly between users without going through a central server. This has important implications:
+
+- **Decentralized**: There is no centralized server that stores your messages, monitors your communications, or manages user accounts
+- **Direct Communication**: Messages travel directly from your device to your contact's device through the P2P network
+- **No Service Provider**: ZTalk is software, not a service - we do not operate servers or infrastructure that handles your data
+- **User Responsibility**: Because there is no central authority, users are solely responsible for their own use of ZTalk and any communications made through it
+
+**Important Disclaimer**: ZTalk cannot be held responsible for how users choose to use the software, what content they share, or any consequences arising from peer-to-peer communications.
 
 ## Getting Started
 
@@ -68,60 +80,60 @@ Notes on data removal:
 
 ## Message Options
 
-- Edit: Right-click a sent message and choose "Edit". Edited messages are propagated to recipients.
-- Delete: Right-click and choose "Delete" to remove locally and send a deletion request to the peer.
-- Burn (Ephemeral): Use the "Burn" option to set a lifetime for a message; once expired it will be removed from local storage and the peer will be requested to remove it as well.
+- Edit: Hover over a sent message to reveal the action bar, then click the edit icon. You can only edit a message for 25 minutes after sending - once the timer expires, the message is no longer editable. Edited messages are propagated to recipients.
+- Delete: Hover over a message to reveal the action bar, then click the delete icon. This only deletes the message locally - it does not notify the contact or delete the message on their side.
+- Burn (Ephemeral): Use the "Burn" option to immediately wipe all messages YOU sent from the conversation after confirming in a dialog. This does not affect any messages on your contact's side.
+
+## Account Deletion
+
+To permanently delete your account and all associated user data:
+
+1. Go to Settings -> Danger Zone
+2. Read the helpful instructions provided in the Danger Zone panel carefully
+3. In the "Delete Account" section, enter the random phrase shown exactly as displayed
+4. Confirm that you wish to delete your account and all user data
+
+**Warning**: This action is irreversible and will permanently remove your identity, contacts, message history, and all other user data from your device. The Danger Zone panel contains important information about this process that you should read and understand before proceeding.
 
 ## Themes & Appearance
 
-Open Settings -> Themes to use the Theme Editor:
-- Pick a base theme (Light/Dark)
-- Adjust colors, gradients, and export/import theme files
-- Save themes for sharing
+- Theme selection is in Settings -> Appearance where you can pick a legacy theme or custom theme if you've created one with the Theme Editor
+- The Theme Editor is located on the Left Bar of the Main Window - click it to open the Theme Editor:
+  - Adjust colors, gradients, and export/import theme files
+  - Save themes for sharing
 
 ## Notifications & Sounds
 
-- Toggle sound and notification preferences in Settings -> Notifications.
-- Incoming contact invites surface as a small toast with an "Open Invites" button. Clicking that button or the Pending Invites control opens the right-side Invites panel (Notifications -> Pending Invites) where you can accept or reject invites.
-- DND mode silences notifications and can be scheduled.
-- System tray integrates for quick access and show/hide behavior.
+- Notification toasts appear for various events and take you to the relevant panel in the Notification Center (Right Panel):
+  - Invite notifications take you to the "Pending Invites" view where you can accept or reject invites
+  - Unread messages appear in the "Messages" panel
+  - General information, warnings, errors, and notices appear in the "Alerts" panel
+- DND (Do Not Disturb) mode still holds alerts, messages, and invites in the Notification Center, but silences sounds and doesn't display desktop pop-in notifications.
 
-## Running a Dedicated Node (Advanced)
+## Running a Dedicated Peer Node (Advanced)
 
-A Dedicated Node (called a "Major Node" in settings) is a longer-running instance of ZTalk configured to stay online so it can act as a relay or availability point for your contacts. This is optional and intended for advanced users.
+A Dedicated Peer Node improves the P2P Network stability by being an always-on peer. You have to leave your client running in the System Tray (enabling the System tray features that are currently broken). By being a Dedicated Peer Node you contribute to the global ZTalk Network by being a stable peer. This is optional and intended for advanced users.
 
 ### Intended Use Cases
 - Improve message delivery when your client is offline
 - Provide a stable public endpoint for NAT traversal and rendezvous
 
 ### Requirements
-- A Windows server or VM reachable by peers (public IP recommended)
-- A router/firewall allowing inbound TCP/UDP on the configured ports (see Quick Setup)
-- Sufficient disk space and a stable internet connection
+- An always-on high-speed connection with no data limit
+- Keep your ZTalk client running in the background
+- Forward your ports on your router/firewall
+- Ensure Windows Firewall isn't blocking ZTalk
 
 ### Quick Setup
-1. Download the self-contained Release or Release-sc build and extract it on the server.
-2. In the app Settings -> Network (Dedicated Peer Node) toggle the "Enable as dedicated peer node" option (this sets the `MajorNode` flag in persisted settings). Alternatively, set `MajorNode: true` in your `settings.json` to enable it manually.
-3. Ensure the node is reachable: forward the chosen port (default 26264) from your router to the server, or set a different port in Settings/`settings.json`.
-4. Add any known public relay/seed nodes using the Known Dedicated Peer Nodes (KnownMajorNodes) list; entries are host:port (for example: example.com:26264).
-5. Start ZTalk on the server. The app will call Network.StartIfMajorNode(port, MajorNode) and will attempt to listen on the configured port when MajorNode is enabled.
-
-### Security Considerations
-- Keep the node’s identity passphrase secure. Compromise of the node's keys can reveal your presence on the network.
-- Consider using a firewall, reverse proxy and TLS if exposing administrative or management endpoints.
-
-## Backup and Restore
-
-- Export settings and identity via Settings -> Backup.
-- Backup files are encrypted if you set a passphrase.
-- Use the Restore option to import settings and identity on another device.
+1. In the app Settings -> Network toggle the "Enable as dedicated peer node" option.
+2. Forward port 26264 (or your chosen port) on your router/firewall.
+3. Ensure Windows Firewall allows ZTalk through.
+4. Keep your ZTalk client running in the background.
 
 ## Troubleshooting
 
 - No connection: Ensure at least one node or peer is online, and check firewall/router settings.
 - Messages not delivering: Check peer availability and logs in the app's diagnostics panel.
-- Audio not playing: Confirm sound files exist in `Assets/Sounds` and system volume settings.
+- Audio not playing: Confirm sound files exist in `Assets/Sounds` and system volume settings. Additionally, sounds might lag on first play because they haven't been cached by the App yet, so you may hear delays in the audio at first.
 
 ---
-
-If you want, I can expand any section into step-by-step screenshots or a short quick-start video script.
