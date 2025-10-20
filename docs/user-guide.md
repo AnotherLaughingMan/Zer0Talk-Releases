@@ -38,12 +38,12 @@ Tips:
 There are two ways to add a contact:
 
 ### 1) Send/Receive Contact Request
-- Open the "Add Contact" dialog from the Contacts or File menu.
-- Enter your contact's ZTalk ID (a short peer ID or QR code) and an optional message.
-- Send the request. Your contact will receive the request and can accept to add you back.
+- Use the Add Contact toolbar button (icon with tooltip "Add Contact") in the main window to open the Add Contact dialog.
+- Enter your contact's ZTalk ID (peer UID) or scan/paste a QR/invitation, add an optional message, and send the request.
+- The remote user must accept the request before they appear in your contact list.
 
 ### 2) Receive an Invitation Link or QR Code
-- If someone shares a ZTalk invitation (link or QR), click "Import Invitation" in the Add Contact dialog and paste the link or scan the QR code.
+- If someone shares a ZTalk invitation (link or QR), open the Add Contact dialog and use the "Import Invitation" control to paste the link or scan the QR code.
 - Confirm the import and optionally provide a local alias.
 
 Notes:
@@ -53,14 +53,14 @@ Notes:
 ## Deleting Contacts
 
 To delete a contact from your list:
-1. Open the contact's profile or right-click the contact in the contact list.
-2. Choose "Remove Contact".
-3. You will be asked whether to also erase local message history for this contact.
-4. Confirm. The contact will be removed locally. If the other party still has you, they will not be notified automatically.
+1. Right-click the contact in the contact list or open their profile.
+2. Select the menu item labeled "Remove contact" (bound to the RemoveContact command).
+3. You will be prompted whether to also erase local message history for this contact.
+4. Confirm to remove the contact locally. The other party is not automatically notified.
 
 Notes on data removal:
-- If you choose to erase message history, ZTalk will attempt a secure wipe (overwrites local storage). Some filesystem-level remnants may persist depending on OS and filesystem.
-- Deleting a contact does not automatically revoke any shared verification tokens on the remote side.
+- If you choose to erase message history, ZTalk will attempt a secure wipe of local storage; some filesystem-level remnants may persist depending on OS and filesystem.
+- Deleting a contact does not revoke any verification tokens or keys the contact may have shared.
 
 ## Sending Messages
 
@@ -84,12 +84,13 @@ Open Settings -> Themes to use the Theme Editor:
 ## Notifications & Sounds
 
 - Toggle sound and notification preferences in Settings -> Notifications.
+- Incoming contact invites surface as a small toast with an "Open Invites" button. Clicking that button or the Pending Invites control opens the right-side Invites panel (Notifications -> Pending Invites) where you can accept or reject invites.
 - DND mode silences notifications and can be scheduled.
 - System tray integrates for quick access and show/hide behavior.
 
 ## Running a Dedicated Node (Advanced)
 
-A Dedicated Node is a longer-running instance of ZTalk configured to stay online so it can act as a relay or availability point for your contacts. This is optional and intended for advanced users.
+A Dedicated Node (called a "Major Node" in settings) is a longer-running instance of ZTalk configured to stay online so it can act as a relay or availability point for your contacts. This is optional and intended for advanced users.
 
 ### Intended Use Cases
 - Improve message delivery when your client is offline
@@ -97,19 +98,19 @@ A Dedicated Node is a longer-running instance of ZTalk configured to stay online
 
 ### Requirements
 - A Windows server or VM reachable by peers (public IP recommended)
-- A router/firewall allowing inbound TCP/UDP on the configured ports
+- A router/firewall allowing inbound TCP/UDP on the configured ports (see Quick Setup)
 - Sufficient disk space and a stable internet connection
 
 ### Quick Setup
 1. Download the self-contained Release or Release-sc build and extract it on the server.
-2. Open `settings.json` (or use the GUI Settings) and enable "DedicatedNode" or "RunAsNode" mode.
-3. Configure the public endpoint and port forwarding.
-4. Optionally configure identity recovery/passphrase for this node.
-5. Start ZTalk on the server. The node will register with its peers via the peer discovery mechanism.
+2. In the app Settings -> Network (Dedicated Peer Node) toggle the "Enable as dedicated peer node" option (this sets the `MajorNode` flag in persisted settings). Alternatively, set `MajorNode: true` in your `settings.json` to enable it manually.
+3. Ensure the node is reachable: forward the chosen port (default 26264) from your router to the server, or set a different port in Settings/`settings.json`.
+4. Add any known public relay/seed nodes using the Known Dedicated Peer Nodes (KnownMajorNodes) list; entries are host:port (for example: example.com:26264).
+5. Start ZTalk on the server. The app will call Network.StartIfMajorNode(port, MajorNode) and will attempt to listen on the configured port when MajorNode is enabled.
 
 ### Security Considerations
 - Keep the node’s identity passphrase secure. Compromise of the node's keys can reveal your presence on the network.
-- Consider using a reverse proxy and TLS if exposing administrative endpoints.
+- Consider using a firewall, reverse proxy and TLS if exposing administrative or management endpoints.
 
 ## Backup and Restore
 
