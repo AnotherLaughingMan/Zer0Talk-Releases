@@ -42,7 +42,7 @@ There is one way to add a contact:
 ### Adding by UID or Invitation
 - Use the Add Contact toolbar button (icon with tooltip "Add Contact") in the main window to open the Add Contact dialog.
 - **Option A**: Enter your contact's ZTalk ID (peer UID) directly, add an optional message, and send the request.
-- **Option B**: If someone shares their UID with you, or you receive an invitation from someone who has your UID, enter that information in the Add Contact dialog.
+- **Option B**: If someone who has your UID sends you a contact request, you simply accept their incoming request - no need to enter any information.
 
 Notes:
 - Contact requests are mutual: the remote user must accept your request before they're added to your list.
