@@ -6,7 +6,7 @@ ZTalk includes a comprehensive IP blocking system to protect against bad-actor I
 ## Features
 - **Individual IP Blocking**: Block specific IP addresses
 - **CIDR Range Blocking**: Block entire network ranges (e.g., `192.168.1.0/24`)
-- **Default Blocklist**: Ships with ~27,000 IP ranges from high-risk countries
+- **Default Blocklist**: Ships with ~10,000 IP ranges from high-risk countries
 - **Import/Export**: Import threat intelligence feeds and backup configurations
 - **Real-time Validation**: IP address and CIDR format validation
 - **Persistent Storage**: Encrypted storage of custom block lists
