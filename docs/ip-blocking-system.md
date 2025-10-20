@@ -15,10 +15,9 @@ ZTalk includes a comprehensive IP blocking system to protect against bad-actor I
 The application ships with a comprehensive default blocklist containing:
 - **China**: 3,953 IP ranges
 - **Russia**: 6,361 IP ranges  
-- **India**: 16,870 IP ranges
 - **North Korea**: 4 IP ranges
 
-**Total**: ~27,000 IP ranges for enhanced security
+**Total**: ~10,000 IP ranges for enhanced security
 
 ## Configuration
 Access IP blocking settings through: **Settings → Network → Bad-Actor IP Blocking**
