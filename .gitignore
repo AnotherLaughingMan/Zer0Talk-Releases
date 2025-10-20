@@ -152,7 +152,13 @@ Release-Description.md
 temp_pending_invites.txt
 
 # Documentation drafts stay local only
-docs/
+# Note: track only specific user-facing docs; ignore other markdown files in docs/
+# Allow the docs directory itself
+!docs/
+# Ignore all markdown in docs but allow specific files below
+docs/*.md
+!docs/user-guide.md
+!docs/THEME-EDITOR-USER-GUIDE.md
 
 scripts/Markdown.Avalonia/
 
