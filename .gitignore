@@ -148,6 +148,7 @@ context.md
 
 # Temporary build/share docs that should not be committed
 RELEASE-DEBUG-SC.md
+Release-Description.md
 temp_pending_invites.txt
 
 # Documentation drafts stay local only

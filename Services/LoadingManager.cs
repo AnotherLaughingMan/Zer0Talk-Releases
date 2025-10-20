@@ -105,46 +105,66 @@ public class LoadingManager
             
             // Step 4: Apply theme settings
             await UpdateProgress("Applying visual theme and performance settings...", 50);
-            await Task.Run(() =>
+            try
             {
-                try
+                // Apply initial theme and performance settings (must be on UI thread)
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    // Apply initial theme and performance settings
-                    AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme);
-                    
-                    var sPerf = AppServices.Settings.Settings;
-                    var app = Avalonia.Application.Current;
-                    if (app != null)
+                    try
                     {
-                        app.Resources["App.AvatarInterpolation"] = sPerf.DisableGpuAcceleration ? "None" : "HighQuality";
+                        AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme);
+                        
+                        var sPerf = AppServices.Settings.Settings;
+                        var app = Avalonia.Application.Current;
+                        if (app != null)
+                        {
+                            app.Resources["App.AvatarInterpolation"] = sPerf.DisableGpuAcceleration ? "None" : "HighQuality";
+                        }
                     }
-                    
-                    // Apply FPS and refresh rate throttling
-                    var fps = Math.Max(0, sPerf.FpsThrottle);
-                    var interval = fps <= 0 ? 16 : Math.Max(5, 1000 / Math.Max(1, fps));
-                    AppServices.Updates.UpdateUiInterval("App.UI.Pulse", interval);
-                    
-                    var hz = Math.Max(0, sPerf.RefreshRateThrottle);
-                    const string key = "App.UI.Refresh";
-                    if (hz <= 0) AppServices.Updates.UnregisterUi(key);
-                    else
+                    catch (Exception ex)
                     {
-                        var refreshInterval = Math.Max(5, 1000 / Math.Max(1, hz));
-                        AppServices.Updates.RegisterUiInterval(key, refreshInterval, () => 
-                        { 
-                            try { AppServices.Events.RaiseUiPulse(); } catch { } 
-                        });
+                        SafeLog("Init.Theme.Apply.Error", ex);
                     }
-                    
-                    FocusFramerateService.Initialize();
-                    FocusFramerateService.ApplyCurrentPolicy();
-                }
-                catch (Exception ex)
+                });
+                
+                // These can run on background thread
+                await Task.Run(() =>
                 {
-                    SafeLog("Init.Theme.Error", ex);
-                    // Non-critical, continue
-                }
-            });
+                    try
+                    {
+                        var sPerf = AppServices.Settings.Settings;
+                        
+                        // Apply FPS and refresh rate throttling
+                        var fps = Math.Max(0, sPerf.FpsThrottle);
+                        var interval = fps <= 0 ? 16 : Math.Max(5, 1000 / Math.Max(1, fps));
+                        AppServices.Updates.UpdateUiInterval("App.UI.Pulse", interval);
+                        
+                        var hz = Math.Max(0, sPerf.RefreshRateThrottle);
+                        const string key = "App.UI.Refresh";
+                        if (hz <= 0) AppServices.Updates.UnregisterUi(key);
+                        else
+                        {
+                            var refreshInterval = Math.Max(5, 1000 / Math.Max(1, hz));
+                            AppServices.Updates.RegisterUiInterval(key, refreshInterval, () => 
+                            { 
+                                try { AppServices.Events.RaiseUiPulse(); } catch { } 
+                            });
+                        }
+                        
+                        FocusFramerateService.Initialize();
+                        FocusFramerateService.ApplyCurrentPolicy();
+                    }
+                    catch (Exception ex)
+                    {
+                        SafeLog("Init.Performance.Error", ex);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                SafeLog("Init.Theme.Error", ex);
+                // Non-critical, continue
+            }
             CompleteCurrentStep();
             
             // Step 5: Prepare user interface
