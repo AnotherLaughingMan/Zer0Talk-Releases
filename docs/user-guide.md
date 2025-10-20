@@ -33,7 +33,7 @@ When launching ZTalk for the first time you will be prompted to create your iden
 Tips:
 - Choose a memorable username as this helps identify you to other users.
 - Your display name can be changed later, but your username becomes part of your identity.
-- The passphrase is generated automatically and securely stored - you don't need to create one yourself.
+- The passphrase is generated automatically and you'll be given a chance to save it. Save it to an offline device as the safest method - never store it in the same folder as ZTalk or in the APPDATA path for ZTalk.
 
 ## Adding Contacts
 
