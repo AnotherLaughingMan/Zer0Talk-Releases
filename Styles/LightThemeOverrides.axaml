@@ -14,11 +14,7 @@
   <!-- Card background slightly above new surface -->
   <SolidColorBrush x:Key="App.CardBackground" Color="#D0D0D0"/>
   <SolidColorBrush x:Key="App.Border" Color="#808080"/>
-  <LinearGradientBrush x:Key="App.TitleBarBackground" StartPoint="0,0" EndPoint="1,0" SpreadMethod="Pad">
-    <GradientStop Offset="0" Color="#0A246A"/>
-    <GradientStop Offset="0.45" Color="#2F5DAD"/>
-    <GradientStop Offset="1" Color="#A6CAF0"/>
-  </LinearGradientBrush>
+  <!-- App.TitleBarBackground moved to gradient definition in theme JSON -->
   <!-- Input-specific border; decoupled in case inputs require a softer tone later -->
   <SolidColorBrush x:Key="App.InputBorder" Color="#808080"/>
     <SolidColorBrush x:Key="App.BorderDark" Color="#404040"/>

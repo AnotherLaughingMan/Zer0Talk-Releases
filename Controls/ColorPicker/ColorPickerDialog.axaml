@@ -1,0 +1,71 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:cp="using:ZTalk.Controls.ColorPicker"
+        x:Class="ZTalk.Controls.ColorPicker.ColorPickerDialog"
+        Width="680" Height="380"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Title="Color Picker">
+
+  <Border Background="{DynamicResource App.Background}" CornerRadius="6" Padding="20">
+    <Grid RowDefinitions="*,Auto">
+      <!-- Main content area -->
+      <Grid Grid.Row="0" ColumnDefinitions="Auto,16,Auto,16,Auto,20,*">
+        
+        <!-- Hue Slider -->
+        <cp:HueSlider x:Name="HueSlider" Grid.Column="0"/>
+        
+        <!-- SV Picker (now responds to hue changes) -->
+        <cp:SaturationValuePicker x:Name="SvPicker" Grid.Column="2" Width="240" Height="240"/>
+        
+        <!-- Brightness Slider -->
+        <cp:BrightnessSlider x:Name="BrightnessSlider" Grid.Column="4"/>
+        
+        <!-- Right panel with color controls -->
+        <StackPanel Grid.Column="6" Spacing="16" VerticalAlignment="Top">
+          
+          <!-- Color preview -->
+          <Border x:Name="ColorPreview" 
+                  Height="60" 
+                  CornerRadius="6" 
+                  BorderThickness="1" 
+                  BorderBrush="#555"
+                  Background="Red"/>
+          
+          <!-- HEX Input -->
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBox x:Name="HexInput" Grid.Column="0" 
+                     Text="#FF0000" 
+                     FontFamily="Consolas" 
+                     FontSize="13"
+                     Watermark="#RRGGBB"
+                     VerticalContentAlignment="Center"
+                     Padding="8,6"/>
+            <TextBlock x:Name="PendingIndicator" Grid.Column="1" 
+                       Text="⟳" FontSize="16" 
+                       VerticalAlignment="Center" 
+                       IsVisible="False" 
+                       Opacity="0.7" 
+                       Foreground="#FBC02D"/>
+          </Grid>
+
+          <!-- RGB Sliders -->
+          <cp:ColorChannelSlider x:Name="RedSlider" Label="Red"/>
+          <cp:ColorChannelSlider x:Name="GreenSlider" Label="Green"/>
+          <cp:ColorChannelSlider x:Name="BlueSlider" Label="Blue"/>
+
+        </StackPanel>
+      </Grid>
+
+      <!-- Bottom buttons -->
+      <StackPanel Grid.Row="1" 
+                  Orientation="Horizontal" 
+                  HorizontalAlignment="Right" 
+                  Spacing="12" 
+                  Margin="0,20,0,0">
+        <Button x:Name="CancelBtn" Content="Cancel" Padding="20,8" MinWidth="100"/>
+        <Button x:Name="ApplyBtn" Content="Apply" Padding="20,8" MinWidth="100"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>

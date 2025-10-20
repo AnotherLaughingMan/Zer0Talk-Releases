@@ -191,6 +191,37 @@ public partial class App : Application
                         }
                         
                         try { AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme); SafeStartupLog("ShowAppropriateWindow.AutoLogin.Theme.Applied"); } catch (Exception ex) { SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Theme.Error: {ex.Message}"); throw; }
+                        
+                        // Enable Theme Engine Phase 2
+                        try 
+                        { 
+                            if (AppServices.ThemeEngine.AdvancePhase())
+                            {
+                                SafeStartupLog("ThemeEngine.Phase2.Enabled");
+                                
+                                // Load custom themes
+                                var customThemeCount = AppServices.ThemeEngine.LoadCustomThemes();
+                                SafeStartupLog($"ThemeEngine.Phase2.LoadedCustomThemes: {customThemeCount}");
+                                
+                                // Re-apply theme through engine
+                                AppServices.ThemeEngine.SetTheme(AppServices.Settings.Settings.Theme);
+                                SafeStartupLog("ThemeEngine.Phase2.ThemeReapplied");
+
+                                var persistedThemeId = AppServices.Settings.Settings.ThemeId;
+                                if (!string.IsNullOrWhiteSpace(persistedThemeId))
+                                {
+                                    if (AppServices.ThemeEngine.SetThemeById(persistedThemeId))
+                                    {
+                                        SafeStartupLog($"ThemeEngine.Phase2.ThemeReappliedById: {persistedThemeId}");
+                                    }
+                                }
+                            }
+                        } 
+                        catch (Exception ex) 
+                        { 
+                            SafeStartupLog($"ThemeEngine.Phase2.Error: {ex.Message}"); 
+                        }
+                        
                         try { AppServices.Identity.LoadFromAccount(acc); SafeStartupLog("ShowAppropriateWindow.AutoLogin.Identity.Loaded"); } catch (Exception ex) { SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Identity.Error: {ex.Message}"); throw; }
                         SafeStartupLog("ShowAppropriateWindow.AutoLogin.AllSettingsLoaded");
                         
@@ -245,6 +276,37 @@ public partial class App : Application
                             }
                             
                             AppServices.Theme.SetTheme(AppServices.Settings.Settings.Theme);
+                            
+                            // Enable Theme Engine Phase 2
+                            try 
+                            { 
+                                if (AppServices.ThemeEngine.AdvancePhase())
+                                {
+                                    SafeStartupLog("ThemeEngine.Phase2.Enabled");
+                                    
+                                    // Load custom themes
+                                    var customThemeCount = AppServices.ThemeEngine.LoadCustomThemes();
+                                    SafeStartupLog($"ThemeEngine.Phase2.LoadedCustomThemes: {customThemeCount}");
+                                    
+                                    // Re-apply theme through engine
+                                    AppServices.ThemeEngine.SetTheme(AppServices.Settings.Settings.Theme);
+                                    SafeStartupLog("ThemeEngine.Phase2.ThemeReapplied");
+
+                                    var persistedThemeId = AppServices.Settings.Settings.ThemeId;
+                                    if (!string.IsNullOrWhiteSpace(persistedThemeId))
+                                    {
+                                        if (AppServices.ThemeEngine.SetThemeById(persistedThemeId))
+                                        {
+                                            SafeStartupLog($"ThemeEngine.Phase2.ThemeReappliedById: {persistedThemeId}");
+                                        }
+                                    }
+                                }
+                            } 
+                            catch (Exception ex) 
+                            { 
+                                SafeStartupLog($"ThemeEngine.Phase2.Error: {ex.Message}"); 
+                            }
+                            
                             var acc = AppServices.Accounts.LoadAccount(AppServices.Passphrase);
                             AppServices.Identity.LoadFromAccount(acc);
                         }

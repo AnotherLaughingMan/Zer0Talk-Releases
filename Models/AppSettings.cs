@@ -36,6 +36,8 @@ public class AppSettings
 
     public string DisplayName { get; set; } = string.Empty;
     public ThemeOption Theme { get; set; } = ThemeOption.Dark;
+    // Theme Engine v2: persisted theme identifier (legacy-dark, custom-*, etc.)
+    public string? ThemeId { get; set; }
     // Theme Engine: user-selected UI font family (null or empty = default platform font)
     public string? UiFontFamily { get; set; }
     // Theme Engine: global UI scale (1.0 = 100%). Future: allow per-monitor / per-surface scaling.
@@ -156,4 +158,7 @@ public class AppSettings
     public bool SuppressNotificationsInDnd { get; set; } = true; // When enabled, notification toasts and audio are suppressed in Do Not Disturb mode
     public double NotificationDurationSeconds { get; set; } = 4.5; // Duration in seconds that notification toasts stay visible (0.5 to 30 seconds)
     public bool EnableNotificationBellFlash { get; set; } = true; // When enabled, the notification bell flashes for 10 seconds when new notifications arrive
+
+    // Security: Message burning security level (false = Standard 3-pass, true = Enhanced 6-pass)
+    public bool UseEnhancedMessageBurn { get; set; } = false; // Default to standard 3-pass for backward compatibility
 }

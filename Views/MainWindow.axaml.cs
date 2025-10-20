@@ -2219,6 +2219,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         ShowSettingsOverlay();
     }
 
+    private void ThemeEditor_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        try
+        {
+            Logger.Log("[Theme Editor] Opening Theme Editor window...", LogLevel.Info, categoryOverride: "ui");
+            // Open Theme Editor in a separate window
+            var themeEditor = new ThemeEditorWindow();
+            themeEditor.Show(this);
+            Logger.Log("[Theme Editor] Theme Editor window opened successfully", LogLevel.Info, categoryOverride: "ui");
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Theme Editor] Failed to open Theme Editor: {ex.Message}", LogLevel.Error, categoryOverride: "ui");
+            ErrorLogger.LogException(ex, source: "ThemeEditor.Open");
+        }
+    }
+
     private void Monitoring_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         ZTalk.Services.WindowManager.ShowSingleton<MonitoringWindow>();

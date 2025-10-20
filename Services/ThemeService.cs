@@ -27,9 +27,6 @@ namespace ZTalk.Services
 
         private bool _suppressionHookInitialized;
         private bool _reapplyingFromSuppression;
-    private static readonly object _themeLogLock = new();
-    private static string ThemeLogPath => Utilities.LoggingPaths.Theme;
-
         private void EnsurePlatformColorSuppressionHook()
         {
             if (_suppressionHookInitialized) return;
@@ -65,11 +62,7 @@ namespace ZTalk.Services
         {
             try
             {
-        var line = System.DateTime.Now.ToString("O") + " [theme] " + msg + System.Environment.NewLine;
-        lock (_themeLogLock)
-                {
-                if (Utilities.LoggingPaths.Enabled) File.AppendAllText(ThemeLogPath, line);
-                }
+                Utilities.Logger.Info(msg, source: "ThemeService (Legacy)", categoryOverride: "theme");
             }
             catch { }
         }
@@ -77,6 +70,8 @@ namespace ZTalk.Services
         private void InternalApplyTheme(ThemeOption theme, bool reassertOnly = false)
         {
             if (Application.Current is not { } app) return;
+
+            LogTheme($"InternalApplyTheme({theme}, reassertOnly={reassertOnly})");
 
             if (!reassertOnly)
             {
@@ -88,6 +83,7 @@ namespace ZTalk.Services
                     ThemeOption.Butter => ThemeVariant.Dark,
                     _ => ThemeVariant.Dark
                 };
+                LogTheme($"Set RequestedThemeVariant to {app.RequestedThemeVariant}");
             }
 
             // 2) (Re)ensure our resource dictionaries. When reassertOnly, avoid removing & re-adding to minimize churn.
@@ -114,9 +110,11 @@ namespace ZTalk.Services
                     _ => new Uri("avares://ZTalk/Styles/DarkThemeOverrides.axaml")
                 };
                 styles.Add(new StyleInclude(baseUri) { Source = source });
+                LogTheme($"Loaded resource dictionary: {source}");
             }
 
             ApplyGlobalPaletteOverrides(app, theme);
+            LogTheme("Applied global palette overrides");
 
             // Sovereignty layer: ThemeSovereignty.axaml is intentionally not included directly.
             // Core/Base layers are loaded via App.axaml and managed statically.
@@ -134,23 +132,29 @@ namespace ZTalk.Services
             // 3) Force refresh of open windows so template-level brushes recalc against our resources
             if (app.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
+                var windowCount = 0;
                 foreach (var window in desktop.Windows)
                 {
-                    try { window.RequestedThemeVariant = app.RequestedThemeVariant; } catch { }
+                    try { window.RequestedThemeVariant = app.RequestedThemeVariant; windowCount++; } catch { }
                 }
+                LogTheme($"Refreshed {windowCount} windows via legacy service");
             }
+            LogTheme($"InternalApplyTheme({theme}) completed");
         }
 
         public void SetTheme(ThemeOption theme)
         {
+            LogTheme($"SetTheme({theme}) called on legacy service");
             EnsurePlatformColorSuppressionHook();
             CurrentTheme = theme;
             if (_reapplyingFromSuppression)
             {
                 // During suppression reapply we call InternalApplyTheme separately.
+                LogTheme("Skipping InternalApplyTheme - in suppression reapply");
                 return;
             }
             InternalApplyTheme(theme, reassertOnly: false);
+            LogTheme($"SetTheme({theme}) completed");
         }
 
         private static void ApplyGlobalPaletteOverrides(Application app, ThemeOption theme)
@@ -193,7 +197,9 @@ namespace ZTalk.Services
             }
             else
             {
-                RemoveResource(app, "App.TitleBarBackground");
+                // Preserve App.TitleBarBackground here because runtime themes (ThemeEngine)
+                // may have applied a gradient. Removing it unconditionally would wipe
+                // engine-applied gradients when legacy theme code runs.
                 RemoveResource(app, "App.ChatSenderName");
                 RemoveResource(app, "App.ChatReceiverName");
             }

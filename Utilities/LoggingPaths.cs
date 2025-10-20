@@ -110,6 +110,7 @@ namespace ZTalk.Utilities
         public static string Audio => PathFor("audio.log");
         public static string Crypto => PathFor("crypto.log");
         public static string EncryptedChat => PathFor("enc_chat.log");
+        public static string ThemeEngine => PathFor("theme_engine.log");
 
         public static bool TryWrite(string path, string line)
         {

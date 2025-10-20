@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ZTalk.Controls.ColorPicker.BrightnessSlider"
+             Width="32" Height="240">
+  <Grid>
+    <!-- Grayscale gradient background (white to black) -->
+    <Border x:Name="BrightnessBar" CornerRadius="4" BorderThickness="1" BorderBrush="#555">
+      <Border.Background>
+        <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
+          <GradientStop Color="#FFFFFFFF" Offset="0.0" />
+          <GradientStop Color="#FF000000" Offset="1.0" />
+        </LinearGradientBrush>
+      </Border.Background>
+    </Border>
+    
+    <!-- Interactive canvas for thumb placement -->
+    <Canvas x:Name="ThumbCanvas" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+      <Border x:Name="Thumb" 
+              Width="36" Height="10" 
+              CornerRadius="2"
+              BorderBrush="White" 
+              BorderThickness="2"
+              Background="#80000000"
+              Canvas.Left="-2">
+        <Border.Effect>
+          <DropShadowEffect BlurRadius="3" Color="Black" Opacity="0.6" OffsetX="0" OffsetY="0"/>
+        </Border.Effect>
+      </Border>
+    </Canvas>
+  </Grid>
+</UserControl>

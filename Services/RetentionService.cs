@@ -120,7 +120,7 @@ namespace ZTalk.Services
             catch { }
         }
 
-        public MessagePurgeSummary BurnConversationSecurely(string peerUid, string passphrase)
+        public MessagePurgeSummary BurnConversationSecurely(string peerUid, string passphrase, bool useEnhancedBurn = false)
         {
             if (string.IsNullOrWhiteSpace(peerUid))
             {
@@ -153,7 +153,7 @@ namespace ZTalk.Services
                     }
                     catch { }
 
-                    bytesWiped += SecureBurnFile(messagesPath);
+                    bytesWiped += useEnhancedBurn ? SecureBurnFileEnhanced(messagesPath) : SecureBurnFile(messagesPath);
                     messageFiles++;
                 }
 
@@ -167,13 +167,14 @@ namespace ZTalk.Services
                     }
                     catch { }
 
-                    bytesWiped += SecureBurnFile(outboxPath);
+                    bytesWiped += useEnhancedBurn ? SecureBurnFileEnhanced(outboxPath) : SecureBurnFile(outboxPath);
                     outboxFiles++;
                 }
 
                 if (bytesWiped > 0)
                 {
-                    SafeRetentionLog($"Conversation burn complete: peer={sanitized} messageFiles={messageFiles} outboxFiles={outboxFiles} bytes={bytesWiped}");
+                    var burnType = useEnhancedBurn ? "enhanced" : "standard";
+                    SafeRetentionLog($"Conversation burn complete ({burnType}): peer={sanitized} messageFiles={messageFiles} outboxFiles={outboxFiles} bytes={bytesWiped}");
                 }
 
                 return new MessagePurgeSummary(messageFiles, outboxFiles, messagesDeleted, queuedDeleted, bytesWiped);
@@ -327,64 +328,8 @@ namespace ZTalk.Services
 
         private static long SecureWipeFile(string path)
         {
-            if (!File.Exists(path)) return 0;
-
-            File.SetAttributes(path, FileAttributes.Normal);
-            long length = 0;
-            try
-            {
-                length = new FileInfo(path).Length;
-                if (length <= 0)
-                {
-                    File.Delete(path);
-                    return 0;
-                }
-
-                var buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
-                try
-                {
-                    using var rng = RandomNumberGenerator.Create();
-                    using var stream = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None, buffer.Length, FileOptions.WriteThrough | FileOptions.SequentialScan);
-                    for (var pass = 0; pass < 3; pass++)
-                    {
-                        stream.Position = 0;
-                        long remaining = length;
-                        while (remaining > 0)
-                        {
-                            var chunk = (int)Math.Min(buffer.Length, remaining);
-                            var span = buffer.AsSpan(0, chunk);
-                            switch (pass)
-                            {
-                                case 0:
-                                    rng.GetBytes(span);
-                                    break;
-                                case 1:
-                                    span.Fill(0xFF);
-                                    break;
-                                default:
-                                    span.Clear();
-                                    break;
-                            }
-                            stream.Write(span);
-                            remaining -= chunk;
-                        }
-                        stream.Flush(flushToDisk: true);
-                    }
-                }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
-                }
-
-                File.SetAttributes(path, FileAttributes.Normal);
-                File.Delete(path);
-                return length;
-            }
-            catch
-            {
-                try { File.SetAttributes(path, FileAttributes.Normal); } catch { }
-                throw;
-            }
+            // Delegate to the new SecureFileWiper utility which handles drive detection
+            return ZTalk.Utilities.SecureFileWiper.SecureWipeFile(path);
         }
 
         private static long SecureBurnFile(string path)
@@ -419,6 +364,65 @@ namespace ZTalk.Services
             try { File.SetAttributes(path, FileAttributes.Normal); } catch { }
             try { File.Delete(path); } catch { }
             return length;
+        }
+
+        private static long SecureBurnFileEnhanced(string path)
+        {
+            if (!File.Exists(path)) return 0;
+
+            File.SetAttributes(path, FileAttributes.Normal);
+            long length = new FileInfo(path).Length;
+            if (length <= 0)
+            {
+                try { File.Delete(path); } catch { }
+                return 0;
+            }
+
+            var buffer = ArrayPool<byte>.Shared.Rent(64 * 1024);
+            try
+            {
+                using var rng = RandomNumberGenerator.Create();
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None, buffer.Length, FileOptions.WriteThrough | FileOptions.SequentialScan);
+                stream.SetLength(length);
+
+                // Enhanced 6-pass wipe: random, 0xFF, 0x00, random, 0xAA, 0x55
+                OverwriteWithPattern(stream, rng, buffer, length, isRandom: true); // Pass 1: Random
+                OverwriteWithPattern(stream, rng, buffer, length, fixedByte: 0xFF); // Pass 2: 0xFF
+                OverwriteWithPattern(stream, rng, buffer, length, fixedByte: 0x00); // Pass 3: 0x00
+                OverwriteWithPattern(stream, rng, buffer, length, isRandom: true); // Pass 4: Random
+                OverwriteWithPattern(stream, rng, buffer, length, fixedByte: 0xAA); // Pass 5: 0xAA
+                OverwriteWithPattern(stream, rng, buffer, length, fixedByte: 0x55); // Pass 6: 0x55
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
+            }
+
+            try { File.SetAttributes(path, FileAttributes.Normal); } catch { }
+            try { File.Delete(path); } catch { }
+            return length;
+        }
+
+        private static void OverwriteWithPattern(FileStream stream, RandomNumberGenerator rng, byte[] buffer, long length, bool isRandom = false, byte fixedByte = 0)
+        {
+            stream.Position = 0;
+            long remaining = length;
+            while (remaining > 0)
+            {
+                var chunk = (int)Math.Min(buffer.Length, remaining);
+                var span = buffer.AsSpan(0, chunk);
+                if (isRandom)
+                {
+                    rng.GetBytes(span);
+                }
+                else
+                {
+                    span.Fill(fixedByte);
+                }
+                stream.Write(span);
+                remaining -= chunk;
+            }
+            stream.Flush(flushToDisk: true);
         }
 
         private static void OverwriteWithRandomBits(FileStream stream, RandomNumberGenerator rng, byte[] buffer, long length)

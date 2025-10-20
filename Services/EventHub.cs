@@ -26,6 +26,10 @@ namespace ZTalk.Services
         public event Action<MessagePurgeSummary>? AllMessagesPurged;
     // Request the UI to open a conversation for the provided UID (click-to-open)
     public event Action<string>? OpenConversationRequested;
+        // Message edited locally or received edit from remote
+        public event Action<string, System.Guid, string>? MessageEdited;
+        // Message deleted locally or received delete from remote
+        public event Action<string, System.Guid>? MessageDeleted;
 
         public void RaiseNatChanged() { try { NatChanged?.Invoke(); } catch { } }
         public void RaiseNetworkListeningChanged(bool isListening, int? port) { try { NetworkListeningChanged?.Invoke(isListening, port); } catch { } }
@@ -36,5 +40,7 @@ namespace ZTalk.Services
         public void RaiseRegressionDetected(string message) { if (!string.IsNullOrWhiteSpace(message)) { try { RegressionDetected?.Invoke(message); } catch { } } }
         public void RaiseAllMessagesPurged(MessagePurgeSummary summary) { try { AllMessagesPurged?.Invoke(summary); } catch { } }
     public void RaiseOpenConversationRequested(string uid) { if (string.IsNullOrWhiteSpace(uid)) return; try { OpenConversationRequested?.Invoke(uid); } catch { } }
+        public void RaiseMessageEdited(string peerUid, System.Guid messageId, string newContent) { if (string.IsNullOrWhiteSpace(peerUid) || messageId == System.Guid.Empty) return; try { MessageEdited?.Invoke(peerUid, messageId, newContent); } catch { } }
+        public void RaiseMessageDeleted(string peerUid, System.Guid messageId) { if (string.IsNullOrWhiteSpace(peerUid) || messageId == System.Guid.Empty) return; try { MessageDeleted?.Invoke(peerUid, messageId); } catch { } }
     }
 }

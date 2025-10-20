@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ZTalk.Controls.ColorPicker.ColorChannelSlider"
+             Height="40">
+  <Grid ColumnDefinitions="50,8,*,8,70">
+    <!-- Label -->
+    <TextBlock x:Name="LabelText" Grid.Column="0" 
+               Text="Red" 
+               VerticalAlignment="Center"
+               FontSize="12"
+               Opacity="0.9"/>
+    
+    <!-- Slider with gradient background -->
+    <Grid Grid.Column="2">
+      <Border x:Name="GradientBar" 
+              Height="20" 
+              CornerRadius="3" 
+              BorderThickness="1" 
+              BorderBrush="#555"
+              ClipToBounds="True">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+            <GradientStop Color="#FF000000" Offset="0" />
+            <GradientStop Color="#FFFF0000" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+      </Border>
+      
+      <!-- Slider with larger hit area for interaction -->
+      <Slider x:Name="ValueSlider" 
+              Minimum="0" Maximum="255" 
+              Value="0"
+              Opacity="0"
+              Height="40"
+              VerticalAlignment="Center"/>
+      
+      <!-- Custom thumb indicator -->
+      <Canvas x:Name="ThumbCanvas" HorizontalAlignment="Stretch" Height="20" VerticalAlignment="Center" IsHitTestVisible="False">
+        <Border x:Name="ThumbIndicator"
+                Width="7" Height="20"
+                Background="White"
+                BorderBrush="Black"
+                BorderThickness="1"
+                CornerRadius="1"
+                Canvas.Top="0">
+          <Border.Effect>
+            <DropShadowEffect BlurRadius="3" Color="Black" Opacity="0.6" OffsetX="0" OffsetY="0"/>
+          </Border.Effect>
+        </Border>
+      </Canvas>
+    </Grid>
+    
+    <!-- Numeric input -->
+    <TextBox x:Name="ValueInput" Grid.Column="4" 
+             Text="0" 
+             FontSize="12"
+             TextAlignment="Right"
+             VerticalContentAlignment="Center"
+             Padding="4,0"/>
+  </Grid>
+</UserControl>

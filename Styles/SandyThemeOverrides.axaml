@@ -16,6 +16,8 @@
   <!-- Card background raised above new surface -->
   <SolidColorBrush x:Key="App.CardBackground" Color="#4B3F38"/>
   <SolidColorBrush x:Key="App.Border" Color="#594A43"/>
+  <!-- Title bar background (solid sandy brown) -->
+  <!-- App.TitleBarBackground moved to gradient definition in theme JSON -->
   <!-- Input-specific border (separate so we can tune inputs independently if desired) -->
   <SolidColorBrush x:Key="App.InputBorder" Color="#594A43"/>
     <SolidColorBrush x:Key="App.ForegroundPrimary" Color="#E7DFD7"/>

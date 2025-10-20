@@ -619,6 +619,8 @@ namespace ZTalk.ViewModels
                     EnsureLinkPreviewProbe(msg, forceRefresh: true);
                     OnPropertyChanged(nameof(Messages)); // ensure bindings refresh
                     _messagesStore.UpdateMessage(peerUid, id, newContent, AppServices.Passphrase);
+                    // Raise event so other parts of the UI can react if needed
+                    AppServices.Events.RaiseMessageEdited(peerUid, id, newContent);
                     // Also update any queued copy of the message
                     AppServices.OutboxUpdateIfQueued(peerUid, id, newContent, AppServices.Passphrase);
                     var queuedEarly = !AppServices.Network.HasEncryptedSession(peerUid);
@@ -670,6 +672,8 @@ namespace ZTalk.ViewModels
                     // Remove from UI first (user-deleted should be treated as truly deleted)
                     Messages.Remove(msg);
                     _messagesStore.DeleteMessage(SelectedContact.UID, id, AppServices.Passphrase);
+                    // Raise event so other parts of the UI can react if needed
+                    AppServices.Events.RaiseMessageDeleted(SelectedContact.UID, id);
                     try { LogManualDelete(SelectedContact.UID, id, "manual"); } catch { }
                     if (isOwn)
                     {
@@ -915,6 +919,49 @@ namespace ZTalk.ViewModels
                 };
                 AppServices.Events.OpenConversationRequested += openConversationHandler;
                 _teardownActions.Add(() => AppServices.Events.OpenConversationRequested -= openConversationHandler);
+
+                // Handle MessageEdited event to refresh UI when message content changes
+                Action<string, Guid, string> messageEditedHandler = (peerUid, messageId, newContent) =>
+                {
+                    if (SelectedContact?.UID != peerUid) return;
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            var m = Messages.FirstOrDefault(x => x.Id == messageId);
+                            if (m != null)
+                            {
+                                m.Content = newContent;
+                                m.IsEdited = true;
+                                m.EditedUtc = DateTime.UtcNow;
+                                OnPropertyChanged(nameof(Messages));
+                            }
+                        }
+                        catch { }
+                    });
+                };
+                AppServices.Events.MessageEdited += messageEditedHandler;
+                _teardownActions.Add(() => AppServices.Events.MessageEdited -= messageEditedHandler);
+
+                // Handle MessageDeleted event to remove message from UI
+                Action<string, Guid> messageDeletedHandler = (peerUid, messageId) =>
+                {
+                    if (SelectedContact?.UID != peerUid) return;
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            var m = Messages.FirstOrDefault(x => x.Id == messageId);
+                            if (m != null)
+                            {
+                                Messages.Remove(m);
+                            }
+                        }
+                        catch { }
+                    });
+                };
+                AppServices.Events.MessageDeleted += messageDeletedHandler;
+                _teardownActions.Add(() => AppServices.Events.MessageDeleted -= messageDeletedHandler);
             }
             catch { }
         }
@@ -2378,7 +2425,8 @@ namespace ZTalk.ViewModels
                 Messages.Clear();
                 ErrorMessage = string.Empty;
 
-                var summary = AppServices.Retention.BurnConversationSecurely(peerUid, AppServices.Passphrase);
+                var useEnhanced = AppServices.Settings.Settings?.UseEnhancedMessageBurn ?? false;
+                var summary = AppServices.Retention.BurnConversationSecurely(peerUid, AppServices.Passphrase, useEnhanced);
                 
                 try
                 {

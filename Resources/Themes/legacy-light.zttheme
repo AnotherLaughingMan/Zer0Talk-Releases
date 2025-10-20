@@ -1,0 +1,37 @@
+{
+  "id": "legacy-light",
+  "displayName": "Light",
+  "description": "Legacy Light theme (compatibility mode)",
+  "author": "ZTalk",
+  "version": "1.0.0",
+  "baseVariant": "Light",
+  "resourceDictionaries": [
+    "avares://ZTalk/Styles/LightThemeOverrides.axaml"
+  ],
+  "colorOverrides": {},
+  "gradients": {
+    "App.TitleBarBackground": {
+      "startColor": "#0A246A",
+      "endColor": "#A6CAF0",
+      "angle": 0,
+      "colorStops": {
+        "0.45": "#2F5DAD"
+      }
+    }
+  },
+  "defaultFontFamily": null,
+  "defaultUiScale": 1.0,
+  "minAppVersion": null,
+  "isLegacyTheme": true,
+  "legacyThemeOption": 1,
+  "allowsCustomization": false,
+  "isReadOnly": true,
+  "themeType": 0,
+  "tags": [
+    "legacy",
+    "built-in"
+  ],
+  "metadata": {},
+  "createdAt": "2025-01-01T00:00:00Z",
+  "modifiedAt": "2025-01-01T00:00:00Z"
+}

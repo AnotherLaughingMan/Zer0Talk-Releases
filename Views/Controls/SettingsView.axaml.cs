@@ -23,51 +23,107 @@ namespace ZTalk.Views.Controls
 #endif
             this.AttachedToVisualTree += (_, __) => WireMenu();
             this.AttachedToVisualTree += (_, __) => WireDiscoveredPeersList();
+            // Ensure we re-wire when the DataContext changes so bindings/events react to the current VM
+            this.DataContextChanged += (_, __) => { WireMenu(); WireDiscoveredPeersList(); };
+#if true
+            this.AttachedToVisualTree += (_, __) => WireLegacyThemeCombo();
+#endif
 #if DEBUG
             // Inject Debug-only CCD simulation UI
             this.AttachedToVisualTree += (_, __) => AddDebugCcdSimulator();
 #endif
         }
-        
+
         private void WireDiscoveredPeersList()
+        {
+            var listBox = this.FindControl<ListBox>("DiscoveredPeersList");
+            if (listBox == null) return;
+
+            // Avoid duplicate handlers if re-wired
+            listBox.SelectionChanged -= DiscoveredPeersList_SelectionChanged;
+            listBox.SelectionChanged += DiscoveredPeersList_SelectionChanged;
+
+            // Sync initial selection to the VM if needed
+            try
+            {
+                if (DataContext is ZTalk.ViewModels.SettingsViewModel vm && listBox.SelectedItems != null)
+                {
+                    var selected = new System.Collections.Generic.List<ZTalk.Models.Peer>();
+                    foreach (var item in listBox.SelectedItems)
+                        if (item is ZTalk.Models.Peer peer) selected.Add(peer);
+
+                    var netVm = typeof(ZTalk.ViewModels.SettingsViewModel)
+                        .GetField("NetworkVm", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                        ?.GetValue(vm);
+
+                    if (netVm != null)
+                    {
+                        var selectedPeersProp = netVm.GetType().GetProperty("SelectedPeers");
+                        selectedPeersProp?.SetValue(netVm, selected);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void DiscoveredPeersList_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             try
             {
-                var listBox = this.FindControl<ListBox>("DiscoveredPeersList");
+                var listBox = sender as ListBox;
                 if (listBox == null) return;
-                
-                // Update ViewModel's SelectedPeers when ListBox selection changes
-                listBox.SelectionChanged += (_, __) =>
+                if (!(DataContext is ZTalk.ViewModels.SettingsViewModel vm)) return;
+
+                var selected = new System.Collections.Generic.List<ZTalk.Models.Peer>();
+                if (listBox.SelectedItems != null)
                 {
-                    try
+                    foreach (var item in listBox.SelectedItems)
+                        if (item is ZTalk.Models.Peer peer) selected.Add(peer);
+                }
+
+                var netVm = typeof(ZTalk.ViewModels.SettingsViewModel)
+                    .GetField("NetworkVm", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                    ?.GetValue(vm);
+
+                if (netVm != null)
+                {
+                    var selectedPeersProp = netVm.GetType().GetProperty("SelectedPeers");
+                    selectedPeersProp?.SetValue(netVm, selected);
+                }
+            }
+            catch { }
+        }
+
+        private void WireLegacyThemeCombo()
+        {
+            try
+            {
+                var combo = this.FindControl<ComboBox>("LegacyThemeCombo");
+                if (combo == null) return;
+
+                // Avoid duplicate handlers
+                combo.SelectionChanged -= LegacyThemeCombo_SelectionChanged;
+                combo.SelectionChanged += LegacyThemeCombo_SelectionChanged;
+            }
+            catch { }
+        }
+
+        private void LegacyThemeCombo_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                if (DataContext is ZTalk.ViewModels.SettingsViewModel vm)
+                {
+                    var combo = sender as ComboBox;
+                    if (combo?.SelectedItem is ZTalk.ViewModels.SettingsViewModel.LegacyThemeOption opt)
                     {
-                        if (!(DataContext is ZTalk.ViewModels.SettingsViewModel vm)) return;
-                        
-                        var selected = new System.Collections.Generic.List<ZTalk.Models.Peer>();
-                        if (listBox.SelectedItems != null)
-                        {
-                            foreach (var item in listBox.SelectedItems)
-                            {
-                                if (item is ZTalk.Models.Peer peer)
-                                {
-                                    selected.Add(peer);
-                                }
-                            }
-                        }
-                        
-                        // Get NetworkViewModel and update its SelectedPeers
-                        var netVm = typeof(ZTalk.ViewModels.SettingsViewModel)
-                            .GetField("NetworkVm", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                            ?.GetValue(vm);
-                        
-                        if (netVm != null)
-                        {
-                            var selectedPeersProp = netVm.GetType().GetProperty("SelectedPeers");
-                            selectedPeersProp?.SetValue(netVm, selected);
-                        }
+                        vm.SelectedLegacyThemeId = opt.ThemeId ?? string.Empty;
                     }
-                    catch { }
-                };
+                    else
+                    {
+                        vm.SelectedLegacyThemeId = string.Empty;
+                    }
+                }
             }
             catch { }
         }

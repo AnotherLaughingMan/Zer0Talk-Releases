@@ -1,0 +1,665 @@
+<Window xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:ZTalk.ViewModels"
+    xmlns:cp="using:ZTalk.Controls.ColorPicker"
+    xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="ZTalk.Views.ThemeEditorWindow"
+        x:DataType="vm:ThemeEditorViewModel"
+        Title="🎨 ZTalk Theme Editor"
+        Width="1200" Height="800"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterOwner"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="40">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40"/>
+            <!-- Custom Title Bar -->
+            <RowDefinition Height="Auto"/>
+            <!-- Toolbar -->
+            <RowDefinition Height="*"/>
+            <!-- Content -->
+            <RowDefinition Height="Auto"/>
+            <!-- Status Bar -->
+        </Grid.RowDefinitions>
+
+        <!-- Custom Title Bar with Drag Area -->
+        <Border Grid.Row="0" Background="{DynamicResource App.TitleBarBackground}" BorderBrush="{DynamicResource App.Border}" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Draggable Title Area -->
+                <Border Grid.Column="0" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
+                    <StackPanel Orientation="Horizontal" Margin="12,0" VerticalAlignment="Center">
+                        <TextBlock Text="🎨" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource App.TitleBarForeground}"/>
+                        <TextBlock Text="ZTalk Theme Editor" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource App.TitleBarForeground}"/>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Window Control Buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="0">
+                        <Button Content="−" Width="46" Height="40" 
+                            Background="Transparent" 
+                            BorderThickness="0"
+                            Foreground="{DynamicResource App.TitleBarForeground}"
+                            Click="OnMinimizeClick"
+                            FontSize="16"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"/>
+                        <Button Content="□" Width="46" Height="40" 
+                            Background="Transparent" 
+                            BorderThickness="0"
+                            Foreground="{DynamicResource App.TitleBarForeground}"
+                            Click="OnMaximizeClick"
+                            FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"/>
+                        <Button Content="✕" Width="46" Height="40" 
+                            Background="Transparent" 
+                            BorderThickness="0"
+                            Foreground="{DynamicResource App.TitleBarForeground}"
+                            Click="OnCloseClick"
+                            FontSize="14"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Toolbar -->
+        <Border Grid.Row="1" Background="{DynamicResource App.Surface}" 
+            BorderBrush="{DynamicResource App.Border}" BorderThickness="0,0,0,1" Padding="10">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <!-- New From Blank -->
+                <Button Command="{Binding NewFromBlankTemplateCommand}" 
+                    Background="{DynamicResource App.ButtonBackground}"
+                        Padding="10,5" CornerRadius="4"
+                        ToolTip.Tip="New Blank Theme">
+                    <Viewbox Width="16" Height="16">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+
+                <Separator Width="1" Height="30" Background="{DynamicResource App.Border}"/>
+
+                <!-- Import -->
+                <Button Command="{Binding ImportThemeCommand}" 
+                    Background="{DynamicResource App.ButtonBackground}"
+                        Padding="10,5" CornerRadius="4"
+                        ToolTip.Tip="Import Theme">
+                    <Viewbox Width="16" Height="16">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+
+                <!-- Search Drives -->
+                <Button Command="{Binding SearchDrivesForThemesCommand}" 
+                    Background="{DynamicResource App.ButtonBackground}"
+                        Padding="10,5" CornerRadius="4"
+                        ToolTip.Tip="Search all drives for .zttheme files">
+                    <Viewbox Width="16" Height="16">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+
+                <!-- Save -->
+                <Button Command="{Binding SaveCommand}" 
+                    Background="{DynamicResource App.ButtonBackground}"
+                        Padding="10,5" CornerRadius="4"
+                        ToolTip.Tip="Save">
+                    <Viewbox Width="16" Height="16">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+
+                <!-- Save As -->
+                <Button Command="{Binding SaveAsCommand}" 
+                    Background="{DynamicResource App.ButtonBackground}"
+                        Padding="10,5" CornerRadius="4"
+                        ToolTip.Tip="Save As...">
+                    <Viewbox Width="16" Height="16">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="M14,17H17V14H19V17H22V19H19V22H17V19H14V17M12,17V19H5V5H15V12H17V5C17,3.89 16.1,3 15,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H12.4C12.14,20.36 12,19.69 12,19C12,18.3 12.14,17.64 12.4,17H12Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+
+                <!-- Export -->
+                <Button Command="{Binding ExportModifiedThemeCommand}" 
+                    Background="{DynamicResource App.ButtonBackground}"
+                        Padding="10,5" CornerRadius="4"
+                        ToolTip.Tip="Export Modified Theme">
+                    <Viewbox Width="16" Height="16">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="M23,12L19,8V11H10V13H19V16M1,18V6C1,4.89 1.9,4 3,4H15A2,2 0 0,1 17,6V9H15V6H3V18H15V15H17V18A2,2 0 0,1 15,20H3A2,2 0 0,1 1,18Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+
+                <Separator Width="1" Height="30" Background="{DynamicResource App.Border}"/>
+
+                <!-- Undo/Redo -->
+                <Button Command="{Binding UndoColorEditCommand}" 
+                    Background="{DynamicResource App.ButtonBackground}"
+                        IsEnabled="{Binding CanUndo}"
+                        Padding="8,5" CornerRadius="4" ToolTip.Tip="Undo">
+                    <TextBlock Text="↶" FontSize="16"/>
+                </Button>
+
+                <Button Command="{Binding RedoColorEditCommand}" 
+                    Background="{DynamicResource App.ButtonBackground}"
+                        IsEnabled="{Binding CanRedo}"
+                        Padding="8,5" CornerRadius="4" ToolTip.Tip="Redo">
+                    <TextBlock Text="↷" FontSize="16"/>
+                </Button>
+
+                <Separator Width="1" Height="30" Background="{DynamicResource App.Border}"/>
+
+                <!-- Batch Edit Mode -->
+                <Button Command="{Binding ToggleBatchEditModeCommand}" 
+                    Background="{DynamicResource App.ButtonBackground}"
+                        Padding="10,5" CornerRadius="4"
+                        ToolTip.Tip="Toggle Batch Edit Mode">
+                    <Viewbox Width="16" Height="16">
+                        <Canvas Width="24" Height="24">
+                            <Path Data="M9,5V9H21V5M9,19H21V15H9M9,14H21V10H9M4,9H8V5H4M4,19H8V15H4M4,14H8V10H4V14Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" MinWidth="400"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*" MinWidth="300"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Panel: Colors and Gradients -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="20" Margin="10">
+                    
+                    <!-- Theme Metadata Section -->
+                            <Border Background="{DynamicResource App.Surface}" 
+                                BorderBrush="{DynamicResource App.Border}" 
+                                BorderThickness="1" CornerRadius="6" Padding="15">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="📝 Theme Metadata" FontSize="16" FontWeight="Bold"/>
+                            
+                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" VerticalAlignment="Center">
+                                <Grid.Styles>
+                                    <Style Selector="TextBlock.label">
+                                        <Setter Property="Margin" Value="0,0,10,5"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                    </Style>
+                                    <Style Selector="TextBox">
+                                        <Setter Property="Margin" Value="0,0,0,5"/>
+                                    </Style>
+                                </Grid.Styles>
+                                
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" Classes="label"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" 
+                                         Text="{Binding EditableThemeName}" 
+                                         IsEnabled="{Binding IsEditingMetadata}"/>
+                                
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Author:" Classes="label"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" 
+                                         Text="{Binding EditableThemeAuthor}" 
+                                         IsEnabled="{Binding IsEditingMetadata}"/>
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Version:" Classes="label"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" 
+                                         Text="{Binding EditableThemeVersion}" 
+                                         IsEnabled="{Binding IsEditingMetadata}"/>
+                                
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Description:" Classes="label"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" 
+                                         Text="{Binding EditableThemeDescription}" 
+                                         IsEnabled="{Binding IsEditingMetadata}"
+                                         AcceptsReturn="True" TextWrapping="Wrap" Height="60"/>
+                            </Grid>
+                            
+                            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                                <Button Content="Edit Metadata" 
+                                    Command="{Binding EditMetadataCommand}"
+                                    IsVisible="{Binding !IsEditingMetadata}"
+                                    Background="{DynamicResource App.ButtonBackground}"
+                                    Padding="10,5" CornerRadius="4"/>
+                                <Button Content="Save" 
+                                    Command="{Binding SaveMetadataCommand}"
+                                    IsVisible="{Binding IsEditingMetadata}"
+                                    Background="{DynamicResource App.ButtonBackground}"
+                                    Padding="10,5" CornerRadius="4"/>
+                                <Button Content="Cancel" 
+                                    Command="{Binding CancelMetadataEditCommand}"
+                                    IsVisible="{Binding IsEditingMetadata}"
+                                    Background="{DynamicResource App.ButtonBackground}"
+                                    Padding="10,5" CornerRadius="4"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Color Overrides Section -->
+                        <Border Background="{DynamicResource App.Surface}" 
+                            BorderBrush="{DynamicResource App.Border}" 
+                            BorderThickness="1" CornerRadius="6" Padding="15">
+                        <StackPanel Spacing="10">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="🎨 Color Overrides" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ThemeColors.Count, StringFormat='({0} colors)'}" 
+                                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            
+                            <!-- Batch Edit Controls -->
+                            <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding IsBatchEditMode}">
+                                <Button Content="Select All" Command="{Binding SelectAllColorsCommand}"
+                                    Background="{DynamicResource App.ButtonBackground}"
+                                        Padding="8,4" CornerRadius="4"/>
+                                <Button Content="Deselect All" Command="{Binding DeselectAllColorsCommand}"
+                                    Background="{DynamicResource App.ButtonBackground}"
+                                        Padding="8,4" CornerRadius="4"/>
+                                <TextBlock Text="{Binding SelectedColorCount, StringFormat={}{0} selected}" 
+                                           VerticalAlignment="Center" Opacity="0.7"/>
+                            </StackPanel>
+                            
+                            <ScrollViewer MaxHeight="400" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding ThemeColors}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                                <Border x:Name="ItemRootBorder" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" 
+                                                    BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,5">
+                                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                                                    <!-- Batch Select Checkbox -->
+                                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" 
+                                                              IsVisible="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).IsBatchEditMode}"
+                                                              Margin="0,0,10,0"/>
+                                                    
+                                                    <!-- Resource Key -->
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                        <TextBlock Text="{Binding DisplayName}" FontSize="12" FontWeight="Bold"/>
+                                                        <TextBlock Text="{Binding ResourceKey}" FontSize="9" Opacity="0.6" FontFamily="Consolas"/>
+                                                        <TextBlock Text="{Binding ColorValue}" FontSize="10" Opacity="0.7" FontFamily="Consolas"/>
+                                                    </StackPanel>
+                                                    
+                                                    <!-- Color Preview (Clickable) -->
+                                                    <Border Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
+                                                            Margin="10,0,10,0"
+                                                            BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
+                                                            Cursor="Hand"
+                                                            PointerPressed="ColorPreview_PointerPressed"
+                                                            Tag="{Binding}">
+                                                        <Border.Background>
+                                                            <SolidColorBrush Color="{Binding PreviewColor}"/>
+                                                        </Border.Background>
+                                                    </Border>
+                                                    
+                                                    <!-- Action Buttons -->
+                                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                                                        <Button Content="Save" 
+                                                                Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).SaveColorEditCommand}"
+                                                                IsVisible="{Binding IsEditing}"
+                                                                Padding="6,3" CornerRadius="3"
+                                                                Background="{DynamicResource App.ButtonBackground}"/>
+                                                        <Button Content="Cancel" 
+                                                                Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).CancelColorEditCommand}"
+                                                                IsVisible="{Binding IsEditing}"
+                                                                Padding="6,3" CornerRadius="3"
+                                                                Background="{DynamicResource App.ButtonBackground}"/>
+                                                    </StackPanel>
+
+                                                    <!-- Color Picker Popup (replaces inline panel) -->
+                                                    <Popup IsOpen="{Binding IsEditing}" PlacementTarget="{Binding ElementName=ItemRootBorder}" DataContext="{Binding}">
+                                                        <Border Grid.Column="0" Grid.ColumnSpan="5" Margin="0,10,0,0" Padding="10" CornerRadius="6"
+                                                            Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}"
+                                                                BorderThickness="1">
+                                                            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                                                                <!-- Preview + Hex -->
+                                                                <StackPanel Orientation="Horizontal" Spacing="10" Grid.Column="0" Grid.ColumnSpan="2">
+                                                                    <Border Width="48" Height="48" CornerRadius="4" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
+                                                                        <Border.Background>
+                                                                            <SolidColorBrush Color="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingColor}"/>
+                                                                        </Border.Background>
+                                                                    </Border>
+                                                                    <StackPanel Spacing="4">
+                                                                        <TextBlock Text="Hex" FontSize="11"/>
+                                                                        <TextBox Width="75" Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingHex, UpdateSourceTrigger=PropertyChanged}"/>
+                                                                        <TextBlock Text="Invalid hex" Foreground="#E57373" FontSize="10" IsVisible="{Binding !$parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingHexIsValid}"/>
+                                                                    </StackPanel>
+                                                                </StackPanel>
+
+                                                                <!-- Saturation/Value Picker -->
+                                                                <Border Grid.Row="1" Grid.Column="0" Background="Transparent">
+                                                                    <Grid>
+                                                                        <Grid.RowDefinitions>
+                                                                            <RowDefinition Height="Auto" />
+                                                                            <RowDefinition Height="Auto" />
+                                                                        </Grid.RowDefinitions>
+
+                                                                        <cp:SaturationValuePicker Grid.Row="0" Width="220" Height="220" Margin="4"
+                                                                                             Hue="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingHue}"
+                                                                                             Saturation="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingSaturation, Mode=TwoWay}"
+                                                                                             Value="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingValue, Mode=TwoWay}"/>
+
+                                                                        <!-- Apply / Cancel buttons for the picker -->
+                                                                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+                                                                            <Button Content="Apply" Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).SaveColorEditCommand}" Padding="8,4" Margin="4,0"/>
+                                                                            <Button Content="Cancel" Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).CancelColorEditCommand}" Padding="8,4" Margin="4,0"/>
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Border>
+
+                                                                <!-- Sliders -->
+                                                                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="12">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Hue" FontSize="11"/>
+                                                                        <Slider Minimum="0" Maximum="360" Value="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingHue}"/>
+                                                                    </StackPanel>
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Saturation" FontSize="11"/>
+                                                                        <Slider Minimum="0" Maximum="1" Value="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingSaturation}"/>
+                                                                    </StackPanel>
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Value" FontSize="11"/>
+                                                                        <Slider Minimum="0" Maximum="1" Value="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingValue}"/>
+                                                                    </StackPanel>
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="Alpha" FontSize="11"/>
+                                                                        <Slider Minimum="0" Maximum="255" Value="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingAlpha}"/>
+                                                                    </StackPanel>
+                                                                </StackPanel>
+
+                                                                <!-- RGB Inputs -->
+                                                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="12">
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="R" FontSize="11"/>
+                                                                        <TextBox x:Name="TxtR" Width="60" Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingRed, UpdateSourceTrigger=PropertyChanged}" cp:ByteTextBoxHelper.EnableByteInput="True"/>
+                                                                        <TextBlock Text="0-255" FontSize="9" Foreground="#E57373" IsVisible="{Binding ElementName=TxtR, Path=(cp:ByteTextBoxHelper.HasError)}"/>
+                                                                    </StackPanel>
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="G" FontSize="11"/>
+                                                                        <TextBox x:Name="TxtG" Width="60" Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingGreen, UpdateSourceTrigger=PropertyChanged}" cp:ByteTextBoxHelper.EnableByteInput="True"/>
+                                                                        <TextBlock Text="0-255" FontSize="9" Foreground="#E57373" IsVisible="{Binding ElementName=TxtG, Path=(cp:ByteTextBoxHelper.HasError)}"/>
+                                                                    </StackPanel>
+                                                                    <StackPanel>
+                                                                        <TextBlock Text="B" FontSize="11"/>
+                                                                        <TextBox x:Name="TxtB" Width="60" Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingBlue, UpdateSourceTrigger=PropertyChanged}" cp:ByteTextBoxHelper.EnableByteInput="True"/>
+                                                                        <TextBlock Text="0-255" FontSize="9" Foreground="#E57373" IsVisible="{Binding ElementName=TxtB, Path=(cp:ByteTextBoxHelper.HasError)}"/>
+                                                                    </StackPanel>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </Border>
+                                                    </Popup>
+                                                    
+                                                    <!-- Copy/Paste -->
+                                                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="5,0,0,0">
+                                                        <Button Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).CopyColorCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            Padding="6,3" CornerRadius="3"
+                                                            Background="{DynamicResource App.ButtonBackground}"
+                                                            ToolTip.Tip="Copy Color">
+                                                            <Viewbox Width="14" Height="14">
+                                                                <Canvas Width="24" Height="24">
+                                                                    <Path Data="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                                                                </Canvas>
+                                                            </Viewbox>
+                                                        </Button>
+                                                        <Button Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).PasteColorCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            IsEnabled="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).HasCopiedColor}"
+                                                            Padding="6,3" CornerRadius="3"
+                                                            Background="{DynamicResource App.ButtonBackground}"
+                                                            ToolTip.Tip="Paste Color">
+                                                            <Viewbox Width="14" Height="14">
+                                                                <Canvas Width="24" Height="24">
+                                                                    <Path Data="M19,20H5V4H7V7H17V4H19M12,2A1,1 0 0,1 13,3A1,1 0 0,1 12,4A1,1 0 0,1 11,3A1,1 0 0,1 12,2M19,2H14.82C14.4,0.84 13.3,0 12,0C10.7,0 9.6,0.84 9.18,2H5A2,2 0 0,0 3,4V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V4A2,2 0 0,0 19,2Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                                                                </Canvas>
+                                                            </Viewbox>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Gradients Section -->
+                        <Border Background="{DynamicResource App.Surface}" 
+                            BorderBrush="{DynamicResource App.Border}" 
+                            BorderThickness="1" CornerRadius="6" Padding="15">
+                        <StackPanel Spacing="10">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="🌈 Gradients" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ThemeGradients.Count, StringFormat='({0} gradients)'}" 
+                                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            
+                            <ScrollViewer MaxHeight="400" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding ThemeGradients}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                                <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" 
+                                                    BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,5">
+                                                <StackPanel Spacing="8">
+                                                    <!-- Header -->
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding DisplayName}" 
+                                                                       FontSize="12" FontWeight="Bold" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="{Binding ResourceKey}" FontSize="9" Opacity="0.5"/>
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
+                                                            <Button Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditGradientCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                IsVisible="{Binding !IsEditing}"
+                                                                Padding="6,3" CornerRadius="3"
+                                                                Background="{DynamicResource App.ButtonBackground}"
+                                                                ToolTip.Tip="Edit Gradient">
+                                                                <Viewbox Width="14" Height="14">
+                                                                    <Canvas Width="24" Height="24">
+                                                                        <Path Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                                                                    </Canvas>
+                                                                </Viewbox>
+                                                            </Button>
+                                                            <Button Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).SaveGradientEditCommand}"
+                                                                IsVisible="{Binding IsEditing}"
+                                                                Padding="6,3" CornerRadius="3"
+                                                                Background="{DynamicResource App.ButtonBackground}"
+                                                                ToolTip.Tip="Save Gradient">
+                                                                <Viewbox Width="14" Height="14">
+                                                                    <Canvas Width="24" Height="24">
+                                                                        <Path Data="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                                                                    </Canvas>
+                                                                </Viewbox>
+                                                            </Button>
+                                                            <Button Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).CancelGradientEditCommand}"
+                                                                IsVisible="{Binding IsEditing}"
+                                                                Padding="6,3" CornerRadius="3"
+                                                                Background="{DynamicResource App.ButtonBackground}"
+                                                                ToolTip.Tip="Cancel Edit">
+                                                                <Viewbox Width="14" Height="14">
+                                                                    <Canvas Width="24" Height="24">
+                                                                        <Path Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                                                                    </Canvas>
+                                                                </Viewbox>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    
+                                                    <!-- Gradient Editor (when editing) -->
+                                                    <StackPanel IsVisible="{Binding IsEditing}" Spacing="5">
+                                                        <TextBlock Text="Start Color:" FontSize="11"/>
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <TextBox Grid.Column="0" Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingGradientStartColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                                                     FontFamily="Consolas" FontSize="11" Margin="0,0,5,0"/>
+                                                            <Border Grid.Column="1" Width="24" Height="24" CornerRadius="3" 
+                                                                    BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
+                                                                    Background="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingGradientStartColor}"
+                                                                    Cursor="Hand"
+                                                                    PointerPressed="GradientStartColor_PointerPressed"
+                                                                    Tag="{Binding}"/>
+                                                        </Grid>
+                                                        
+                                                        <TextBlock Text="End Color:" FontSize="11"/>
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <TextBox Grid.Column="0" Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingGradientEndColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                                                     FontFamily="Consolas" FontSize="11" Margin="0,0,5,0"/>
+                                                            <Border Grid.Column="1" Width="24" Height="24" CornerRadius="3" 
+                                                                    BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
+                                                                    Background="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingGradientEndColor}"
+                                                                    Cursor="Hand"
+                                                                    PointerPressed="GradientEndColor_PointerPressed"
+                                                                    Tag="{Binding}"/>
+                                                        </Grid>
+                                                        
+                                                        <TextBlock Text="Angle (0-360°):" FontSize="11"/>
+                                                        <TextBox Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingGradientAngle}" 
+                                                                 FontFamily="Consolas" FontSize="11"/>
+                                                        
+                                                        <!-- Quick Action Buttons -->
+                                                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
+                                                            <Button Content="Clear Gradient"
+                                                                    Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).ClearGradientCommand}"
+                                                                    Padding="8,4" CornerRadius="3" FontSize="11"
+                                                                    ToolTip.Tip="Set both colors to background color (removes gradient effect)"
+                                                                    Background="{DynamicResource App.ButtonBackground}"/>
+                                                        </StackPanel>
+                                                        
+                                                        <!-- Preset Selector -->
+                                                        <TextBlock Text="Apply Preset:" FontSize="11" Margin="0,5,0,0"/>
+                                                        <ComboBox ItemsSource="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).GradientPresets}"
+                                                                  SelectedItem="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).SelectedGradientPreset}"
+                                                                  Width="200" HorizontalAlignment="Left">
+                                                            <ComboBox.ItemTemplate>
+                                                                <DataTemplate>
+                                                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                                                        <TextBlock Text="{Binding Name}" Width="100"/>
+                                                                        <Border Width="60" Height="20" CornerRadius="3">
+                                                                            <Border.Background>
+                                                                                <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                                                                                    <GradientStop Color="{Binding StartColor}" Offset="0"/>
+                                                                                    <GradientStop Color="{Binding EndColor}" Offset="1"/>
+                                                                                </LinearGradientBrush>
+                                                                            </Border.Background>
+                                                                        </Border>
+                                                                    </StackPanel>
+                                                                </DataTemplate>
+                                                            </ComboBox.ItemTemplate>
+                                                        </ComboBox>
+                                                    </StackPanel>
+                                                    
+                                                    <!-- Preview (when not editing) -->
+                                                    <TextBlock IsVisible="{Binding !IsEditing}" 
+                                                               Text="{Binding GradientPreview}" 
+                                                               FontSize="11" FontFamily="Consolas" Opacity="0.8"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="5" Background="{DynamicResource App.Border}" 
+                          ResizeDirection="Columns"/>
+
+            <!-- Right Panel: Preview and Info -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="20" Margin="10">
+                    
+                    <!-- Current Theme Info -->
+                        <Border Background="{DynamicResource App.Surface}" 
+                            BorderBrush="{DynamicResource App.Border}" 
+                            BorderThickness="1" CornerRadius="6" Padding="15">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="ℹ️ Theme Info" FontSize="16" FontWeight="Bold"/>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{Binding CurrentThemeDisplayName, StringFormat='Name: {0}'}" FontSize="12"/>
+                                <TextBlock Text="{Binding CurrentThemeAuthor, StringFormat='Author: {0}'}" FontSize="12"/>
+                                <TextBlock Text="{Binding CurrentThemeVersion, StringFormat='Version: {0}'}" FontSize="12"/>
+                                <TextBlock Text="{Binding CurrentThemeDescription}" FontSize="11" TextWrapping="Wrap" Opacity="0.8"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Edit Status -->
+                        <Border Background="{DynamicResource App.Surface}" 
+                            BorderBrush="{DynamicResource App.Border}" 
+                            BorderThickness="1" CornerRadius="6" Padding="15">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="📊 Edit Status" FontSize="16" FontWeight="Bold"/>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{Binding CanUndo, StringFormat='Can Undo: {0}'}" FontSize="12"/>
+                                <TextBlock Text="{Binding CanRedo, StringFormat='Can Redo: {0}'}" FontSize="12"/>
+                                <TextBlock Text="{Binding IsEditingColor, StringFormat='Editing Color: {0}'}" FontSize="12"/>
+                                <TextBlock Text="{Binding IsEditingGradient, StringFormat='Editing Gradient: {0}'}" FontSize="12"/>
+                                <TextBlock Text="{Binding IsBatchEditMode, StringFormat='Batch Mode: {0}'}" FontSize="12"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Recent Colors -->
+                        <Border Background="{DynamicResource App.Surface}" 
+                            BorderBrush="{DynamicResource App.Border}" 
+                            BorderThickness="1" CornerRadius="6" Padding="15">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="🕒 Recent Colors" FontSize="16" FontWeight="Bold"/>
+                            <ItemsControl ItemsSource="{Binding RecentColors}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="40" Height="40" CornerRadius="4" Margin="2"
+                                            BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
+                                                ToolTip.Tip="{Binding}">
+                                            <Border.Background>
+                                                <SolidColorBrush Color="{Binding}"/>
+                                            </Border.Background>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+
+        </Grid>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="3" Background="{DynamicResource App.Surface}" 
+            BorderBrush="{DynamicResource App.Border}" BorderThickness="0,1,0,0" Padding="10,5">
+            <TextBlock Text="Ready to edit theme" FontSize="11" Opacity="0.7"/>
+        </Border>
+
+    </Grid>
+</Window>

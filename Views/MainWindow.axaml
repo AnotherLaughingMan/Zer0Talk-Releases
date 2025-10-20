@@ -42,6 +42,20 @@
         <util:FirstNonEmptyStringConverter x:Key="FirstNonEmptyStringConverter" />
         <util:WidthFractionConverter x:Key="ChatBubbleWidthConverter" Fraction="0.9" />
         <SolidColorBrush x:Key="MarkdownSyntaxBaseForeground" Color="#000000" />
+        
+        <!-- Additional converters for XAML bindings -->
+        <util:UidToAvatarConverter x:Key="UidToAvatarConverter" />
+        <util:PresenceEqualsToBoolConverter x:Key="PresenceEqualsToBoolConverter" />
+        <util:VerificationShieldVisibilityConverter x:Key="VerificationShieldVisibilityConverter" />
+        <util:InverseBoolConverter x:Key="InverseBoolConverter" />
+        <util:MessageSenderBrushConverter x:Key="MessageSenderBrushConverter" />
+        <util:MessageIsFromContactConverter x:Key="MessageIsFromContactConverter" />
+        <util:StringEqualsMultiConverter x:Key="StringEqualsMultiConverter" />
+        <util:ObjectNotNullConverter x:Key="ObjectNotNullConverter" />
+        <util:ByteArrayToBitmapConverter x:Key="ByteArrayToBitmapConverter" />
+        <util:LastSeenTimestampVisibilityConverter x:Key="LastSeenTimestampVisibilityConverter" />
+        <util:NotOrConverter x:Key="NotOrConverter" />
+        <util:PresenceToDisplayStringConverter x:Key="PresenceToDisplayStringConverter" />
     </Window.Resources>
 
     <Window.Styles>
@@ -261,12 +275,17 @@
                         <Button x:Name="LogsButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedLogs}" Click="Logs_Click" IsVisible="False">
                             <TextBlock Classes="icon-mdl2" Text="&#xE8A5;" FontSize="26"/>
                         </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="🎨 Theme Editor" Click="ThemeEditor_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE790;" FontSize="26"/>
+                        </Button>
                     </StackPanel>
 
-                    <!-- Settings gear lives at the bottom edge to match navigation expectations -->
-                    <Button Grid.Row="2" Classes="icon-button" ToolTip.Tip="{Binding LocalizedSettings}" Click="Settings_Click" HorizontalAlignment="Center">
-                        <TextBlock Classes="icon-mdl2" Text="&#xE713;" FontSize="26"/>
-                    </Button>
+                    <!-- Settings lives at the bottom edge to match navigation expectations -->
+                    <StackPanel Grid.Row="2" Spacing="6" HorizontalAlignment="Center">
+                        <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedSettings}" Click="Settings_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE713;" FontSize="26"/>
+                        </Button>
+                    </StackPanel>
                 </Grid>
             </Border>
 

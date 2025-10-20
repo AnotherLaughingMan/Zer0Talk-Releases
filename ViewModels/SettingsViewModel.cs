@@ -117,6 +117,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(Bio),
         nameof(AvatarPreview),
         nameof(ThemeIndex),
+        nameof(SelectedThemeId),
         nameof(RememberPassphrase),
         nameof(UiFontFamily),
         nameof(Language),
@@ -315,6 +316,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _suppressDirtyCheck = true;
         _suppressThemeBinding = true;
 
+        // Subscribe to theme reload events to refresh dropdown when themes change
+        Services.ThemeEngine.ThemesReloaded += OnThemesReloaded;
+
         // Populate available languages from localization files
         try { PopulateAvailableLanguages(); }
         catch { }
@@ -478,20 +482,24 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             DebugLogMaxMegabytes = ClampRange(settings.DebugLogMaxMegabytes <= 0 ? 16 : settings.DebugLogMaxMegabytes, 1, 512);
             EnableLogging = settings.EnableLogging;
 
-            var themeIndex = settings.Theme switch
+            var persistedThemeId = NormalizeThemeId(settings.ThemeId);
+            if (string.IsNullOrWhiteSpace(persistedThemeId))
             {
-                ThemeOption.Light => 1,
-                ThemeOption.Sandy => 2,
-                ThemeOption.Butter => 3,
-                _ => 0
-            };
-            _themeIndex = themeIndex;
-            _baseThemeIndex = themeIndex;
+                persistedThemeId = ThemeOptionToId(settings.Theme);
+            }
+
+            _selectedThemeId = string.IsNullOrWhiteSpace(persistedThemeId) ? "legacy-dark" : persistedThemeId;
+            _baseThemeId = _selectedThemeId;
+
+            SetSelectedThemeId(_selectedThemeId, updateIndex: true, triggerChange: false, refreshInspector: false);
+            _baseThemeIndex = _themeIndex;
         }
         else
         {
-            _themeIndex = 0;
-            _baseThemeIndex = 0;
+            _selectedThemeId = "legacy-dark";
+            _baseThemeId = _selectedThemeId;
+            SetSelectedThemeId(_selectedThemeId, updateIndex: true, triggerChange: false, refreshInspector: false);
+            _baseThemeIndex = _themeIndex;
             EnableDebugLogAutoTrim = true;
             DebugUiLogMaxLines = 1000;
             DebugLogRetentionDays = 1;
@@ -526,6 +534,35 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         ResetLayoutCommand = new RelayCommand(_ => ResetLayout(), _ => true);
         RunLogMaintenanceCommand = new RelayCommand(async _ => await RunLogMaintenanceAsync(), _ => true);
         CopyPublicKeyCommand = new RelayCommand(async _ => await CopyPublicKeyAsync(), _ => !string.IsNullOrWhiteSpace(SelfPublicKeyHex));
+        ClearErrorLogCommand = new RelayCommand(_ => PurgeAllLogs(), _ => true);
+        ExportThemeCommand = new RelayCommand(async _ => await ExportCurrentThemeAsync(), _ => !string.IsNullOrWhiteSpace(CurrentThemeId));
+        ImportThemeCommand = new RelayCommand(async _ => await ImportThemeAsync(), _ => true);
+        EditColorCommand = new RelayCommand(param => StartEditingColor(param as ThemeColorEntry), param => param is ThemeColorEntry && !IsEditingColor);
+        SaveColorEditCommand = new RelayCommand(async _ => await SaveColorEditAsync(), _ => IsEditingColor);
+        CancelColorEditCommand = new RelayCommand(_ => CancelColorEdit(), _ => IsEditingColor);
+        UndoColorEditCommand = new RelayCommand(_ => UndoColorEdit(), _ => CanUndo && !IsEditingColor);
+        RedoColorEditCommand = new RelayCommand(_ => RedoColorEdit(), _ => CanRedo && !IsEditingColor);
+        ToggleBatchEditModeCommand = new RelayCommand(_ => ToggleBatchEditMode(), _ => !IsEditingColor);
+        SelectAllColorsCommand = new RelayCommand(_ => SelectAllColors(), _ => IsBatchEditMode);
+        DeselectAllColorsCommand = new RelayCommand(_ => DeselectAllColors(), _ => IsBatchEditMode && HasSelectedColors);
+        CopyColorCommand = new RelayCommand(param => CopyColor(param as ThemeColorEntry), param => param is ThemeColorEntry);
+        PasteColorCommand = new RelayCommand(param => PasteColor(param as ThemeColorEntry), param => param is ThemeColorEntry && HasCopiedColor);
+        RevertAllEditsCommand = new RelayCommand(async _ => await RevertAllEditsAsync(), _ => CanUndo);
+        ApplyThemeLiveCommand = new RelayCommand(async _ => await ApplyThemeLiveAsync(), _ => CanUndo);
+        EditGradientCommand = new RelayCommand(param => StartEditingGradient(param as ThemeGradientEntry), param => param is ThemeGradientEntry && !IsEditingGradient && !IsEditingColor);
+        SaveGradientEditCommand = new RelayCommand(async _ => await SaveGradientEditAsync(), _ => IsEditingGradient);
+        CancelGradientEditCommand = new RelayCommand(_ => CancelGradientEdit(), _ => IsEditingGradient);
+        ApplyGradientPresetCommand = new RelayCommand(param => ApplyGradientPreset(param as GradientPreset), param => param is GradientPreset && IsEditingGradient);
+        RenameThemeCommand = new RelayCommand(async _ => await RenameThemeAsync(), _ => !IsEditingColor && !IsEditingGradient && !IsEditingMetadata);
+        DuplicateThemeCommand = new RelayCommand(async _ => await DuplicateThemeAsync(), _ => !IsEditingColor && !IsEditingGradient && !IsEditingMetadata);
+        DeleteThemeCommand = new RelayCommand(async _ => await DeleteThemeAsync(), _ => !IsEditingColor && !IsEditingGradient && !IsEditingMetadata);
+        EditMetadataCommand = new RelayCommand(_ => StartEditingMetadata(), _ => !IsEditingColor && !IsEditingGradient && !IsEditingMetadata);
+        SaveMetadataCommand = new RelayCommand(async _ => await SaveMetadataAsync(), _ => IsEditingMetadata);
+        CancelMetadataEditCommand = new RelayCommand(_ => CancelMetadataEdit(), _ => IsEditingMetadata);
+        ExportModifiedThemeCommand = new RelayCommand(async _ => await ExportModifiedThemeAsync(), _ => CanUndo && !IsEditingColor && !IsEditingGradient);
+        NewFromBlankTemplateCommand = new RelayCommand(async _ => await NewFromBlankTemplateAsync(), _ => !IsEditingColor && !IsEditingGradient && !IsEditingMetadata);
+        SaveAsCommand = new RelayCommand(async _ => await SaveAsAsync(), _ => !IsEditingColor && !IsEditingGradient && !IsEditingMetadata);
+        LoadFromLegacyThemeCommand = new RelayCommand(async _ => await LoadFromLegacyThemeAsync(), _ => SelectedLegacyTheme != null && !IsEditingColor && !IsEditingGradient && !IsEditingMetadata);
 
         try
         {
@@ -545,12 +582,16 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             {
                 _suppressThemeBinding = false;
                 OnPropertyChanged(nameof(ThemeIndex));
+                // Initialize theme inspector with current theme
+                RefreshThemeInspector();
             });
         }
         catch
         {
             _suppressThemeBinding = false;
             OnPropertyChanged(nameof(ThemeIndex));
+            // Initialize theme inspector with current theme
+            try { RefreshThemeInspector(); } catch { }
         }
 
         CaptureBaseline();
@@ -577,7 +618,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 catch { }
             }
 
-            ThemeIndex = _baseThemeIndex;
+            SetSelectedThemeId(_baseThemeId, updateIndex: true, triggerChange: true);
             RememberPassphrase = _baseRememberPassphrase;
             UiFontFamily = string.IsNullOrWhiteSpace(s.UiFontFamily) ? null : s.UiFontFamily;
             LockBlurRadius = ClampRange(s.LockBlurRadius, 0, 10);
@@ -622,7 +663,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             catch { }
 
             CaptureBaseline();
-            try { LogSettingsEvent($"Discarded changes (ThemeIndex back to {_baseThemeIndex})"); }
+            try { LogSettingsEvent($"Discarded changes (ThemeId back to {_baseThemeId}, index {_baseThemeIndex})"); }
             catch { }
         }
         catch { }
@@ -1352,7 +1393,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         (ClearAvatarCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
+    private readonly System.Collections.Generic.List<string> _themeIdOrder = new();
+    private string _selectedThemeId = "legacy-dark";
     private int _themeIndex;
+    private string _baseThemeId = "legacy-dark";
+
     public int ThemeIndex
     {
         get => _themeIndex;
@@ -1364,7 +1409,189 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 _themeIndex = value;
                 OnPropertyChanged();
                 try { LogSettingsEvent($"ThemeIndex changed to {_themeIndex}"); } catch { }
+                UpdateSelectedThemeFromIndex();
             }
+        }
+    }
+
+    public string SelectedThemeId
+    {
+        get => _selectedThemeId;
+        set => SetSelectedThemeId(value, updateIndex: true, triggerChange: true);
+    }
+
+    private static string NormalizeThemeId(string? themeId)
+        => string.IsNullOrWhiteSpace(themeId) ? string.Empty : themeId.Trim();
+
+    private string DetermineFallbackThemeId()
+    {
+        if (_themeIdOrder.Count > 0)
+        {
+            return _themeIdOrder[0];
+        }
+
+        if (!string.IsNullOrWhiteSpace(_baseThemeId))
+        {
+            return _baseThemeId;
+        }
+
+        return "legacy-dark";
+    }
+
+    private void UpdateThemeIndexForSelected(bool notifyChange)
+    {
+        if (_themeIdOrder.Count == 0)
+        {
+            if (notifyChange)
+            {
+                OnPropertyChanged(nameof(ThemeIndex));
+            }
+            return;
+        }
+
+        var index = _themeIdOrder.FindIndex(id => string.Equals(id, _selectedThemeId, StringComparison.Ordinal));
+        if (index < 0)
+        {
+            index = 0;
+            var fallbackId = _themeIdOrder[0];
+            if (!string.Equals(_selectedThemeId, fallbackId, StringComparison.Ordinal))
+            {
+                _selectedThemeId = fallbackId;
+                OnPropertyChanged(nameof(SelectedThemeId));
+            }
+        }
+
+        if (_themeIndex != index)
+        {
+            var prevSuppress = _suppressThemeBinding;
+            _suppressThemeBinding = true;
+            _themeIndex = index;
+            if (notifyChange)
+            {
+                OnPropertyChanged(nameof(ThemeIndex));
+            }
+            _suppressThemeBinding = prevSuppress;
+        }
+        else if (notifyChange)
+        {
+            OnPropertyChanged(nameof(ThemeIndex));
+        }
+    }
+
+    private void SetSelectedThemeId(string? themeId, bool updateIndex, bool triggerChange, bool refreshInspector = true, bool applyTheme = true)
+    {
+        var normalized = NormalizeThemeId(themeId);
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            normalized = DetermineFallbackThemeId();
+        }
+
+        var changed = !string.Equals(_selectedThemeId, normalized, StringComparison.Ordinal);
+        _selectedThemeId = normalized;
+
+        if (triggerChange && changed)
+        {
+            OnPropertyChanged(nameof(SelectedThemeId));
+        }
+
+        if (updateIndex)
+        {
+            UpdateThemeIndexForSelected(notifyChange: triggerChange || changed);
+        }
+
+        if (changed)
+        {
+            try { LogSettingsEvent($"SelectedThemeId changed to {_selectedThemeId}"); } catch { }
+            try { Utilities.Logger.Info($"SelectedThemeId changed to {_selectedThemeId} (applyTheme={applyTheme}, suppressBinding={_suppressThemeBinding})", source: "SettingsVM", categoryOverride: "theme"); } catch { }
+            
+            // Apply the theme when it changes
+            if (applyTheme && !_suppressThemeBinding)
+            {
+                try 
+                { 
+                    Utilities.Logger.Info($"Attempting to apply theme: {_selectedThemeId}", source: "SettingsVM", categoryOverride: "theme");
+                    var engine = Services.AppServices.ThemeEngine;
+                    var result = engine.SetThemeById(_selectedThemeId);
+                    
+                    if (!result)
+                    {
+                        LogSettingsEvent($"Failed to apply theme: {_selectedThemeId}");
+                        Utilities.Logger.Warning($"SetThemeById returned false for: {_selectedThemeId}", source: "SettingsVM", categoryOverride: "theme");
+                    }
+                    else
+                    {
+                        LogSettingsEvent($"Successfully applied theme: {_selectedThemeId}");
+                        Utilities.Logger.Info($"Successfully applied theme: {_selectedThemeId}", source: "SettingsVM", categoryOverride: "theme");
+                    }
+                } 
+                catch (Exception ex) 
+                { 
+                    LogSettingsEvent($"Error applying theme: {ex.Message}"); 
+                    Utilities.Logger.Error($"Error applying theme: {ex.Message}\nStack: {ex.StackTrace}", source: "SettingsVM", categoryOverride: "theme");
+                }
+            }
+            else
+            {
+                if (!applyTheme)
+                    Utilities.Logger.Info($"Skipping theme application (applyTheme=false)", source: "SettingsVM", categoryOverride: "theme");
+                if (_suppressThemeBinding)
+                    Utilities.Logger.Info($"Skipping theme application (suppressThemeBinding=true)", source: "SettingsVM", categoryOverride: "theme");
+            }
+        }
+
+        if (!_suppressThemeBinding && refreshInspector && changed)
+        {
+            try { RefreshThemeInspector(); } catch { }
+        }
+    }
+
+    private void UpdateSelectedThemeFromIndex()
+    {
+        if (_themeIndex < 0 || _themeIndex >= _themeIdOrder.Count)
+        {
+            return;
+        }
+
+        var mappedId = _themeIdOrder[_themeIndex];
+        var changed = !string.Equals(_selectedThemeId, mappedId, StringComparison.Ordinal);
+        _selectedThemeId = mappedId;
+
+        if (changed)
+        {
+            OnPropertyChanged(nameof(SelectedThemeId));
+            try { LogSettingsEvent($"SelectedThemeId changed via ThemeIndex → {_selectedThemeId}"); } catch { }
+            
+            // Apply the theme when user selects it from dropdown
+            if (!_suppressThemeBinding)
+            {
+                try
+                {
+                    Utilities.Logger.Info($"Applying theme from dropdown selection: {_selectedThemeId}", source: "SettingsVM", categoryOverride: "theme");
+                    var engine = Services.AppServices.ThemeEngine;
+                    var result = engine.SetThemeById(_selectedThemeId);
+                    
+                    if (!result)
+                    {
+                        LogSettingsEvent($"Failed to apply theme from dropdown: {_selectedThemeId}");
+                        Utilities.Logger.Warning($"SetThemeById returned false for dropdown selection: {_selectedThemeId}", source: "SettingsVM", categoryOverride: "theme");
+                    }
+                    else
+                    {
+                        LogSettingsEvent($"Successfully applied theme from dropdown: {_selectedThemeId}");
+                        Utilities.Logger.Info($"Successfully applied theme from dropdown: {_selectedThemeId}", source: "SettingsVM", categoryOverride: "theme");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogSettingsEvent($"Error applying theme from dropdown: {ex.Message}");
+                    Utilities.Logger.Error($"Error applying theme from dropdown: {ex.Message}\nStack: {ex.StackTrace}", source: "SettingsVM", categoryOverride: "theme");
+                }
+            }
+        }
+
+        if (!_suppressThemeBinding)
+        {
+            try { RefreshThemeInspector(); } catch { }
         }
     }
 
@@ -1560,8 +1787,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedSizeCap => Services.AppServices.Localization.GetString("Settings.SizeCap", "Size cap");
     public string LocalizedLastMaintenance => Services.AppServices.Localization.GetString("Settings.LastMaintenance", "Last maintenance");
     public string LocalizedRunMaintenanceNow => Services.AppServices.Localization.GetString("Settings.RunMaintenanceNow", "Run Maintenance Now");
-    public string LocalizedClearErrorLog => Services.AppServices.Localization.GetString("Settings.ClearErrorLog", "Clear Error Log");
-    public string LocalizedClearErrorLogTooltip => Services.AppServices.Localization.GetString("Settings.ClearErrorLogTooltip", "Trim error.log to last 500 entries (emergency cleanup)");
+    public string LocalizedClearErrorLog => Services.AppServices.Localization.GetString("Settings.PurgeAllLogs", "Purge All Logs");
+    public string LocalizedClearErrorLogTooltip => Services.AppServices.Localization.GetString("Settings.PurgeAllLogsTooltip", "Delete all log files in logs directory (ephemeral debug data)");
     public string LocalizedConnectionSettings => Services.AppServices.Localization.GetString("Settings.ConnectionSettings", "Connection Settings");
     public string LocalizedRelaySettings => Services.AppServices.Localization.GetString("Settings.RelaySettings", "Relay Settings");
     
@@ -1641,6 +1868,16 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedAboutAcknowledgments => Services.AppServices.Localization.GetString("Settings.AboutAcknowledgments", "Acknowledgments");
     public string LocalizedAboutBuiltWithAvalonia => Services.AppServices.Localization.GetString("Settings.AboutBuiltWithAvalonia", "Built with Avalonia UI - A cross-platform XAML-based UI framework for .NET");
     public string LocalizedAboutSpecialThanks => Services.AppServices.Localization.GetString("Settings.AboutSpecialThanks", "Special thanks to the open source community for their contributions and support.");
+    
+    // Message Burn Security strings
+    public string LocalizedMessageBurnSecurity => Services.AppServices.Localization.GetString("Settings.MessageBurnSecurity", "Message Burn Security");
+    public string LocalizedMessageBurnSecurityDesc => Services.AppServices.Localization.GetString("Settings.MessageBurnSecurityDesc", "Choose the security level for burning conversations. Standard is faster, Enhanced provides maximum security.");
+    public string LocalizedMessageBurnStandard => Services.AppServices.Localization.GetString("Settings.MessageBurnStandard", "Standard (3-pass)");
+    public string LocalizedMessageBurnStandardDesc => Services.AppServices.Localization.GetString("Settings.MessageBurnStandardDesc", "Overwrites data with random bits, lorem text, alternating patterns, and zeros.");
+    public string LocalizedMessageBurnStandardTooltip => Services.AppServices.Localization.GetString("Settings.MessageBurnStandardTooltip", "Balanced security with good performance");
+    public string LocalizedMessageBurnEnhanced => Services.AppServices.Localization.GetString("Settings.MessageBurnEnhanced", "Enhanced (6-pass)");
+    public string LocalizedMessageBurnEnhancedDesc => Services.AppServices.Localization.GetString("Settings.MessageBurnEnhancedDesc", "Overwrites with random data, 0xFF, 0x00, random, 0xAA, and 0x55 patterns for maximum security.");
+    public string LocalizedMessageBurnEnhancedTooltip => Services.AppServices.Localization.GetString("Settings.MessageBurnEnhancedTooltip", "Maximum security, slower but more thorough");
     
     // Danger Zone strings
     public string LocalizedDangerZoneTitle => Services.AppServices.Localization.GetString("Settings.DangerZoneTitle", "⚠️ Danger Zone");
@@ -1731,30 +1968,196 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var currentSelection = _themeIndex;
+            var engine = AppServices.ThemeEngine;
+            var registered = engine.GetRegisteredThemes();
+
+            ZTalk.Utilities.Logger.Log($"[PopulateThemeItems] Found {registered.Count} registered themes", 
+                Utilities.LogLevel.Info, categoryOverride: "theme");
+
+            var themeEntries = registered.Values
+                .Where(t => t != null && t.ThemeType != ThemeType.BuiltInTemplate)
+                .Select(t => new
+                {
+                    ThemeId = t.Id,
+                    Display = BuildThemeDisplayName(t),
+                    Order = t.ThemeType switch
+                    {
+                        ThemeType.BuiltInLegacy => 0,
+                        ThemeType.Custom => 1,
+                        ThemeType.Imported => 2,
+                        _ => 3
+                    }
+                })
+                .OrderBy(t => t.Order)
+                .ThenBy(t => t.Display, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+
+            ZTalk.Utilities.Logger.Log($"[PopulateThemeItems] After filtering: {themeEntries.Count} theme entries", 
+                Utilities.LogLevel.Info, categoryOverride: "theme");
             
-            ThemeItems.Clear();
-            ThemeItems.Add(LocalizedDark);
-            ThemeItems.Add(LocalizedLight);
-            ThemeItems.Add(LocalizedSandy);
-            ThemeItems.Add(LocalizedButter);
-            
-            // Restore selection
-            if (currentSelection >= 0 && currentSelection < ThemeItems.Count)
+            foreach (var entry in themeEntries)
             {
-                _themeIndex = currentSelection;
-                OnPropertyChanged(nameof(ThemeIndex));
+                ZTalk.Utilities.Logger.Log($"[PopulateThemeItems] - {entry.Display} (ID: {entry.ThemeId}, Order: {entry.Order})", 
+                    Utilities.LogLevel.Info, categoryOverride: "theme");
+            }
+
+            if (themeEntries.Count == 0)
+            {
+                throw new InvalidOperationException("No registered themes");
+            }
+
+            var previousId = _selectedThemeId;
+
+            ThemeItems.Clear();
+            _themeIdOrder.Clear();
+
+            foreach (var entry in themeEntries)
+            {
+                ThemeItems.Add(entry.Display);
+                _themeIdOrder.Add(entry.ThemeId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(previousId))
+            {
+                SetSelectedThemeId(previousId, updateIndex: true, triggerChange: false, refreshInspector: false);
+            }
+            else if (_themeIdOrder.Count > 0)
+            {
+                SetSelectedThemeId(_themeIdOrder[0], updateIndex: true, triggerChange: false, refreshInspector: false);
+            }
+
+            OnPropertyChanged(nameof(ThemeIndex));
+
+            if (!_suppressThemeBinding)
+            {
+                RefreshThemeInspector();
             }
         }
         catch
         {
-            // Fallback to English
             ThemeItems.Clear();
-            ThemeItems.Add("Dark");
-            ThemeItems.Add("Light");
-            ThemeItems.Add("Sandy");
-            ThemeItems.Add("Butter");
+            _themeIdOrder.Clear();
+
+            ThemeItems.Add(LocalizedDark);
+            _themeIdOrder.Add("legacy-dark");
+            ThemeItems.Add(LocalizedLight);
+            _themeIdOrder.Add("legacy-light");
+            ThemeItems.Add(LocalizedSandy);
+            _themeIdOrder.Add("legacy-sandy");
+            ThemeItems.Add(LocalizedButter);
+            _themeIdOrder.Add("legacy-butter");
+
+            SetSelectedThemeId(_selectedThemeId, updateIndex: true, triggerChange: false, refreshInspector: false);
+            OnPropertyChanged(nameof(ThemeIndex));
         }
+    }
+
+    private void OnThemesReloaded(object? sender, EventArgs e)
+    {
+        try
+        {
+            // Theme list changed (e.g., new custom theme saved), refresh the dropdown
+            // Ensure we update on the UI thread
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    PopulateThemeItems();
+                }
+                catch (Exception ex)
+                {
+                    ZTalk.Utilities.Logger.Log($"[Settings] Error refreshing theme list: {ex.Message}", 
+                        Utilities.LogLevel.Warning, categoryOverride: "theme");
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            ZTalk.Utilities.Logger.Log($"[Settings] Error dispatching theme refresh: {ex.Message}", 
+                Utilities.LogLevel.Warning, categoryOverride: "theme");
+        }
+    }
+
+    private string BuildThemeDisplayName(ThemeDefinition theme)
+    {
+        if (theme.ThemeType == ThemeType.BuiltInLegacy && theme.LegacyThemeOption.HasValue)
+        {
+            return theme.LegacyThemeOption.Value switch
+            {
+                ThemeOption.Dark => LocalizedDark,
+                ThemeOption.Light => LocalizedLight,
+                ThemeOption.Sandy => LocalizedSandy,
+                ThemeOption.Butter => LocalizedButter,
+                _ => theme.DisplayName
+            };
+        }
+
+        var baseName = string.IsNullOrWhiteSpace(theme.DisplayName) ? theme.Id : theme.DisplayName;
+
+        return theme.ThemeType switch
+        {
+            ThemeType.Custom => $"{baseName} (Custom)",
+            ThemeType.Imported => $"{baseName} (Imported)",
+            _ => baseName
+        };
+    }
+
+    private static string ThemeOptionToId(ThemeOption option)
+        => option switch
+        {
+            ThemeOption.Light => "legacy-light",
+            ThemeOption.Sandy => "legacy-sandy",
+            ThemeOption.Butter => "legacy-butter",
+            _ => "legacy-dark"
+        };
+
+    private static ThemeOption ThemeIdToThemeOption(string? themeId)
+    {
+        if (string.IsNullOrWhiteSpace(themeId))
+        {
+            return ThemeOption.Dark;
+        }
+
+        return themeId.Trim().ToLowerInvariant() switch
+        {
+            "legacy-light" => ThemeOption.Light,
+            "legacy-sandy" => ThemeOption.Sandy,
+            "legacy-butter" => ThemeOption.Butter,
+            _ => ThemeOption.Dark
+        };
+    }
+
+    private string GetResolvedSelectedThemeId()
+    {
+        var normalized = NormalizeThemeId(_selectedThemeId);
+        if (!string.IsNullOrWhiteSpace(normalized))
+        {
+            return normalized;
+        }
+
+        if (_themeIdOrder.Count > 0)
+        {
+            return _themeIdOrder[0];
+        }
+
+        return "legacy-dark";
+    }
+
+    private bool TryGetThemeDefinition(string themeId, out ThemeDefinition? themeDef)
+    {
+        themeDef = null;
+        try
+        {
+            var registered = AppServices.ThemeEngine.GetRegisteredThemes();
+            if (registered.TryGetValue(themeId, out var def))
+            {
+                themeDef = def;
+                return true;
+            }
+        }
+        catch { }
+
+        return false;
     }
     
     // Populate presence items with current localization
@@ -1794,29 +2197,35 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             // Save current selections
-            var currentTheme = _themeIndex;
+            var currentThemeId = _selectedThemeId;
             var currentPresence = _defaultPresenceIndex;
-            
+
+            var previousBindingState = _suppressThemeBinding;
+            _suppressThemeBinding = true;
+
             // Set to -1 to force UI refresh
             _themeIndex = -1;
             OnPropertyChanged(nameof(ThemeIndex));
-            
+
             _defaultPresenceIndex = -1;
             OnPropertyChanged(nameof(DefaultPresenceIndex));
-            
+
             // Use dispatcher to restore after UI processes the change
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 try
                 {
-                    // Restore original selections
-                    _themeIndex = currentTheme >= 0 && currentTheme < ThemeItems.Count ? currentTheme : 0;
+                    _suppressThemeBinding = true;
+                    SetSelectedThemeId(currentThemeId, updateIndex: true, triggerChange: false, refreshInspector: false);
                     OnPropertyChanged(nameof(ThemeIndex));
-                    
                     _defaultPresenceIndex = currentPresence >= 0 && currentPresence < PresenceItems.Count ? currentPresence : 0;
                     OnPropertyChanged(nameof(DefaultPresenceIndex));
                 }
                 catch { }
+                finally
+                {
+                    _suppressThemeBinding = previousBindingState;
+                }
             }, Avalonia.Threading.DispatcherPriority.Loaded);
         }
         catch { }
@@ -2167,19 +2576,19 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var idx = (_settings.Settings.Theme) switch
+            var persisted = _settings.Settings;
+            var themeId = NormalizeThemeId(persisted.ThemeId);
+            if (string.IsNullOrWhiteSpace(themeId))
             {
-                ThemeOption.Dark => 0,
-                ThemeOption.Light => 1,
-                ThemeOption.Sandy => 2,
-                ThemeOption.Butter => 3,
-                _ => 0
-            };
+                themeId = ThemeOptionToId(persisted.Theme);
+            }
+
             var prevSuppress = _suppressThemeBinding;
             _suppressThemeBinding = true;
-            _themeIndex = idx;
+            SetSelectedThemeId(themeId, updateIndex: true, triggerChange: false, refreshInspector: false);
             OnPropertyChanged(nameof(ThemeIndex));
-            _baseThemeIndex = idx; // align baseline with persisted
+            _baseThemeId = _selectedThemeId;
+            _baseThemeIndex = _themeIndex; // align baseline with persisted
             _suppressThemeBinding = prevSuppress;
         }
         catch { }
@@ -2202,9 +2611,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
         catch { }
     }
-
-    private static ThemeOption IndexToTheme(int idx)
-        => idx switch { 0 => ThemeOption.Dark, 1 => ThemeOption.Light, 2 => ThemeOption.Sandy, 3 => ThemeOption.Butter, _ => ThemeOption.Dark };
 
     // General: Default Presence (Offline is automatic only)
     private static int PresenceToIndex(PresenceStatus s)
@@ -2274,6 +2680,34 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand RunLogMaintenanceCommand { get; }
     public ICommand RetryNatVerificationCommand => new RelayCommand(async _ => { try { await AppServices.Nat.RetryVerificationAsync(); } catch { } });
     public ICommand CopyPublicKeyCommand { get; }
+    public ICommand ExportThemeCommand { get; }  // Phase 3 Step 2
+    public ICommand ImportThemeCommand { get; }  // Phase 3 Step 3
+    public ICommand EditColorCommand { get; }     // Phase 3 Step 4
+    public ICommand SaveColorEditCommand { get; } // Phase 3 Step 4
+    public ICommand CancelColorEditCommand { get; } // Phase 3 Step 4
+    public ICommand UndoColorEditCommand { get; } // Phase 3 Step 4
+    public ICommand RedoColorEditCommand { get; } // Phase 3 Step 4
+    public ICommand ToggleBatchEditModeCommand { get; } // Phase 3 Step 5
+    public ICommand SelectAllColorsCommand { get; } // Phase 3 Step 5
+    public ICommand DeselectAllColorsCommand { get; } // Phase 3 Step 5
+    public ICommand CopyColorCommand { get; } // Phase 3 Step 5
+    public ICommand PasteColorCommand { get; } // Phase 3 Step 5
+    public ICommand RevertAllEditsCommand { get; } // Phase 3 Step 5
+    public ICommand ApplyThemeLiveCommand { get; } // Phase 3 Step 5
+    public ICommand EditGradientCommand { get; } // Phase 3 Step 6
+    public ICommand SaveGradientEditCommand { get; } // Phase 3 Step 6
+    public ICommand CancelGradientEditCommand { get; } // Phase 3 Step 6
+    public ICommand ApplyGradientPresetCommand { get; } // Phase 3 Step 6
+    public ICommand RenameThemeCommand { get; } // Phase 3 Step 7
+    public ICommand DuplicateThemeCommand { get; } // Phase 3 Step 7
+    public ICommand DeleteThemeCommand { get; } // Phase 3 Step 7
+    public ICommand EditMetadataCommand { get; } // Phase 3 Step 7
+    public ICommand SaveMetadataCommand { get; } // Phase 3 Step 7
+    public ICommand CancelMetadataEditCommand { get; } // Phase 3 Step 7
+    public ICommand ExportModifiedThemeCommand { get; } // Phase 3 Step 7
+    public ICommand NewFromBlankTemplateCommand { get; } // Blank Template Feature
+    public ICommand SaveAsCommand { get; } // Save read-only themes as new custom themes
+    public ICommand LoadFromLegacyThemeCommand { get; } // Load legacy theme as editable template
 
     private bool _copyToastVisible;
     public bool CopyToastVisible { get => _copyToastVisible; set { _copyToastVisible = value; OnPropertyChanged(); } }
@@ -2325,7 +2759,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             }
             s.DisplayName = newDisplay!;
             // Include theme in manual Save
-            s.Theme = IndexToTheme(ThemeIndex);
+            var selectedThemeId = GetResolvedSelectedThemeId();
+
+            s.ThemeId = selectedThemeId;
+            var fallbackTheme = ThemeIdToThemeOption(selectedThemeId);
+            s.Theme = fallbackTheme;
             // Performance settings
             s.CcdAffinityIndex = ClampRange(CcdAffinityIndex, 0, 3);
             s.DisableGpuAcceleration = DisableGpuAcceleration;
@@ -2377,7 +2815,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 if (RememberPassphrase)
                 {
                     var pass = AppServices.Passphrase;
-                    if (!string.IsNullOrWhiteSpace(pass) && pass != "dev")
+                    if (!string.IsNullOrWhiteSpace(pass))
                     {
                         _settings.SetRememberedPassphrase(pass);
                         s.RememberPassphrase = true;
@@ -2395,7 +2833,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 }
             }
             _settings.Save(AppServices.Passphrase);
-            try { LogSettingsEvent($"Saved settings (Theme={s.Theme})"); } catch { }
+            try { LogSettingsEvent($"Saved settings (ThemeId={s.ThemeId}, ThemeOption={s.Theme})"); } catch { }
             try { WritePerformanceLog($"Saved perf: CcdAffinityIndex={s.CcdAffinityIndex}, DisableGPU={s.DisableGpuAcceleration}, FPS={s.FpsThrottle}, Refresh={s.RefreshRateThrottle}, RAMmb={s.RamUsageLimitMb}, VRAMmb={s.VramUsageLimitMb}"); } catch { }
             try { ApplyGpuModeImmediate(s.DisableGpuAcceleration); } catch { }
             try { ApplyFpsThrottleImmediate(s.FpsThrottle); } catch { }
@@ -2403,7 +2841,19 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             try { ZTalk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
             try { ApplyCcdAffinityImmediate(s.CcdAffinityIndex); } catch { }
             // Apply theme + theme engine live
-            try { _themeService.SetTheme(s.Theme); _themeService.ApplyThemeEngine(s.UiFontFamily, 1.0); } catch { }
+            try
+            {
+                var engine = AppServices.ThemeEngine;
+                var appliedViaEngine = engine.SetThemeById(selectedThemeId);
+                if (!appliedViaEngine)
+                {
+                    engine.SetTheme(fallbackTheme);
+                }
+            }
+            catch { }
+
+            try { _themeService.SetTheme(fallbackTheme); } catch { }
+            try { _themeService.ApplyThemeEngine(s.UiFontFamily, 1.0); } catch { }
             // Apply accessibility settings immediately
             // Accessibility settings removed - these are OS-level settings
             // Persist profile-related items
@@ -2590,7 +3040,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             if (!string.Equals(_baseDisplayName, DisplayName ?? string.Empty, StringComparison.Ordinal)) return true;
-            if (_baseThemeIndex != _themeIndex) return true;
+            if (!string.Equals(_baseThemeId, _selectedThemeId, StringComparison.Ordinal)) return true;
             if (_baseShareAvatar != _shareAvatar) return true;
             if (!string.Equals(_baseBio, Bio ?? string.Empty, StringComparison.Ordinal)) return true;
             if (!string.Equals(_baseAvatarSig, GetAvatarSignature(_avatarBytes), StringComparison.Ordinal)) return true;
@@ -2668,6 +3118,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         {
             _baseDisplayName = DisplayName ?? string.Empty;
             _baseThemeIndex = ThemeIndex;
+            _baseThemeId = _selectedThemeId;
             _baseShareAvatar = ShareAvatar;
             _baseBio = Bio ?? string.Empty;
             _baseAvatarSig = GetAvatarSignature(_avatarBytes);
@@ -3406,6 +3857,22 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
     private bool _wipeLocalSettings;
     public bool WipeLocalSettings { get => _wipeLocalSettings; set { _wipeLocalSettings = value; OnPropertyChanged(); } }
+    
+    // Message burn security setting
+    public bool UseEnhancedMessageBurn
+    {
+        get => AppServices.Settings.Settings.UseEnhancedMessageBurn;
+        set
+        {
+            if (AppServices.Settings.Settings.UseEnhancedMessageBurn != value)
+            {
+                AppServices.Settings.Settings.UseEnhancedMessageBurn = value;
+                try { AppServices.Settings.Save(AppServices.Passphrase); } catch { }
+                OnPropertyChanged();
+            }
+        }
+    }
+    
     private bool _isPurgingAllMessages;
     public bool IsPurgingAllMessages
     {
@@ -3467,17 +3934,30 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             if (!string.Equals(DeleteConfirmText?.Trim(), GeneratedDeleteCode, StringComparison.Ordinal)) return;
-            TryDelete(AppServices.Accounts.GetPath());
-            TryDelete(GetContactsPath());
-            TryDelete(GetMessagesPath());
-            TryDelete(GetPeersPath());
+            
+            long totalWiped = 0;
+            
+            // Securely wipe account files with maximum security
+            totalWiped += TrySecureWipe(AppServices.Accounts.GetPath());
+            totalWiped += TrySecureWipe(GetContactsPath());
+            totalWiped += TrySecureWipe(GetMessagesPath());
+            totalWiped += TrySecureWipe(GetPeersPath());
+            
+            // Wipe messages directory
+            totalWiped += TrySecureWipeDirectory(Utilities.AppDataPaths.Combine("messages"));
+            
+            // Wipe outbox directory
+            totalWiped += TrySecureWipeDirectory(Utilities.AppDataPaths.Combine("outbox"));
+            
             AppServices.Settings.ClearRememberedPassphrase();
+            
             if (WipeLocalSettings)
             {
-                TryDelete(AppServices.Settings.GetSettingsPath());
-                TryDelete(GetThemesFolder());
+                totalWiped += TrySecureWipe(AppServices.Settings.GetSettingsPath());
+                totalWiped += TrySecureWipeDirectory(GetThemesFolder());
             }
-            Logger.Log("Account deletion completed (local only).");
+            
+            Logger.Log($"Account deletion completed (local only). Securely wiped {totalWiped:N0} bytes.");
             (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.Shutdown();
         }
         catch (System.Exception ex)
@@ -3485,15 +3965,33 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             Logger.Log($"Account deletion error: {ex.Message}");
         }
     }
-    private static void TryDelete(string? path)
+    
+    private static long TrySecureWipe(string? path)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(path)) return;
-            if (System.IO.Directory.Exists(path)) System.IO.Directory.Delete(path, true);
-            else if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+            if (string.IsNullOrWhiteSpace(path)) return 0;
+            if (System.IO.File.Exists(path))
+            {
+                return Utilities.SecureFileWiper.SecureWipeFileMaximum(path);
+            }
         }
         catch { }
+        return 0;
+    }
+    
+    private static long TrySecureWipeDirectory(string? path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path)) return 0;
+            if (System.IO.Directory.Exists(path))
+            {
+                return Utilities.SecureFileWiper.SecureWipeDirectoryMaximum(path);
+            }
+        }
+        catch { }
+        return 0;
     }
     private static string GetContactsPath()
     {
@@ -3560,6 +4058,45 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _ = ShowToastAsync("Layout reset");
         }
         catch { }
+    }
+
+    private void PurgeAllLogs()
+    {
+        try
+        {
+            var logsDir = Utilities.LoggingPaths.LogsDirectory;
+            if (!System.IO.Directory.Exists(logsDir))
+            {
+                _ = ShowToastAsync("No logs directory found");
+                return;
+            }
+
+            var files = System.IO.Directory.GetFiles(logsDir, "*.log");
+            if (files.Length == 0)
+            {
+                _ = ShowToastAsync("No log files to purge");
+                return;
+            }
+
+            long bytesWiped = 0;
+            int deletedCount = 0;
+            
+            foreach (var file in files)
+            {
+                try
+                {
+                    bytesWiped += Utilities.SecureFileWiper.SecureWipeFile(file);
+                    deletedCount++;
+                }
+                catch { /* Skip files that can't be deleted */ }
+            }
+            
+            _ = ShowToastAsync($"Purged {deletedCount} log file(s) ({bytesWiped:N0} bytes wiped)");
+        }
+        catch (Exception ex)
+        {
+            _ = ShowToastAsync($"Failed to purge logs: {ex.Message}");
+        }
     }
 
     private void Logout()
@@ -3653,7 +4190,1484 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public int DebugLogSizeValue { get; set; } = 16;
     public int DebugLogSizeMaxValue { get; set; } = 512;
     public string DebugLogSizeUnit { get; set; } = "MB";
-    public ICommand? ClearErrorLogCommand { get; set; } // TODO: Implement
+    public ICommand ClearErrorLogCommand { get; }
+
+    #region Theme Inspector (Phase 3 - Read-Only)
+    
+    // Observable collection of color overrides from current theme
+    private System.Collections.ObjectModel.ObservableCollection<ThemeColorEntry> _themeColors = new();
+    public System.Collections.ObjectModel.ObservableCollection<ThemeColorEntry> ThemeColors
+    {
+        get => _themeColors;
+        set { _themeColors = value; OnPropertyChanged(); }
+    }
+
+    // Observable collection of gradients from current theme
+    private System.Collections.ObjectModel.ObservableCollection<ThemeGradientEntry> _themeGradients = new();
+    public System.Collections.ObjectModel.ObservableCollection<ThemeGradientEntry> ThemeGradients
+    {
+        get => _themeGradients;
+        set { _themeGradients = value; OnPropertyChanged(); }
+    }
+
+    // Theme metadata properties
+    private string _currentThemeId = string.Empty;
+    public string CurrentThemeId
+    {
+        get => _currentThemeId;
+        set { _currentThemeId = value; OnPropertyChanged(); }
+    }
+
+    private string _currentThemeDisplayName = string.Empty;
+    public string CurrentThemeDisplayName
+    {
+        get => _currentThemeDisplayName;
+        set { _currentThemeDisplayName = value; OnPropertyChanged(); }
+    }
+
+    private string _currentThemeDescription = string.Empty;
+    public string CurrentThemeDescription
+    {
+        get => _currentThemeDescription;
+        set { _currentThemeDescription = value; OnPropertyChanged(); }
+    }
+
+    private string _currentThemeVersion = string.Empty;
+    public string CurrentThemeVersion
+    {
+        get => _currentThemeVersion;
+        set { _currentThemeVersion = value; OnPropertyChanged(); }
+    }
+
+    private string _currentThemeAuthor = string.Empty;
+    public string CurrentThemeAuthor
+    {
+        get => _currentThemeAuthor;
+        set { _currentThemeAuthor = value; OnPropertyChanged(); }
+    }
+
+    private bool _currentThemeAllowsCustomization;
+    public bool CurrentThemeAllowsCustomization
+    {
+        get => _currentThemeAllowsCustomization;
+        set { _currentThemeAllowsCustomization = value; OnPropertyChanged(); }
+    }
+
+    private bool _currentThemeIsReadOnly;
+    public bool CurrentThemeIsReadOnly
+    {
+        get => _currentThemeIsReadOnly;
+        set { _currentThemeIsReadOnly = value; OnPropertyChanged(); OnPropertyChanged(nameof(CurrentThemeIsEditable)); }
+    }
+
+    public bool CurrentThemeIsEditable => !_currentThemeIsReadOnly;
+
+    // Phase 3 Step 4: Color editing with undo/redo
+    private readonly System.Collections.Generic.Stack<ColorEditAction> _undoStack = new();
+    private readonly System.Collections.Generic.Stack<ColorEditAction> _redoStack = new();
+    private ThemeColorEntry? _currentlyEditingColor = null;
+    
+    public bool CanUndo => _undoStack.Count > 0;
+    public bool CanRedo => _redoStack.Count > 0;
+    public bool IsEditingColor => _currentlyEditingColor != null;
+
+    // Phase 3 Step 5: Batch editing and advanced features
+    private bool _isBatchEditMode = false;
+    public bool IsBatchEditMode
+    {
+        get => _isBatchEditMode;
+        set
+        {
+            if (_isBatchEditMode != value)
+            {
+                _isBatchEditMode = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsNotBatchEditMode));
+            }
+        }
+    }
+    public bool IsNotBatchEditMode => !_isBatchEditMode;
+
+    private readonly System.Collections.ObjectModel.ObservableCollection<string> _recentColors = new();
+    public System.Collections.ObjectModel.ObservableCollection<string> RecentColors => _recentColors;
+
+    private string? _copiedColor = null;
+    public bool HasCopiedColor => !string.IsNullOrEmpty(_copiedColor);
+
+    public int SelectedColorCount => ThemeColors.Count(c => c.IsSelected);
+    public bool HasSelectedColors => SelectedColorCount > 0;
+
+    // Phase 3 Step 6: Gradient editing
+    private ThemeGradientEntry? _currentlyEditingGradient = null;
+    public bool IsEditingGradient => _currentlyEditingGradient != null;
+
+    private readonly System.Collections.Generic.List<GradientPreset> _gradientPresets = new()
+    {
+        new GradientPreset { Name = "Sunset", StartColor = "#FF6B6B", EndColor = "#FFD93D", Angle = 135 },
+        new GradientPreset { Name = "Ocean", StartColor = "#4FACFE", EndColor = "#00F2FE", Angle = 180 },
+        new GradientPreset { Name = "Forest", StartColor = "#38EF7D", EndColor = "#11998E", Angle = 90 },
+        new GradientPreset { Name = "Purple Haze", StartColor = "#A18CD1", EndColor = "#FBC2EB", Angle = 45 },
+        new GradientPreset { Name = "Fire", StartColor = "#FF0844", EndColor = "#FFBC0D", Angle = 0 },
+        new GradientPreset { Name = "Ice", StartColor = "#E0EAFC", EndColor = "#CFDEF3", Angle = 270 }
+    };
+
+    public System.Collections.Generic.IReadOnlyList<GradientPreset> GradientPresets => _gradientPresets;
+
+    // Load From Legacy Theme feature
+    private readonly System.Collections.Generic.List<LegacyThemeOption> _legacyThemes = new()
+    {
+        new LegacyThemeOption { DisplayName = "Dark", ThemeId = "legacy-dark", Description = "Classic dark theme" },
+        new LegacyThemeOption { DisplayName = "Light", ThemeId = "legacy-light", Description = "Classic light theme" },
+        new LegacyThemeOption { DisplayName = "Sandy", ThemeId = "legacy-sandy", Description = "Warm sandy theme" },
+        new LegacyThemeOption { DisplayName = "Butter", ThemeId = "legacy-butter", Description = "Soft butter theme" }
+    };
+
+    public System.Collections.Generic.IReadOnlyList<LegacyThemeOption> LegacyThemes => _legacyThemes;
+
+    private LegacyThemeOption? _selectedLegacyTheme = null;
+    public LegacyThemeOption? SelectedLegacyTheme
+    {
+        get => _selectedLegacyTheme;
+        set
+        {
+            if (!Equals(_selectedLegacyTheme, value))
+            {
+                _selectedLegacyTheme = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanLoadLegacyTheme));
+                // Keep SelectedLegacyThemeId in sync for SelectedValue binding
+                try { SelectedLegacyThemeId = _selectedLegacyTheme?.ThemeId ?? string.Empty; } catch { }
+            }
+        }
+    }
+
+    private string _selectedLegacyThemeId = string.Empty;
+    public string SelectedLegacyThemeId
+    {
+        get => _selectedLegacyThemeId;
+        set
+        {
+            if (!string.Equals(_selectedLegacyThemeId, value, StringComparison.Ordinal))
+            {
+                _selectedLegacyThemeId = value ?? string.Empty;
+                OnPropertyChanged();
+                // Update SelectedLegacyTheme reference to match the id (if possible)
+                try
+                {
+                    var match = _legacyThemes.FirstOrDefault(t => string.Equals(t.ThemeId, _selectedLegacyThemeId, StringComparison.Ordinal));
+                    if (!Equals(_selectedLegacyTheme, match))
+                    {
+                        _selectedLegacyTheme = match;
+                        OnPropertyChanged(nameof(SelectedLegacyTheme));
+                        OnPropertyChanged(nameof(CanLoadLegacyTheme));
+                    }
+                }
+                catch { }
+            }
+        }
+    }
+
+    // Helper property used by the Load button to enable/disable reliably
+    public bool CanLoadLegacyTheme => SelectedLegacyTheme != null && !IsEditingColor && !IsEditingGradient && !IsEditingMetadata;
+
+    // Phase 3 Step 7: Theme management and metadata editing
+    private bool _isEditingMetadata = false;
+    public bool IsEditingMetadata
+    {
+        get => _isEditingMetadata;
+        set
+        {
+            if (_isEditingMetadata != value)
+            {
+                _isEditingMetadata = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanLoadLegacyTheme));
+            }
+        }
+    }
+
+    // Editable metadata properties
+    private string _editableThemeName = string.Empty;
+    public string EditableThemeName
+    {
+        get => _editableThemeName;
+        set { _editableThemeName = value; OnPropertyChanged(); }
+    }
+
+    private string _editableThemeDescription = string.Empty;
+    public string EditableThemeDescription
+    {
+        get => _editableThemeDescription;
+        set { _editableThemeDescription = value; OnPropertyChanged(); }
+    }
+
+    private string _editableThemeAuthor = string.Empty;
+    public string EditableThemeAuthor
+    {
+        get => _editableThemeAuthor;
+        set { _editableThemeAuthor = value; OnPropertyChanged(); }
+    }
+
+    private string _editableThemeVersion = string.Empty;
+    public string EditableThemeVersion
+    {
+        get => _editableThemeVersion;
+        set { _editableThemeVersion = value; OnPropertyChanged(); }
+    }
+
+    // Helper method to load current theme data into inspector
+    private void RefreshThemeInspector()
+    {
+        try
+        {
+            var themeId = GetResolvedSelectedThemeId();
+
+            if (TryGetThemeDefinition(themeId, out var themeDef) && themeDef != null)
+            {
+                CurrentThemeId = themeDef.Id;
+                CurrentThemeDisplayName = themeDef.DisplayName;
+                CurrentThemeDescription = themeDef.Description ?? "No description available";
+                CurrentThemeVersion = themeDef.Version;
+                CurrentThemeAuthor = themeDef.Author ?? "Unknown";
+                CurrentThemeAllowsCustomization = themeDef.AllowsCustomization;
+                CurrentThemeIsReadOnly = themeDef.IsReadOnly;
+
+                // Populate color overrides
+                ThemeColors.Clear();
+                foreach (var kvp in themeDef.ColorOverrides)
+                {
+                    ThemeColors.Add(new ThemeColorEntry
+                    {
+                        ResourceKey = kvp.Key,
+                        ColorValue = kvp.Value,
+                        IsEditable = false // Read-only for Phase 3 Step 1
+                    });
+                }
+
+                // Populate gradients
+                ThemeGradients.Clear();
+                foreach (var kvp in themeDef.Gradients)
+                {
+                    ThemeGradients.Add(new ThemeGradientEntry
+                    {
+                        ResourceKey = kvp.Key,
+                        GradientDefinition = kvp.Value,
+                        IsEditable = false // Read-only for Phase 3 Step 1
+                    });
+                }
+            }
+            else
+            {
+                // Fallback if theme not found
+                CurrentThemeId = themeId;
+                CurrentThemeDisplayName = string.IsNullOrWhiteSpace(themeId) ? "Unknown Theme" : themeId;
+                CurrentThemeDescription = "Theme definition not found";
+                CurrentThemeVersion = "1.0.0";
+                CurrentThemeAuthor = "Unknown";
+                CurrentThemeAllowsCustomization = false;
+                CurrentThemeIsReadOnly = false;
+                ThemeColors.Clear();
+                ThemeGradients.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            ZTalk.Utilities.Logger.Log($"[Theme Inspector] Error refreshing theme data: {ex.Message}", Utilities.LogLevel.Error);
+            CurrentThemeId = "error";
+            CurrentThemeDisplayName = "Error Loading Theme";
+            CurrentThemeDescription = ex.Message;
+            ThemeColors.Clear();
+            ThemeGradients.Clear();
+        }
+    }
+
+    // Phase 3 Step 2: Export current theme to .zttheme file
+    private async System.Threading.Tasks.Task ExportCurrentThemeAsync()
+    {
+        try
+        {
+            var engine = AppServices.ThemeEngine;
+            var registered = engine.GetRegisteredThemes();
+
+            var themeId = GetResolvedSelectedThemeId();
+
+            if (!registered.TryGetValue(themeId, out var themeDef))
+            {
+                await ShowSaveToastAsync("❌ Theme not found", 3000);
+                return;
+            }
+
+            // Get main window for file dialog
+            var window = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+
+            if (window == null)
+            {
+                await ShowSaveToastAsync("❌ Cannot open file dialog", 3000);
+                return;
+            }
+
+            // Use StorageProvider API for file picker
+            var file = await window.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+            {
+                Title = "Export Theme",
+                SuggestedFileName = $"{themeDef.DisplayName}.zttheme",
+                FileTypeChoices = new[]
+                {
+                    new Avalonia.Platform.Storage.FilePickerFileType("ZTalk Theme Files")
+                    {
+                        Patterns = new[] { "*.zttheme" }
+                    },
+                    new Avalonia.Platform.Storage.FilePickerFileType("All Files")
+                    {
+                        Patterns = new[] { "*" }
+                    }
+                }
+            });
+
+            if (file == null)
+            {
+                // User cancelled
+                return;
+            }
+
+            // Update ModifiedAt timestamp before export
+            themeDef.ModifiedAt = DateTime.UtcNow;
+
+            // Get file path from storage file
+            var filePath = file.Path.LocalPath;
+
+            // Save theme to file
+            themeDef.SaveToFile(filePath);
+
+            await ShowSaveToastAsync($"✅ Theme exported to {System.IO.Path.GetFileName(filePath)}", 3000);
+        }
+        catch (Exception ex)
+        {
+            ZTalk.Utilities.Logger.Log($"[Theme Export] Error exporting theme: {ex.Message}", Utilities.LogLevel.Error);
+            await ShowSaveToastAsync($"❌ Export failed: {ex.Message}", 4000);
+        }
+    }
+
+    // Phase 3 Step 3: Import theme from .zttheme file with validation
+    private async System.Threading.Tasks.Task ImportThemeAsync()
+    {
+        try
+        {
+            // Get main window for file dialog
+            var window = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+
+            if (window == null)
+            {
+                await ShowSaveToastAsync("❌ Cannot open file dialog", 3000);
+                return;
+            }
+
+            // Use StorageProvider API for file picker
+            var files = await window.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+            {
+                Title = "Import Theme",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new Avalonia.Platform.Storage.FilePickerFileType("ZTalk Theme Files")
+                    {
+                        Patterns = new[] { "*.zttheme" }
+                    },
+                    new Avalonia.Platform.Storage.FilePickerFileType("All Files")
+                    {
+                        Patterns = new[] { "*" }
+                    }
+                }
+            });
+
+            if (files == null || files.Count == 0)
+            {
+                // User cancelled
+                return;
+            }
+
+            var filePath = files[0].Path.LocalPath;
+            var fileName = System.IO.Path.GetFileName(filePath);
+
+            // Load and validate theme file
+            var themeDef = Models.ThemeDefinition.LoadFromFile(filePath, out var warnings);
+
+            // Display warnings if any
+            if (warnings.Count > 0)
+            {
+                var warningMsg = string.Join("\n", warnings.Take(5));
+                if (warnings.Count > 5)
+                {
+                    warningMsg += $"\n... and {warnings.Count - 5} more warnings";
+                }
+
+                ZTalk.Utilities.Logger.Log($"[Theme Import] Theme '{themeDef.DisplayName}' imported with {warnings.Count} warning(s)", Utilities.LogLevel.Warning, categoryOverride: "theme");
+                await ShowSaveToastAsync($"⚠️ Theme imported with warnings:\n{warningMsg}", 6000);
+            }
+
+            // Preview theme in inspector (without registering yet)
+            CurrentThemeId = themeDef.Id;
+            CurrentThemeDisplayName = themeDef.DisplayName;
+            CurrentThemeDescription = themeDef.Description ?? "(No description)";
+            CurrentThemeVersion = themeDef.Version;
+            CurrentThemeAuthor = themeDef.Author ?? "(Unknown)";
+
+            // Populate colors
+            ThemeColors.Clear();
+            if (themeDef.ColorOverrides != null)
+            {
+                foreach (var kvp in themeDef.ColorOverrides.OrderBy(x => x.Key))
+                {
+                    ThemeColors.Add(new ThemeColorEntry
+                    {
+                        ResourceKey = kvp.Key,
+                        ColorValue = kvp.Value
+                    });
+                }
+            }
+
+            // Populate gradients
+            ThemeGradients.Clear();
+            if (themeDef.Gradients != null)
+            {
+                foreach (var kvp in themeDef.Gradients.OrderBy(x => x.Key))
+                {
+                    ThemeGradients.Add(new ThemeGradientEntry
+                    {
+                        ResourceKey = kvp.Key,
+                        GradientDefinition = kvp.Value
+                    });
+                }
+            }
+
+            // Ask for confirmation before registering
+            var confirmMsg = $"Preview theme '{themeDef.DisplayName}' loaded.\n\n" +
+                            $"Do you want to register this theme?\n" +
+                            $"(You can apply it from the theme dropdown after registration)";
+
+            // For Step 3, we just show preview - full registration UI will come in later steps
+            // For now, show success toast
+            await ShowSaveToastAsync($"✅ Theme '{themeDef.DisplayName}' imported and previewed\n" +
+                                    $"Theme registration UI will be added in Step 4+", 5000);
+
+            ZTalk.Utilities.Logger.Log($"[Theme Import] Successfully imported theme '{themeDef.DisplayName}' from {fileName}", Utilities.LogLevel.Info, categoryOverride: "theme");
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Validation errors
+            ZTalk.Utilities.Logger.Log($"[Theme Import] Validation error: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
+            await ShowSaveToastAsync($"❌ Invalid theme file:\n{ex.Message}", 5000);
+        }
+        catch (Exception ex)
+        {
+            ZTalk.Utilities.Logger.Log($"[Theme Import] Error importing theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
+            await ShowSaveToastAsync($"❌ Import failed: {ex.Message}", 4000);
+        }
+    }
+
+    // Phase 3 Step 4: Color editing methods
+    private void StartEditingColor(ThemeColorEntry? entry)
+    {
+        if (entry == null || _currentlyEditingColor != null) return;
+
+        _currentlyEditingColor = entry;
+        entry.IsEditing = true;
+        entry.OriginalValue = entry.ColorValue; // Store original for cancel
+        
+        OnPropertyChanged(nameof(IsEditingColor));
+        OnPropertyChanged(nameof(CanLoadLegacyTheme));
+        ZTalk.Utilities.Logger.Log($"[Theme Edit] Started editing color '{entry.ResourceKey}' (current: {entry.ColorValue})", Utilities.LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private async System.Threading.Tasks.Task SaveColorEditAsync()
+    {
+        if (_currentlyEditingColor == null) return;
+
+        var entry = _currentlyEditingColor;
+        var oldValue = entry.OriginalValue ?? entry.ColorValue;
+        var newValue = entry.ColorValue;
+
+        // Validate color format
+        if (!Models.ThemeDefinition.IsValidColorPublic(newValue))
+        {
+            await ShowSaveToastAsync($"❌ Invalid color format: {newValue}\nExpected: #RGB, #ARGB, #RRGGBB, or #AARRGGBB", 4000);
+            return;
+        }
+
+        // Only save if changed
+        if (oldValue != newValue)
+        {
+            // Add to undo stack
+            _undoStack.Push(new ColorEditAction
+            {
+                ResourceKey = entry.ResourceKey,
+                OldValue = oldValue,
+                NewValue = newValue
+            });
+            _redoStack.Clear(); // Clear redo stack on new action
+
+            // Add to recent colors (Step 5)
+            AddToRecentColors(newValue);
+
+            ZTalk.Utilities.Logger.Log($"[Theme Edit] Saved color edit '{entry.ResourceKey}': {oldValue} → {newValue}", Utilities.LogLevel.Info, categoryOverride: "theme");
+            await ShowSaveToastAsync($"✅ Color updated: {entry.ResourceKey}", 2000);
+            
+            OnPropertyChanged(nameof(CanUndo));
+            OnPropertyChanged(nameof(CanRedo));
+        }
+
+        entry.IsEditing = false;
+        _currentlyEditingColor = null;
+        OnPropertyChanged(nameof(IsEditingColor));
+        OnPropertyChanged(nameof(CanLoadLegacyTheme));
+    }
+
+    private void CancelColorEdit()
+    {
+        if (_currentlyEditingColor == null) return;
+
+        var entry = _currentlyEditingColor;
+        entry.ColorValue = entry.OriginalValue ?? entry.ColorValue; // Restore original
+        entry.IsEditing = false;
+        
+        _currentlyEditingColor = null;
+        OnPropertyChanged(nameof(IsEditingColor));
+        OnPropertyChanged(nameof(CanLoadLegacyTheme));
+        
+        ZTalk.Utilities.Logger.Log($"[Theme Edit] Cancelled editing color '{entry.ResourceKey}'", Utilities.LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void UndoColorEdit()
+    {
+        if (_undoStack.Count == 0) return;
+
+        var action = _undoStack.Pop();
+        _redoStack.Push(action);
+
+        // Find and update the color entry
+        var entry = ThemeColors.FirstOrDefault(c => c.ResourceKey == action.ResourceKey);
+        if (entry != null)
+        {
+            entry.ColorValue = action.OldValue;
+            ZTalk.Utilities.Logger.Log($"[Theme Edit] Undo: {action.ResourceKey} restored to {action.OldValue}", Utilities.LogLevel.Info, categoryOverride: "theme");
+        }
+
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+    }
+
+    private void RedoColorEdit()
+    {
+        if (_redoStack.Count == 0) return;
+
+        var action = _redoStack.Pop();
+        _undoStack.Push(action);
+
+        // Find and update the color entry
+        var entry = ThemeColors.FirstOrDefault(c => c.ResourceKey == action.ResourceKey);
+        if (entry != null)
+        {
+            entry.ColorValue = action.NewValue;
+            ZTalk.Utilities.Logger.Log($"[Theme Edit] Redo: {action.ResourceKey} changed to {action.NewValue}", Utilities.LogLevel.Info, categoryOverride: "theme");
+        }
+
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
+    }
+
+    // Phase 3 Step 5: Batch editing and advanced palette management
+    private void ToggleBatchEditMode()
+    {
+        IsBatchEditMode = !IsBatchEditMode;
+        
+        if (!IsBatchEditMode)
+        {
+            // Exiting batch mode - deselect all
+            DeselectAllColors();
+        }
+        
+        ZTalk.Utilities.Logger.Log($"[Theme Edit] Batch edit mode: {(IsBatchEditMode ? "ON" : "OFF")}", 
+                                   Utilities.LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void SelectAllColors()
+    {
+        foreach (var color in ThemeColors)
+        {
+            color.IsSelected = true;
+        }
+        OnPropertyChanged(nameof(SelectedColorCount));
+        OnPropertyChanged(nameof(HasSelectedColors));
+    }
+
+    private void DeselectAllColors()
+    {
+        foreach (var color in ThemeColors)
+        {
+            color.IsSelected = false;
+        }
+        OnPropertyChanged(nameof(SelectedColorCount));
+        OnPropertyChanged(nameof(HasSelectedColors));
+    }
+
+    private void CopyColor(ThemeColorEntry? entry)
+    {
+        if (entry == null) return;
+
+        _copiedColor = entry.ColorValue;
+        OnPropertyChanged(nameof(HasCopiedColor));
+        
+        ZTalk.Utilities.Logger.Log($"[Theme Edit] Copied color '{entry.ResourceKey}': {entry.ColorValue}", 
+                                   Utilities.LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void PasteColor(ThemeColorEntry? entry)
+    {
+        if (entry == null || string.IsNullOrEmpty(_copiedColor)) return;
+
+        var oldValue = entry.ColorValue;
+        var newValue = _copiedColor;
+
+        if (oldValue != newValue)
+        {
+            entry.ColorValue = newValue;
+            
+            // Add to undo stack
+            _undoStack.Push(new ColorEditAction
+            {
+                ResourceKey = entry.ResourceKey,
+                OldValue = oldValue,
+                NewValue = newValue
+            });
+            _redoStack.Clear();
+
+            // Add to recent colors
+            AddToRecentColors(newValue);
+
+            OnPropertyChanged(nameof(CanUndo));
+            OnPropertyChanged(nameof(CanRedo));
+            
+            ZTalk.Utilities.Logger.Log($"[Theme Edit] Pasted color to '{entry.ResourceKey}': {oldValue} → {newValue}", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+        }
+    }
+
+    private async System.Threading.Tasks.Task RevertAllEditsAsync()
+    {
+        if (_undoStack.Count == 0) return;
+
+        var count = _undoStack.Count;
+        
+        // Undo all changes
+        while (_undoStack.Count > 0)
+        {
+            UndoColorEdit();
+        }
+
+        await ShowSaveToastAsync($"✅ Reverted {count} color edit(s)", 2000);
+        ZTalk.Utilities.Logger.Log($"[Theme Edit] Reverted all edits ({count} changes)", 
+                                   Utilities.LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private async System.Threading.Tasks.Task ApplyThemeLiveAsync()
+    {
+        try
+        {
+            // Get current theme engine
+            var engine = AppServices.ThemeEngine;
+            var registered = engine.GetRegisteredThemes();
+
+            var themeId = GetResolvedSelectedThemeId();
+
+            if (!registered.TryGetValue(themeId, out var themeDef))
+            {
+                await ShowSaveToastAsync("❌ Current theme not found", 3000);
+                return;
+            }
+
+            // Apply all edits from undo stack to theme definition
+            var editedTheme = new Models.ThemeDefinition
+            {
+                Id = themeDef.Id + "-preview",
+                DisplayName = themeDef.DisplayName + " (Preview)",
+                Description = "Live preview of edited theme",
+                Version = themeDef.Version,
+                Author = themeDef.Author,
+                ColorOverrides = new System.Collections.Generic.Dictionary<string, string>(themeDef.ColorOverrides ?? new()),
+                Gradients = new System.Collections.Generic.Dictionary<string, Models.GradientDefinition>(themeDef.Gradients ?? new())
+            };
+
+            // Apply current color values from UI
+            foreach (var colorEntry in ThemeColors)
+            {
+                if (editedTheme.ColorOverrides != null)
+                {
+                    editedTheme.ColorOverrides[colorEntry.ResourceKey] = colorEntry.ColorValue;
+                }
+            }
+
+            // Register preview theme (but don't switch to it - ThemeEngine uses ThemeOption enum)
+            engine.RegisterTheme(editedTheme);
+            // Note: Live theme switching requires ThemeEngine refactor to support dynamic theme IDs
+            // For now, preview theme is registered but user must manually select from dropdown
+
+            await ShowSaveToastAsync($"🎨 Preview theme registered: {editedTheme.DisplayName}\nSelect from theme dropdown to apply", 4000);
+            ZTalk.Utilities.Logger.Log($"[Theme Edit] Applied live preview theme: {editedTheme.Id}", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+        }
+        catch (Exception ex)
+        {
+            ZTalk.Utilities.Logger.Log($"[Theme Edit] Error applying live preview: {ex.Message}", 
+                                       Utilities.LogLevel.Error, categoryOverride: "theme");
+            await ShowSaveToastAsync($"❌ Preview failed: {ex.Message}", 4000);
+        }
+    }
+
+    private void AddToRecentColors(string color)
+    {
+        if (string.IsNullOrWhiteSpace(color)) return;
+
+        // Remove if already exists (move to top)
+        _recentColors.Remove(color);
+        
+        // Add to beginning
+        _recentColors.Insert(0, color);
+        
+        // Keep only last 10
+        while (_recentColors.Count > 10)
+        {
+            _recentColors.RemoveAt(_recentColors.Count - 1);
+        }
+    }
+
+    // Phase 3 Step 6: Gradient editing methods
+    private void StartEditingGradient(ThemeGradientEntry? entry)
+    {
+        if (entry == null || _currentlyEditingGradient != null || entry.GradientDefinition == null) return;
+
+        _currentlyEditingGradient = entry;
+        entry.IsEditing = true;
+        
+        // Store original values for cancel
+        entry.OriginalStartColor = entry.GradientDefinition.StartColor;
+        entry.OriginalEndColor = entry.GradientDefinition.EndColor;
+        entry.OriginalAngle = entry.GradientDefinition.Angle;
+        
+        OnPropertyChanged(nameof(IsEditingGradient));
+        OnPropertyChanged(nameof(CanLoadLegacyTheme));
+        ZTalk.Utilities.Logger.Log($"[Theme Edit] Started editing gradient '{entry.ResourceKey}' (angle: {entry.GradientDefinition.Angle}°)", 
+                                   Utilities.LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private async System.Threading.Tasks.Task SaveGradientEditAsync()
+    {
+        if (_currentlyEditingGradient == null || _currentlyEditingGradient.GradientDefinition == null) return;
+
+        var entry = _currentlyEditingGradient;
+        var gradient = entry.GradientDefinition;
+
+        // Validate colors
+        if (!Models.ThemeDefinition.IsValidColorPublic(gradient.StartColor))
+        {
+            await ShowSaveToastAsync($"❌ Invalid start color format: {gradient.StartColor}", 4000);
+            return;
+        }
+
+        if (!Models.ThemeDefinition.IsValidColorPublic(gradient.EndColor))
+        {
+            await ShowSaveToastAsync($"❌ Invalid end color format: {gradient.EndColor}", 4000);
+            return;
+        }
+
+        // Validate angle range
+        if (gradient.Angle < 0 || gradient.Angle > 360)
+        {
+            await ShowSaveToastAsync($"❌ Angle must be between 0 and 360 degrees", 3000);
+            return;
+        }
+
+        // Check if changed
+        var changed = entry.OriginalStartColor != gradient.StartColor ||
+                      entry.OriginalEndColor != gradient.EndColor ||
+                      entry.OriginalAngle != gradient.Angle;
+
+        if (changed)
+        {
+            // For gradients, we just log the change (undo for gradients could be added in future)
+            ZTalk.Utilities.Logger.Log($"[Theme Edit] Saved gradient edit '{entry.ResourceKey}': " +
+                                       $"{entry.OriginalStartColor}→{entry.OriginalEndColor} ({entry.OriginalAngle}°) to " +
+                                       $"{gradient.StartColor}→{gradient.EndColor} ({gradient.Angle}°)", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+            await ShowSaveToastAsync($"✅ Gradient updated: {entry.ResourceKey}", 2000);
+        }
+
+        entry.IsEditing = false;
+        _currentlyEditingGradient = null;
+        OnPropertyChanged(nameof(IsEditingGradient));
+        OnPropertyChanged(nameof(CanLoadLegacyTheme));
+    }
+
+    private void CancelGradientEdit()
+    {
+        if (_currentlyEditingGradient == null || _currentlyEditingGradient.GradientDefinition == null) return;
+
+        var entry = _currentlyEditingGradient;
+        var gradient = entry.GradientDefinition;
+        
+        // Restore original values
+        gradient.StartColor = entry.OriginalStartColor ?? gradient.StartColor;
+        gradient.EndColor = entry.OriginalEndColor ?? gradient.EndColor;
+        gradient.Angle = entry.OriginalAngle;
+        
+        entry.IsEditing = false;
+        _currentlyEditingGradient = null;
+        OnPropertyChanged(nameof(IsEditingGradient));
+        OnPropertyChanged(nameof(CanLoadLegacyTheme));
+        
+        ZTalk.Utilities.Logger.Log($"[Theme Edit] Cancelled editing gradient '{entry.ResourceKey}'", 
+                                   Utilities.LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ApplyGradientPreset(GradientPreset? preset)
+    {
+        if (preset == null || _currentlyEditingGradient?.GradientDefinition == null) return;
+
+        var gradient = _currentlyEditingGradient.GradientDefinition;
+        gradient.StartColor = preset.StartColor;
+        gradient.EndColor = preset.EndColor;
+        gradient.Angle = preset.Angle;
+        
+        ZTalk.Utilities.Logger.Log($"[Theme Edit] Applied gradient preset '{preset.Name}' to '{_currentlyEditingGradient.ResourceKey}'", 
+                                   Utilities.LogLevel.Info, categoryOverride: "theme");
+    }
+
+    #endregion
+
+    #region Theme Management Operations (Phase 3 Step 7)
+
+    // Rename theme operation
+    private async Task RenameThemeAsync()
+    {
+        try
+        {
+            // For now, log that this feature is being implemented
+            await ShowSaveToastAsync("Rename theme feature coming soon", 2000);
+            ZTalk.Utilities.Logger.Log("[Theme Management] Rename theme requested", Utilities.LogLevel.Info, categoryOverride: "theme");
+        }
+        catch (Exception ex)
+        {
+            await ShowSaveToastAsync($"Error: {ex.Message}", 3000);
+            ZTalk.Utilities.Logger.Log($"[Theme Management] Error renaming theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    // Duplicate current theme
+    private async Task DuplicateThemeAsync()
+    {
+        try
+        {
+            await ShowSaveToastAsync("Duplicate theme feature coming soon", 2000);
+            ZTalk.Utilities.Logger.Log("[Theme Management] Duplicate theme requested", Utilities.LogLevel.Info, categoryOverride: "theme");
+        }
+        catch (Exception ex)
+        {
+            await ShowSaveToastAsync($"Error: {ex.Message}", 3000);
+            ZTalk.Utilities.Logger.Log($"[Theme Management] Error duplicating theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    // Delete current theme
+    private async Task DeleteThemeAsync()
+    {
+        try
+        {
+            await ShowSaveToastAsync("Delete theme feature coming soon", 2000);
+            ZTalk.Utilities.Logger.Log("[Theme Management] Delete theme requested", Utilities.LogLevel.Info, categoryOverride: "theme");
+        }
+        catch (Exception ex)
+        {
+            await ShowSaveToastAsync($"Error: {ex.Message}", 3000);
+            ZTalk.Utilities.Logger.Log($"[Theme Management] Error deleting theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    // Load blank template into editor for customization
+    private async Task NewFromBlankTemplateAsync()
+    {
+        try
+        {
+            // Get the blank template
+            var blank = Models.ThemeDefinition.CreateBlankTemplate();
+            
+            ZTalk.Utilities.Logger.Log("[Blank Template] Loading blank template into editor", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+
+            // Populate inspector with blank template data
+            CurrentThemeId = blank.Id;
+            CurrentThemeDisplayName = blank.DisplayName;
+            CurrentThemeDescription = blank.Description ?? "No description available";
+            CurrentThemeVersion = blank.Version;
+            CurrentThemeAuthor = blank.Author ?? "Unknown";
+            CurrentThemeAllowsCustomization = blank.AllowsCustomization;
+            CurrentThemeIsReadOnly = blank.IsReadOnly;
+
+            // Clear undo/redo stacks (starting fresh)
+            _undoStack.Clear();
+            _redoStack.Clear();
+            OnPropertyChanged(nameof(CanUndo));
+            OnPropertyChanged(nameof(CanRedo));
+
+            // Populate color overrides
+            ThemeColors.Clear();
+            if (blank.ColorOverrides != null)
+            {
+                foreach (var kvp in blank.ColorOverrides.OrderBy(x => x.Key))
+                {
+                    ThemeColors.Add(new ThemeColorEntry
+                    {
+                        ResourceKey = kvp.Key,
+                        ColorValue = kvp.Value,
+                        IsEditing = false
+                    });
+                }
+            }
+
+            // Populate gradients (blank has no gradients by default)
+            ThemeGradients.Clear();
+            if (blank.Gradients != null)
+            {
+                foreach (var kvp in blank.Gradients.OrderBy(x => x.Key))
+                {
+                    ThemeGradients.Add(new ThemeGradientEntry
+                    {
+                        ResourceKey = kvp.Key,
+                        GradientDefinition = kvp.Value,
+                        IsEditing = false
+                    });
+                }
+            }
+
+            // Exit batch mode if active
+            if (IsBatchEditMode)
+            {
+                IsBatchEditMode = false;
+            }
+
+            // Clear selections
+            foreach (var color in ThemeColors)
+            {
+                color.IsSelected = false;
+            }
+
+            await ShowSaveToastAsync("📄 Blank template loaded - Start customizing!", 3000);
+            ZTalk.Utilities.Logger.Log($"[Blank Template] Loaded {ThemeColors.Count} colors, {ThemeGradients.Count} gradients", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+        }
+        catch (Exception ex)
+        {
+            await ShowSaveToastAsync($"Error loading blank template: {ex.Message}", 3000);
+            ZTalk.Utilities.Logger.Log($"[Blank Template] Error loading template: {ex.Message}", 
+                                       Utilities.LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    // Load From Legacy Theme: Load selected legacy theme as editable template
+    private async Task LoadFromLegacyThemeAsync()
+    {
+        try
+        {
+            if (SelectedLegacyTheme == null)
+            {
+                await ShowSaveToastAsync("❌ No legacy theme selected", 2000);
+                return;
+            }
+
+            // Get the theme engine and registered themes
+            var engine = AppServices.ThemeEngine;
+            var registered = engine.GetRegisteredThemes();
+
+            if (!registered.TryGetValue(SelectedLegacyTheme.ThemeId, out var themeDef))
+            {
+                await ShowSaveToastAsync($"❌ Theme '{SelectedLegacyTheme.DisplayName}' not found", 3000);
+                return;
+            }
+
+            ZTalk.Utilities.Logger.Log($"[Load From Legacy] Loading theme '{themeDef.DisplayName}' (ID: {themeDef.Id}) as editable template", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+
+            // Load theme metadata
+            CurrentThemeId = themeDef.Id;
+            CurrentThemeDisplayName = themeDef.DisplayName;
+            CurrentThemeDescription = themeDef.Description ?? "No description available";
+            CurrentThemeVersion = themeDef.Version;
+            CurrentThemeAuthor = themeDef.Author ?? "Unknown";
+            CurrentThemeAllowsCustomization = themeDef.AllowsCustomization;
+            CurrentThemeIsReadOnly = themeDef.IsReadOnly;
+
+            // Clear undo/redo stacks (starting fresh)
+            _undoStack.Clear();
+            _redoStack.Clear();
+            OnPropertyChanged(nameof(CanUndo));
+            OnPropertyChanged(nameof(CanRedo));
+
+            // Populate color overrides as EDITABLE
+            ThemeColors.Clear();
+            if (themeDef.ColorOverrides != null)
+            {
+                foreach (var kvp in themeDef.ColorOverrides.OrderBy(x => x.Key))
+                {
+                    ThemeColors.Add(new ThemeColorEntry
+                    {
+                        ResourceKey = kvp.Key,
+                        ColorValue = kvp.Value,
+                        IsEditing = false,
+                        IsEditable = true  // KEY: Make editable
+                    });
+                }
+            }
+
+            // Populate gradients as EDITABLE
+            ThemeGradients.Clear();
+            if (themeDef.Gradients != null)
+            {
+                foreach (var kvp in themeDef.Gradients.OrderBy(x => x.Key))
+                {
+                    ThemeGradients.Add(new ThemeGradientEntry
+                    {
+                        ResourceKey = kvp.Key,
+                        GradientDefinition = kvp.Value,
+                        IsEditing = false,
+                        IsEditable = true  // KEY: Make editable
+                    });
+                }
+            }
+
+            // Exit batch mode if active
+            if (IsBatchEditMode)
+            {
+                IsBatchEditMode = false;
+            }
+
+            // Clear selections
+            foreach (var color in ThemeColors)
+            {
+                color.IsSelected = false;
+            }
+
+            // Reset recent colors
+            _recentColors.Clear();
+            _copiedColor = null;
+            OnPropertyChanged(nameof(HasCopiedColor));
+
+            await ShowSaveToastAsync($"📂 Loaded '{SelectedLegacyTheme.DisplayName}' theme - Ready to customize!", 3000);
+            ZTalk.Utilities.Logger.Log($"[Load From Legacy] Loaded {ThemeColors.Count} colors, {ThemeGradients.Count} gradients as editable", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+
+            // Clear selection after loading
+            SelectedLegacyTheme = null;
+        }
+        catch (Exception ex)
+        {
+            await ShowSaveToastAsync($"Error loading theme: {ex.Message}", 3000);
+            ZTalk.Utilities.Logger.Log($"[Load From Legacy] Error: {ex.Message}", 
+                                       Utilities.LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    // Start editing theme metadata
+    private void StartEditingMetadata()
+    {
+        EditableThemeName = CurrentThemeDisplayName;
+        EditableThemeDescription = CurrentThemeDescription;
+        EditableThemeAuthor = CurrentThemeAuthor;
+        EditableThemeVersion = CurrentThemeVersion;
+        IsEditingMetadata = true;
+        
+        ZTalk.Utilities.Logger.Log($"[Theme Metadata] Started editing metadata for theme: {CurrentThemeId}", 
+                                   Utilities.LogLevel.Info, categoryOverride: "theme");
+    }
+
+    // Save metadata changes
+    private async Task SaveMetadataAsync()
+    {
+        try
+        {
+            // Validate inputs
+            if (string.IsNullOrWhiteSpace(EditableThemeName))
+            {
+                await ShowSaveToastAsync("Theme name cannot be empty", 3000);
+                return;
+            }
+
+            // Check if anything changed
+            bool hasChanges = EditableThemeName != CurrentThemeDisplayName ||
+                            EditableThemeDescription != CurrentThemeDescription ||
+                            EditableThemeAuthor != CurrentThemeAuthor ||
+                            EditableThemeVersion != CurrentThemeVersion;
+
+            if (!hasChanges)
+            {
+                await ShowSaveToastAsync("No changes to save", 2000);
+                IsEditingMetadata = false;
+                return;
+            }
+
+            // Apply changes
+            CurrentThemeDisplayName = EditableThemeName;
+            CurrentThemeDescription = EditableThemeDescription;
+            CurrentThemeAuthor = EditableThemeAuthor;
+            CurrentThemeVersion = EditableThemeVersion;
+
+            IsEditingMetadata = false;
+
+            await ShowSaveToastAsync("Metadata updated successfully", 2000);
+            ZTalk.Utilities.Logger.Log($"[Theme Metadata] Updated metadata for theme: {CurrentThemeId}", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+        }
+        catch (Exception ex)
+        {
+            await ShowSaveToastAsync($"Error saving metadata: {ex.Message}", 3000);
+            ZTalk.Utilities.Logger.Log($"[Theme Metadata] Error saving metadata: {ex.Message}", 
+                                       Utilities.LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    // Cancel metadata editing
+    private void CancelMetadataEdit()
+    {
+        IsEditingMetadata = false;
+        ZTalk.Utilities.Logger.Log("[Theme Metadata] Cancelled metadata editing", 
+                                   Utilities.LogLevel.Info, categoryOverride: "theme");
+    }
+
+    // Export modified theme (includes all edits)
+    private async Task ExportModifiedThemeAsync()
+    {
+        try
+        {
+            // Create theme definition with current state
+            var theme = new Models.ThemeDefinition
+            {
+                Id = $"custom-{DateTime.UtcNow:yyyyMMddHHmmss}",
+                DisplayName = CurrentThemeDisplayName,
+                Description = CurrentThemeDescription,
+                Version = CurrentThemeVersion,
+                Author = CurrentThemeAuthor,
+                BaseVariant = "Dark",
+                AllowsCustomization = true,
+                ModifiedAt = DateTime.UtcNow
+            };
+
+            // Add color overrides from current edits
+            foreach (var color in ThemeColors.Where(c => !string.IsNullOrEmpty(c.ColorValue)))
+            {
+                theme.ColorOverrides[color.ResourceKey] = color.ColorValue;
+            }
+
+            // Add gradients
+            foreach (var gradient in ThemeGradients.Where(g => g.GradientDefinition != null))
+            {
+                theme.Gradients[gradient.ResourceKey] = gradient.GradientDefinition!;
+            }
+
+            // Get main window for file dialog
+            var window = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+
+            if (window == null)
+            {
+                await ShowSaveToastAsync("Unable to access file system", 3000);
+                return;
+            }
+
+            // Show save file dialog
+            var file = await window.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+            {
+                Title = "Export Modified Theme",
+                SuggestedFileName = $"{theme.DisplayName.Replace(" ", "_")}.zttheme",
+                FileTypeChoices = new[]
+                {
+                    new Avalonia.Platform.Storage.FilePickerFileType("ZTalk Theme Files")
+                    {
+                        Patterns = new[] { "*.zttheme" }
+                    }
+                }
+            });
+
+            if (file != null)
+            {
+                var filePath = file.Path.LocalPath;
+                theme.SaveToFile(filePath);
+                await ShowSaveToastAsync($"Theme exported to: {System.IO.Path.GetFileName(filePath)}", 3000);
+                ZTalk.Utilities.Logger.Log($"[Theme Export] Exported modified theme to: {filePath}", 
+                                           Utilities.LogLevel.Info, categoryOverride: "theme");
+            }
+        }
+        catch (Exception ex)
+        {
+            await ShowSaveToastAsync($"Error exporting theme: {ex.Message}", 3000);
+            ZTalk.Utilities.Logger.Log($"[Theme Export] Error exporting modified theme: {ex.Message}", 
+                                       Utilities.LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    // Save As: Export current theme state as a new custom theme
+    // This is the primary save mechanism for built-in/read-only themes
+    private async Task SaveAsAsync()
+    {
+        try
+        {
+            ZTalk.Utilities.Logger.Log("[Theme SaveAs] Starting Save As operation", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+
+            // Get current theme from engine to check if it's read-only
+            var engine = AppServices.ThemeEngine;
+            var registered = engine.GetRegisteredThemes();
+            
+            Models.ThemeDefinition? currentTheme = null;
+            if (!string.IsNullOrEmpty(CurrentThemeId) && registered.TryGetValue(CurrentThemeId, out var existing))
+            {
+                currentTheme = existing;
+            }
+
+            // Determine if we should warn about built-in themes
+            bool isBuiltIn = currentTheme?.IsBuiltIn() ?? false;
+            if (isBuiltIn)
+            {
+                ZTalk.Utilities.Logger.Log($"[Theme SaveAs] Saving built-in theme '{CurrentThemeDisplayName}' as new custom theme", 
+                                           Utilities.LogLevel.Info, categoryOverride: "theme");
+            }
+
+            // Create theme definition with current editor state
+            // Always generate a new unique ID for saved themes to avoid conflicts
+            var theme = new Models.ThemeDefinition
+            {
+                Id = $"custom-{Guid.NewGuid():N}",
+                DisplayName = string.IsNullOrWhiteSpace(CurrentThemeDisplayName) ? "Custom Theme" : CurrentThemeDisplayName,
+                Description = CurrentThemeDescription ?? "Custom theme created from Theme Builder",
+                Version = CurrentThemeVersion,
+                Author = CurrentThemeAuthor ?? Environment.UserName,
+                BaseVariant = "Dark",
+                AllowsCustomization = true,
+                IsReadOnly = false,
+                ThemeType = Models.ThemeType.Custom,
+                CreatedAt = DateTime.UtcNow,
+                ModifiedAt = DateTime.UtcNow,
+                Tags = new System.Collections.Generic.List<string> { "custom", "user-created" }
+            };
+
+            // Add color overrides from current editor
+            foreach (var color in ThemeColors.Where(c => !string.IsNullOrEmpty(c.ColorValue)))
+            {
+                theme.ColorOverrides[color.ResourceKey] = color.ColorValue;
+            }
+
+            // Add gradients from current editor
+            foreach (var gradient in ThemeGradients.Where(g => g.GradientDefinition != null))
+            {
+                theme.Gradients[gradient.ResourceKey] = gradient.GradientDefinition!;
+            }
+
+            ZTalk.Utilities.Logger.Log($"[Theme SaveAs] Created theme definition with {theme.ColorOverrides.Count} colors, {theme.Gradients.Count} gradients", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+
+            // Get main window for file dialog
+            var window = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+
+            if (window == null)
+            {
+                await ShowSaveToastAsync("❌ Unable to access file system", 3000);
+                return;
+            }
+
+            // Show save file dialog
+            var suggestedName = theme.DisplayName.Replace(" ", "_");
+            // Remove invalid filename characters
+            foreach (var c in System.IO.Path.GetInvalidFileNameChars())
+            {
+                suggestedName = suggestedName.Replace(c, '_');
+            }
+
+            var file = await window.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+            {
+                Title = "Save Theme As",
+                SuggestedFileName = $"{suggestedName}.zttheme",
+                FileTypeChoices = new[]
+                {
+                    new Avalonia.Platform.Storage.FilePickerFileType("ZTalk Theme Files")
+                    {
+                        Patterns = new[] { "*.zttheme" }
+                    },
+                    new Avalonia.Platform.Storage.FilePickerFileType("All Files")
+                    {
+                        Patterns = new[] { "*" }
+                    }
+                }
+            });
+
+            if (file == null)
+            {
+                // User cancelled
+                ZTalk.Utilities.Logger.Log("[Theme SaveAs] User cancelled file dialog", 
+                                           Utilities.LogLevel.Info, categoryOverride: "theme");
+                return;
+            }
+
+            var filePath = file.Path.LocalPath;
+            
+            // Save theme to file
+            theme.SaveToFile(filePath);
+
+            await ShowSaveToastAsync($"💾 Theme saved as: {System.IO.Path.GetFileName(filePath)}", 3000);
+            ZTalk.Utilities.Logger.Log($"[Theme SaveAs] Successfully saved theme to: {filePath}", 
+                                       Utilities.LogLevel.Info, categoryOverride: "theme");
+
+            // Optional: Ask if user wants to import this new theme
+            // For now, just log success
+        }
+        catch (Exception ex)
+        {
+            await ShowSaveToastAsync($"❌ Save failed: {ex.Message}", 4000);
+            ZTalk.Utilities.Logger.Log($"[Theme SaveAs] Error saving theme: {ex.Message}", 
+                                       Utilities.LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    // Helper class for undo/redo tracking
+    private class ColorEditAction
+    {
+        public string ResourceKey { get; set; } = string.Empty;
+        public string OldValue { get; set; } = string.Empty;
+        public string NewValue { get; set; } = string.Empty;
+    }
+
+    // Helper classes for data binding
+    public class ThemeColorEntry : INotifyPropertyChanged
+    {
+        private string _colorValue = string.Empty;
+        private bool _isEditing = false;
+        private bool _isSelected = false;
+        
+        public string ResourceKey { get; set; } = string.Empty;
+        
+        public string ColorValue
+        {
+            get => _colorValue;
+            set
+            {
+                if (_colorValue != value)
+                {
+                    _colorValue = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ColorValue)));
+                }
+            }
+        }
+        
+        public bool IsEditing
+        {
+            get => _isEditing;
+            set
+            {
+                if (_isEditing != value)
+                {
+                    _isEditing = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEditing)));
+                }
+            }
+        }
+        
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected != value)
+                {
+                    _isSelected = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+                }
+            }
+        }
+        
+        public string? OriginalValue { get; set; } // For cancel operation
+        public bool IsEditable { get; set; } = true; // Phase 3 Step 4: Enable editing
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+    }
+
+    public class ThemeGradientEntry : INotifyPropertyChanged
+    {
+        private Models.GradientDefinition? _gradientDefinition;
+        private bool _isEditing = false;
+        
+        public string ResourceKey { get; set; } = string.Empty;
+        
+        public Models.GradientDefinition? GradientDefinition
+        {
+            get => _gradientDefinition;
+            set
+            {
+                if (_gradientDefinition != value)
+                {
+                    _gradientDefinition = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GradientDefinition)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(GradientPreview)));
+                }
+            }
+        }
+        
+        public bool IsEditing
+        {
+            get => _isEditing;
+            set
+            {
+                if (_isEditing != value)
+                {
+                    _isEditing = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEditing)));
+                }
+            }
+        }
+        
+        public bool IsEditable { get; set; } = true;
+        
+        // Original values for cancel operation
+        public string? OriginalStartColor { get; set; }
+        public string? OriginalEndColor { get; set; }
+        public double OriginalAngle { get; set; }
+        
+        public string GradientPreview => GradientDefinition != null 
+            ? $"{GradientDefinition.StartColor} → {GradientDefinition.EndColor} ({GradientDefinition.Angle}°)"
+            : "No gradient data";
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+    }
+
+    // Helper class for gradient presets
+    public class GradientPreset
+    {
+        public string Name { get; set; } = string.Empty;
+        public string StartColor { get; set; } = "#000000";
+        public string EndColor { get; set; } = "#FFFFFF";
+        public double Angle { get; set; } = 0.0;
+    }
+
+    // Helper class for legacy theme options in Load From dropdown
+    public class LegacyThemeOption
+    {
+        public string DisplayName { get; set; } = string.Empty;
+        public string ThemeId { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+    }
+
+    #endregion
 }
 
 internal sealed class LockServiceSingleton

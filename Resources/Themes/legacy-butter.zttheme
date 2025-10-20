@@ -1,0 +1,34 @@
+{
+  "id": "legacy-butter",
+  "displayName": "Butter",
+  "description": "Legacy Butter theme (compatibility mode)",
+  "author": "ZTalk",
+  "version": "1.0.0",
+  "baseVariant": "Dark",
+  "resourceDictionaries": [
+    "avares://ZTalk/Styles/ButterThemeOverride.axaml"
+  ],
+  "colorOverrides": {},
+  "gradients": {
+    "App.TitleBarBackground": {
+      "startColor": "#1C1B18",
+      "endColor": "#1C1B18",
+      "angle": 90
+    }
+  },
+  "defaultFontFamily": null,
+  "defaultUiScale": 1.0,
+  "minAppVersion": null,
+  "isLegacyTheme": true,
+  "legacyThemeOption": 3,
+  "allowsCustomization": false,
+  "isReadOnly": true,
+  "themeType": 0,
+  "tags": [
+    "legacy",
+    "built-in"
+  ],
+  "metadata": {},
+  "createdAt": "2025-01-01T00:00:00Z",
+  "modifiedAt": "2025-01-01T00:00:00Z"
+}

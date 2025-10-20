@@ -1,0 +1,57 @@
+{
+  "id": "template-blank",
+  "displayName": "Blank",
+  "description": "Neutral grey template - perfect starting point for custom themes",
+  "author": "ZTalk",
+  "version": "1.0.0",
+  "baseVariant": "Dark",
+  "resourceDictionaries": [
+    "avares://ZTalk/Styles/DarkThemeOverrides.axaml"
+  ],
+  "colorOverrides": {
+    "App.Background": "#1C1C1C",
+    "App.Surface": "#242424",
+    "App.CardBackground": "#2A2A2A",
+    "App.ForegroundPrimary": "#E0E0E0",
+    "App.ForegroundSecondary": "#A0A0A0",
+    "App.Border": "#3A3A3A",
+    "App.InputBorder": "#3A3A3A",
+    "App.Accent": "#6B7B8C",
+    "App.AccentLight": "#8A97A5",
+    "App.SelectionBackground": "#4A4A4A",
+    "App.SelectionForeground": "#FFFFFF",
+    "App.ButtonBackground": "#2A2A2A",
+    "App.ButtonHover": "#323232",
+    "App.ButtonPressed": "#3A3A3A",
+    "App.ChatSenderName": "#9CA5AF",
+    "App.ChatReceiverName": "#AFA89C",
+    "App.ContactName": "#A0A0A0",
+    "App.ContactNameActive": "#E0E0E0",
+    "App.ItemHover": "#303030",
+    "App.ItemSelected": "#383838"
+  },
+  "gradients": {
+    "App.TitleBarBackground": {
+      "startColor": "#3A3A3A",
+      "endColor": "#1C1C1C",
+      "angle": 90.0,
+      "direction": null,
+      "colorStops": {}
+    }
+  },
+  "defaultFontFamily": null,
+  "defaultUiScale": 1.0,
+  "minAppVersion": null,
+  "isLegacyTheme": false,
+  "legacyThemeOption": null,
+  "allowsCustomization": false,
+  "isReadOnly": true,
+  "themeType": 1,
+  "tags": [
+    "template",
+    "built-in"
+  ],
+  "metadata": {},
+  "createdAt": "2025-01-01T00:00:00Z",
+  "modifiedAt": "2025-01-01T00:00:00Z"
+}

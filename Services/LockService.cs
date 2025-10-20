@@ -18,9 +18,16 @@ namespace ZTalk.Services
     {
         // Handles passphrase gating and auto-lock behavior
         public bool IsLocked { get; private set; } = true;
+        
         public void Unlock(string passphrase)
         {
+            // Validate passphrase by attempting to load the account
+            // This will throw if the passphrase is incorrect
+            var account = AppServices.Accounts.LoadAccount(passphrase);
+            
+            // If we got here, passphrase is valid
             AppServices.Passphrase = passphrase;
+            AppServices.Identity.LoadFromAccount(account);
             IsLocked = false;
         }
 

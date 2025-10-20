@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ZTalk.Controls.ColorPicker.SaturationValuePicker"
+             Width="240" Height="240">
+  <Grid x:Name="Root">
+    <Border CornerRadius="6" BorderThickness="1" BorderBrush="#555" ClipToBounds="True">
+      <Grid>
+        <!-- Base hue color layer - this will be updated dynamically based on selected hue -->
+        <Border x:Name="HueLayer" Background="Red"/>
+
+        <!-- Saturation overlay: white -> transparent (left -> right) -->
+        <Border>
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+              <GradientStop Color="#FFFFFFFF" Offset="0" />
+              <GradientStop Color="#00FFFFFF" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+        </Border>
+
+        <!-- Value overlay: transparent -> black (top -> bottom) -->
+        <Border>
+          <Border.Background>
+            <LinearGradientBrush StartPoint="50%,0%" EndPoint="50%,100%">
+              <GradientStop Color="#00000000" Offset="0" />
+              <GradientStop Color="#FF000000" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+        </Border>
+      </Grid>
+    </Border>
+
+    <!-- Canvas covers the area so Thumb positions correctly -->
+    <Canvas HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+      <Ellipse x:Name="Thumb" Width="16" Height="16" StrokeThickness="3" Stroke="White" Fill="Transparent">
+        <Ellipse.Effect>
+          <DropShadowEffect BlurRadius="4" Color="Black" Opacity="0.5" OffsetX="0" OffsetY="0"/>
+        </Ellipse.Effect>
+      </Ellipse>
+    </Canvas>
+  </Grid>
+</UserControl>

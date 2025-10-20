@@ -4,7 +4,7 @@
   <Styles.Resources>
     <!-- Core brush contract (can be overridden by theme override files) -->
   <SolidColorBrush x:Key="App.Background" Color="#181818"/>
-  <SolidColorBrush x:Key="App.TitleBarBackground" Color="#181818"/>
+  <!-- App.TitleBarBackground moved to gradient definition in theme JSON -->
   <SolidColorBrush x:Key="App.Surface" Color="#202020"/>
     <SolidColorBrush x:Key="App.CardBackground" Color="#232323"/>
     <SolidColorBrush x:Key="App.ForegroundPrimary" Color="#FFFFFF"/>

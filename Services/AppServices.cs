@@ -14,8 +14,8 @@ namespace ZTalk.Services;
 
 public static class AppServices
 {
-    // TODO: Integrate with LockService to set a real passphrase on unlock
-    public static string Passphrase { get; set; } = "dev";
+    // Passphrase is set by LockService.Unlock() after validation against the account
+    public static string Passphrase { get; set; } = string.Empty;
     public static SettingsService Settings { get; } = new(new P2EContainer());
     public static IdentityService Identity { get; } = new();
     public static NatTraversalService Nat { get; } = new();
@@ -30,6 +30,7 @@ public static class AppServices
     public static UpdateManager Updates { get; } = new();
     public static EventHub Events { get; } = new();
     public static ThemeService Theme { get; } = new();
+    public static ThemeEngine ThemeEngine { get; } = new(Theme);
     public static RegressionGuard Guard { get; } = new(Settings, Network, Nat);
     public static DiscoveryService Discovery { get; } = new(Settings, Network, Nat, Crawler);
     public static RetentionService Retention { get; } = new();
@@ -75,8 +76,8 @@ public static class AppServices
         {
             var mc = new ZTalk.Containers.MessageContainer();
             mc.UpdateMessage(peerUid, messageId, newContent, Passphrase);
-            // UI: The bound list in MainWindow may not auto-refresh; rely on ViewModel listening to ChatMessageReceived for new only.
-            // TODO: Consider raising an event for edits if we add an event channel.
+            // Raise event so UI can refresh if this conversation is currently visible
+            Events.RaiseMessageEdited(peerUid, messageId, newContent);
         }
         catch { }
     }
@@ -96,7 +97,8 @@ public static class AppServices
                 }
             }
             catch { }
-            // TODO: Raise a UI event so active conversation can remove the message if visible.
+            // Raise event so UI can refresh if this conversation is currently visible
+            Events.RaiseMessageDeleted(peerUid, messageId);
         }
         catch { }
     }
