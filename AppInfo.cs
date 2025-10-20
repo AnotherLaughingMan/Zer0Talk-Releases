@@ -8,8 +8,8 @@ public static class AppInfo
 {
     // Clean version string - no git hashes or extra metadata
     // Using const instead of assembly metadata to avoid ThisAssembly.AssemblyInfo injecting git hashes
-    public const string Version = "0.0.1.61";
-    public const string PrototypeTag = "InDev-Prototype";
+    public const string Version = "0.0.2.00";
+    public const string PrototypeTag = "InDev-Alpha";
 
     public static string PrototypeBadgeText => $"{PrototypeTag} v{Version}";
     

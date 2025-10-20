@@ -1,6 +1,6 @@
 # ZTalk
 
-> **Prototype Warning:** ZTalk is firmly in an **InDev-Prototype** state. Updates land frequently, features shift under your feet, and plenty of things are in active repair at any given moment.
+> **Alpha Warning:** ZTalk is now in an **InDev-Alpha** state. Updates land frequently, features shift under your feet, and plenty of things are in active repair at any given moment.
 
 Peer-to-peer messaging experiment for Windows, built with Avalonia (.NET 9) and a service-heavy MVVM architecture. Everything runs locally: encrypted settings, identity sidecars, and contact data live on your machine—no central servers involved.
 
