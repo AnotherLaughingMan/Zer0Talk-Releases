@@ -37,7 +37,7 @@ The **ZTalk Theme Editor** lets you customize every color and gradient in ZTalk'
 ### Opening the Theme Editor
 
 1. Open **ZTalk**
-2. Click the **🎨 Theme Editor** icon in the left sidebar (near the bottom)
+2. Click the **🎨 Theme Editor** icon in the left sidebar.
 
 A new Theme Editor window opens with all your theme customization tools.
 
@@ -64,7 +64,6 @@ The Theme Editor has three main sections:
 - **Save As** (floppy + arrow icon) - Save theme as a new file
 - **Export Modified** (export arrow icon) - Export your edited theme
 - **Undo/Redo** (↶/↷ icons) - Undo or redo color changes
-- **Batch Edit Mode** (list icon) - Select multiple colors for bulk operations
 
 ---
 
@@ -74,13 +73,14 @@ The Theme Editor has three main sections:
 
 1. Find the color in the **🎨 Color Overrides** section
 2. You'll see a friendly name like **"Main Background"** with the technical name below in small text
-3. Click the **color preview square** (40x40 colored box) to open the color picker
-4. The visual color picker popup opens with multiple ways to edit:
+3. The hex value is displayed as read-only in the Color Overrides panel
+4. Click the **color preview square** (40x40 colored box) to open the color picker
+5. The visual color picker popup opens with multiple ways to edit:
    - **Hex field**: Type the new hex color code (e.g., `#2A2A2A`)
    - **Visual picker**: Drag on the large saturation/value square
    - **Sliders**: Adjust Hue, Saturation, Value, and Alpha sliders
    - **RGB inputs**: Type exact Red, Green, Blue values (0-255)
-5. Click **Apply** to save your changes, or **Cancel** to discard
+6. Click **Apply** to save your changes, or **Cancel** to discard
 
 ### Color Format Guide
 
@@ -129,8 +129,6 @@ Gradients are smooth color transitions that add depth and visual interest. For e
 Scroll down to the **🌈 Gradients** section. You'll see gradients with friendly names:
 
 - **Title Bar Gradient** - The top bar of ZTalk windows
-- **Button Gradient** - Background gradients for buttons  
-- **Message Bubble Gradient** - Chat message backgrounds
 
 ### Editing a Gradient
 
@@ -141,7 +139,7 @@ Scroll down to the **🌈 Gradients** section. You'll see gradients with friendl
 
 **Step 2: Choose Your Method**
 
-**Option A: Use a Preset (Easiest)**
+**Option A: Use a Preset (Quick but Sometimes Quirky)**
 1. Scroll down to **Apply Preset** ComboBox
 2. Click the dropdown to see preset options with visual previews
 3. Choose from 6 beautiful presets:
@@ -152,16 +150,20 @@ Scroll down to the **🌈 Gradients** section. You'll see gradients with friendl
    - **Fire** - Bold red to orange (0° angle)
    - **Ice** - Soft blue gradient (270° angle)
 4. Each preset shows a preview bar with the gradient colors
-5. Selecting a preset automatically fills in the Start Color, End Color, and Angle fields
+5. Selecting a preset should automatically fill in the Start Color, End Color, and Angle fields
+
+**Note**: The preset feature is currently semi-working with some quirks. If a preset doesn't apply correctly, try selecting it again or manually enter the colors using Option B below.
 
 **Option B: Type Custom Colors**
-1. **Start Color**: Type a hex color (e.g., `#FF6B6B`)
-2. **End Color**: Type a hex color (e.g., `#FFD93D`)
-3. **Angle**: Type 0-360 (or use the slider)
-   - `0°` = Top to bottom
-   - `90°` = Left to right
-   - `180°` = Bottom to top
-   - `270°` = Right to left
+1. **Start Color**: Type a hex color (e.g., `#FF6B6B`) or click the color square to use the color picker
+2. **End Color**: Type a hex color (e.g., `#FFD93D`) or click the color square to use the color picker
+3. **Angle**: Type 0-360
+   - `0°` = Left to right (Start to End)
+   - `90°` = Bottom to top
+   - `180°` = Right to left
+   - `270°` = Top to bottom
+
+**Note**: Unlike Color Overrides, gradient hex values can still be edited directly, though using the color picker is recommended for better accuracy.
 
 **Step 3: Save**
 - Click **💾 Save** to apply the gradient
@@ -185,20 +187,23 @@ Setting both colors the same is simpler than complex on/off settings. You can al
 The **Angle** controls which way the gradient flows:
 
 ```
-     0° (Top → Bottom)
+    270° (Top → Bottom)
        ↓
        
-90° ← ■ → 270° (Left ↔ Right)
+180° ← ■ → 0° (Left ↔ Right)
        
        ↑
-    180° (Bottom → Top)
+     90° (Bottom → Top)
 ```
 
 **Common Angles:**
-- **0°** - Subtle top-to-bottom fade (most natural)
-- **90°** - Dynamic left-to-right sweep
+- **0°** - Dynamic left-to-right sweep (Start to End)
+- **90°** - Bottom-to-top rise (upward energy)
+- **270°** - Subtle top-to-bottom fade (most natural)
 - **45°** or **135°** - Diagonal energy
-- **180°** - Bottom-to-top (inverted feel)
+- **180°** - Right-to-left (reversed feel)
+
+**Important Note**: Gradient visibility depends heavily on your color choices. Acute and obtuse angles (like 30°, 45°, 135°, 150°) may be barely noticeable with similar colors but very dramatic with contrasting colors. High-contrast gradients make any angle direction obvious, while subtle color transitions work best with angles that match your UI flow (0° for horizontal elements, 270° for vertical elements).
 
 ---
 
@@ -344,22 +349,12 @@ To share a theme with others:
 - High-contrast themes
 - When you prefer flat design
 
-### Batch Editing Workflow
-
-**Using Batch Mode for Multiple Colors:**
-1. Click the **Batch Edit Mode** button (list icon) in the toolbar
-2. Checkboxes appear next to each color
-3. Select the colors you want to change:
-   - Check individual colors
-   - Or click **Select All** to select all colors
-4. Copy a color from any color (click the copy icon next to it)
-5. Click **Paste** to apply that color to all selected colors
-6. Click the checkmark to exit batch mode
+### Individual Color Editing Workflow
 
 **Quick Individual Color Editing:**
-1. Click the color preview square to open the visual picker
+1. Click the color preview square to open the visual color picker
 2. Adjust using the saturation/value picker or sliders
-3. Type exact hex codes in the hex field
+3. Type exact hex codes in the hex field within the color picker popup
 4. Click **Apply** to save
 
 **Copy/Paste Individual Colors:**
@@ -474,7 +469,6 @@ To share a theme with others:
 | **Save As** (floppy + arrow) | Export theme as new file |
 | **Import Theme** (folder) | Load a theme file |
 | **Export Modified** (export arrow) | Export your edited theme |
-| **Batch Edit Mode** (list) | Toggle multi-color selection mode |
 | **Undo/Redo** (↶/↷) | Undo or redo color changes |---
 
 ## Getting Help
@@ -566,20 +560,19 @@ Resource keys identify UI elements:
 
 **Steps**:
 1. Find the color you want to edit in the **Color Overrides** list
-2. Click the **✏️ Edit** button next to the color
-3. The color value becomes editable (TextBox appears)
-4. Enter a new hex color value:
+2. Click the **color preview square** (40x40 colored box) to open the color picker
+3. The visual color picker popup opens where you can:
+   - Edit the hex value in the **Hex field**
+   - Use the visual picker by dragging on the saturation/value square
+   - Adjust the HSV sliders
+   - Enter RGB values directly
+4. Enter a new hex color value in the color picker:
    - Short format: `#RGB` (e.g., `#F00` for red)
    - Standard format: `#RRGGBB` (e.g., `#FF0000`)
    - With alpha: `#AARRGGBB` (e.g., `#80FF0000` for semi-transparent red)
-5. Click **💾 Save** to apply or **❌ Cancel** to discard
+5. Click **Apply** to save or **Cancel** to discard
 
-**Example**:
-```
-Before:  App.Background → #1E1E1E → [■]
-Edit:    [#2A2A2A_________] 💾 Save | ❌ Cancel
-After:   App.Background → #2A2A2A → [■]
-```
+**Note**: The hex values shown in the Color Overrides panel are read-only. All editing is done through the color picker popup.
 
 ### Color Format Reference
 
@@ -620,66 +613,7 @@ Every color edit is tracked in the undo stack:
 
 ---
 
-## Batch Color Editing
 
-Batch mode allows you to edit multiple colors simultaneously.
-
-### Activating Batch Mode
-
-1. Click the **📦** button in the toolbar
-2. Checkboxes appear next to each color
-3. The toolbar changes to show batch operations
-
-### Selecting Colors
-
-**Select Individual Colors**:
-- Click checkboxes next to desired colors
-
-**Select All**: Click **Select All** button
-- Selects all visible colors
-
-**Deselect All**: Click **Deselect All** button
-- Clears all selections
-
-**Selection Counter**:
-- Shows "Selected: X" in toolbar
-
-### Copy & Paste
-
-**Copy a Color**:
-1. Click **📋 Copy** on any color entry
-2. Copied color is stored in memory
-3. Indicator shows "Paste Available"
-
-**Paste to Selected Colors**:
-1. Select multiple colors (checkboxes)
-2. Copy a color from any source
-3. Click **📋↓ Paste**
-4. All selected colors update to copied value
-
-**Example Workflow**:
-```
-1. Copy #FF6B6B from accent color
-2. Select 5 other colors
-3. Paste → all 5 colors become #FF6B6B
-4. Undo if needed (all 5 changes tracked)
-```
-
-### Recent Colors
-
-The **Recent Colors** panel tracks your last 10 color changes:
-- Most recent appears first
-- Click a recent color to quickly reuse it
-- Automatically maintains max 10 entries (LRU)
-
-### Exiting Batch Mode
-
-Click **✔️** button to exit batch mode:
-- Checkboxes disappear
-- Selections are cleared
-- Returns to normal edit mode
-
----
 
 ## Editing Gradients
 
@@ -697,9 +631,6 @@ Gradients are smooth color transitions that can make your theme look more dynami
 When you open the Theme Editor, scroll down to the **🌈 Gradients** section. You'll see a list of available gradients with user-friendly names:
 
 - **Title Bar Gradient** - The top bar of ZTalk windows
-- **Button Gradient** - Background gradients for buttons
-- **Message Bubble Gradient** - Chat message backgrounds
-- And more...
 
 Each gradient shows its friendly name (like "Title Bar Gradient") with the technical resource key below in small text (like "App.TitleBarBackground").
 
@@ -718,7 +649,7 @@ Let's customize the title bar gradient as an example. The same steps work for an
 2. The gradient editor expands showing:
    - Start Color (where the gradient begins)
    - End Color (where it ends)
-   - Angle slider (direction of the gradient)
+   - Angle field (direction of the gradient)
    - Quick preset options
 
 **Step 3: Change the Colors**
@@ -743,17 +674,19 @@ You have two ways to customize:
 4. Colors automatically fill in when you select one
 
 **Step 4: Adjust the Direction**
-- Drag the **Angle slider** to change gradient direction:
-  - **0°** = Top to bottom
-  - **90°** = Left to right (horizontal)
-  - **180°** = Bottom to top
-  - **270°** = Right to left
-- Watch the preview update as you drag
+- Type in the **Angle field** to change gradient direction:
+  - **0°** = Left to right (horizontal, Start to End)
+  - **90°** = Bottom to top
+  - **180°** = Right to left
+  - **270°** = Top to bottom
+- The gradient updates when you save
 
 **Step 5: Save Your Changes**
 - Click **💾 Save** to apply the gradient
 - Click **❌ Cancel** to discard changes
 - Your title bar immediately shows the new gradient!
+
+**💡 Pro Tip**: If you're working on a custom theme that you have actively set on ZTalk, saving your theme will live update the theme and you will see the changes immediately throughout the application.
 
 ### Understanding the Gradient Editor
 
@@ -771,7 +704,7 @@ When editing a gradient, you'll see:
 │ [#FFD93D________________]  ← Type hex color here    │
 │                                                      │
 │ Angle (0-360°):                                      │
-│ [═══════●═════════════] 135°  ← Drag to rotate      │
+│ [135°_______________]  ← Type angle here             │
 │                                                      │
 │ Apply Preset:                                        │
 │ [Select preset ▼]  ← Choose ready-made gradient     │
@@ -829,15 +762,15 @@ When editing a gradient, you'll see:
 A: Yes! Just set the Start Color and End Color to the same value. For example, both `#2A2A2A` creates a solid dark grey.
 
 **Q: How do I make the gradient go from left to right?**
-A: Set the Angle to **90°**.
+A: Set the Angle to **0°** (this is the default Start to End direction).
 
 **Q: Can I add more gradients?**
 A: Currently, you can edit the gradients that come with the theme. Support for adding new gradients will come in a future update.
 
 **Q: What's the difference between 0° and 180°?**
 A: They go in opposite directions:
-- **0°**: Start color at top, End color at bottom
-- **180°**: Start color at bottom, End color at top
+- **0°**: Start color at left, End color at right
+- **180°**: Start color at right, End color at left
 
 ---
 
@@ -906,9 +839,8 @@ This gives you a professional starting point where you can focus on adding your 
 
 **Step 2: Customize Colors**
 1. Edit individual colors (see [Editing Colors](#editing-colors) section)
-2. Or use batch mode to modify multiple colors at once
-3. Use Recent Colors and Copy/Paste for consistency
-4. All edits are tracked in undo/redo stack
+2. Use Recent Colors and Copy/Paste for consistency
+3. All edits are tracked in undo/redo stack
 
 **Step 3: Optionally Edit Metadata**
 1. Click **✏️ Edit Metadata** button
@@ -1106,11 +1038,6 @@ Once imported, the theme loads into the Theme Editor:
 
 ### 🚀 Workflow Optimization
 
-**Use Batch Mode For**:
-- Changing all background shades
-- Updating accent color across buttons
-- Lightening/darkening multiple colors
-
 **Use Undo/Redo For**:
 - Experimenting with colors
 - Comparing variations quickly
@@ -1222,19 +1149,6 @@ Once imported, the theme loads into the Theme Editor:
 - Display Name is required field
 - Enter at least 1 character
 - Other fields (Description, Version, Author) are optional
-
-### Batch Mode Paste Not Working
-
-**Problem**: Paste button disabled
-
-**Causes**:
-- No color copied yet
-- No colors selected
-
-**Solutions**:
-- ✅ Copy a color first (📋 button)
-- ✅ Select at least 1 color (checkboxes)
-- ✅ Verify "Paste Available" indicator shows
 
 ### Can't Overwrite Built-in Theme
 
