@@ -65,7 +65,6 @@ Notes on data removal:
 
 - Select a contact and type your message into the composer box.
 - Press Enter to send, or Ctrl+Enter to insert a newline.
-- Attach files using the attachment icon. Attachments are transferred peer-to-peer.
 
 ## Message Options
 
