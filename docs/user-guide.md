@@ -41,7 +41,7 @@ There is one way to add a contact:
 
 ### Adding by UID or Invitation
 - Use the Add Contact toolbar button (icon with tooltip "Add Contact") in the main window to open the Add Contact dialog.
-- **Option A**: Enter your contact's ZTalk ID (peer UID) directly, add an optional message, and send the request.
+- **Option A**: Enter your contact's ZTalk ID (peer UID) directly and send the request.
 - **Option B**: If someone who has your UID sends you a contact request, you simply accept their incoming request - no need to enter any information.
 
 Notes:
