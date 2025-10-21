@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  
+  <!-- Product Definition -->
+  <Package Name="Zer0Talk"
+           Manufacturer="AnotherLaughingMan"
+           Version="0.0.2.1"
+           UpgradeCode="12345678-1234-1234-1234-123456789ABC"
+           Language="1033"
+           Codepage="1252"
+           InstallerVersion="500"
+           Compressed="yes"
+           InstallScope="perUser">
+
+    <SummaryInformation
+        Description="Zer0Talk - Secure Peer-to-Peer Messaging"
+        Manufacturer="AnotherLaughingMan"
+        Keywords="Installer,MSI,Zer0Talk" />
+
+    <!-- Media -->
+    <Media Id="1" Cabinet="Zer0Talk.cab" EmbedCab="yes" />
+
+    <!-- Major Upgrade: Remove previous versions -->
+    <MajorUpgrade 
+        DowngradeErrorMessage="A newer version of Zer0Talk is already installed."
+        Schedule="afterInstallInitialize"
+        AllowSameVersionUpgrades="yes" />
+
+    <!-- UI -->
+    <ui:WixUI Id="WixUI_InstallDir" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+    
+    <!-- EULA -->
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    
+    <!-- Icons -->
+    <Icon Id="Zer0TalkIcon" SourceFile="..\Assets\Icons\Icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="Zer0TalkIcon" />
+    
+    <!-- Add/Remove Programs -->
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+    <Property Id="ARPCOMMENTS" Value="Secure peer-to-peer messaging for Windows" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/AnotherLaughingMan/Zer0Talk" />
+
+    <!-- Installation Directory -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="Zer0Talk" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Zer0Talk" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <!-- Features -->
+    <Feature Id="ProductFeature" Title="Zer0Talk" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+    </Feature>
+
+    <!-- Component Group: Application Files -->
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- Main executable -->
+      <Component Id="Zer0TalkExe" Bitness="always64">
+        <File Id="Zer0TalkExeFile" 
+              Source="..\publish\win-x64-Release\Zer0Talk.exe" 
+              KeyPath="yes">
+          <!-- File associations can be added here -->
+        </File>
+        
+        <!-- Firewall exception -->
+        <util:FirewallException Id="FWX_Zer0Talk"
+                                Name="Zer0Talk"
+                                Program="[#Zer0TalkExeFile]"
+                                Scope="any"
+                                IgnoreFailure="yes" />
+      </Component>
+
+      <!-- Uninstaller -->
+      <Component Id="UninstallerExe" Bitness="always64">
+        <File Id="UninstallerExeFile" 
+              Source="..\Uninstaller\bin\Release\net9.0\win-x64\publish\Zer0Talk.Uninstaller.exe" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- DLL files - Add all your DLL dependencies here -->
+      <Component Id="DllFiles" Bitness="always64">
+        <File Id="AvaloniaBase" Source="..\publish\win-x64-Release\Avalonia.Base.dll" />
+        <File Id="AvaloniaControls" Source="..\publish\win-x64-Release\Avalonia.Controls.dll" />
+        <!-- Add more DLL files as needed -->
+      </Component>
+
+      <!-- Configuration and data files -->
+      <Component Id="ConfigFiles" Bitness="always64">
+        <File Id="AppManifest" Source="..\app.manifest" />
+        <!-- Add other config files -->
+      </Component>
+    </ComponentGroup>
+
+    <!-- Component Group: Shortcuts -->
+    <ComponentGroup Id="ShortcutComponents">
+      <!-- Desktop Shortcut -->
+      <Component Id="DesktopShortcut" Directory="DesktopFolder" Bitness="always64">
+        <Shortcut Id="DesktopShortcutId"
+                  Name="Zer0Talk"
+                  Description="Zer0Talk - Secure P2P Messaging"
+                  Target="[#Zer0TalkExeFile]"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="Zer0TalkIcon" />
+        <RegistryValue Root="HKCU" 
+                      Key="Software\Zer0Talk\Installer" 
+                      Name="DesktopShortcut" 
+                      Type="integer" 
+                      Value="1" 
+                      KeyPath="yes" />
+        <RemoveFolder Id="CleanupDesktopShortcut" On="uninstall" />
+      </Component>
+
+      <!-- Start Menu Shortcuts -->
+      <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Bitness="always64">
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Name="Zer0Talk"
+                  Description="Zer0Talk - Secure P2P Messaging"
+                  Target="[#Zer0TalkExeFile]"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="Zer0TalkIcon" />
+        
+        <Shortcut Id="UninstallShortcut"
+                  Name="Uninstall Zer0Talk"
+                  Description="Uninstalls Zer0Talk"
+                  Target="[#UninstallerExeFile]"
+                  WorkingDirectory="INSTALLFOLDER" />
+        
+        <RegistryValue Root="HKCU" 
+                      Key="Software\Zer0Talk\Installer" 
+                      Name="StartMenuShortcut" 
+                      Type="integer" 
+                      Value="1" 
+                      KeyPath="yes" />
+        <RemoveFolder Id="CleanupStartMenuFolder" On="uninstall" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Custom Actions -->
+    <CustomAction Id="LaunchApplication" 
+                  BinaryRef="WixStandardBootstrapperApplication.Foundation"
+                  DllEntry="WixLaunchApplication" 
+                  Impersonate="yes" 
+                  Return="asyncNoWait" />
+
+    <!-- Execute Sequence -->
+    <InstallExecuteSequence>
+      <Custom Action="LaunchApplication" After="InstallFinalize">
+        NOT Installed AND NOT REMOVE
+      </Custom>
+    </InstallExecuteSequence>
+
+  </Package>
+</Wix>

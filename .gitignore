@@ -13,10 +13,14 @@ obj/
 [Bb]uildOutput/
 _trash/
 
-# Installers and Uninstallers
-Installer/
-SimpleInstaller/
+# Installer and Uninstaller (not tracked in repo)
 Uninstaller/
+Zer0Talk.Installer/bin/
+Zer0Talk.Installer/obj/
+*.msi
+*.wixpdb
+
+# Installer build scripts
 scripts/build-installer.bat
 scripts/build-uninstaller.bat
 
@@ -132,6 +136,9 @@ $RECYCLE.BIN/
 *.psc1
 powershell_history.txt
 *.ps1
+# But allow specific installer build scripts
+!Zer0Talk.Installer/build-installer.ps1
+!scripts/clear-old-firewall-rules.ps1
 
 # Miscellaneous
 *.iws
