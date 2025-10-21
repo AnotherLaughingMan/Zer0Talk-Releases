@@ -1,6 +1,6 @@
 using System;
 
-namespace ZTalk.Models
+namespace Zer0Talk.Models
 {
     public readonly struct MessagePurgeSummary
     {

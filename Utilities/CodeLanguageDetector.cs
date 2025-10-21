@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace ZTalk.Utilities;
+namespace Zer0Talk.Utilities;
 
 internal static class CodeLanguageDetector
 {

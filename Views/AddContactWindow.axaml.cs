@@ -2,9 +2,9 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 
-using ZTalk.ViewModels;
+using Zer0Talk.ViewModels;
 
-namespace ZTalk.Views
+namespace Zer0Talk.Views
 {
     public partial class AddContactWindow : Window
     {

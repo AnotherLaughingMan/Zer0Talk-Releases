@@ -5,9 +5,9 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 
-using ZTalk.Services;
+using Zer0Talk.Services;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public class UidToAvatarConverter : IMultiValueConverter
     {

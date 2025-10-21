@@ -15,9 +15,9 @@ using Avalonia.Styling;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Platform;
-using ZTalk.Models;
+using Zer0Talk.Models;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     /// <summary>
     /// Interface for loading theme resource dictionaries from various sources.
@@ -78,7 +78,7 @@ namespace ZTalk.Services
         {
             try
             {
-                var assetUri = new Uri($"avares://ZTalk/Resources/Themes/{themeId}.zttheme");
+                var assetUri = new Uri($"avares://Zer0Talk/Resources/Themes/{themeId}.zttheme");
                 using var stream = AssetLoader.Open(assetUri);
                 using var reader = new StreamReader(stream);
                 var json = await reader.ReadToEndAsync().ConfigureAwait(false);
@@ -121,7 +121,7 @@ namespace ZTalk.Services
                         continue;
 
                     // Create StyleInclude for each resource dictionary
-                    var baseUri = new Uri("avares://ZTalk/");
+                    var baseUri = new Uri("avares://Zer0Talk/");
                     var styleInclude = new Avalonia.Markup.Xaml.Styling.StyleInclude(baseUri)
                     {
                         Source = new Uri(resourcePath)
@@ -311,3 +311,4 @@ namespace ZTalk.Services
         }
     }
 }
+

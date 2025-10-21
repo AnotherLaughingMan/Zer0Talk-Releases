@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace ZTalk.Utilities;
+namespace Zer0Talk.Utilities;
 
 internal static class MarkdownCodeBlockLanguageAnnotator
 {

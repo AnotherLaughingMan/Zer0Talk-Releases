@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     /// <summary>
     /// Static helper class for easy audio notification access throughout the application
@@ -230,8 +230,8 @@ namespace ZTalk.Services
             try
             {
                 var line = $"[AUDIO_HELPER] {DateTime.Now:O}: {message}";
-                if (ZTalk.Utilities.LoggingPaths.Enabled)
-                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Audio, line + Environment.NewLine);
+                if (Zer0Talk.Utilities.LoggingPaths.Enabled)
+                    System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.Audio, line + Environment.NewLine);
             }
             catch { }
         }

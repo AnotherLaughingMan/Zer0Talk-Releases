@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace ZTalk.Utilities;
+namespace Zer0Talk.Utilities;
 
 public static class SerializationDefaults
 {

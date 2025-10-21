@@ -1,5 +1,5 @@
 param(
-    [string]$ProcessName = 'ZTalk',
+    [string]$ProcessName = 'Zer0Talk',
     [int]$GraceMillis = 1500,
     [switch]$Force,
     [switch]$VerboseMode

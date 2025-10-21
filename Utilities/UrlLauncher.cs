@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public static class UrlLauncher
     {

@@ -1,7 +1,7 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
-using ZTalk.Controls.Markdown;
+using Zer0Talk.Controls.Markdown;
 
 namespace QuoteRenderTest;
 

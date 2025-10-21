@@ -5,7 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 
-namespace ZTalk.Controls.ColorPicker
+namespace Zer0Talk.Controls.ColorPicker
 {
     using System.Reactive.Disposables;
     using System.Reactive.Linq;

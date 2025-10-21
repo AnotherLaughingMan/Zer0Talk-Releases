@@ -14,9 +14,9 @@ using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
 
-using ZTalk.Models;
+using Zer0Talk.Models;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class ThemeService
     {
@@ -100,14 +100,14 @@ namespace ZTalk.Services
                     .ToList();
                 foreach (var s in toRemove) styles.Remove(s);
 
-                var baseUri = new Uri("avares://ZTalk/");
+                var baseUri = new Uri("avares://Zer0Talk/");
                 var source = theme switch
                 {
-                    ThemeOption.Dark => new Uri("avares://ZTalk/Styles/DarkThemeOverrides.axaml"),
-                    ThemeOption.Light => new Uri("avares://ZTalk/Styles/LightThemeOverrides.axaml"),
-                    ThemeOption.Sandy => new Uri("avares://ZTalk/Styles/SandyThemeOverrides.axaml"),
-                    ThemeOption.Butter => new Uri("avares://ZTalk/Styles/ButterThemeOverride.axaml"),
-                    _ => new Uri("avares://ZTalk/Styles/DarkThemeOverrides.axaml")
+                    ThemeOption.Dark => new Uri("avares://Zer0Talk/Styles/DarkThemeOverrides.axaml"),
+                    ThemeOption.Light => new Uri("avares://Zer0Talk/Styles/LightThemeOverrides.axaml"),
+                    ThemeOption.Sandy => new Uri("avares://Zer0Talk/Styles/SandyThemeOverrides.axaml"),
+                    ThemeOption.Butter => new Uri("avares://Zer0Talk/Styles/ButterThemeOverride.axaml"),
+                    _ => new Uri("avares://Zer0Talk/Styles/DarkThemeOverrides.axaml")
                 };
                 styles.Add(new StyleInclude(baseUri) { Source = source });
                 LogTheme($"Loaded resource dictionary: {source}");
@@ -232,3 +232,4 @@ namespace ZTalk.Services
         }
     }
 }
+

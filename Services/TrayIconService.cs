@@ -9,9 +9,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform;
-using ZTalk.Views;
+using Zer0Talk.Views;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class TrayIconService : IDisposable
     {
@@ -36,7 +36,7 @@ namespace ZTalk.Services
                 _trayIcon = new TrayIcon
                 {
                     IsVisible = false,
-                    ToolTipText = "ZTalk"
+                    ToolTipText = "Zer0Talk"
                 };
 
                 // Load icon - try from assets
@@ -62,7 +62,7 @@ namespace ZTalk.Services
                 // Create context menu
                 var menu = new NativeMenu();
 
-                var showItem = new NativeMenuItem { Header = "Show ZTalk" };
+                var showItem = new NativeMenuItem { Header = "Show Zer0Talk" };
                 showItem.Click += (s, e) => ShowMainWindow();
                 menu.Add(showItem);
 
@@ -165,3 +165,4 @@ namespace ZTalk.Services
         }
     }
 }
+

@@ -1,6 +1,6 @@
 {
   "App": {
-    "Title": "ZTalk"
+    "Title": "Zer0Talk"
   },
   "Settings": {
     "Title": "Configurações",
@@ -50,13 +50,13 @@
     "Notifications": "Notificações",
     "ChatSounds": "Sons do Chat",
     "SystemTray": "Bandeja do Sistema",
-    "SystemTrayHelp": "Controle como o ZTalk se comporta com a bandeja do sistema do Windows.",
+    "SystemTrayHelp": "Controle como o Zer0Talk se comporta com a bandeja do sistema do Windows.",
     "ShowSystemTrayIcon": "Mostrar ícone na bandeja do sistema",
-    "ShowSystemTrayIconHelp": "Exibir o ícone do ZTalk na bandeja do sistema do Windows para acesso rápido",
+    "ShowSystemTrayIconHelp": "Exibir o ícone do Zer0Talk na bandeja do sistema do Windows para acesso rápido",
     "MinimizeToTray": "Minimizar para bandeja ao fechar",
     "MinimizeToTrayHelp": "O botão fechar minimizará para a bandeja do sistema em vez de sair do aplicativo",
     "RunOnStartup": "Executar na inicialização do Windows",
-    "RunOnStartupHelp": "Iniciar automaticamente o ZTalk quando o Windows iniciar (minimizado na bandeja)",
+    "RunOnStartupHelp": "Iniciar automaticamente o Zer0Talk quando o Windows iniciar (minimizado na bandeja)",
     "Family": "Família:",
     "Identity": "Identidade",
     "Username": "Nome de usuário",
@@ -163,7 +163,7 @@
     "RelaySettings": "Configurações de Retransmissão",
     "Port": "Porta",
     "PortLabel": "Porta:",
-    "PortDescription": "O número da porta que o ZTalk usa para conexões P2P. O padrão é 26264. Alterar isso requer reiniciar o aplicativo.",
+    "PortDescription": "O número da porta que o Zer0Talk usa para conexões P2P. O padrão é 26264. Alterar isso requer reiniciar o aplicativo.",
     "DedicatedPeerNode": "Nó de Par Dedicado",
     "EnableDedicatedPeerNode": "Ativar como nó de par dedicado (requer encaminhamento de porta)",
     "DedicatedPeerNodeInfo": "Nó de Par Dedicado:",
@@ -179,7 +179,7 @@
     "RelayServer": "Servidor de Retransmissão",
     "Requirements": "Requisitos:",
     "RequiresDedicatedRelay": "• Requer um servidor de retransmissão dedicado com IP público ou nome DNS",
-    "ServerMustBeConfigured": "• O servidor deve ser configurado para aceitar conexões de protocolo de retransmissão ZTalk",
+    "ServerMustBeConfigured": "• O servidor deve ser configurado para aceitar conexões de protocolo de retransmissão Zer0Talk",
     "RelayFormat": "• Formato: hostname:porta ou IP:porta (ex: relay.example.com:443)",
     "LeaveBlankToDisable": "• Deixe em branco para desabilitar retransmissão de fallback e confiar apenas em travessia direta/NAT",
     "KnownDedicatedPeerNodes": "Nós de Par Dedicados Conhecidos",
@@ -364,7 +364,7 @@
     "Create": "Criar"
   },
   "Unlock": {
-    "Title": "ZTalk Login",
+    "Title": "Zer0Talk Login",
     "EnterPassphrase": "Digite a senha para desbloquear",
     "Passphrase": "Senha",
     "RememberPassphrase": "Lembrar senha",
@@ -449,7 +449,7 @@
     "ISavedIt": "Eu salvei"
   },
   "Loading": {
-    "Title": "ZTalk - Carregando",
+    "Title": "Zer0Talk - Carregando",
     "Initializing": "Inicializando sistema de mensagens seguro..."
   }
 }

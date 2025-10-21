@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="ZTalk.Controls.ColorPicker.HueSlider"
+             x:Class="Zer0Talk.Controls.ColorPicker.HueSlider"
              Width="32" Height="240">
   <Grid>
     <!-- Hue gradient background (vertical rainbow) -->

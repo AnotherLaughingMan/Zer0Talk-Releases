@@ -1,10 +1,10 @@
 using System;
 using System.Threading.Tasks;
-using ZTalk.ViewModels;
-using ZTalk.Utilities;
+using Zer0Talk.ViewModels;
+using Zer0Talk.Utilities;
 using Sodium;
 
-namespace ZTalk.Services;
+namespace Zer0Talk.Services;
 
 public class LoadingManager
 {
@@ -46,7 +46,7 @@ public class LoadingManager
                     var startupSoundPath = System.IO.Path.Combine("Assets", "Sounds", "short-modern-logo-242224.mp3");
                     if (System.IO.File.Exists(startupSoundPath))
                     {
-                        await ZTalk.Services.AudioHelper.PlayCustomSoundAsync("short-modern-logo-242224.mp3");
+                        await Zer0Talk.Services.AudioHelper.PlayCustomSoundAsync("short-modern-logo-242224.mp3");
                         SafeLog("Init.StartupSound.Complete", null);
                     }
                     else
@@ -191,7 +191,7 @@ public class LoadingManager
             {
                 try
                 {
-                    if (!ZTalk.Utilities.RuntimeFlags.SafeMode)
+                    if (!Zer0Talk.Utilities.RuntimeFlags.SafeMode)
                     {
                         if (System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
                         {
@@ -217,10 +217,10 @@ public class LoadingManager
             CompleteCurrentStep();
             
             // Final completion
-            await UpdateProgress("Ready! Opening ZTalk...", 100);
+            await UpdateProgress("Ready! Opening Zer0Talk...", 100);
             if (_viewModel != null)
             {
-                _viewModel.MainMessage = "Welcome to ZTalk!";
+                _viewModel.MainMessage = "Welcome to Zer0Talk!";
             }
             await Task.Delay(1000); // Longer pause to ensure UI is ready
             
@@ -274,10 +274,11 @@ public class LoadingManager
         try
         {
             if (ex is null) 
-                ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(header), source: "LoadingTrace");
+                Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException(header), source: "LoadingTrace");
             else 
-                ZTalk.Utilities.ErrorLogger.LogException(ex, source: header);
+                Zer0Talk.Utilities.ErrorLogger.LogException(ex, source: header);
         }
         catch { }
     }
 }
+

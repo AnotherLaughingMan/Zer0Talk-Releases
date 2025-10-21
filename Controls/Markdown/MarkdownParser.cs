@@ -5,7 +5,7 @@ using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
-namespace ZTalk.Controls.Markdown;
+namespace Zer0Talk.Controls.Markdown;
 
 /// <summary>
 /// Parser that converts Markdown text into a safe, serializable RenderModel.

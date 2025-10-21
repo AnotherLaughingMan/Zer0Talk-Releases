@@ -8,9 +8,9 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
-using ZTalk.Services;
+using Zer0Talk.Services;
 
-namespace ZTalk.ViewModels
+namespace Zer0Talk.ViewModels
 {
     public class AccountCreationViewModel : INotifyPropertyChanged
     {

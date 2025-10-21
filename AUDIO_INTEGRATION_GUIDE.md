@@ -1,7 +1,7 @@
-# ZTalk Multi-Format Audio Notification Integration
+# Zer0Talk Multi-Format Audio Notification Integration
 
 ## Summary
-Your ZTalk application now supports comprehensive audio notifications with flexible format support:
+Your Zer0Talk application now supports comprehensive audio notifications with flexible format support:
 
 - ✅ **OGG Vorbis** (.ogg) - Primary format (high quality, small size)
 - ✅ **MP3** (.mp3) - Fallback format (wide compatibility) 

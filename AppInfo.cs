@@ -2,7 +2,7 @@ using System;
 using System.Reflection;
 using System.Linq;
 
-namespace ZTalk;
+namespace Zer0Talk;
 
 public static class AppInfo
 {

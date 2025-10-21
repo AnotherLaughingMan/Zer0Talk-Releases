@@ -7,11 +7,11 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Controls;
-using ZTalk.Models;
-using ZTalk.Services;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Zer0Talk.Services;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.ViewModels;
+namespace Zer0Talk.ViewModels;
 
 public class ThemeEditorViewModel : INotifyPropertyChanged
 {
@@ -528,7 +528,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         // Prefer opening a modal color picker dialog so editing is explicit and blocking.
         try
         {
-            var dialog = new ZTalk.Controls.ColorPicker.ColorPickerDialog();
+            var dialog = new Zer0Talk.Controls.ColorPicker.ColorPickerDialog();
             // Initialize dialog from the current color
             InitializeEditingState(entry.ColorValue);
             
@@ -1259,7 +1259,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
 
         try
         {
-            var dialog = new ZTalk.Controls.ColorPicker.ColorPickerDialog();
+            var dialog = new Zer0Talk.Controls.ColorPicker.ColorPickerDialog();
             // Initialize dialog from the current gradient start color
             InitializeEditingState(EditingGradientStartColor);
             
@@ -1308,7 +1308,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
 
         try
         {
-            var dialog = new ZTalk.Controls.ColorPicker.ColorPickerDialog();
+            var dialog = new Zer0Talk.Controls.ColorPicker.ColorPickerDialog();
             // Initialize dialog from the current gradient end color
             InitializeEditingState(EditingGradientEndColor);
             
@@ -1495,7 +1495,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
                 AllowMultiple = false,
                 FileTypeFilter = new[]
                 {
-                    new Avalonia.Platform.Storage.FilePickerFileType("ZTalk Theme Files")
+                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
                         Patterns = new[] { "*.zttheme" }
                     },
@@ -1726,7 +1726,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
                 SuggestedStartLocation = await window.StorageProvider.TryGetFolderFromPathAsync(new Uri(themesDir)),
                 FileTypeChoices = new[]
                 {
-                    new Avalonia.Platform.Storage.FilePickerFileType("ZTalk Theme Files")
+                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
                         Patterns = new[] { "*.zttheme" }
                     },

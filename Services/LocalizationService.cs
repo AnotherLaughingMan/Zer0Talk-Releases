@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class LocalizationService
     {
@@ -147,3 +147,4 @@ namespace ZTalk.Services
         }
     }
 }
+

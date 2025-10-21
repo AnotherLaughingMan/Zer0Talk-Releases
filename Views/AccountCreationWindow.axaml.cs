@@ -4,9 +4,9 @@
 */
 using Avalonia.Controls;
 
-using ZTalk.ViewModels;
+using Zer0Talk.ViewModels;
 
-namespace ZTalk.Views
+namespace Zer0Talk.Views
 {
     public partial class AccountCreationWindow : Window
     {
@@ -17,7 +17,7 @@ namespace ZTalk.Views
             var vm = new AccountCreationViewModel();
             DataContext = vm;
             // If no account exists, this is forced onboarding: disable cancel.
-            vm.CanCancel = ZTalk.Services.AppServices.Accounts.HasAccount();
+            vm.CanCancel = Zer0Talk.Services.AppServices.Accounts.HasAccount();
             vm.CloseRequested += (_, __) => { _allowClose = true; Close(); };
             this.Closing += (s, e) => { if (!_allowClose) { e.Cancel = true; this.Topmost = true; } };
         }

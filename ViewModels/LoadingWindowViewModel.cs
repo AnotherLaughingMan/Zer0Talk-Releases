@@ -3,9 +3,9 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Linq;
 
-using ZTalk.Services;
+using Zer0Talk.Services;
 
-namespace ZTalk.ViewModels;
+namespace Zer0Talk.ViewModels;
 
 public class LoadingWindowViewModel : INotifyPropertyChanged
 {

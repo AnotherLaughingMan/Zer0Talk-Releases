@@ -5,9 +5,9 @@
 */
 using System;
 
-using ZTalk.Models;
+using Zer0Talk.Models;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public sealed class EventHub
     {
@@ -44,3 +44,4 @@ namespace ZTalk.Services
         public void RaiseMessageDeleted(string peerUid, System.Guid messageId) { if (string.IsNullOrWhiteSpace(peerUid) || messageId == System.Guid.Empty) return; try { MessageDeleted?.Invoke(peerUid, messageId); } catch { } }
     }
 }
+

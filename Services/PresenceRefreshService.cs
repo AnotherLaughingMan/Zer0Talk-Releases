@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class PresenceRefreshService
     {
@@ -96,3 +96,4 @@ namespace ZTalk.Services
         }
     }
 }
+

@@ -9,12 +9,12 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 
-using ZTalk.Containers;
+using Zer0Talk.Containers;
 using System.Diagnostics;
-using ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class ContactManager
     {
@@ -28,7 +28,7 @@ namespace ZTalk.Services
 
         private string GetPath()
         {
-            return ZTalk.Utilities.AppDataPaths.Combine(FileName);
+            return Zer0Talk.Utilities.AppDataPaths.Combine(FileName);
         }
 
         public void Load(string passphrase)
@@ -60,7 +60,7 @@ namespace ZTalk.Services
                     {
                         Save(passphrase); // persist repairs
                         Logger.Log($"Contacts sanitized: {report}");
-                        ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(report.ToString()), source: "Contacts.Sanitize");
+                        Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException(report.ToString()), source: "Contacts.Sanitize");
                     }
                     catch { }
                 }
@@ -130,7 +130,7 @@ namespace ZTalk.Services
                     try
                     {
                         if (Utilities.LoggingPaths.Enabled)
-                            ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Contacts] Save start size={bytes.Length}\n");
+                            Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Contacts] Save start size={bytes.Length}\n");
                     }
                     catch { }
                     _container.SaveFile(path, bytes, passphrase);
@@ -139,7 +139,7 @@ namespace ZTalk.Services
                     try
                     {
                         if (Utilities.LoggingPaths.Enabled)
-                            ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Contacts] Save complete size={bytes.Length} elapsedMs={sw.ElapsedMilliseconds}\n");
+                            Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Contacts] Save complete size={bytes.Length} elapsedMs={sw.ElapsedMilliseconds}\n");
                     }
                     catch { }
                 }
@@ -147,7 +147,7 @@ namespace ZTalk.Services
             catch (Exception ex)
             {
                 Logger.Log($"Contacts save failed: {ex.Message}");
-                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Contacts] Save FAILED: {ex.Message}\n"); } catch { }
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Contacts] Save FAILED: {ex.Message}\n"); } catch { }
             }
         }
 
@@ -522,3 +522,4 @@ namespace ZTalk.Services
         }
     }
 }
+

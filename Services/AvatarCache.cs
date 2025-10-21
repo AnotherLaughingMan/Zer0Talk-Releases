@@ -4,7 +4,7 @@ using System.IO;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public static class AvatarCache
     {
@@ -77,7 +77,7 @@ namespace ZTalk.Services
 
         public static string GetCacheDir()
         {
-            return Path.Combine(ZTalk.Utilities.AppDataPaths.Root, ".cache");
+            return Path.Combine(Zer0Talk.Utilities.AppDataPaths.Root, ".cache");
         }
 
         public static string GetAvatarPath(string uid)
@@ -148,3 +148,4 @@ namespace ZTalk.Services
         }
     }
 }
+

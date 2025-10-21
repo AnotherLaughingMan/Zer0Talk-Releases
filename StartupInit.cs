@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace ZTalk;
+namespace Zer0Talk;
 
 internal static class StartupInit
 {
@@ -11,7 +11,7 @@ internal static class StartupInit
         try
         {
             // Earliest marker possible (before Program.Main)
-            ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("Startup.ModuleInit"), source: "Trace");
+            Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("Startup.ModuleInit"), source: "Trace");
         }
         catch { }
     }

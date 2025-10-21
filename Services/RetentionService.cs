@@ -4,7 +4,7 @@
 */
 using System;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     using System.Buffers;
     using System.Collections.Generic;
@@ -14,9 +14,9 @@ namespace ZTalk.Services
     using System.Text;
     using System.Text.Json;
 
-    using ZTalk.Containers;
-    using ZTalk.Models;
-    using ZTalk.Utilities;
+    using Zer0Talk.Containers;
+    using Zer0Talk.Models;
+    using Zer0Talk.Utilities;
 
     public class RetentionService
     {
@@ -25,12 +25,12 @@ namespace ZTalk.Services
         {
             try
             {
-                var dir = ZTalk.Utilities.AppDataPaths.Combine("messages");
+                var dir = Zer0Talk.Utilities.AppDataPaths.Combine("messages");
                 if (!System.IO.Directory.Exists(dir)) return;
 
                 // Don't run cleanup if contacts list is empty - this likely means
                 // contacts are being loaded/reloaded and we'd incorrectly delete all messages
-                var contactsList = ZTalk.Services.AppServices.Contacts?.Contacts;
+                var contactsList = Zer0Talk.Services.AppServices.Contacts?.Contacts;
                 if (contactsList == null || contactsList.Count == 0) return;
 
                 var known = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
@@ -75,12 +75,12 @@ namespace ZTalk.Services
         {
             try
             {
-                var dir = ZTalk.Utilities.AppDataPaths.Combine("outbox");
+                var dir = Zer0Talk.Utilities.AppDataPaths.Combine("outbox");
                 if (!System.IO.Directory.Exists(dir)) return;
 
                 // Don't run cleanup if contacts list is empty - this likely means
                 // contacts are being loaded/reloaded and we'd incorrectly delete all outbox files
-                var contactsList = ZTalk.Services.AppServices.Contacts?.Contacts;
+                var contactsList = Zer0Talk.Services.AppServices.Contacts?.Contacts;
                 if (contactsList == null || contactsList.Count == 0) return;
 
                 var known = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
@@ -329,7 +329,7 @@ namespace ZTalk.Services
         private static long SecureWipeFile(string path)
         {
             // Delegate to the new SecureFileWiper utility which handles drive detection
-            return ZTalk.Utilities.SecureFileWiper.SecureWipeFile(path);
+            return Zer0Talk.Utilities.SecureFileWiper.SecureWipeFile(path);
         }
 
         private static long SecureBurnFile(string path)
@@ -515,8 +515,8 @@ namespace ZTalk.Services
             try
             {
                 var line = $"[RETENTION] {DateTime.Now:O}: {message}";
-                if (ZTalk.Utilities.LoggingPaths.Enabled)
-                    File.AppendAllText(ZTalk.Utilities.LoggingPaths.Retention, line + Environment.NewLine);
+                if (Zer0Talk.Utilities.LoggingPaths.Enabled)
+                    File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.Retention, line + Environment.NewLine);
             }
             catch { }
         }
@@ -550,7 +550,7 @@ namespace ZTalk.Services
             try
             {
                 var norm = Trim(uid);
-                var list = ZTalk.Services.AppServices.Contacts.Contacts;
+                var list = Zer0Talk.Services.AppServices.Contacts.Contacts;
                 var c = list.FirstOrDefault(x => string.Equals(Trim(x.UID), norm, StringComparison.OrdinalIgnoreCase));
                 return c?.IsSimulated == true;
             }
@@ -558,3 +558,4 @@ namespace ZTalk.Services
         }
     }
 }
+

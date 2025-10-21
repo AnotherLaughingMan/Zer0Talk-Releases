@@ -1,11 +1,11 @@
 // Centralized logging path management and enable/disable policy.
 // Debug builds: logging enabled by default and all logs go to <exe>/logs.
-// Release builds: logging disabled unless explicitly enabled via env var ZTALK_ENABLE_LOGS=1
+// Release builds: logging disabled unless explicitly enabled via env var ZER0TALK_ENABLE_LOGS=1
 // or presence of an enable-logs.flag file next to the executable.
 using System;
 using System.IO;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     internal static class LoggingPaths
     {
@@ -44,7 +44,7 @@ namespace ZTalk.Utilities
             _enabled = DefaultEnabled;
             try
             {
-                var env = Environment.GetEnvironmentVariable("ZTALK_ENABLE_LOGS");
+                var env = Environment.GetEnvironmentVariable("ZER0TALK_ENABLE_LOGS");
                 if (!string.IsNullOrWhiteSpace(env) && (env == "1" || env.Equals("true", StringComparison.OrdinalIgnoreCase)))
                     _enabled = true;
                 var flag = Path.Combine(baseDir, "enable-logs.flag");
@@ -64,7 +64,7 @@ namespace ZTalk.Utilities
 #if DEBUG
             try
             {
-                var settings = ZTalk.Services.AppServices.Settings?.Settings;
+                var settings = Zer0Talk.Services.AppServices.Settings?.Settings;
                 if (settings != null)
                 {
                     _enabled = settings.EnableLogging;

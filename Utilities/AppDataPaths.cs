@@ -1,11 +1,11 @@
 using System;
 using System.IO;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public static class AppDataPaths
     {
-        public const string NewRootName = "ZTalk";
+        public const string NewRootName = "Zer0Talk";
         public const string OldRootName = "P2PTalk";
         private static string? _profileSuffix; // optional, set via CLI to isolate roots per instance
 
@@ -91,7 +91,7 @@ namespace ZTalk.Utilities
 
                 try
                 {
-                    var flag = Path.Combine(newDir, "migrated.from.ZTalk.txt");
+                    var flag = Path.Combine(newDir, "migrated.from.Zer0Talk.txt");
                     File.WriteAllText(flag, $"Migrated {DateTime.UtcNow:O} from '{OldRootName}' to '{NewRootName}'.");
                 }
                 catch { }

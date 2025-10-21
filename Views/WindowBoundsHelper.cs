@@ -7,7 +7,7 @@
 using Avalonia;
 using Avalonia.Controls;
 
-namespace ZTalk.Views;
+namespace Zer0Talk.Views;
 
 internal static class WindowBoundsHelper
 {

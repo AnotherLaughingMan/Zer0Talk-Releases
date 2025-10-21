@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 # Resolve project root based on this script's location
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = Split-Path -Parent $scriptDir
-$proj = Join-Path $root 'ZTalk.csproj'
+$proj = Join-Path $root 'Zer0Talk.csproj'
 $publishDir = Join-Path $root 'publish'
 
 # Extract version from project file for artifact naming
@@ -54,11 +54,11 @@ if ($NoZip) {
 }
 
 # Zip both outputs with versioned and timestamped filenames
-$zip1 = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration-$stamp.zip"
-$zip2 = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration-sc-$stamp.zip"
-${legacy1} = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration.zip"
-${legacy2} = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration-sc.zip"
-${legacySingle} = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration-single.zip"
+$zip1 = Join-Path $publishDir "Zer0Talk-v$version-$Rid-$Configuration-$stamp.zip"
+$zip2 = Join-Path $publishDir "Zer0Talk-v$version-$Rid-$Configuration-sc-$stamp.zip"
+${legacy1} = Join-Path $publishDir "Zer0Talk-v$version-$Rid-$Configuration.zip"
+${legacy2} = Join-Path $publishDir "Zer0Talk-v$version-$Rid-$Configuration-sc.zip"
+${legacySingle} = Join-Path $publishDir "Zer0Talk-v$version-$Rid-$Configuration-single.zip"
 
 # Remove existing zips with a brief retry in case another process has the file open
 foreach ($zip in @($zip1, $zip2)) {
@@ -111,7 +111,7 @@ if ($Single) {
     if (Test-Path $singleDir) { Remove-Item -Recurse -Force $singleDir }
     dotnet publish $proj -c $Configuration -r $Rid -p:PublishSingleFile=true -p:SelfContained=true -p:EnableCompressionInSingleFile=true -o $singleDir --nologo
 
-    $singleZip = Join-Path $publishDir "ZTalk-v$version-$Rid-$Configuration-single-$stamp.zip"
+    $singleZip = Join-Path $publishDir "Zer0Talk-v$version-$Rid-$Configuration-single-$stamp.zip"
     if (Test-Path $singleZip) {
         $removed = $false
         try { Remove-Item -Force $singleZip -ErrorAction Stop; $removed = $true } catch { }
@@ -120,7 +120,7 @@ if ($Single) {
     Invoke-Zip (Join-Path $singleDir '*') $singleZip | Out-Null
 }
 
-Get-ChildItem $publishDir -Filter "ZTalk-v$version-$Rid-$Configuration*.zip" |
+Get-ChildItem $publishDir -Filter "Zer0Talk-v$version-$Rid-$Configuration*.zip" |
 Select-Object Name, @{n = 'SizeMB'; e = { [math]::Round($_.Length / 1MB, 2) } } |
 Format-Table -AutoSize
 
@@ -133,7 +133,7 @@ function Move-OldVersionsToArchive([string]$CurrentVersion) {
   New-Item -ItemType Directory -Force -Path $oldDir | Out-Null
   
   # Find all zip files that don't match the current version
-  $oldVersionFiles = Get-ChildItem $publishDir -Filter "ZTalk-*.zip" | Where-Object { $_.Name -notmatch "ZTalk-v$([regex]::Escape($CurrentVersion))-" }
+  $oldVersionFiles = Get-ChildItem $publishDir -Filter "Zer0Talk-*.zip" | Where-Object { $_.Name -notmatch "Zer0Talk-v$([regex]::Escape($CurrentVersion))-" }
   
   if ($oldVersionFiles) {
     Write-Host "Moving $($oldVersionFiles.Count) older version build(s) to 'old' subfolder..."
@@ -153,8 +153,8 @@ function Move-OldVersionsToArchive([string]$CurrentVersion) {
 Move-OldVersionsToArchive $version
 
 # Prune older zips for this RID/Configuration (keep latest $keepCount for each variant of current version only)
-foreach ($pattern in @("ZTalk-v$version-$Rid-$Configuration-*.zip", "ZTalk-v$version-$Rid-$Configuration-sc-*.zip", "ZTalk-v$version-$Rid-$Configuration-single-*.zip")) {
-    $files = Get-ChildItem $publishDir -Filter $pattern | Where-Object { $_.Name -match "ZTalk-v$([regex]::Escape($version))-" } | Sort-Object LastWriteTime -Descending
+foreach ($pattern in @("Zer0Talk-v$version-$Rid-$Configuration-*.zip", "Zer0Talk-v$version-$Rid-$Configuration-sc-*.zip", "Zer0Talk-v$version-$Rid-$Configuration-single-*.zip")) {
+    $files = Get-ChildItem $publishDir -Filter $pattern | Where-Object { $_.Name -match "Zer0Talk-v$([regex]::Escape($version))-" } | Sort-Object LastWriteTime -Descending
     if ($files.Count -gt $keepCount) {
         $toDelete = $files | Select-Object -Skip $keepCount
         foreach ($f in $toDelete) {

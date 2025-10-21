@@ -1,9 +1,9 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using ZTalk.Models;
+using Zer0Talk.Models;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     /// <summary>
     /// MultiValueConverter that returns true only when:

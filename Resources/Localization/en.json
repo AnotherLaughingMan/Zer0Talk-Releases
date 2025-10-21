@@ -1,6 +1,6 @@
 {
   "App": {
-    "Title": "ZTalk"
+    "Title": "Zer0Talk"
   },
   "Settings": {
     "Title": "Settings",
@@ -50,13 +50,13 @@
     "Notifications": "Notifications",
     "ChatSounds": "Chat Sounds",
     "SystemTray": "System Tray",
-    "SystemTrayHelp": "Control how ZTalk behaves with the Windows system tray.",
+    "SystemTrayHelp": "Control how Zer0Talk behaves with the Windows system tray.",
     "ShowSystemTrayIcon": "Show icon in system tray",
-    "ShowSystemTrayIconHelp": "Display ZTalk icon in the Windows system tray for quick access",
+    "ShowSystemTrayIconHelp": "Display Zer0Talk icon in the Windows system tray for quick access",
     "MinimizeToTray": "Minimize to tray on close",
     "MinimizeToTrayHelp": "Close button will minimize to system tray instead of exiting the application",
     "RunOnStartup": "Run on Windows startup",
-    "RunOnStartupHelp": "Automatically start ZTalk when Windows starts (minimized to tray)",
+    "RunOnStartupHelp": "Automatically start Zer0Talk when Windows starts (minimized to tray)",
     "Family": "Family:",
     "Identity": "Identity",
     "Username": "Username",
@@ -163,7 +163,7 @@
     "RelaySettings": "Relay Settings",
     "Port": "Port",
     "PortLabel": "Port:",
-    "PortDescription": "The port number ZTalk uses for P2P connections. Default is 26264. Changing this requires restarting the application.",
+    "PortDescription": "The port number Zer0Talk uses for P2P connections. Default is 26264. Changing this requires restarting the application.",
     "DedicatedPeerNode": "Dedicated Peer Node",
     "EnableDedicatedPeerNode": "Enable as dedicated peer node (requires port forwarding)",
     "DedicatedPeerNodeInfo": "Dedicated Peer Node:",
@@ -179,7 +179,7 @@
     "RelayServer": "Relay Server",
     "Requirements": "Requirements:",
     "RequiresDedicatedRelay": "• Requires a dedicated relay server with public IP or DNS name",
-    "ServerMustBeConfigured": "• Server must be configured to accept ZTalk relay protocol connections",
+    "ServerMustBeConfigured": "• Server must be configured to accept Zer0Talk relay protocol connections",
     "RelayFormat": "• Format: hostname:port or IP:port (e.g., relay.example.com:443)",
     "LeaveBlankToDisable": "• Leave blank to disable relay fallback and rely on direct/NAT traversal only",
     "KnownDedicatedPeerNodes": "Known Dedicated Peer Nodes",
@@ -364,7 +364,7 @@
     "Create": "Create"
   },
   "Unlock": {
-    "Title": "ZTalk Sign In",
+    "Title": "Zer0Talk Sign In",
     "EnterPassphrase": "Enter passphrase to unlock",
     "Passphrase": "Passphrase",
     "RememberPassphrase": "Remember passphrase",
@@ -449,7 +449,7 @@
     "ISavedIt": "I saved it"
   },
   "Loading": {
-    "Title": "ZTalk - Loading",
+    "Title": "Zer0Talk - Loading",
     "Initializing": "Initializing secure messaging system..."
   }
 }

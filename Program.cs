@@ -13,12 +13,12 @@ using System.Threading;
 
 using Avalonia;
 
-using ZTalk.Services;
-using ZTalk.Utilities;
+using Zer0Talk.Services;
+using Zer0Talk.Utilities;
 
 using Sodium;
 
-namespace ZTalk;
+namespace Zer0Talk;
 
 internal sealed class Program
 {
@@ -41,33 +41,33 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // Single-instance enforcement: prevent multiple ZTalk instances
+        // Single-instance enforcement: prevent multiple Zer0Talk instances
         try
         {
-            var mutexName = "Global\\ZTalk_SingleInstance_" + Environment.UserName;
+            var mutexName = "Global\\Zer0Talk_SingleInstance_" + Environment.UserName;
             _singleInstanceMutex = new Mutex(true, mutexName, out bool createdNew);
             
             if (!createdNew)
             {
                 // Another instance is already running
-                Console.WriteLine("ZTalk is already running. Only one instance is allowed.");
+                Console.WriteLine("Zer0Talk is already running. Only one instance is allowed.");
                 StartupLog("Startup.SingleInstance.AlreadyRunning");
                 
                 // Try to find and focus the existing window
                 try
                 {
-                    var processes = Process.GetProcessesByName("ZTalk");
+                    var processes = Process.GetProcessesByName("Zer0Talk");
                     if (processes.Length == 0)
                     {
-                        // Look for dotnet processes running ZTalk
+                        // Look for dotnet processes running Zer0Talk
                         processes = Process.GetProcesses()
                             .Where(p => p.ProcessName.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
                             .Where(p => 
                             {
                                 try
                                 {
-                                    return p.MainModule?.FileName?.Contains("ZTalk", StringComparison.OrdinalIgnoreCase) == true ||
-                                           p.MainWindowTitle?.Contains("ZTalk", StringComparison.OrdinalIgnoreCase) == true;
+                                    return p.MainModule?.FileName?.Contains("Zer0Talk", StringComparison.OrdinalIgnoreCase) == true ||
+                                           p.MainWindowTitle?.Contains("Zer0Talk", StringComparison.OrdinalIgnoreCase) == true;
                                 }
                                 catch { return false; }
                             })
@@ -106,7 +106,7 @@ internal sealed class Program
         {
             // Ensure error.txt exists as early as possible and mark entry
             StartupLog("Startup.Program.Begin");
-                try { ZTalk.Utilities.AppDataPaths.MigrateIfNeeded(); } catch { }
+                try { Zer0Talk.Utilities.AppDataPaths.MigrateIfNeeded(); } catch { }
             // Start 1Hz heartbeat for first 30 seconds
             try
             {
@@ -199,13 +199,13 @@ internal sealed class Program
                 if (string.Equals(a, "--safe-mode", StringComparison.OrdinalIgnoreCase))
                 {
                     App.SafeMode = true;
-                    ZTalk.Utilities.RuntimeFlags.SafeMode = true;
+                    Zer0Talk.Utilities.RuntimeFlags.SafeMode = true;
                     StartupLog("Startup.SafeMode.Enabled");
                 }
                 else if (string.Equals(a, "--profile", StringComparison.OrdinalIgnoreCase))
                 {
                     var val = (i + 1) < argv.Length ? argv[i + 1] : null;
-                    ZTalk.Utilities.AppDataPaths.SetProfileSuffix(val);
+                    Zer0Talk.Utilities.AppDataPaths.SetProfileSuffix(val);
                     if (!string.IsNullOrWhiteSpace(val)) StartupLog($"Startup.Profile={val}");
                     i++;
                 }
@@ -369,9 +369,9 @@ internal sealed class Program
     {
         try
         {
-            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!Zer0Talk.Utilities.LoggingPaths.Enabled) return;
             var line = "[" + DateTime.Now.ToString("O") + "] " + msg;
-            System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Startup, line + Environment.NewLine);
+            System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.Startup, line + Environment.NewLine);
         }
         catch { }
     }

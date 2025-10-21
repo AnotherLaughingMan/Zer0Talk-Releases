@@ -28,9 +28,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using ZTalk.Models;
+using Zer0Talk.Models;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class ThemeEngine
     {
@@ -791,14 +791,14 @@ namespace ZTalk.Services
         {
             var directories = new List<string>();
 
-            // 1. AppData\ZTalk\Themes (primary location for user themes)
+            // 1. AppData\Zer0Talk\Themes (primary location for user themes)
             var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var appDataThemes = System.IO.Path.Combine(appDataPath, "ZTalk", "Themes");
+            var appDataThemes = System.IO.Path.Combine(appDataPath, "Zer0Talk", "Themes");
             directories.Add(appDataThemes);
 
-            // 2. Documents\ZTalk Theme Templates (shared/template location)
+            // 2. Documents\Zer0Talk Theme Templates (shared/template location)
             var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            var documentsThemes = System.IO.Path.Combine(documentsPath, "ZTalk Theme Templates");
+            var documentsThemes = System.IO.Path.Combine(documentsPath, "Zer0Talk Theme Templates");
             directories.Add(documentsThemes);
 
             // Ensure directories exist
@@ -827,7 +827,7 @@ namespace ZTalk.Services
         public string GetCustomThemesDirectory()
         {
             var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var themesPath = System.IO.Path.Combine(appDataPath, "ZTalk", "Themes");
+            var themesPath = System.IO.Path.Combine(appDataPath, "Zer0Talk", "Themes");
             
             // Ensure directory exists
             if (!System.IO.Directory.Exists(themesPath))
@@ -852,7 +852,7 @@ namespace ZTalk.Services
         public string GetDocumentsThemesDirectory()
         {
             var documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            var themesPath = System.IO.Path.Combine(documentsPath, "ZTalk Theme Templates");
+            var themesPath = System.IO.Path.Combine(documentsPath, "Zer0Talk Theme Templates");
             
             // Ensure directory exists
             if (!System.IO.Directory.Exists(themesPath))
@@ -1182,3 +1182,4 @@ namespace ZTalk.Services
         }
     }
 }
+

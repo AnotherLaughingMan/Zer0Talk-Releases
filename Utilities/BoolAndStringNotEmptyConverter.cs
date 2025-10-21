@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     // Returns true only if: values[0] is bool true AND values[1] is a non-empty string.
     public sealed class BoolAndStringNotEmptyConverter : IMultiValueConverter

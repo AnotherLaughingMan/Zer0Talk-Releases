@@ -1,21 +1,21 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:util="clr-namespace:ZTalk.Utilities"
-             x:Class="ZTalk.App"
+             xmlns:util="clr-namespace:Zer0Talk.Utilities"
+             x:Class="Zer0Talk.App"
              RequestedThemeVariant="Dark">
     <Application.Styles>
         <FluentTheme />
         <!-- Sovereignty layers first: define app-owned tokens and templates -->
         <!-- (Temporarily removed ThemeSovereignty.axaml to isolate phantom build errors) -->
-    <!-- <StyleInclude Source="avares://ZTalk/Styles/ThemeSovereignty.axaml" /> -->
-    <StyleInclude Source="avares://ZTalk/Styles/ThemeSovereigntyCore.axaml" />
-    <StyleInclude Source="avares://ZTalk/Styles/ThemeSovereigntyBase.axaml" />
+    <!-- <StyleInclude Source="avares://Zer0Talk/Styles/ThemeSovereignty.axaml" /> -->
+    <StyleInclude Source="avares://Zer0Talk/Styles/ThemeSovereigntyCore.axaml" />
+    <StyleInclude Source="avares://Zer0Talk/Styles/ThemeSovereigntyBase.axaml" />
             <!-- Load a default theme override after sovereignty so early windows use our palette; ThemeService will swap later. -->
-    <StyleInclude Source="avares://ZTalk/Styles/DarkThemeOverrides.axaml" />
+    <StyleInclude Source="avares://Zer0Talk/Styles/DarkThemeOverrides.axaml" />
         <!-- [TRUNC] Shared opt-in truncation styles for long inline text across windows/dialogs. -->
-    <StyleInclude Source="avares://ZTalk/Styles/SharedTruncation.axaml" />
+    <StyleInclude Source="avares://Zer0Talk/Styles/SharedTruncation.axaml" />
             <!-- Neutral metrics (sizes, templates, typography) shared by all themes; include last for precedence on metrics. -->
-        <StyleInclude Source="avares://ZTalk/Styles/NeutralMetrics.axaml" />
+        <StyleInclude Source="avares://Zer0Talk/Styles/NeutralMetrics.axaml" />
         
         <!-- Pill-shaped toggle button style -->
         <Style Selector="ToggleButton.pill-toggle">

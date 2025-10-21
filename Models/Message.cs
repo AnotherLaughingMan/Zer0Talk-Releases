@@ -3,9 +3,9 @@
 */
 using System;
 using System.Text.Json.Serialization;
-using ZTalk.Utilities;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Models
+namespace Zer0Talk.Models
 {
     public class Message : System.ComponentModel.INotifyPropertyChanged
     {

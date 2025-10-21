@@ -46,7 +46,7 @@
   <SolidColorBrush x:Key="App.Info" Color="#2B88D8"/>
   <SolidColorBrush x:Key="App.OnAccent" Color="#FFFFFF"/>
   <!-- Themed icon: encrypted padlock -->
-  <Bitmap x:Key="Icon.Encrypted">avares://ZTalk/Assets/Icons/Special/Encrypted.ico</Bitmap>
+  <Bitmap x:Key="Icon.Encrypted">avares://Zer0Talk/Assets/Icons/Special/Encrypted.ico</Bitmap>
   <!-- Danger button colors -->
   <SolidColorBrush x:Key="DangerButtonBackgroundColor" Color="#8B1E1E"/>
   <SolidColorBrush x:Key="DangerButtonBorderColor" Color="#AA3A3A"/>

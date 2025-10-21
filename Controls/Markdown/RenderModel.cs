@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
 
-namespace ZTalk.Controls.Markdown;
+namespace Zer0Talk.Controls.Markdown;
 
 /// <summary>
 /// JSON-serializable render model for Markdown documents.

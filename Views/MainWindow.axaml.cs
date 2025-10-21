@@ -23,17 +23,17 @@ using System.Threading;
 using System.IO;
 using System.Collections.Specialized;
 
-using ZTalk.Models;
-using Models = ZTalk.Models;
-using ZTalk.Services;
-using ZTalk.Utilities;
-using ZTalk.ViewModels;
-using ZTalk.Views.Controls;
+using Zer0Talk.Models;
+using Models = Zer0Talk.Models;
+using Zer0Talk.Services;
+using Zer0Talk.Utilities;
+using Zer0Talk.ViewModels;
+using Zer0Talk.Views.Controls;
 
-using RelayCommand = ZTalk.ViewModels.RelayCommand;
+using RelayCommand = Zer0Talk.ViewModels.RelayCommand;
 
 
-namespace ZTalk.Views;
+namespace Zer0Talk.Views;
 
 public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 {
@@ -99,7 +99,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var logsButton = this.FindControl<Button>("LogsButton");
             if (logsButton != null)
             {
-                logsButton.IsVisible = ZTalk.Utilities.LoggingPaths.Enabled;
+                logsButton.IsVisible = Zer0Talk.Utilities.LoggingPaths.Enabled;
             }
         }
         catch { }
@@ -264,17 +264,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             catch { }
         });
         // Trace restoration intent for audit
-        try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Restore] MainWindow: applying LKG layout/selection defaults"), source: "Restore.MainWindow"); } catch { }
+        try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Restore] MainWindow: applying LKG layout/selection defaults"), source: "Restore.MainWindow"); } catch { }
         try { WriteSettingsLog("[Restore] MainWindow: applying LKG layout/selection defaults"); } catch { }
-        try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Theme] Restore: disable Windows11 focus adorner for Contacts (no template override)"), source: "Theme.Restore"); } catch { }
+        try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Theme] Restore: disable Windows11 focus adorner for Contacts (no template override)"), source: "Theme.Restore"); } catch { }
         try { WriteThemeLog("[Restore] Theme: Disabled FocusAdorner for ContactsList items and contact-card border (template restored)"); } catch { }
         // Log sovereign UI restorations
         try { WriteThemeLog("[Restore] Theme: Reinforced Win11 selection/highlight override for Contacts scope"); } catch { }
         try { WriteThemeLog("[Restore] Theme: Added presence dot overlay to user avatar and increased avatar size vs contacts"); } catch { }
-        try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Theme] Restore: presence dot + avatar sizing applied"), source: "Theme.Restore"); } catch { }
+        try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Theme] Restore: presence dot + avatar sizing applied"), source: "Theme.Restore"); } catch { }
         // Log layout: restored left nav rail button sizing/alignment (top-stack, horizontal center)
         try { WriteLayoutLog("[Restore] Layout: Nav rail 64x56 buttons, icons ~26px, padding 8px, spacing 6px, top-stacked, horizontally centered"); } catch { }
-        try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Restore] Layout: Nav rail top-stacked + horizontal centering applied"), source: "Layout.Restore"); } catch { }
+        try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Restore] Layout: Nav rail top-stacked + horizontal centering applied"), source: "Layout.Restore"); } catch { }
         if (AppServices.Settings.Settings.MainWindow is { } s)
         {
             // Restore window layout from sidecar cache (fallback to previous settings values if cache missing)
@@ -289,7 +289,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             try
             {
                 var enabled = AppServices.Settings?.Settings?.BlockScreenCapture ?? true;
-                ZTalk.Services.ScreenCaptureProtection.SetExcludeFromCapture(this, enabled);
+                Zer0Talk.Services.ScreenCaptureProtection.SetExcludeFromCapture(this, enabled);
             }
             catch { }
         };
@@ -385,7 +385,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 try
                 {
                     // Fallback to embedded resource
-                    using var stream = AssetLoader.Open(new Uri("avares://ZTalk/Assets/Icons/Icon.ico"));
+                    using var stream = AssetLoader.Open(new Uri("avares://Zer0Talk/Assets/Icons/Icon.ico"));
                     img.Source = new Avalonia.Media.Imaging.Bitmap(stream);
                 }
                 catch { }
@@ -506,8 +506,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var line = $"{DateTime.Now:O} [UI] {message}{Environment.NewLine}";
-            if (ZTalk.Utilities.LoggingPaths.Enabled)
-                ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, line);
+            if (Zer0Talk.Utilities.LoggingPaths.Enabled)
+                Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, line);
         }
         catch { }
     }
@@ -535,9 +535,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!Zer0Talk.Utilities.LoggingPaths.Enabled) return;
             var text = $"{DateTime.Now:O} {category} {message}{Environment.NewLine}";
-            ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, text);
+            Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, text);
         }
         catch { }
     }
@@ -1319,7 +1319,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (DataContext is not MainWindowViewModel vm) return;
             var contact = vm.SelectedContact ?? vm.Contacts.FirstOrDefault();
             if (contact == null) return;
-            var self = ZTalk.Services.AppServices.Identity.UID ?? string.Empty;
+            var self = Zer0Talk.Services.AppServices.Identity.UID ?? string.Empty;
             var msg = new Message
             {
                 Id = Guid.NewGuid(),
@@ -2011,7 +2011,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             // Use fast path to active sessions only
-            ZTalk.Services.AppServices.Network.BroadcastPresenceToActiveSessions(status);
+            Zer0Talk.Services.AppServices.Network.BroadcastPresenceToActiveSessions(status);
         }
         catch { }
     }
@@ -2053,7 +2053,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var uid = ZTalk.Services.AppServices.Identity.UID ?? string.Empty;
+            var uid = Zer0Talk.Services.AppServices.Identity.UID ?? string.Empty;
             if (string.IsNullOrWhiteSpace(uid)) return;
             var cb = this.Clipboard;
             if (cb != null)
@@ -2179,6 +2179,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
+            // Check if minimize to tray is enabled
+            var settings = AppServices.Settings.Settings;
+            if (settings.MinimizeToTray && settings.ShowInSystemTray)
+            {
+                // Cancel the close event and hide window instead
+                e.Cancel = true;
+                this.Hide();
+                
+                // Change shutdown mode to prevent app from exiting when main window is hidden
+                try
+                {
+                    if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
+                    {
+                        lifetime.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                    }
+                }
+                catch { }
+                
+                // Log the action for debugging
+                try 
+                { 
+                    Utilities.Logger.Log("MainWindow: Minimized to tray instead of closing");
+                    InteractionLogger.Log("[MainWindow] Minimized to tray instead of closing");
+                } 
+                catch { }
+                
+                return; // Don't perform shutdown - app continues running in tray
+            }
+            
             if (AppServices.Settings.Settings.MainWindow is { } s)
             {
                 // Save geometry to cache and persist panel widths to settings on close only
@@ -2238,17 +2267,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void Monitoring_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        ZTalk.Services.WindowManager.ShowSingleton<MonitoringWindow>();
+        Zer0Talk.Services.WindowManager.ShowSingleton<MonitoringWindow>();
     }
 
     private void Logs_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        ZTalk.Services.WindowManager.ShowSingleton<LogViewerWindow>();
+        Zer0Talk.Services.WindowManager.ShowSingleton<LogViewerWindow>();
     }
 
     private void OpenLogs_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        try { ZTalk.Services.WindowManager.ShowSingleton<NetworkWindow>()?.SwitchToTab("Logging"); } catch { }
+        try { Zer0Talk.Services.WindowManager.ShowSingleton<NetworkWindow>()?.SwitchToTab("Logging"); } catch { }
     }
 
     private void Home_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -2263,7 +2292,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            ZTalk.Services.WindowManager.ShowSingleton<NetworkWindow>()?.Activate();
+            Zer0Talk.Services.WindowManager.ShowSingleton<NetworkWindow>()?.Activate();
         }
         catch (Exception ex)
         {
@@ -2491,7 +2520,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
             var now = DateTime.Now.ToString("O");
             var line = $"TRACE {message} | Source={sourceType} | SelIndex={selectedIndex} Items={itemsCount} @ {now}";
-            try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(line), source: "Trace"); } catch { }
+            try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException(line), source: "Trace"); } catch { }
         }
         catch { }
     }
@@ -2519,7 +2548,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             catch { }
 
             var now = DateTime.Now.ToString("O");
-            try { ZTalk.Utilities.ErrorLogger.LogException(ex, source: $"UI.Context {sourceType} [{now}] Sel={selectedIndex}/{itemsCount} uid={selUid} name={selName}"); } catch { }
+            try { Zer0Talk.Utilities.ErrorLogger.LogException(ex, source: $"UI.Context {sourceType} [{now}] Sel={selectedIndex}/{itemsCount} uid={selUid} name={selName}"); } catch { }
             try { Logger.Log($"ERROR: {ex.Message}"); } catch { }
             try { ErrorLogger.LogException(ex, source: sourceType); } catch { }
         }
@@ -2730,7 +2759,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             
             if (confirmed)
             {
-                try { new ZTalk.Services.LockService().Lock(); } catch { }
+                try { new Zer0Talk.Services.LockService().Lock(); } catch { }
             }
         }
         catch
@@ -3271,7 +3300,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 modifiers,
                 () =>
                 {
-                    try { new ZTalk.Services.LockService().Lock(); }
+                    try { new Zer0Talk.Services.LockService().Lock(); }
                     catch (Exception ex) { Logger.Log($"Lock hotkey error: {ex.Message}"); }
                 },
                 "Lock Application");
@@ -3903,10 +3932,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!Zer0Talk.Utilities.LoggingPaths.Enabled) return;
             var path = System.IO.Path.Combine(AppContext.BaseDirectory, "logs", "settings.log");
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            ZTalk.Utilities.LoggingPaths.TryWrite(path, text);
+            Zer0Talk.Utilities.LoggingPaths.TryWrite(path, text);
         }
         catch { }
     }
@@ -3916,9 +3945,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!Zer0Talk.Utilities.LoggingPaths.Enabled) return;
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.Theme, text);
+            Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Theme, text);
         }
         catch { }
     }
@@ -3928,10 +3957,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!Zer0Talk.Utilities.LoggingPaths.Enabled) return;
             var path = System.IO.Path.Combine(AppContext.BaseDirectory, "logs", "layout.log");
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            ZTalk.Utilities.LoggingPaths.TryWrite(path, text);
+            Zer0Talk.Utilities.LoggingPaths.TryWrite(path, text);
         }
         catch { }
     }
@@ -4017,7 +4046,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 var msg = "[Guard] Nav rail layout corrected to 64x56 buttons, Padding 8,0, Spacing 6, centered, icons ~26px";
                 try { WriteLayoutLog(msg); } catch { }
-                try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(msg), source: "Layout.Guard"); } catch { }
+                try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException(msg), source: "Layout.Guard"); } catch { }
             }
         }
         catch { }
@@ -4032,7 +4061,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (DataContext is not MainWindowViewModel vm) return;
             var c = vm.SelectedContact;
             if (c?.IsSimulated != true) return;
-            try { ZTalk.Services.AppServices.Contacts.SetPresence(c.UID, status, System.TimeSpan.FromSeconds(60), Models.PresenceSource.Manual); } catch { }
+            try { Zer0Talk.Services.AppServices.Contacts.SetPresence(c.UID, status, System.TimeSpan.FromSeconds(60), Models.PresenceSource.Manual); } catch { }
             c.Presence = status;
         }
         catch { }

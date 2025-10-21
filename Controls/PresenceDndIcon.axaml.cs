@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace ZTalk.Controls;
+namespace Zer0Talk.Controls;
 
 public partial class PresenceDndIcon : UserControl
 {

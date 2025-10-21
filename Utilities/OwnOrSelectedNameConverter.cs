@@ -3,7 +3,7 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using System.Collections.Generic;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public sealed class OwnOrSelectedNameConverter : IMultiValueConverter
     {

@@ -1,4 +1,4 @@
-namespace ZTalk.Models;
+namespace Zer0Talk.Models;
 
 /// <summary>
 /// Represents the type/severity of a notification

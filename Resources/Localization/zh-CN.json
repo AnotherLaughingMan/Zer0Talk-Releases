@@ -1,6 +1,6 @@
 {
   "App": {
-    "Title": "ZTalk"
+    "Title": "Zer0Talk"
   },
   "Settings": {
     "Title": "设置",
@@ -50,13 +50,13 @@
     "Notifications": "通知",
     "ChatSounds": "聊天声音",
     "SystemTray": "系统托盘",
-    "SystemTrayHelp": "控制ZTalk如何与Windows系统托盘交互。",
+    "SystemTrayHelp": "控制Zer0Talk如何与Windows系统托盘交互。",
     "ShowSystemTrayIcon": "在系统托盘中显示图标",
-    "ShowSystemTrayIconHelp": "在Windows系统托盘中显示ZTalk图标以便快速访问",
+    "ShowSystemTrayIconHelp": "在Windows系统托盘中显示Zer0Talk图标以便快速访问",
     "MinimizeToTray": "关闭时最小化到托盘",
     "MinimizeToTrayHelp": "关闭按钮将最小化到系统托盘而不是退出应用程序",
     "RunOnStartup": "Windows启动时运行",
-    "RunOnStartupHelp": "Windows启动时自动启动ZTalk（最小化到托盘）",
+    "RunOnStartupHelp": "Windows启动时自动启动Zer0Talk（最小化到托盘）",
     "Family": "字体族：",
     "Identity": "身份",
     "Username": "用户名",
@@ -163,7 +163,7 @@
     "RelaySettings": "中继设置",
     "Port": "端口",
     "PortLabel": "端口：",
-    "PortDescription": "ZTalk用于P2P连接的端口号。默认为26264。更改此设置需要重启应用程序。",
+    "PortDescription": "Zer0Talk用于P2P连接的端口号。默认为26264。更改此设置需要重启应用程序。",
     "DedicatedPeerNode": "专用对等节点",
     "EnableDedicatedPeerNode": "启用为专用对等节点（需要端口转发）",
     "DedicatedPeerNodeInfo": "专用对等节点：",
@@ -179,7 +179,7 @@
     "RelayServer": "中继服务器",
     "Requirements": "要求：",
     "RequiresDedicatedRelay": "• 需要具有公共IP或DNS名称的专用中继服务器",
-    "ServerMustBeConfigured": "• 服务器必须配置为接受ZTalk中继协议连接",
+    "ServerMustBeConfigured": "• 服务器必须配置为接受Zer0Talk中继协议连接",
     "RelayFormat": "• 格式：主机名:端口 或 IP:端口（例如，relay.example.com:443）",
     "LeaveBlankToDisable": "• 留空以禁用中继回退并仅依赖直连/NAT穿透",
     "KnownDedicatedPeerNodes": "已知的专用对等节点",
@@ -364,7 +364,7 @@
     "Create": "创建"
   },
   "Unlock": {
-    "Title": "ZTalk 登录",
+    "Title": "Zer0Talk 登录",
     "EnterPassphrase": "输入密码短语以解锁",
     "Passphrase": "密码短语",
     "RememberPassphrase": "记住密码短语",
@@ -449,7 +449,7 @@
     "ISavedIt": "我已保存"
   },
   "Loading": {
-    "Title": "ZTalk - 加载中",
+    "Title": "Zer0Talk - 加载中",
     "Initializing": "正在初始化安全消息系统..."
   }
 }

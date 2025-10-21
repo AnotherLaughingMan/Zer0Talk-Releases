@@ -2,11 +2,11 @@
   "id": "template-blank",
   "displayName": "Blank",
   "description": "Neutral grey template - perfect starting point for custom themes",
-  "author": "ZTalk",
+  "author": "Zer0Talk",
   "version": "1.0.0",
   "baseVariant": "Dark",
   "resourceDictionaries": [
-    "avares://ZTalk/Styles/DarkThemeOverrides.axaml"
+    "avares://Zer0Talk/Styles/DarkThemeOverrides.axaml"
   ],
   "colorOverrides": {
     "App.Background": "#1C1C1C",

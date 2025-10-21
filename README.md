@@ -1,8 +1,8 @@
-# ZTalk
+# Zer0Talk
 
 **Secure Peer-to-Peer Messaging for Windows**
 
-ZTalk is a privacy-focused, decentralized messaging application that puts you in complete control of your communications. With no central servers, your conversations stay between you and your contacts—encrypted, local, and truly private.
+Zer0Talk is a privacy-focused, decentralized messaging application that puts you in complete control of your communications. With no central servers, your conversations stay between you and your contacts—encrypted, local, and truly private.
 
 ## ✨ Key Features
 
@@ -46,7 +46,7 @@ ZTalk is a privacy-focused, decentralized messaging application that puts you in
 ### ⚙️ Additional Features
 - **Lock Screen:** Secure your conversations with a custom lock overlay
 - **Framerate Optimization:** Intelligent performance tuning for resource efficiency
-- **Auto-Start:** Launch ZTalk automatically with Windows
+- **Auto-Start:** Launch Zer0Talk automatically with Windows
 - **Comprehensive Logging:** Detailed diagnostics for troubleshooting
 - **Settings Encryption:** Secure local settings storage with DPAPI
 
@@ -55,8 +55,8 @@ ZTalk is a privacy-focused, decentralized messaging application that puts you in
 ### Quick Install (Recommended)
 1. Download the latest release from the [Releases](../../releases) page
 2. Download both files:
-   - `ZTalk-vX.X.X.XX-Alpha-Setup.exe`
-   - `ZTalk-vX.X.X.XX-Alpha-win-x64-Release-single-YYYYMMDD-HHMMSS.zip`
+   - `Zer0Talk-vX.X.X.XX-Alpha-Setup.exe`
+   - `Zer0Talk-vX.X.X.XX-Alpha-win-x64-Release-single-YYYYMMDD-HHMMSS.zip`
 3. Place both files in the same folder
 4. Run the Setup.exe as Administrator
 5. Follow the installation wizard
@@ -64,7 +64,7 @@ ZTalk is a privacy-focused, decentralized messaging application that puts you in
 ### Manual Installation
 1. Download the standalone zip package
 2. Extract to your preferred location
-3. Run `ZTalk.exe`
+3. Run `Zer0Talk.exe`
 
 ## � User Guide
 
@@ -82,14 +82,14 @@ For step-by-step instructions (adding contacts, deleting contacts, setting up a 
 
 ## 🚀 Getting Started
 
-1. **First Launch:** On first run, ZTalk will guide you through initial setup
+1. **First Launch:** On first run, Zer0Talk will guide you through initial setup
 2. **Create Identity:** Set your display name and optional passphrase
-3. **Add Contacts:** Share your ZTalk ID with friends or enter theirs
+3. **Add Contacts:** Share your Zer0Talk ID with friends or enter theirs
 4. **Start Chatting:** Once connected, your messages are end-to-end encrypted
 
 ## 📡 Network & Connectivity
 
-ZTalk uses peer-to-peer connections, which means:
+Zer0Talk uses peer-to-peer connections, which means:
 - Both users must be online simultaneously to exchange messages
 - Network firewalls may need port forwarding configuration
 - Local network connections work seamlessly
@@ -99,13 +99,13 @@ ZTalk uses peer-to-peer connections, which means:
 
 - **No Servers:** Your data never touches a central server
 - **No Tracking:** We don't collect analytics, telemetry, or usage data
-- **Local Storage:** All data stored in `%AppData%\Roaming\ZTalk\`
+- **Local Storage:** All data stored in `%AppData%\Roaming\Zer0Talk\`
 - **Encrypted Settings:** Settings file is encrypted using Windows DPAPI
 - **You Own Your Data:** Export, backup, or delete anytime
 
 ## ⚠️ Alpha Release Notice
 
-ZTalk is currently in **ALPHA** status. This means:
+Zer0Talk is currently in **ALPHA** status. This means:
 - The software is functional but may contain bugs
 - Features are subject to change
 - Regular updates may introduce breaking changes
@@ -117,7 +117,7 @@ ZTalk is currently in **ALPHA** status. This means:
 If you encounter bugs or have feature requests, please check existing issues first, then open a new issue with:
 - Detailed description of the problem
 - Steps to reproduce
-- Your Windows version and ZTalk version
+- Your Windows version and Zer0Talk version
 - Relevant log files (found in the installation directory)
 
 ## 🤝 Community & Support
@@ -166,10 +166,10 @@ Peer-to-peer messaging experiment for Windows, built with Avalonia (.NET 9) and 
 
 ```bash
 # Build
-dotnet build .\ZTalk.csproj
+dotnet build .\Zer0Talk.csproj
 
 # Run
-dotnet run --project .\ZTalk.csproj
+dotnet run --project .\Zer0Talk.csproj
 ```
 
 ### Requirements
@@ -179,7 +179,7 @@ dotnet run --project .\ZTalk.csproj
 
 ## Configuration & Data Paths
 
-- Settings: `%AppData%\Roaming\ZTalk\settings.p2e` (encrypted at rest; auto-migrated from older paths).
+- Settings: `%AppData%\Roaming\Zer0Talk\settings.p2e` (encrypted at rest; auto-migrated from older paths).
 - Logs: `bin/<Configuration>/net9.0/logs/` (see `Utilities/LoggingPaths`).
 - Publish output: `publish/win-x64-<Variant>/` with timestamped zips.
 

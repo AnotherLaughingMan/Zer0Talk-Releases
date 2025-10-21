@@ -2,13 +2,13 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="using:ZTalk.ViewModels"
-    xmlns:cp="using:ZTalk.Controls.ColorPicker"
+    xmlns:vm="using:Zer0Talk.ViewModels"
+    xmlns:cp="using:Zer0Talk.Controls.ColorPicker"
     xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
-        x:Class="ZTalk.Views.ThemeEditorWindow"
+        x:Class="Zer0Talk.Views.ThemeEditorWindow"
         x:DataType="vm:ThemeEditorViewModel"
-        Title="🎨 ZTalk Theme Editor"
+        Title="🎨 Zer0Talk Theme Editor"
         Width="1200" Height="800"
         MinWidth="900" MinHeight="600"
         WindowStartupLocation="CenterOwner"
@@ -40,7 +40,7 @@
                 <Border Grid.Column="0" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
                     <StackPanel Orientation="Horizontal" Margin="12,0" VerticalAlignment="Center">
                         <TextBlock Text="🎨" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource App.TitleBarForeground}"/>
-                        <TextBlock Text="ZTalk Theme Editor" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource App.TitleBarForeground}"/>
+                        <TextBlock Text="Zer0Talk Theme Editor" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource App.TitleBarForeground}"/>
                     </StackPanel>
                 </Border>
                 

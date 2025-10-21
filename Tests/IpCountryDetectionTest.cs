@@ -4,9 +4,9 @@
 */
 
 using System;
-using ZTalk.Utilities;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Tests
+namespace Zer0Talk.Tests
 {
     public static class IpCountryDetectionTest
     {

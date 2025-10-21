@@ -12,7 +12,7 @@ using System.Management;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public static class SecureFileWiper
     {

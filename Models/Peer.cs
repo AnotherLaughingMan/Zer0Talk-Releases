@@ -1,7 +1,7 @@
 /*
     Peer node: network endpoint, capabilities, and status used by PeerManager.
 */
-namespace ZTalk.Models
+namespace Zer0Talk.Models
 {
     public class Peer
     {

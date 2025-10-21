@@ -4,10 +4,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     // Orchestrates peer discovery across LAN and WAN without duplicating lower-level logic.
     // Delegates:
@@ -44,7 +44,7 @@ namespace ZTalk.Services
         public void Start()
         {
             // Honor global SafeMode to avoid network/discovery activity during diagnostics
-            if (ZTalk.Utilities.RuntimeFlags.SafeMode)
+            if (Zer0Talk.Utilities.RuntimeFlags.SafeMode)
             {
                 AppendLog("Start suppressed: SafeMode enabled");
                 return;
@@ -279,3 +279,4 @@ namespace ZTalk.Services
         }
     }
 }
+

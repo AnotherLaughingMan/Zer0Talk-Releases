@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 using NAudio.Wave;
 using NAudio.Vorbis;
 using NAudio.MediaFoundation;
-using ZTalk.Utilities;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     /// <summary>
     /// Audio notification service supporting .ogg, .mp3, and .wav formats
@@ -547,8 +547,8 @@ namespace ZTalk.Services
             try
             {
                 var line = $"[AUDIO] {DateTime.Now:O}: {message}";
-                if (ZTalk.Utilities.LoggingPaths.Enabled)
-                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Audio, line + Environment.NewLine);
+                if (Zer0Talk.Utilities.LoggingPaths.Enabled)
+                    System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.Audio, line + Environment.NewLine);
             }
             catch { }
         }

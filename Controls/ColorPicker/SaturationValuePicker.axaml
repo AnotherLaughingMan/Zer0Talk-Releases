@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="ZTalk.Controls.ColorPicker.SaturationValuePicker"
+             x:Class="Zer0Talk.Controls.ColorPicker.SaturationValuePicker"
              Width="240" Height="240">
   <Grid x:Name="Root">
     <Border CornerRadius="6" BorderThickness="1" BorderBrush="#555" ClipToBounds="True">

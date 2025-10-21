@@ -1,7 +1,7 @@
 <!-- Legacy Network Settings window disabled on 2025-10-15. Use Settings > Network instead. -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="ZTalk.Views.NetworkWindow"
+        x:Class="Zer0Talk.Views.NetworkWindow"
         Title="Network Settings"
         Width="520" Height="360"
         MinWidth="480" MinHeight="320"

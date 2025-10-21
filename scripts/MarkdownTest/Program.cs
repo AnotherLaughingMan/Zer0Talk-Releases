@@ -1,7 +1,7 @@
 using System;
-using ZTalk.Controls.Markdown;
+using Zer0Talk.Controls.Markdown;
 
-namespace ZTalk.Tests;
+namespace Zer0Talk.Tests;
 
 /// <summary>
 /// Simple console test for the markdown parser (RenderModel only).

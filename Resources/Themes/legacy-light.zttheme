@@ -2,11 +2,11 @@
   "id": "legacy-light",
   "displayName": "Light",
   "description": "Legacy Light theme (compatibility mode)",
-  "author": "ZTalk",
+  "author": "Zer0Talk",
   "version": "1.0.0",
   "baseVariant": "Light",
   "resourceDictionaries": [
-    "avares://ZTalk/Styles/LightThemeOverrides.axaml"
+    "avares://Zer0Talk/Styles/LightThemeOverrides.axaml"
   ],
   "colorOverrides": {},
   "gradients": {

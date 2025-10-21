@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="ZTalk.Controls.ColorPicker.BrightnessSlider"
+             x:Class="Zer0Talk.Controls.ColorPicker.BrightnessSlider"
              Width="32" Height="240">
   <Grid>
     <!-- Grayscale gradient background (white to black) -->

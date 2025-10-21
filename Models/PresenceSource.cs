@@ -1,4 +1,4 @@
-namespace ZTalk.Models
+namespace Zer0Talk.Models
 {
     public enum PresenceSource
     {

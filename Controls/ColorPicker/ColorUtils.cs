@@ -1,7 +1,7 @@
 using System;
 using Avalonia.Media;
 
-namespace ZTalk.Controls.ColorPicker
+namespace Zer0Talk.Controls.ColorPicker
 {
     public static class ColorUtils
     {

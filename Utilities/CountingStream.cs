@@ -7,7 +7,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public sealed class CountingStream : Stream
     {

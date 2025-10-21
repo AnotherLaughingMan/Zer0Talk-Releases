@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using ZTalk.Containers;
-using ZTalk.Models;
+using Zer0Talk.Containers;
+using Zer0Talk.Models;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class OutboxService
     {
@@ -191,3 +191,4 @@ namespace ZTalk.Services
         }
     }
 }
+

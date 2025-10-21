@@ -10,10 +10,10 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
-using ZTalk.Services;
-using ZTalk.ViewModels;
+using Zer0Talk.Services;
+using Zer0Talk.ViewModels;
 
-namespace ZTalk.Views;
+namespace Zer0Talk.Views;
 
 public partial class MonitoringWindow : Window, IDisposable
 {
@@ -78,7 +78,7 @@ public partial class MonitoringWindow : Window, IDisposable
         }
 
         // Surface network stack logs (SSDP/UPnP/etc.) in the Monitoring log for diagnostics
-        try { ZTalk.Utilities.Logger.LineLogged += OnLoggerLine; } catch { }
+        try { Zer0Talk.Utilities.Logger.LineLogged += OnLoggerLine; } catch { }
 
         // EVENT-DRIVEN STATUS UPDATES
         // Switch NAT/ports/discovery and diagnostics summary to event-driven updates instead of the refresh loop.
@@ -203,7 +203,7 @@ public partial class MonitoringWindow : Window, IDisposable
     }
 
     // [LAYOUT] Restore via cache with fallback to settings; ensure on-screen.
-    private void RestoreLayoutFromCacheOrSettings(ZTalk.Models.WindowStateSettings s)
+    private void RestoreLayoutFromCacheOrSettings(Zer0Talk.Models.WindowStateSettings s)
     {
         double w = Width, h = Height; var pos = Position; bool haveState = false;
         try
@@ -387,7 +387,7 @@ public partial class MonitoringWindow : Window, IDisposable
     protected override void OnClosed(EventArgs e)
     {
         // Unsubscribe from all events to avoid leaks and callbacks after close.
-        try { ZTalk.Utilities.Logger.LineLogged -= OnLoggerLine; } catch { }
+        try { Zer0Talk.Utilities.Logger.LineLogged -= OnLoggerLine; } catch { }
         try { AppServices.Nat.Changed -= OnStatusEvent; } catch { }
         try { AppServices.Discovery.Changed -= OnStatusEvent; } catch { }
         try { AppServices.Network.ListeningChanged -= OnNetworkListeningChanged; } catch { }

@@ -9,7 +9,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Markup.Xaml;
 
-namespace ZTalk.Views.Controls
+namespace Zer0Talk.Views.Controls
 {
     public partial class SettingsView : UserControl
     {
@@ -46,13 +46,13 @@ namespace ZTalk.Views.Controls
             // Sync initial selection to the VM if needed
             try
             {
-                if (DataContext is ZTalk.ViewModels.SettingsViewModel vm && listBox.SelectedItems != null)
+                if (DataContext is Zer0Talk.ViewModels.SettingsViewModel vm && listBox.SelectedItems != null)
                 {
-                    var selected = new System.Collections.Generic.List<ZTalk.Models.Peer>();
+                    var selected = new System.Collections.Generic.List<Zer0Talk.Models.Peer>();
                     foreach (var item in listBox.SelectedItems)
-                        if (item is ZTalk.Models.Peer peer) selected.Add(peer);
+                        if (item is Zer0Talk.Models.Peer peer) selected.Add(peer);
 
-                    var netVm = typeof(ZTalk.ViewModels.SettingsViewModel)
+                    var netVm = typeof(Zer0Talk.ViewModels.SettingsViewModel)
                         .GetField("NetworkVm", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                         ?.GetValue(vm);
 
@@ -72,16 +72,16 @@ namespace ZTalk.Views.Controls
             {
                 var listBox = sender as ListBox;
                 if (listBox == null) return;
-                if (!(DataContext is ZTalk.ViewModels.SettingsViewModel vm)) return;
+                if (!(DataContext is Zer0Talk.ViewModels.SettingsViewModel vm)) return;
 
-                var selected = new System.Collections.Generic.List<ZTalk.Models.Peer>();
+                var selected = new System.Collections.Generic.List<Zer0Talk.Models.Peer>();
                 if (listBox.SelectedItems != null)
                 {
                     foreach (var item in listBox.SelectedItems)
-                        if (item is ZTalk.Models.Peer peer) selected.Add(peer);
+                        if (item is Zer0Talk.Models.Peer peer) selected.Add(peer);
                 }
 
-                var netVm = typeof(ZTalk.ViewModels.SettingsViewModel)
+                var netVm = typeof(Zer0Talk.ViewModels.SettingsViewModel)
                     .GetField("NetworkVm", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                     ?.GetValue(vm);
 
@@ -112,10 +112,10 @@ namespace ZTalk.Views.Controls
         {
             try
             {
-                if (DataContext is ZTalk.ViewModels.SettingsViewModel vm)
+                if (DataContext is Zer0Talk.ViewModels.SettingsViewModel vm)
                 {
                     var combo = sender as ComboBox;
-                    if (combo?.SelectedItem is ZTalk.ViewModels.SettingsViewModel.LegacyThemeOption opt)
+                    if (combo?.SelectedItem is Zer0Talk.ViewModels.SettingsViewModel.LegacyThemeOption opt)
                     {
                         vm.SelectedLegacyThemeId = opt.ThemeId ?? string.Empty;
                     }
@@ -144,13 +144,13 @@ namespace ZTalk.Views.Controls
                 UpdatePanels(idx);
                 try
                 {
-                    var s = ZTalk.Services.AppServices.Settings.Settings;
+                    var s = Zer0Talk.Services.AppServices.Settings.Settings;
                     var max = HasDebugPanel() ? 9 : 8;
                     if (idx >= 0 && idx <= max && s.LastSettingsMenuIndex != idx)
                     {
                         s.LastSettingsMenuIndex = idx;
                         // Persist asynchronously to avoid UI stalls
-                        _ = System.Threading.Tasks.Task.Run(() => ZTalk.Services.AppServices.Settings.Save(ZTalk.Services.AppServices.Passphrase));
+                        _ = System.Threading.Tasks.Task.Run(() => Zer0Talk.Services.AppServices.Settings.Save(Zer0Talk.Services.AppServices.Passphrase));
                     }
                 }
                 catch { }
@@ -158,7 +158,7 @@ namespace ZTalk.Views.Controls
             // Restore last selected menu (default Profile index 2) and update panels
             try
             {
-                var saved = ZTalk.Services.AppServices.Settings.Settings.LastSettingsMenuIndex;
+                var saved = Zer0Talk.Services.AppServices.Settings.Settings.LastSettingsMenuIndex;
                 var max = HasDebugPanel() ? 9 : 8;
                 if (saved < 0 || saved > max) saved = Math.Min(2, max);
                 menu.SelectedIndex = saved;
@@ -176,7 +176,7 @@ namespace ZTalk.Views.Controls
                     try
                     {
                         var combo = this.FindControl<ComboBox>("ThemeCombo");
-                        if (combo != null && DataContext is ZTalk.ViewModels.SettingsViewModel vm)
+                        if (combo != null && DataContext is Zer0Talk.ViewModels.SettingsViewModel vm)
                         {
                             // Reapply the VM value to ensure UI reflects saved theme if the control defaulted to 0.
                             combo.SelectedIndex = vm.ThemeIndex;
@@ -272,7 +272,7 @@ namespace ZTalk.Views.Controls
                 {
                     try
                     {
-                        if (DataContext is ZTalk.ViewModels.SettingsViewModel vm)
+                        if (DataContext is Zer0Talk.ViewModels.SettingsViewModel vm)
                         {
                             combo.SelectedIndex = vm.DebugCcdModeIndex;
                             combo.SelectionChanged += (_, __2) => vm.DebugCcdModeIndex = combo.SelectedIndex;
@@ -319,7 +319,7 @@ namespace ZTalk.Views.Controls
         {
             try
             {
-                if (DataContext is ZTalk.ViewModels.SettingsViewModel vm)
+                if (DataContext is Zer0Talk.ViewModels.SettingsViewModel vm)
                 {
                     vm.StartCapturingLockHotkey();
                 }
@@ -331,7 +331,7 @@ namespace ZTalk.Views.Controls
         {
             try
             {
-                if (DataContext is ZTalk.ViewModels.SettingsViewModel vm)
+                if (DataContext is Zer0Talk.ViewModels.SettingsViewModel vm)
                 {
                     vm.StartCapturingClearInputHotkey();
                 }

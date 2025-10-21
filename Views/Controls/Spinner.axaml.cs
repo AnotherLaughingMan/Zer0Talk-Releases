@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using System;
 
-namespace ZTalk.Controls
+namespace Zer0Talk.Controls
 {
     public partial class Spinner : UserControl
     {

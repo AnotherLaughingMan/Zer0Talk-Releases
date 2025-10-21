@@ -5,12 +5,12 @@
 */
 // TODO[ANCHOR]: AppServices - Global services and passphrase state
 using System;
-using ZTalk.Containers;
+using Zer0Talk.Containers;
 using System.Linq;
-using Models = ZTalk.Models;
-using ZTalk.Utilities;
+using Models = Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services;
+namespace Zer0Talk.Services;
 
 public static class AppServices
 {
@@ -74,7 +74,7 @@ public static class AppServices
     {
         try
         {
-            var mc = new ZTalk.Containers.MessageContainer();
+            var mc = new Zer0Talk.Containers.MessageContainer();
             mc.UpdateMessage(peerUid, messageId, newContent, Passphrase);
             // Raise event so UI can refresh if this conversation is currently visible
             Events.RaiseMessageEdited(peerUid, messageId, newContent);
@@ -86,14 +86,14 @@ public static class AppServices
     {
         try
         {
-            var mc = new ZTalk.Containers.MessageContainer();
+            var mc = new Zer0Talk.Containers.MessageContainer();
             mc.DeleteMessage(peerUid, messageId, Passphrase);
             try
             {
-                if (ZTalk.Utilities.LoggingPaths.Enabled)
+                if (Zer0Talk.Utilities.LoggingPaths.Enabled)
                 {
                     var line = $"[RETENTION] {System.DateTime.Now:O}: Remote delete peer={peerUid} id={messageId}";
-                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Retention, line + System.Environment.NewLine);
+                    System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.Retention, line + System.Environment.NewLine);
                 }
             }
             catch { }
@@ -241,9 +241,9 @@ public static class AppServices
         catch { }
 
         // Start regression guard background monitor (skip in SafeMode)
-        try { if (!ZTalk.Utilities.RuntimeFlags.SafeMode) Guard.Start(); } catch { }
+        try { if (!Zer0Talk.Utilities.RuntimeFlags.SafeMode) Guard.Start(); } catch { }
         // Start discovery orchestrator (non-invasive; coordinates existing services) (skip in SafeMode)
-        try { if (!ZTalk.Utilities.RuntimeFlags.SafeMode) Discovery.Start(); } catch { }
+        try { if (!Zer0Talk.Utilities.RuntimeFlags.SafeMode) Discovery.Start(); } catch { }
 
 #if DEBUG
     try { LogMaintenance.TryStart(); } catch { }
@@ -331,3 +331,4 @@ public static class AppServices
     }
 
 }
+

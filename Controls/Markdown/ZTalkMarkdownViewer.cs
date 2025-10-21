@@ -6,17 +6,17 @@ using Avalonia.Data;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 
-namespace ZTalk.Controls.Markdown
+namespace Zer0Talk.Controls.Markdown
 {
     /// <summary>
     /// Markdown viewer that uses the new parser → RenderModel → renderer pipeline.
     /// Creates fresh controls per render - never reuses visual elements.
     /// Safe for P2P messaging with HTML disabled and no external resource loading.
     /// </summary>
-    public sealed class ZTalkMarkdownViewer : ContentControl
+    public sealed class Zer0TalkMarkdownViewer : ContentControl
     {
         // Static constructor runs once per AppDomain - rotate logs on first load
-        static ZTalkMarkdownViewer()
+        static Zer0TalkMarkdownViewer()
         {
             try
             {
@@ -33,7 +33,7 @@ namespace ZTalk.Controls.Markdown
 
         // Simple bound Markdown text property (one-way)
         public static readonly StyledProperty<string> MarkdownProperty =
-            AvaloniaProperty.Register<ZTalkMarkdownViewer, string>(nameof(Markdown), string.Empty, defaultBindingMode: BindingMode.OneWay);
+            AvaloniaProperty.Register<Zer0TalkMarkdownViewer, string>(nameof(Markdown), string.Empty, defaultBindingMode: BindingMode.OneWay);
 
         public string Markdown
         {
@@ -41,7 +41,7 @@ namespace ZTalk.Controls.Markdown
             set => SetValue(MarkdownProperty, value);
         }
 
-        public ZTalkMarkdownViewer()
+        public Zer0TalkMarkdownViewer()
         {
             // Initialize to an empty plain TextBlock
             Content = CreateFallbackTextBlock(string.Empty);
@@ -88,7 +88,7 @@ namespace ZTalk.Controls.Markdown
                     
                     // Debug logging to track rendering
                     var renderPreview = CreatePreview(text, 50);
-                    System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Rendering markdown: {renderPreview}...");
+                    System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Rendering markdown: {renderPreview}...");
 
                     // Empty text - show empty content
                     if (string.IsNullOrWhiteSpace(text))
@@ -102,13 +102,13 @@ namespace ZTalk.Controls.Markdown
                     {
                         try
                         {
-                            System.Diagnostics.Debug.WriteLine("[ZTalkMarkdownViewer] Using mixed markdown renderer");
+                            System.Diagnostics.Debug.WriteLine("[Zer0TalkMarkdownViewer] Using mixed markdown renderer");
                             Content = RenderMixedMarkdown(text);
                             return;
                         }
                         catch (Exception mixedEx)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Mixed markdown render failed: {mixedEx.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Mixed markdown render failed: {mixedEx.Message}");
                             // Fall through to single-type rendering
                         }
                     }
@@ -118,13 +118,13 @@ namespace ZTalk.Controls.Markdown
                     {
                         try
                         {
-                            System.Diagnostics.Debug.WriteLine("[ZTalkMarkdownViewer] Using custom quote renderer");
+                            System.Diagnostics.Debug.WriteLine("[Zer0TalkMarkdownViewer] Using custom quote renderer");
                             Content = RenderCustomQuote(text);
                             return;
                         }
                         catch (Exception quoteEx)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Custom quote render failed: {quoteEx.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Custom quote render failed: {quoteEx.Message}");
                             // Fall through to normal rendering
                         }
                     }
@@ -134,13 +134,13 @@ namespace ZTalk.Controls.Markdown
                     {
                         try
                         {
-                            System.Diagnostics.Debug.WriteLine("[ZTalkMarkdownViewer] Using custom code block renderer");
+                            System.Diagnostics.Debug.WriteLine("[Zer0TalkMarkdownViewer] Using custom code block renderer");
                             Content = RenderCustomCodeBlock(text);
                             return;
                         }
                         catch (Exception codeEx)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Custom code block render failed: {codeEx.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Custom code block render failed: {codeEx.Message}");
                             // Fall through to normal rendering
                         }
                     }
@@ -150,13 +150,13 @@ namespace ZTalk.Controls.Markdown
                     {
                         try
                         {
-                            System.Diagnostics.Debug.WriteLine("[ZTalkMarkdownViewer] Using custom spoiler renderer");
+                            System.Diagnostics.Debug.WriteLine("[Zer0TalkMarkdownViewer] Using custom spoiler renderer");
                             Content = RenderCustomSpoiler(text);
                             return;
                         }
                         catch (Exception spoilerEx)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Custom spoiler render failed: {spoilerEx.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Custom spoiler render failed: {spoilerEx.Message}");
                             // Fall through to normal rendering
                         }
                     }
@@ -166,13 +166,13 @@ namespace ZTalk.Controls.Markdown
                     {
                         try
                         {
-                            System.Diagnostics.Debug.WriteLine("[ZTalkMarkdownViewer] Using custom header renderer");
+                            System.Diagnostics.Debug.WriteLine("[Zer0TalkMarkdownViewer] Using custom header renderer");
                             Content = RenderCustomHeader(text);
                             return;
                         }
                         catch (Exception headerEx)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Custom header render failed: {headerEx.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Custom header render failed: {headerEx.Message}");
                             // Fall through to normal rendering
                         }
                     }
@@ -182,13 +182,13 @@ namespace ZTalk.Controls.Markdown
                     {
                         try
                         {
-                            System.Diagnostics.Debug.WriteLine("[ZTalkMarkdownViewer] Using custom list renderer");
+                            System.Diagnostics.Debug.WriteLine("[Zer0TalkMarkdownViewer] Using custom list renderer");
                             Content = RenderCustomList(text);
                             return;
                         }
                         catch (Exception listEx)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Custom list render failed: {listEx.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Custom list render failed: {listEx.Message}");
                             // Fall through to normal rendering
                         }
                     }
@@ -198,13 +198,13 @@ namespace ZTalk.Controls.Markdown
                     {
                         try
                         {
-                            System.Diagnostics.Debug.WriteLine("[ZTalkMarkdownViewer] Using custom table renderer");
+                            System.Diagnostics.Debug.WriteLine("[Zer0TalkMarkdownViewer] Using custom table renderer");
                             Content = RenderCustomTable(text);
                             return;
                         }
                         catch (Exception tableEx)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Custom table render failed: {tableEx.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Custom table render failed: {tableEx.Message}");
                             // Fall through to normal rendering
                         }
                     }
@@ -214,13 +214,13 @@ namespace ZTalk.Controls.Markdown
                     {
                         try
                         {
-                            System.Diagnostics.Debug.WriteLine("[ZTalkMarkdownViewer] Using custom horizontal rule renderer");
+                            System.Diagnostics.Debug.WriteLine("[Zer0TalkMarkdownViewer] Using custom horizontal rule renderer");
                             Content = RenderHorizontalRule();
                             return;
                         }
                         catch (Exception hrEx)
                         {
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Custom horizontal rule render failed: {hrEx.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Custom horizontal rule render failed: {hrEx.Message}");
                             // Fall through to normal rendering
                         }
                     }
@@ -249,11 +249,11 @@ namespace ZTalk.Controls.Markdown
                         // CRITICAL: Wrap rendering in try-catch to prevent crashes
                         try
                         {
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] About to render, current Content type: {Content?.GetType().Name ?? "null"}");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] About to render, current Content type: {Content?.GetType().Name ?? "null"}");
                             var newContent = _renderer.Render(document);
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Rendered new content type: {newContent.GetType().Name}");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Rendered new content type: {newContent.GetType().Name}");
                             Content = newContent;
-                            System.Diagnostics.Debug.WriteLine($"[ZTalkMarkdownViewer] Content assigned successfully");
+                            System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Content assigned successfully");
                         }
                         catch (Exception renderEx)
                         {

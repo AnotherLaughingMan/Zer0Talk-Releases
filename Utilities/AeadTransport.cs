@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 using Sodium;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public sealed class AeadTransport : IDisposable
     {

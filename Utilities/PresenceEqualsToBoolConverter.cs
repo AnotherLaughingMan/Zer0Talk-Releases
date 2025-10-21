@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace ZTalk.Utilities;
+namespace Zer0Talk.Utilities;
 
 /// <summary>
 /// Returns true when the bound value (PresenceStatus) string matches the converter parameter (case-insensitive).

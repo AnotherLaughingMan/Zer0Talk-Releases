@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="ZTalk.Controls.ColorPicker.ColorChannelSlider"
+             x:Class="Zer0Talk.Controls.ColorPicker.ColorChannelSlider"
              Height="40">
   <Grid ColumnDefinitions="50,8,*,8,70">
     <!-- Label -->

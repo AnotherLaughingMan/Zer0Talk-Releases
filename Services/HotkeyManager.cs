@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Input;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class HotkeyManager
     {
@@ -90,9 +90,9 @@ namespace ZTalk.Services
             // Diagnostic: log incoming key event
             try
             {
-                if (ZTalk.Utilities.LoggingPaths.Enabled)
+                if (Zer0Talk.Utilities.LoggingPaths.Enabled)
                 {
-                    ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Hotkey] HandleKeyEvent received key={e.Key} mods={e.KeyModifiers}\n");
+                    Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Hotkey] HandleKeyEvent received key={e.Key} mods={e.KeyModifiers}\n");
                 }
             }
             catch { }
@@ -109,9 +109,9 @@ namespace ZTalk.Services
                     {
                         try
                         {
-                            if (ZTalk.Utilities.LoggingPaths.Enabled)
+                            if (Zer0Talk.Utilities.LoggingPaths.Enabled)
                             {
-                                ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Hotkey] Matched registration id={match.Id} key={match.Key} mods={match.Modifiers}\n");
+                                Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Hotkey] Matched registration id={match.Id} key={match.Key} mods={match.Modifiers}\n");
                             }
                         }
                         catch { }
@@ -122,7 +122,7 @@ namespace ZTalk.Services
                     }
                     catch (Exception ex)
                     {
-                        ZTalk.Utilities.Logger.Log($"Hotkey execution error ({match.Id}): {ex.Message}");
+                        Zer0Talk.Utilities.Logger.Log($"Hotkey execution error ({match.Id}): {ex.Message}");
                     }
                 }
             }
@@ -223,3 +223,4 @@ namespace ZTalk.Services
         public string DisplayText => HotkeyManager.FormatKeyBinding(Key, Modifiers);
     }
 }
+

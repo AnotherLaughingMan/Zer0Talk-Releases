@@ -1,6 +1,6 @@
 using System;
-using ZTalk.Controls.Markdown;
-using ZTalk.Utilities;
+using Zer0Talk.Controls.Markdown;
+using Zer0Talk.Utilities;
 
 var testMarkdown = "> This is a quote\n> with multiple lines";
 
@@ -30,7 +30,7 @@ foreach (var block in doc.Blocks)
 // Check if UseMarkdig binding would work
 Console.WriteLine("\n=== SIMULATION ===");
 Console.WriteLine("If UseMarkdig = true:");
-Console.WriteLine("  ZTalkMarkdownViewer.Markdown = RenderedContent");
+Console.WriteLine("  Zer0TalkMarkdownViewer.Markdown = RenderedContent");
 Console.WriteLine("  -> Parser.Parse(text)");
 Console.WriteLine("  -> Renderer.Render(document)");
 Console.WriteLine("  -> Should show styled quote with border");

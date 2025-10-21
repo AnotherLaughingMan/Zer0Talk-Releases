@@ -12,12 +12,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-using ZTalk.Containers;
-using ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Containers;
+using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 using Avalonia.Input;
 
-namespace ZTalk.Services;
+namespace Zer0Talk.Services;
 
 public class SettingsService
 {
@@ -51,7 +51,7 @@ public class SettingsService
                 // Sync logging state with settings after creation (Debug builds only)
                 try
                 {
-                    ZTalk.Utilities.LoggingPaths.SyncWithSettings();
+                    Zer0Talk.Utilities.LoggingPaths.SyncWithSettings();
                 }
                 catch { }
 
@@ -91,7 +91,7 @@ public class SettingsService
             // Sync logging state with settings after load (Debug builds only)
             try
             {
-                ZTalk.Utilities.LoggingPaths.SyncWithSettings();
+                Zer0Talk.Utilities.LoggingPaths.SyncWithSettings();
             }
             catch { }
 
@@ -158,7 +158,7 @@ public class SettingsService
 
     private static string GetPath()
     {
-        return ZTalk.Utilities.AppDataPaths.Combine(FileName);
+        return Zer0Talk.Utilities.AppDataPaths.Combine(FileName);
     }
 
     // (kept single public GetSettingsPath above)
@@ -293,17 +293,17 @@ public class SettingsService
 
     private static string GetRememberPrefPath()
     {
-        return ZTalk.Utilities.AppDataPaths.Combine("remember.pref");
+        return Zer0Talk.Utilities.AppDataPaths.Combine("remember.pref");
     }
 
     private static string GetPassphraseSidecarPath()
     {
-        return ZTalk.Utilities.AppDataPaths.Combine("passphrase.dpapi");
+        return Zer0Talk.Utilities.AppDataPaths.Combine("passphrase.dpapi");
     }
 
     private static string GetUnlockWindowJsonPath()
     {
-        return ZTalk.Utilities.AppDataPaths.Combine("unlock.window.json");
+        return Zer0Talk.Utilities.AppDataPaths.Combine("unlock.window.json");
     }
 
     private static void TryWriteUnlockJsonRemember(bool remember)
@@ -361,6 +361,10 @@ public class SettingsService
             DebugUiLogMaxLines = 1000,
             DebugLogRetentionDays = 1,
             DebugLogMaxMegabytes = 16,
+            // System Tray defaults
+            ShowInSystemTray = true, // Default to enabled
+            MinimizeToTray = false,
+            RunOnStartup = false,
         };
         NormalizeHotkeySettings(settings);
         return settings;
@@ -412,3 +416,4 @@ public class SettingsService
         return changed;
     }
 }
+

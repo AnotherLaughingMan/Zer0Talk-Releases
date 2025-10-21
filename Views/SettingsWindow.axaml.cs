@@ -17,11 +17,11 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
-using ZTalk.Models;
-using ZTalk.Services;
-using ZTalk.ViewModels;
+using Zer0Talk.Models;
+using Zer0Talk.Services;
+using Zer0Talk.ViewModels;
 
-namespace ZTalk.Views;
+namespace Zer0Talk.Views;
 
 public partial class SettingsWindow : Window
 {

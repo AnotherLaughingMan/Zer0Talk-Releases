@@ -12,10 +12,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using ZTalk.Utilities;
-using ZTalk.Models;
+using Zer0Talk.Utilities;
+using Zer0Talk.Models;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class SecurityBlocklistService
     {
@@ -251,3 +251,4 @@ namespace ZTalk.Services
         }
     }
 }
+

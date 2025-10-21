@@ -13,9 +13,9 @@ using Konscious.Security.Cryptography;
 
 using Sodium;
 
-using ZTalk.Utilities;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class EncryptionService
     {
@@ -353,3 +353,4 @@ namespace ZTalk.Services
         }
     }
 }
+

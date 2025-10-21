@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:ZTalk.ViewModels"
-        x:Class="ZTalk.Views.LoadingWindow"
+        xmlns:vm="using:Zer0Talk.ViewModels"
+        x:Class="Zer0Talk.Views.LoadingWindow"
         x:DataType="vm:LoadingWindowViewModel"
         Title="{Binding LocalizedTitle}"
         Width="700"
@@ -32,7 +32,7 @@
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Spacing="35" Margin="0,40,0,0">
 
             <!-- App Title/Logo area -->
-            <TextBlock Text="ZTalk"
+            <TextBlock Text="Zer0Talk"
                        FontSize="48"
                        FontWeight="Bold"
                        Foreground="#4a9eff"

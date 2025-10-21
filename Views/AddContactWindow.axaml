@@ -2,9 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="clr-namespace:ZTalk.ViewModels"
-        xmlns:util="clr-namespace:ZTalk.Utilities"
-  x:Class="ZTalk.Views.AddContactWindow"
+        xmlns:vm="clr-namespace:Zer0Talk.ViewModels"
+        xmlns:util="clr-namespace:Zer0Talk.Utilities"
+  x:Class="Zer0Talk.Views.AddContactWindow"
         Title="{Binding LocalizedTitle}"
   Width="420" Height="300"
   CanResize="False"
@@ -27,7 +27,7 @@
             PointerPressed="DragBar_PointerPressed">
       <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
         <Border Grid.Column="0" Width="20" Height="20" CornerRadius="4" Background="Transparent"/>
-  <TextBlock Grid.Column="1" Text="ZTalk" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+  <TextBlock Grid.Column="1" Text="Zer0Talk" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         <Grid Grid.Column="2"/>
       </Grid>
     </Border>

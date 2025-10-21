@@ -1,7 +1,7 @@
 # IP Blocking System Documentation
 
 ## Overview
-ZTalk includes a comprehensive IP blocking system to protect against bad-actor IPs and hostile network infrastructure.
+Zer0Talk includes a comprehensive IP blocking system to protect against bad-actor IPs and hostile network infrastructure.
 
 ## Features
 - **Individual IP Blocking**: Block specific IP addresses
@@ -29,7 +29,7 @@ Access IP blocking settings through: **Settings → Network → Bad-Actor IP Blo
 
 ### Import Lists
 Place IP block list files in:
-- `%APPDATA%\ZTalk\security\ip-blocklist.txt` (recommended)
+- `%APPDATA%\Zer0Talk\security\ip-blocklist.txt` (recommended)
 - Desktop (`ip-blocklist.txt`)
 - Downloads folder (`ip-blocklist.txt`)
 
@@ -41,7 +41,7 @@ Place IP block list files in:
 
 ### Export/Backup
 - Export current lists with timestamps
-- Automatic backup to `%APPDATA%\ZTalk\security\`
+- Automatic backup to `%APPDATA%\Zer0Talk\security\`
 - Includes both individual IPs and CIDR ranges
 
 ## File Format
@@ -76,4 +76,4 @@ Place IP block list files in:
 - Default blocklist embedded as application resource
 - No automatic updates to prevent vendor lock-in
 - User-controlled threat intelligence approach
-- Proper Windows application data structure (`%APPDATA%\ZTalk\security\`)
+- Proper Windows application data structure (`%APPDATA%\Zer0Talk\security\`)

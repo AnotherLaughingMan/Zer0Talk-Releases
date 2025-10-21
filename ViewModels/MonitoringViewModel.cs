@@ -7,9 +7,9 @@ using System.Windows.Input;
 
 using Avalonia.Media;
 
-using ZTalk.Services;
+using Zer0Talk.Services;
 
-namespace ZTalk.ViewModels;
+namespace Zer0Talk.ViewModels;
 
 public class MonitoringViewModel : INotifyPropertyChanged
 {
@@ -252,7 +252,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
 
     // Theme-aware log text color for contrast with current theme (use app theme service colors)
     public IBrush LogForeground
-    => (AppServices.Theme.CurrentTheme == ZTalk.Models.ThemeOption.Dark)
+    => (AppServices.Theme.CurrentTheme == Zer0Talk.Models.ThemeOption.Dark)
             ? new SolidColorBrush(Color.FromUInt32(0xFFCCCCCC))
             : new SolidColorBrush(Color.FromUInt32(0xFF222222));
     public ICommand CopyAllCommand => new RelayCommand(async _ => { try { var txt = string.Join(Environment.NewLine, LogItems); var lifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime; if (lifetime?.MainWindow?.Clipboard != null) await lifetime.MainWindow.Clipboard.SetTextAsync(txt); } catch { } });
@@ -346,7 +346,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
         return $"{bytesPerSec:0.#} {units[i]}";
     }
 
-    public void UpdateDiagnostics(ZTalk.Utilities.NetworkDiagnostics.Snapshot s)
+    public void UpdateDiagnostics(Zer0Talk.Utilities.NetworkDiagnostics.Snapshot s)
     {
         try
         {

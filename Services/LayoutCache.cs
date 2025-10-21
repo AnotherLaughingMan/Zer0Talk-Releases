@@ -1,6 +1,6 @@
 /*
     LayoutCache: lightweight, local-only persistence for window geometry.
-    - Stores size/position/state in %APPDATA%\ZTalk\window_state.json.
+    - Stores size/position/state in %APPDATA%\Zer0Talk\window_state.json.
     - Avoids frequent writes to settings.p2e and keeps layout separate from configuration.
     - Safe no-throw API; failures silently fall back to defaults.
 */
@@ -8,16 +8,16 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using ZTalk.Utilities;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     internal static class LayoutCache
     {
         private static readonly object _gate = new();
         private static string GetPath()
         {
-            var path = Path.Combine(ZTalk.Utilities.AppDataPaths.Root, "window_state.json");
+            var path = Path.Combine(Zer0Talk.Utilities.AppDataPaths.Root, "window_state.json");
             return path;
         }
 
@@ -71,3 +71,4 @@ namespace ZTalk.Services
         }
     }
 }
+

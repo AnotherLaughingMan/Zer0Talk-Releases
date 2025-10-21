@@ -9,16 +9,16 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 
-namespace ZTalk.Views.Controls;
+namespace Zer0Talk.Views.Controls;
 
 // Lightweight drawing surface for rolling traffic history.
 // Draws three series (TCP, UDP, Outbound) using DrawingContext without allocating visual children each tick.
 public sealed class TrafficHistoryView : Control
 {
-    public static readonly StyledProperty<ObservableCollection<ZTalk.ViewModels.MonitoringViewModel.TrafficSample>?> HistoryProperty =
-        AvaloniaProperty.Register<TrafficHistoryView, ObservableCollection<ZTalk.ViewModels.MonitoringViewModel.TrafficSample>?>(nameof(History));
+    public static readonly StyledProperty<ObservableCollection<Zer0Talk.ViewModels.MonitoringViewModel.TrafficSample>?> HistoryProperty =
+        AvaloniaProperty.Register<TrafficHistoryView, ObservableCollection<Zer0Talk.ViewModels.MonitoringViewModel.TrafficSample>?>(nameof(History));
 
-    public ObservableCollection<ZTalk.ViewModels.MonitoringViewModel.TrafficSample>? History
+    public ObservableCollection<Zer0Talk.ViewModels.MonitoringViewModel.TrafficSample>? History
     {
         get => GetValue(HistoryProperty);
         set => SetValue(HistoryProperty, value);
@@ -262,17 +262,17 @@ public sealed class TrafficHistoryView : Control
     {
         try
         {
-            if (ZTalk.Utilities.LoggingPaths.Enabled)
+            if (Zer0Talk.Utilities.LoggingPaths.Enabled)
             {
                 var line = $"[STYLE] {DateTime.Now:O} {message}";
-                File.AppendAllText(ZTalk.Utilities.LoggingPaths.Monitoring, line + Environment.NewLine);
+                File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.Monitoring, line + Environment.NewLine);
             }
         }
         catch { }
         try
         {
             // Mirror to error.txt for traceability as requested
-            ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(message), source: "MonitoringStyle");
+            Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException(message), source: "MonitoringStyle");
         }
         catch { }
     }

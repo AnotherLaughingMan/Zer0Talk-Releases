@@ -2,11 +2,11 @@
   "id": "legacy-butter",
   "displayName": "Butter",
   "description": "Legacy Butter theme (compatibility mode)",
-  "author": "ZTalk",
+  "author": "Zer0Talk",
   "version": "1.0.0",
   "baseVariant": "Dark",
   "resourceDictionaries": [
-    "avares://ZTalk/Styles/ButterThemeOverride.axaml"
+    "avares://Zer0Talk/Styles/ButterThemeOverride.axaml"
   ],
   "colorOverrides": {},
   "gradients": {

@@ -6,10 +6,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public sealed class LogMaintenanceService
     {
@@ -500,3 +500,4 @@ namespace ZTalk.Services
 #endif
     }
 }
+

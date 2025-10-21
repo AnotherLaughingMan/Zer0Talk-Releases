@@ -13,15 +13,15 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
-using ZTalk.Services;
-using ZTalk.Utilities;
-using ZTalk.Views;
-using ZTalk.Containers;
+using Zer0Talk.Services;
+using Zer0Talk.Utilities;
+using Zer0Talk.Views;
+using Zer0Talk.Containers;
 using System.IO;
 
 using Sodium;
 
-namespace ZTalk;
+namespace Zer0Talk;
 
 public partial class App : Application
 {
@@ -55,7 +55,7 @@ public partial class App : Application
     private static bool _networkInitScheduled;
     private static void ScheduleDelayedNetworkInit()
     {
-        if (SafeMode || ZTalk.Utilities.RuntimeFlags.SafeMode)
+        if (SafeMode || Zer0Talk.Utilities.RuntimeFlags.SafeMode)
         {
             try { TryWriteErrorTxt("Init.Network.Skipped.SafeMode", null); } catch { }
             return;
@@ -69,15 +69,15 @@ public partial class App : Application
             {
                 await System.Threading.Tasks.Task.Delay(1500);
                 try { TryWriteErrorTxt("Init.Network.Start.Begin", null); } catch { }
-                var s = ZTalk.Services.AppServices.Settings.Settings;
+                var s = Zer0Talk.Services.AppServices.Settings.Settings;
                 try
                 {
-                    if (SafeMode || ZTalk.Utilities.RuntimeFlags.SafeMode)
+                    if (SafeMode || Zer0Talk.Utilities.RuntimeFlags.SafeMode)
                     {
                         try { TryWriteErrorTxt("Init.Network.Start.Suppressed.SafeMode", null); } catch { }
                         return;
                     }
-                    ZTalk.Services.AppServices.Network.StartIfMajorNode(s.Port, s.MajorNode);
+                    Zer0Talk.Services.AppServices.Network.StartIfMajorNode(s.Port, s.MajorNode);
                     try { TryWriteErrorTxt("Init.Network.Start.Done", null); } catch { }
                 }
                 catch (Exception exNet)
@@ -109,8 +109,8 @@ public partial class App : Application
     {
         try
         {
-            if (ex is null) ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException(header), source: "Trace");
-            else ZTalk.Utilities.ErrorLogger.LogException(ex, source: header);
+            if (ex is null) Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException(header), source: "Trace");
+            else Zer0Talk.Utilities.ErrorLogger.LogException(ex, source: header);
         }
         catch { }
     }
@@ -119,9 +119,9 @@ public partial class App : Application
     {
         try
         {
-            if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
+            if (!Zer0Talk.Utilities.LoggingPaths.Enabled) return;
             var line = "[" + DateTime.Now.ToString("O") + "] " + msg;
-            System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Startup, line + Environment.NewLine);
+            System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.Startup, line + Environment.NewLine);
         }
         catch { }
     }
@@ -373,7 +373,7 @@ public partial class App : Application
             {
                 try
                 {
-                    if (ZTalk.Utilities.RuntimeFlags.SafeMode) return;
+                    if (Zer0Talk.Utilities.RuntimeFlags.SafeMode) return;
                     var ns = AppServices.Settings.Settings;
                     AppServices.Network.StartIfMajorNode(ns.Port, ns.MajorNode);
                 }
@@ -382,13 +382,34 @@ public partial class App : Application
         }
         catch { }
         
+        // Initialize system tray if enabled in settings
+        try
+        {
+            var settings = AppServices.Settings.Settings;
+            if (settings.ShowInSystemTray)
+            {
+                AppServices.TrayIcon.Initialize();
+                AppServices.TrayIcon.SetVisible(true);
+                SafeStartupLog("SystemTray: Initialized and shown");
+            }
+            else
+            {
+                SafeStartupLog("SystemTray: Disabled in settings");
+            }
+        }
+        catch (Exception ex)
+        {
+            try { Logger.Log($"Failed to initialize system tray on startup: {ex.Message}"); } catch { }
+            SafeStartupLog($"SystemTray: Failed to initialize - {ex.Message}");
+        }
+        
         // Setup other post-initialization tasks as needed
         _ = System.Threading.Tasks.Task.Run(() =>
         {
             try 
             { 
                 TryWriteErrorTxt("Migration.Messages.Begin", null);
-                var dir = ZTalk.Utilities.AppDataPaths.Combine("messages");
+                var dir = Zer0Talk.Utilities.AppDataPaths.Combine("messages");
                 if (Directory.Exists(dir))
                 {
                     var mc = new MessageContainer();
@@ -417,12 +438,12 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Ensure AppData root is migrated (old name -> ZTalk) before any storage access
-            try { ZTalk.Utilities.AppDataPaths.MigrateIfNeeded(); } catch { }
+            // Ensure AppData root is migrated (old name -> Zer0Talk) before any storage access
+            try { Zer0Talk.Utilities.AppDataPaths.MigrateIfNeeded(); } catch { }
             // Clean legacy transient cache under old root if present
             try
             {
-                var legacyCache = System.IO.Path.Combine(ZTalk.Utilities.AppDataPaths.OldRoot, ".cache");
+                var legacyCache = System.IO.Path.Combine(Zer0Talk.Utilities.AppDataPaths.OldRoot, ".cache");
                 if (System.IO.Directory.Exists(legacyCache))
                 {
                     try { System.IO.Directory.Delete(legacyCache, true); } catch { }
@@ -430,7 +451,7 @@ public partial class App : Application
             }
             catch { }
             // Mirror App.SafeMode to RuntimeFlags early to ensure service singletons respect it
-            try { ZTalk.Utilities.RuntimeFlags.SafeMode = SafeMode; } catch { }
+            try { Zer0Talk.Utilities.RuntimeFlags.SafeMode = SafeMode; } catch { }
             // Capture first-chance exceptions for diagnostics around click crashes
             try
             {
@@ -448,7 +469,7 @@ public partial class App : Application
             {
                 Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (s, e) =>
                 {
-                    ZTalk.Utilities.ErrorLogger.LogException(e.Exception, source: "UIThread.UnhandledException");
+                    Zer0Talk.Utilities.ErrorLogger.LogException(e.Exception, source: "UIThread.UnhandledException");
                     TryWriteErrorTxt("UIThread.UnhandledException", e.Exception);
                     e.Handled = true; // do not crash; log silently
                 };
@@ -464,7 +485,7 @@ public partial class App : Application
                     {
                         if (e.ExceptionObject is Exception ex)
                         {
-                            ZTalk.Utilities.ErrorLogger.LogException(ex, source: "AppDomain.UnhandledException");
+                            Zer0Talk.Utilities.ErrorLogger.LogException(ex, source: "AppDomain.UnhandledException");
                             TryWriteErrorTxt("AppDomain.UnhandledException", ex);
                         }
                         else
@@ -478,7 +499,7 @@ public partial class App : Application
                 {
                     try
                     {
-                        ZTalk.Utilities.ErrorLogger.LogException(e.Exception, source: "TaskScheduler.UnobservedTaskException");
+                        Zer0Talk.Utilities.ErrorLogger.LogException(e.Exception, source: "TaskScheduler.UnobservedTaskException");
                         TryWriteErrorTxt("TaskScheduler.UnobservedTaskException", e.Exception);
                         e.SetObserved();
                     }
@@ -493,7 +514,7 @@ public partial class App : Application
                 // Create/append a startup trace so error.txt is guaranteed to exist next to the executable
                 try { TryWriteErrorTxt("App.Started", null); } catch { }
                 // Log graceful exit path too
-                try { desktop.Exit += (_, __) => { try { ZTalk.Services.AppServices.Shutdown(); } catch { } try { TryWriteErrorTxt("App.Exit", null); } catch { } }; } catch { }
+                try { desktop.Exit += (_, __) => { try { Zer0Talk.Services.AppServices.Shutdown(); } catch { } try { TryWriteErrorTxt("App.Exit", null); } catch { } }; } catch { }
 #if DEBUG
                 // Lightweight heartbeat (10s) already; keep it
                 try
@@ -510,7 +531,7 @@ public partial class App : Application
                 // Prepare transient cache folder and ensure it is cleaned on startup
                 try
                 {
-                    var cacheDir = System.IO.Path.Combine(ZTalk.Utilities.AppDataPaths.Root, ".cache");
+                    var cacheDir = System.IO.Path.Combine(Zer0Talk.Utilities.AppDataPaths.Root, ".cache");
                     if (System.IO.Directory.Exists(cacheDir))
                     {
                         try { System.IO.Directory.Delete(cacheDir, true); } catch { }
@@ -586,7 +607,7 @@ public partial class App : Application
             }
             catch (Exception ex)
             {
-                try { ZTalk.Utilities.ErrorLogger.LogException(ex, source: "App.OnFrameworkInitializationCompleted"); } catch { }
+                try { Zer0Talk.Utilities.ErrorLogger.LogException(ex, source: "App.OnFrameworkInitializationCompleted"); } catch { }
                 try { TryWriteErrorTxt("App.OnFrameworkInitializationCompleted", ex); } catch { }
                 // Gracefully shutdown to avoid a hung transparent window
                 try { desktop.Shutdown(); } catch { }

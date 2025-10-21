@@ -10,9 +10,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 
-using ZTalk.Views;
+using Zer0Talk.Views;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class LockService
     {
@@ -63,7 +63,7 @@ namespace ZTalk.Services
                     {
                         if (existingMain is Window mw0)
                         {
-                            var view = mw0 as ZTalk.Views.MainWindow;
+                            var view = mw0 as Zer0Talk.Views.MainWindow;
                             var overlay = view?.FindControl<Avalonia.Controls.Border>("LockOverlay");
                             if (overlay != null)
                             {
@@ -116,7 +116,7 @@ namespace ZTalk.Services
                         try { var acc = AppServices.Accounts.LoadAccount(AppServices.Passphrase); AppServices.Identity.LoadFromAccount(acc); } catch { }
                         // Centralized networking: notify config changed and let app-level handler apply.
                         try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
-                        var themeService2 = new ZTalk.Services.ThemeService();
+                        var themeService2 = new Zer0Talk.Services.ThemeService();
                         themeService2.SetTheme(AppServices.Settings.Settings.Theme);
                         try { AppServices.PeersClearTransientStatuses(); } catch { }
                         try { AppServices.Contacts.SetAllOffline(); } catch { }
@@ -129,7 +129,7 @@ namespace ZTalk.Services
                             {
                                 try
                                 {
-                                    var view = existingMain as ZTalk.Views.MainWindow;
+                                    var view = existingMain as Zer0Talk.Views.MainWindow;
                                     var overlay = view?.FindControl<Avalonia.Controls.Border>("LockOverlay");
                                     if (overlay != null)
                                     {
@@ -173,7 +173,7 @@ namespace ZTalk.Services
                 catch (Exception ex)
                 {
                     // If we failed to show unlock, do NOT close other windows; log and bail out
-                    try { ZTalk.Utilities.Logger.Log($"LockService: failed to show Unlock window: {ex.Message}"); } catch { }
+                    try { Zer0Talk.Utilities.Logger.Log($"LockService: failed to show Unlock window: {ex.Message}"); } catch { }
                     return;
                 }
 
@@ -194,3 +194,4 @@ namespace ZTalk.Services
         }
     }
 }
+

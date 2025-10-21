@@ -6,7 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public sealed class NetworkDiagnostics
     {

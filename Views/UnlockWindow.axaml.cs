@@ -11,10 +11,10 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 
-using ZTalk.Utilities;
-using ZTalk.ViewModels;
+using Zer0Talk.Utilities;
+using Zer0Talk.ViewModels;
 
-namespace ZTalk.Views
+namespace Zer0Talk.Views
 {
     public partial class UnlockWindow : Window
     {
@@ -52,7 +52,7 @@ namespace ZTalk.Views
                     {
                         if (vm.RememberPassphrase)
                         {
-                            if (ZTalk.Services.AppServices.Settings.TryGetRememberedPassphrase(out var stored) && !string.IsNullOrEmpty(stored))
+                            if (Zer0Talk.Services.AppServices.Settings.TryGetRememberedPassphrase(out var stored) && !string.IsNullOrEmpty(stored))
                             {
                                 vm.Passphrase = stored;
                                 tb.Text = stored;
@@ -68,7 +68,7 @@ namespace ZTalk.Views
                             // Security: flush stored passphrase from secure storage when toggled off
                             try
                             {
-                                ZTalk.Services.AppServices.Settings.ClearRememberedPassphrase();
+                                Zer0Talk.Services.AppServices.Settings.ClearRememberedPassphrase();
                             }
                             catch { }
                             
@@ -120,7 +120,7 @@ namespace ZTalk.Views
                     }
                     
                     border.IsVisible = true;
-                    try { if (ZTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] Show: '{text}'{Environment.NewLine}"); } catch { }
+                    try { if (Zer0Talk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] Show: '{text}'{Environment.NewLine}"); } catch { }
                     
                     // Slide down animation (from Margin="0,-40,0,0" to "0,8,0,0")
                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
@@ -142,7 +142,7 @@ namespace ZTalk.Views
                             // Reset position for next show
                             border.Margin = new Avalonia.Thickness(0, -40, 0, 0);
                         }
-                        try { if (ZTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] Auto-hide{Environment.NewLine}"); } catch { }
+                        try { if (Zer0Talk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] Auto-hide{Environment.NewLine}"); } catch { }
                     }
                 }
                 catch (OperationCanceledException)
@@ -176,7 +176,7 @@ namespace ZTalk.Views
                         border.IsVisible = false;
                         border.Margin = new Avalonia.Thickness(0, -40, 0, 0);
                     }
-                    try { if (ZTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] User dismissed{Environment.NewLine}"); } catch { }
+                    try { if (Zer0Talk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][Unlock] User dismissed{Environment.NewLine}"); } catch { }
                 }
                 catch { }
             }
@@ -204,14 +204,14 @@ namespace ZTalk.Views
             {
                 try
                 {
-                    var enabled = ZTalk.Services.AppServices.Settings?.Settings?.BlockScreenCapture ?? true;
-                    ZTalk.Services.ScreenCaptureProtection.SetExcludeFromCapture(this, enabled);
+                    var enabled = Zer0Talk.Services.AppServices.Settings?.Settings?.BlockScreenCapture ?? true;
+                    Zer0Talk.Services.ScreenCaptureProtection.SetExcludeFromCapture(this, enabled);
                 }
                 catch { }
             };
             // Log spacing/layout correction (debug builds only via LoggingPaths policy)
-            try { ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.layout spacing=12px buttons updated\n"); } catch { }
-            try { ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.toggles labels=restored\n"); } catch { }
+            try { Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.layout spacing=12px buttons updated\n"); } catch { }
+            try { Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.toggles labels=restored\n"); } catch { }
             this.Closing += (s, e) =>
             {
                 if (!_allowClose)
@@ -227,12 +227,12 @@ namespace ZTalk.Views
             try
             {
                 var tb = this.FindControl<TextBox>("PassphraseTextBox");
-                var remember = ZTalk.Services.AppServices.Settings.GetRememberPreference();
+                var remember = Zer0Talk.Services.AppServices.Settings.GetRememberPreference();
                 if (remember)
                 {
-                    if (ZTalk.Services.AppServices.Settings.TryGetRememberedPassphrase(out var stored) && !string.IsNullOrEmpty(stored))
+                    if (Zer0Talk.Services.AppServices.Settings.TryGetRememberedPassphrase(out var stored) && !string.IsNullOrEmpty(stored))
                     {
-                        if (DataContext is ZTalk.ViewModels.UnlockViewModel uvm)
+                        if (DataContext is Zer0Talk.ViewModels.UnlockViewModel uvm)
                         {
                             uvm.Passphrase = stored;
                             uvm.RememberPassphrase = true;
@@ -242,7 +242,7 @@ namespace ZTalk.Views
                 }
                 else
                 {
-                    if (DataContext is ZTalk.ViewModels.UnlockViewModel uvm)
+                    if (DataContext is Zer0Talk.ViewModels.UnlockViewModel uvm)
                     {
                         uvm.Passphrase = string.Empty;
                         uvm.RememberPassphrase = false;
@@ -269,14 +269,14 @@ namespace ZTalk.Views
 
         private async void LostPassphrase_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
-            try { ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.launch lostpassphrase.dialog\n"); } catch { }
+            try { Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.launch lostpassphrase.dialog\n"); } catch { }
             var dlg = new LostPassphraseDialog
             {
                 Topmost = true,
                 DataContext = this.DataContext // share same VM for recovery operations
             };
             await dlg.ShowDialog(this);
-            try { ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.returnFrom lostpassphrase.dialog\n"); } catch { }
+            try { Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Theme, $"[{DateTime.UtcNow:O}] unlock.returnFrom lostpassphrase.dialog\n"); } catch { }
         }
 
         private void CloseApp_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -286,7 +286,7 @@ namespace ZTalk.Views
             try
             {
                 // Ensure we don't consider this as an unlock; clear passphrase.
-                try { ZTalk.Services.AppServices.Passphrase = string.Empty; } catch { }
+                try { Zer0Talk.Services.AppServices.Passphrase = string.Empty; } catch { }
                 // Close this window and shut down the application lifetime
                 Close();
                 if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime life)
@@ -332,7 +332,7 @@ namespace ZTalk.Views
 
         private string GetStatePath()
         {
-            var dir = ZTalk.Utilities.AppDataPaths.Root;
+            var dir = Zer0Talk.Utilities.AppDataPaths.Root;
             Directory.CreateDirectory(dir);
             return Path.Combine(dir, "unlock.window.json");
         }

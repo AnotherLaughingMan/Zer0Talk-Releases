@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Media;
 
-namespace ZTalk.Controls.ColorPicker;
+namespace Zer0Talk.Controls.ColorPicker;
 
 public partial class ColorChannelSlider : UserControl
 {

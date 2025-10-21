@@ -1,7 +1,7 @@
-# ZTalk Audio Notification System
+# Zer0Talk Audio Notification System
 
 ## Overview
-The ZTalk audio notification system supports multiple audio formats for flexible notification sounds:
+The Zer0Talk audio notification system supports multiple audio formats for flexible notification sounds:
 - **OGG Vorbis** (.ogg) - Open source, high quality, small file size
 - **MP3** (.mp3) - Widely supported, good compression
 - **WAV** (.wav) - Uncompressed, highest quality, larger file size

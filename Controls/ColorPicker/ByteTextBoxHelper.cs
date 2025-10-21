@@ -5,7 +5,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Interactivity;
 
-namespace ZTalk.Controls.ColorPicker
+namespace Zer0Talk.Controls.ColorPicker
 {
     public static class ByteTextBoxHelper
     {

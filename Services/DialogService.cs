@@ -19,7 +19,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class DialogService
     {
@@ -60,11 +60,11 @@ namespace ZTalk.Services
                     {
                         if (iconText == "\u26A0" || iconText == "\u274C") // Warning or error icon
                         {
-                            await ZTalk.Services.AudioHelper.PlayAlertNotificationAsync();
+                            await Zer0Talk.Services.AudioHelper.PlayAlertNotificationAsync();
                         }
                         else
                         {
-                            await ZTalk.Services.AudioHelper.PlayNotificationAsync();
+                            await Zer0Talk.Services.AudioHelper.PlayNotificationAsync();
                         }
                     }
                     catch (Exception ex)
@@ -193,11 +193,11 @@ namespace ZTalk.Services
                     {
                         if (type == ToastType.Warning || type == ToastType.Error)
                         {
-                            await ZTalk.Services.AudioHelper.PlayAlertNotificationAsync();
+                            await Zer0Talk.Services.AudioHelper.PlayAlertNotificationAsync();
                         }
                         else
                         {
-                            await ZTalk.Services.AudioHelper.PlayNotificationAsync();
+                            await Zer0Talk.Services.AudioHelper.PlayNotificationAsync();
                         }
                     }
                     catch (Exception ex)
@@ -835,8 +835,8 @@ namespace ZTalk.Services
         {
             try
             {
-                if (ZTalk.Utilities.LoggingPaths.Enabled)
-                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} {line}{Environment.NewLine}");
+                if (Zer0Talk.Utilities.LoggingPaths.Enabled)
+                    System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} {line}{Environment.NewLine}");
             }
             catch { }
         }
@@ -905,7 +905,7 @@ namespace ZTalk.Services
             {
                 try
                 {
-                    var dir = ZTalk.Utilities.AppDataPaths.Root;
+                    var dir = Zer0Talk.Utilities.AppDataPaths.Root;
                     Directory.CreateDirectory(dir);
                     IStorageFolder? start = null;
                     try { start = await dialog.StorageProvider.TryGetFolderFromPathAsync(dir); } catch { }
@@ -933,3 +933,4 @@ namespace ZTalk.Services
         }
     }
 }
+

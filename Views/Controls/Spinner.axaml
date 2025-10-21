@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:c="clr-namespace:ZTalk.Controls"
-             x:Class="ZTalk.Controls.Spinner"
+             xmlns:c="clr-namespace:Zer0Talk.Controls"
+             x:Class="Zer0Talk.Controls.Spinner"
              Width="18" Height="18">
   <Grid>
     <!-- subtle background ring -->

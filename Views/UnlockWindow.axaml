@@ -3,14 +3,14 @@
   - Validates account container first; settings/contacts loaded only after successful decrypt.
   - On settings decrypt failure, SettingsService.ResetToDefaults is used with current passphrase.
   - Includes inline Lost Passphrase recovery which rotates to a new passphrase and re-encrypts containers.
-  - Window is Topmost and non-closable until unlock; size/position persisted in %AppData%\ZTalk\unlock.window.json.
+  - Window is Topmost and non-closable until unlock; size/position persisted in %AppData%\Zer0Talk\unlock.window.json.
 -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="clr-namespace:ZTalk.ViewModels"
-    x:Class="ZTalk.Views.UnlockWindow"
+        xmlns:vm="clr-namespace:Zer0Talk.ViewModels"
+    x:Class="Zer0Talk.Views.UnlockWindow"
     x:DataType="vm:UnlockViewModel"
   Title="{Binding LocalizedTitle}" Topmost="True"
         Width="420" Height="270"

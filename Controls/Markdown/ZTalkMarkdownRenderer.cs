@@ -10,17 +10,17 @@ using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
-namespace ZTalk.Controls.Markdown;
+namespace Zer0Talk.Controls.Markdown;
 
 /// <summary>
 /// Custom Avalonia markdown renderer using Markdig for reliable parsing
-/// Built specifically for ZTalk's P2P messaging needs with security-first design
+/// Built specifically for Zer0Talk's P2P messaging needs with security-first design
 /// </summary>
-public sealed class ZTalkMarkdownRenderer
+public sealed class Zer0TalkMarkdownRenderer
 {
     private readonly MarkdownPipeline _pipeline;
 
-    public ZTalkMarkdownRenderer()
+    public Zer0TalkMarkdownRenderer()
     {
         try
         {

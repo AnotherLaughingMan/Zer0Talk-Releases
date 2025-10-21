@@ -6,7 +6,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Avalonia.Styling;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     /// <summary>
     /// Selects a theme brush for a message sender based on whether the sender is the local user.

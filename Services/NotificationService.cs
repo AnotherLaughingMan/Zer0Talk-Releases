@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Threading;
-using ZTalk.Utilities;
+using Zer0Talk.Utilities;
 
 using System.Runtime.InteropServices;
 using Avalonia;
@@ -12,7 +12,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     // Lightweight cross-platform app notification hub used by views and services.
     // - Stores in-app notices (for Notification Center in UI)
@@ -43,12 +43,12 @@ namespace ZTalk.Services
                 var beforeCount = _activeToastWindows.Count;
                 if (_activeToastWindows.Remove(toast))
                 {
-                    try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Removed: {beforeCount} -> {_activeToastWindows.Count} active\n"); } catch { }
+                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Removed: {beforeCount} -> {_activeToastWindows.Count} active\n"); } catch { }
                     ReflowToastPositionsCore();
                 }
                 else
                 {
-                    try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Remove failed: not found in {beforeCount} active\n"); } catch { }
+                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Remove failed: not found in {beforeCount} active\n"); } catch { }
                 }
             }
             catch { }
@@ -99,13 +99,13 @@ namespace ZTalk.Services
             PruneToastWindows();
             if (_activeToastWindows.Count == 0) 
             {
-                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow: No active windows\n"); } catch { }
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow: No active windows\n"); } catch { }
                 return;
             }
 
             var area = GetPrimaryWorkingArea();
             var targetLeft = area.Right - ToastWidth - ToastMargin;
-            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow: {_activeToastWindows.Count} windows, area={area}, targetLeft={targetLeft}\n"); } catch { }
+            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow: {_activeToastWindows.Count} windows, area={area}, targetLeft={targetLeft}\n"); } catch { }
 
             var cumulativeTop = area.Y + ToastMargin;
             for (int i = 0; i < _activeToastWindows.Count; i++)
@@ -117,7 +117,7 @@ namespace ZTalk.Services
                 try { toast.Position = new PixelPoint(targetLeft, cumulativeTop); } catch { }
                 
                 var toastHeight = (int)Math.Max(1, toast.Bounds.Height > 0 ? toast.Bounds.Height : toast.Height);
-                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow[{i}]: height={toastHeight}, {oldPos} -> ({targetLeft},{cumulativeTop})\n"); } catch { }
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow[{i}]: height={toastHeight}, {oldPos} -> ({targetLeft},{cumulativeTop})\n"); } catch { }
                 
                 cumulativeTop += toastHeight + ToastSpacing;
             }
@@ -143,7 +143,7 @@ namespace ZTalk.Services
 
     private Control CreateToastContent(Window host, string? title, string text, Models.NotificationType? type = null, string? originUid = null)
     {
-        var resolvedTitle = string.IsNullOrWhiteSpace(title) ? "ZTalk" : title;
+        var resolvedTitle = string.IsNullOrWhiteSpace(title) ? "Zer0Talk" : title;
         var resolvedBody = string.IsNullOrWhiteSpace(text) ? string.Empty : text;
         var hasOrigin = !string.IsNullOrWhiteSpace(originUid);
         
@@ -329,7 +329,7 @@ namespace ZTalk.Services
                     // Notify in-app listeners on UI thread
                     Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
                 }
-                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Posted (persistent={isPersistent}): {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Posted (persistent={isPersistent}): {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
 
                 // Show transient pop-up; attach origin so click may open conversation
                 // Check if notifications should be suppressed in Do Not Disturb mode
@@ -342,7 +342,7 @@ namespace ZTalk.Services
                         if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
                         {
                             shouldShowToast = false;
-                            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Toast suppressed (DND): {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
+                            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Toast suppressed (DND): {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
                         }
                     }
                     catch { }
@@ -350,7 +350,7 @@ namespace ZTalk.Services
                     if (shouldShowToast)
                     {
                         ShowTransientToast(item.Title, item.Body, item.Type, item.OriginUid);
-                        try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Transient shown: {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Transient shown: {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
                     }
                 }
                 catch (Exception ex)
@@ -368,7 +368,7 @@ namespace ZTalk.Services
                         if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
                         {
                             shouldPlayAudio = false;
-                            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Audio suppressed (DND): {item.Title} | {item.Body}\n"); } catch { }
+                            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Audio suppressed (DND): {item.Title} | {item.Body}\n"); } catch { }
                         }
                     }
                     catch { }
@@ -501,7 +501,7 @@ namespace ZTalk.Services
                         if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
                         {
                             shouldShowToast = false;
-                            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Message toast suppressed (DND): {updated.Title} | {updated.Body} origin={updated.OriginUid}\n"); } catch { }
+                            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Message toast suppressed (DND): {updated.Title} | {updated.Body} origin={updated.OriginUid}\n"); } catch { }
                         }
                     }
                     catch { }
@@ -524,7 +524,7 @@ namespace ZTalk.Services
                         if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
                         {
                             shouldPlayAudio = false;
-                            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Message audio suppressed (DND): {updated.Title} | {updated.Body} origin={updated.OriginUid}\n"); } catch { }
+                            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Message audio suppressed (DND): {updated.Title} | {updated.Body} origin={updated.OriginUid}\n"); } catch { }
                         }
                     }
                     catch { }
@@ -734,14 +734,14 @@ namespace ZTalk.Services
                         var startLeft = area.Right + ToastMargin; // start off-screen to right
                         var startTop = area.Y + ToastMargin; // temporary position
 
-                        try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Creating: beforeCount={beforeCount}\n"); } catch { }
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Creating: beforeCount={beforeCount}\n"); } catch { }
 
                         // Place window initially off-screen at top-right
                         try { win.Position = new Avalonia.PixelPoint((int)startLeft, (int)startTop); } catch { }
                         win.Show();
                         _activeToastWindows.Add(win);
                         win.Closed += (_, __) => RemoveToastWindow(win);
-                        try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Added to list: now {_activeToastWindows.Count} active\n"); } catch { }
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Added to list: now {_activeToastWindows.Count} active\n"); } catch { }
                         
                         // Delay reflow slightly to allow window to measure with SizeToContent, then animate
                         Dispatcher.UIThread.Post(() => 
@@ -754,7 +754,7 @@ namespace ZTalk.Services
                             // Start slide-in animation from off-screen
                             var durationMs = 320.0;
                             var start = DateTime.UtcNow;
-                            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Animation: start=({startLeft},{targetPos.Y}) -> target=({targetLeft},{targetPos.Y})\n"); } catch { }
+                            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Animation: start=({startLeft},{targetPos.Y}) -> target=({targetLeft},{targetPos.Y})\n"); } catch { }
                             var timer = new Avalonia.Threading.DispatcherTimer()
                             {
                                 Interval = TimeSpan.FromMilliseconds(16)
@@ -773,7 +773,7 @@ namespace ZTalk.Services
                                     if (t >= 1.0)
                                     {
                                         timer.Stop();
-                                        try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Animation complete: final=({(int)left},{targetPos.Y})\n"); } catch { }
+                                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Animation complete: final=({(int)left},{targetPos.Y})\n"); } catch { }
                                     }
                                 }
                                 catch { }
@@ -846,3 +846,4 @@ namespace ZTalk.Services
         }
     }
 }
+

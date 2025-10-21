@@ -8,9 +8,9 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
-using ZTalk.Services;
+using Zer0Talk.Services;
 
-namespace ZTalk.ViewModels
+namespace Zer0Talk.ViewModels
 {
     public class UnlockViewModel : INotifyPropertyChanged
     {
@@ -40,7 +40,7 @@ namespace ZTalk.ViewModels
         public ICommand AcceptNewPassphraseCommand { get; }
 
         // Localized strings
-        public string LocalizedTitle => Services.AppServices.Localization.GetString("Unlock.Title", "ZTalk Sign In");
+        public string LocalizedTitle => Services.AppServices.Localization.GetString("Unlock.Title", "Zer0Talk Sign In");
         public string LocalizedEnterPassphrase => Services.AppServices.Localization.GetString("Unlock.EnterPassphrase", "Enter passphrase to unlock");
         public string LocalizedPassphrase => Services.AppServices.Localization.GetString("Unlock.Passphrase", "Passphrase");
         public string LocalizedRememberPassphrase => Services.AppServices.Localization.GetString("Unlock.RememberPassphrase", "Remember passphrase");

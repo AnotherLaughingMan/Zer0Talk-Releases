@@ -3,7 +3,7 @@ using System.Globalization;
 
 using Avalonia.Data.Converters;
 
-namespace ZTalk.Utilities;
+namespace Zer0Talk.Utilities;
 
 public class ObjectNotNullConverter : IValueConverter
 {

@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace ZTalk.Utilities;
+namespace Zer0Talk.Utilities;
 
 /// <summary>
 /// Converts PresenceStatus enum to a display-friendly string.
@@ -21,11 +21,11 @@ public sealed class PresenceToDisplayStringConverter : IValueConverter
         }
 
         // Handle enum values directly
-        if (value is ZTalk.Models.PresenceStatus presenceEnum)
+        if (value is Zer0Talk.Models.PresenceStatus presenceEnum)
         {
             Logger.Log($"[PresenceConverter] Enum value: {presenceEnum}");
             // Map Invisible to Offline for display purposes to preserve privacy
-            if (presenceEnum == ZTalk.Models.PresenceStatus.Invisible)
+            if (presenceEnum == Zer0Talk.Models.PresenceStatus.Invisible)
             {
                 Logger.Log($"[PresenceConverter] Invisible detected -> returning 'Offline'");
                 return "Offline";

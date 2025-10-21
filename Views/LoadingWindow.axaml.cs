@@ -1,7 +1,7 @@
 using Avalonia.Controls;
-using ZTalk.ViewModels;
+using Zer0Talk.ViewModels;
 
-namespace ZTalk.Views;
+namespace Zer0Talk.Views;
 
 public partial class LoadingWindow : Window
 {

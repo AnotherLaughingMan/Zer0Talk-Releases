@@ -1,4 +1,4 @@
-# ZTalk - Bugs Discovered and Fixed
+# Zer0Talk - Bugs Discovered and Fixed
 
 ## Critical Issues Resolved
 
@@ -11,7 +11,7 @@
 **Symptoms:**
 - App crashes immediately on startup when corrupt markdown exists in messages
 - Crash loop: App → Load messages → Crash → Login screen → Repeat
-- Only recovery: Manually delete corrupt message from `AppData/Roaming/ZTalk/messages/`
+- Only recovery: Manually delete corrupt message from `AppData/Roaming/Zer0Talk/messages/`
 - User completely locked out of app
 
 **Technical Details:**
@@ -23,7 +23,7 @@
 
 **Fix Applied:**
 - **3-Layer Error Handling**: Viewer → Parser → Renderer
-- **ZTalkMarkdownViewer**: Triple try-catch with fallback to plain text
+- **Zer0TalkMarkdownViewer**: Triple try-catch with fallback to plain text
 - **MarkdownParser**: Per-block error isolation, never throws exceptions
 - **MarkdownRenderer**: Per-block rendering, always returns valid Control
 - **Error Logging**: All errors logged to `markdown-errors.log` for diagnosis
@@ -251,4 +251,4 @@ Our debugging approach involved:
 ---
 
 *Last Updated: October 1, 2025*  
-*ZTalk Version: 0.0.1.57*
+*Zer0Talk Version: 0.0.1.57*

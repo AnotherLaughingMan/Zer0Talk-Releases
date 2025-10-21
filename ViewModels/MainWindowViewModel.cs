@@ -18,13 +18,13 @@ using System.Windows.Input;
 
 using Avalonia.Media;
 
-using ZTalk.Containers;
-using ZTalk.Models;
-using Models = ZTalk.Models;
-using ZTalk.Services;
-using ZTalk.Utilities;
+using Zer0Talk.Containers;
+using Zer0Talk.Models;
+using Models = Zer0Talk.Models;
+using Zer0Talk.Services;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.ViewModels
+namespace Zer0Talk.ViewModels
 {
     public class MainWindowViewModel : INotifyPropertyChanged, IDisposable
     {
@@ -41,7 +41,7 @@ namespace ZTalk.ViewModels
             }
         }
 
-        public string PrototypeBadgeText => ZTalk.AppInfo.PrototypeBadgeText;
+        public string PrototypeBadgeText => Zer0Talk.AppInfo.PrototypeBadgeText;
 
         public ObservableCollection<Contact> Contacts { get; } = new();
         public ObservableCollection<Message> Messages { get; } = new();
@@ -92,10 +92,10 @@ namespace ZTalk.ViewModels
             var v = System.Threading.Interlocked.Increment(ref _selectionFreezeCount);
             try
             {
-                if (ZTalk.Utilities.LoggingPaths.Enabled)
+                if (Zer0Talk.Utilities.LoggingPaths.Enabled)
                 {
                     var line = $"{DateTime.Now:O} [UI] Freeze begin: reason=context/hover count={v}";
-                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
+                    System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
                 }
             }
             catch { }
@@ -108,10 +108,10 @@ namespace ZTalk.ViewModels
                 _selectionFreezeCount = 0;
                 try
                 {
-                    if (ZTalk.Utilities.LoggingPaths.Enabled)
+                    if (Zer0Talk.Utilities.LoggingPaths.Enabled)
                     {
                         var line = $"{DateTime.Now:O} [UI] Freeze end";
-                        System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
+                        System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
                     }
                 }
                 catch { }
@@ -211,12 +211,12 @@ namespace ZTalk.ViewModels
                             catch { }
                             try
                             {
-                                if (ZTalk.Utilities.LoggingPaths.Enabled)
+                                if (Zer0Talk.Utilities.LoggingPaths.Enabled)
                                 {
                                     var frozen = IsSelectionFrozen ? "true" : "false";
                                     var preserved = (!string.IsNullOrWhiteSpace(prevUid) && string.Equals(prevUid, SelectedContact?.UID, StringComparison.OrdinalIgnoreCase)) ? "true" : "false";
                                     var line = $"{DateTime.Now:O} [UI] Contacts refresh (debounced): items={Contacts.Count} selPrev={prevUid ?? "none"} selNow={SelectedContact?.UID ?? "none"} preserved={preserved} frozen={frozen}";
-                                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
+                                    System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.UI, line + Environment.NewLine);
                                 }
                             }
                             catch { }
@@ -696,9 +696,9 @@ namespace ZTalk.ViewModels
             {
                 try
                 {
-                    if (!ZTalk.Utilities.LoggingPaths.Enabled) return;
+                    if (!Zer0Talk.Utilities.LoggingPaths.Enabled) return;
                     var line = $"[RETENTION] {DateTime.Now:O}: User delete {reason} peer={peerUid} id={messageId}";
-                    System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Retention, line + Environment.NewLine);
+                    System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.Retention, line + Environment.NewLine);
                 }
                 catch { }
             }
@@ -976,7 +976,7 @@ namespace ZTalk.ViewModels
                 if (_portAlertVisible != value)
                 {
                     _portAlertVisible = value; OnPropertyChanged();
-                    try { if (ZTalk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][PortAlert] {(value ? "Show" : "Hide")}: '{_portAlertText}'{Environment.NewLine}"); } catch { }
+                    try { if (Zer0Talk.Utilities.LoggingPaths.Enabled) System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast][PortAlert] {(value ? "Show" : "Hide")}: '{_portAlertText}'{Environment.NewLine}"); } catch { }
                     // [PORT-ALERT] Auto-hide after a short delay when shown
                     if (value) StartPortAlertAutoHide(TimeSpan.FromSeconds(8));
                 }
@@ -1686,7 +1686,7 @@ namespace ZTalk.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    try { ZTalk.Utilities.ErrorLogger.LogException(ex, source: "UI.LinkPreviewFetch"); } catch { }
+                    try { Zer0Talk.Utilities.ErrorLogger.LogException(ex, source: "UI.LinkPreviewFetch"); } catch { }
                 }
                 finally
                 {
@@ -2435,7 +2435,7 @@ namespace ZTalk.ViewModels
                 catch (Exception loadEx)
                 {
                     // Log load conversation error but don't fail the burn operation
-                    try { ZTalk.Utilities.ErrorLogger.LogException(loadEx, source: "UI.BurnConversation.LoadConversation"); } catch { }
+                    try { Zer0Talk.Utilities.ErrorLogger.LogException(loadEx, source: "UI.BurnConversation.LoadConversation"); } catch { }
                 }
 
                 var toast = summary.BytesWiped > 0
@@ -2449,7 +2449,7 @@ namespace ZTalk.ViewModels
                 catch (Exception toastEx)
                 {
                     // Log toast error but don't fail the burn operation
-                    try { ZTalk.Utilities.ErrorLogger.LogException(toastEx, source: "UI.BurnConversation.Toast"); } catch { }
+                    try { Zer0Talk.Utilities.ErrorLogger.LogException(toastEx, source: "UI.BurnConversation.Toast"); } catch { }
                 }
                 
                 // Clear error message since burn was successful
@@ -2458,7 +2458,7 @@ namespace ZTalk.ViewModels
             catch (Exception ex)
             {
                 ErrorMessage = "Burn failed. Check logs for details.";
-                try { ZTalk.Utilities.ErrorLogger.LogException(ex, source: "UI.BurnConversation"); } catch { }
+                try { Zer0Talk.Utilities.ErrorLogger.LogException(ex, source: "UI.BurnConversation"); } catch { }
             }
         }
 

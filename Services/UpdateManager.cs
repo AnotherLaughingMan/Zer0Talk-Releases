@@ -13,7 +13,7 @@ using System.Threading;
 
 using Avalonia.Threading;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public sealed class UpdateManager
     {
@@ -228,3 +228,4 @@ namespace ZTalk.Services
         }
     }
 }
+

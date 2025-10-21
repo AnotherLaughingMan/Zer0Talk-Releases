@@ -55,25 +55,25 @@ $outDir = Join-Path $profilesDir "mem-$stamp"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
 # Try to find an existing process
-$proc = Get-Process -Name 'ZTalk' -ErrorAction SilentlyContinue | Select-Object -First 1
+$proc = Get-Process -Name 'Zer0Talk' -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $proc) {
     # Try to launch
     $exeCandidates = @()
-    $exeCandidates += Join-Path $publish "win-x64-$Configuration-sc\ZTalk.exe"
-    $exeCandidates += Join-Path $publish "win-x64-$Configuration\ZTalk.exe"
-    $exeCandidates += Join-Path $root "bin\$Configuration\net9.0\win-x64\ZTalk.exe"
+    $exeCandidates += Join-Path $publish "win-x64-$Configuration-sc\Zer0Talk.exe"
+    $exeCandidates += Join-Path $publish "win-x64-$Configuration\Zer0Talk.exe"
+    $exeCandidates += Join-Path $root "bin\$Configuration\net9.0\win-x64\Zer0Talk.exe"
     $exe = $exeCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (-not $exe) {
-    Write-Err "Unable to find ZTalk executable. Build/publish the app first."
+    Write-Err "Unable to find Zer0Talk executable. Build/publish the app first."
         exit 3
     }
     Write-Info "Launching: $exe"
     Start-Process -FilePath $exe | Out-Null
     Start-Sleep -Seconds 3
-    $proc = Get-Process -Name 'ZTalk' -ErrorAction SilentlyContinue | Select-Object -First 1
+    $proc = Get-Process -Name 'Zer0Talk' -ErrorAction SilentlyContinue | Select-Object -First 1
 }
 
-if (-not $proc) { Write-Err "ZTalk process not found."; exit 4 }
+if (-not $proc) { Write-Err "Zer0Talk process not found."; exit 4 }
 Write-Info ("Profiling PID {0} (waiting {1}s before collect)" -f $proc.Id, $DurationSec)
 Start-Sleep -Seconds $DurationSec
 

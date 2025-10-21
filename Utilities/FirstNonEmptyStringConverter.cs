@@ -4,7 +4,7 @@ using System.Globalization;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 
-namespace ZTalk.Utilities;
+namespace Zer0Talk.Utilities;
 
 public sealed class FirstNonEmptyStringConverter : IMultiValueConverter
 {

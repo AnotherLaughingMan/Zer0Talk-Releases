@@ -9,12 +9,12 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
-using ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
 using Sodium;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class IdentityService
     {
@@ -144,3 +144,4 @@ namespace ZTalk.Services
         }
     }
 }
+

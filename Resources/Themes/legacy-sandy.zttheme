@@ -2,11 +2,11 @@
   "id": "legacy-sandy",
   "displayName": "Sandy",
   "description": "Legacy Sandy theme (compatibility mode)",
-  "author": "ZTalk",
+  "author": "Zer0Talk",
   "version": "1.0.0",
   "baseVariant": "Dark",
   "resourceDictionaries": [
-    "avares://ZTalk/Styles/SandyThemeOverrides.axaml"
+    "avares://Zer0Talk/Styles/SandyThemeOverrides.axaml"
   ],
   "colorOverrides": {},
   "gradients": {

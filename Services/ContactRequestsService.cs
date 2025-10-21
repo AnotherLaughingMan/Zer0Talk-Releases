@@ -9,9 +9,9 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Threading;
-using Models = ZTalk.Models;
+using Models = Zer0Talk.Models;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public enum ContactRequestResult
     {
@@ -237,13 +237,13 @@ namespace ZTalk.Services
             _pendingInbound[nonce] = req;
             _uidToNonce[trimmedUid] = nonce;
             try { Utilities.Logger.Log($"Inbound contact request queued from {trimmedUid} nonce={nonce}"); } catch { }
-            try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] OnInboundRequest queued uid={trimmedUid} nonce={nonce} count={_pendingInbound.Count}\n"); } catch { }
+            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] OnInboundRequest queued uid={trimmedUid} nonce={nonce} count={_pendingInbound.Count}\n"); } catch { }
             // Fire event (UI will toast / panel)
             try { RequestReceived?.Invoke(req); } catch { }
             try
             {
                 if (PendingChanged != null) { PendingChanged.Invoke(); }
-                else { try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS (OnInboundRequest) count={_pendingInbound.Count}\n"); } catch { } }
+                else { try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS (OnInboundRequest) count={_pendingInbound.Count}\n"); } catch { } }
             }
             catch { }
             await Task.CompletedTask;
@@ -253,19 +253,19 @@ namespace ZTalk.Services
         {
             try
             {
-                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] AcceptPending START nonce={nonce} currentCountBefore={_pendingInbound.Count}\n"); } catch { }
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] AcceptPending START nonce={nonce} currentCountBefore={_pendingInbound.Count}\n"); } catch { }
                 if (!_pendingInbound.TryRemove(nonce, out var req))
                 {
-                    try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] AcceptPending FAILED remove nonce={nonce} currentCount={_pendingInbound.Count}\n"); } catch { }
+                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] AcceptPending FAILED remove nonce={nonce} currentCount={_pendingInbound.Count}\n"); } catch { }
                     return false;
                 }
                 _uidToNonce.TryRemove(req.Uid, out _);
                 try { Utilities.Logger.Log($"Contact request ACCEPTED for {req.Uid}"); } catch { }
-                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] AcceptPending removed nonce={nonce} newCount={_pendingInbound.Count}\n"); } catch { }
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] AcceptPending removed nonce={nonce} newCount={_pendingInbound.Count}\n"); } catch { }
                 try
                 {
-                    if (PendingChanged != null) { PendingChanged.Invoke(); if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged invoked after accept nonce={nonce} count={_pendingInbound.Count}\n"); }
-                    else { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS after accept nonce={nonce} count={_pendingInbound.Count}\n"); }
+                    if (PendingChanged != null) { PendingChanged.Invoke(); if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged invoked after accept nonce={nonce} count={_pendingInbound.Count}\n"); }
+                    else { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS after accept nonce={nonce} count={_pendingInbound.Count}\n"); }
                 }
                 catch { }
                 await _net.SendContactAcceptAsync(Trim(req.Uid), nonce, CancellationToken.None);
@@ -284,10 +284,10 @@ namespace ZTalk.Services
         {
             try
             {
-                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] RejectPending START nonce={nonce} currentCountBefore={_pendingInbound.Count}\n"); } catch { }
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] RejectPending START nonce={nonce} currentCountBefore={_pendingInbound.Count}\n"); } catch { }
                 if (!_pendingInbound.TryRemove(nonce, out var req))
                 {
-                    try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] RejectPending FAILED remove nonce={nonce} currentCount={_pendingInbound.Count}\n"); } catch { }
+                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] RejectPending FAILED remove nonce={nonce} currentCount={_pendingInbound.Count}\n"); } catch { }
                     return false;
                 }
                 _uidToNonce.TryRemove(req.Uid, out _);
@@ -295,8 +295,8 @@ namespace ZTalk.Services
                 await _net.SendContactCancelAsync(Trim(req.Uid), nonce, CancellationToken.None);
                 try
                 {
-                    if (PendingChanged != null) { PendingChanged.Invoke(); if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged invoked after reject nonce={nonce} count={_pendingInbound.Count}\n"); }
-                    else { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS after reject nonce={nonce} count={_pendingInbound.Count}\n"); }
+                    if (PendingChanged != null) { PendingChanged.Invoke(); if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged invoked after reject nonce={nonce} count={_pendingInbound.Count}\n"); }
+                    else { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS after reject nonce={nonce} count={_pendingInbound.Count}\n"); }
                 }
                 catch { }
                 return true;
@@ -321,10 +321,10 @@ namespace ZTalk.Services
                 try
                 {
                     if (PendingChanged != null) { PendingChanged.Invoke(); }
-                    else { try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS (Simulate) count={_pendingInbound.Count}\n"); } catch { } }
+                    else { try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS (Simulate) count={_pendingInbound.Count}\n"); } catch { } }
                 }
                 catch { }
-                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] SimulateInbound queued uid={trimmed} nonce={nonce} count={_pendingInbound.Count}\n"); } catch { }
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] SimulateInbound queued uid={trimmed} nonce={nonce} count={_pendingInbound.Count}\n"); } catch { }
             }
             catch { }
         }
@@ -343,10 +343,10 @@ namespace ZTalk.Services
                 try
                 {
                     if (PendingChanged != null) { PendingChanged.Invoke(); }
-                    else { try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS (ClearAll) newCount={_pendingInbound.Count}\n"); } catch { } }
+                    else { try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] PendingChanged NO-SUBSCRIBERS (ClearAll) newCount={_pendingInbound.Count}\n"); } catch { } }
                 }
                 catch { }
-                try { if (Utilities.LoggingPaths.Enabled) ZTalk.Utilities.LoggingPaths.TryWrite(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] ClearAllPendingInbound removed={count} newCount={_pendingInbound.Count}\n"); } catch { }
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [ContactRequests] ClearAllPendingInbound removed={count} newCount={_pendingInbound.Count}\n"); } catch { }
             }
             catch { }
             return count;
@@ -629,3 +629,4 @@ namespace ZTalk.Services
         }
     }
 }
+

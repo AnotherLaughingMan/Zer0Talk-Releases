@@ -6,11 +6,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-using ZTalk.Models;
-using Models = ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Models = Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class PeerManager
     {
@@ -490,3 +490,4 @@ namespace ZTalk.Services
         }
     }
 }
+

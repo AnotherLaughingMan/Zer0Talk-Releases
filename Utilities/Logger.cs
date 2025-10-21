@@ -6,7 +6,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public enum LogLevel
     {
@@ -166,7 +166,7 @@ namespace ZTalk.Utilities
                     if (dt != null)
                     {
                         var ns = dt.Namespace ?? string.Empty;
-                        if (ns.StartsWith("ZTalk.Services", StringComparison.OrdinalIgnoreCase))
+                        if (ns.StartsWith("Zer0Talk.Services", StringComparison.OrdinalIgnoreCase))
                             return "network";
 
                         var tn = dt.Name ?? string.Empty;

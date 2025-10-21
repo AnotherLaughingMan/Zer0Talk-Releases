@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-namespace ZTalk.Controls;
+namespace Zer0Talk.Controls;
 
 /// <summary>
 /// Floating markdown formatting toolbar that appears when text is selected.

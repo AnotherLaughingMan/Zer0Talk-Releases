@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public static class ScreenCaptureProtection
     {
@@ -34,3 +34,4 @@ namespace ZTalk.Services
         }
     }
 }
+

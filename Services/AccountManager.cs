@@ -11,12 +11,12 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
 using Sodium;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class AccountManager
     {
@@ -27,7 +27,7 @@ namespace ZTalk.Services
         public bool HasAccount() => File.Exists(GetPath());
         public string GetPath()
         {
-            return ZTalk.Utilities.AppDataPaths.Combine(FileName);
+            return Zer0Talk.Utilities.AppDataPaths.Combine(FileName);
         }
 
         public async Task<string?> EnsureAccountAsync(Func<Task<(string DisplayName, string Username)>> prompt)
@@ -180,3 +180,4 @@ namespace ZTalk.Services
         }
     }
 }
+

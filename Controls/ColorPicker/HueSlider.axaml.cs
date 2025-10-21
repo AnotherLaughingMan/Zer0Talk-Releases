@@ -5,7 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 
-namespace ZTalk.Controls.ColorPicker;
+namespace Zer0Talk.Controls.ColorPicker;
 
 public partial class HueSlider : UserControl
 {

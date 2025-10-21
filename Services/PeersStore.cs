@@ -4,11 +4,11 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 
-using ZTalk.Containers;
-using ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Containers;
+using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class PeersStore
     {
@@ -52,7 +52,8 @@ namespace ZTalk.Services
 
         private static string GetPath()
         {
-            return ZTalk.Utilities.AppDataPaths.Combine(FileName);
+            return Zer0Talk.Utilities.AppDataPaths.Combine(FileName);
         }
     }
 }
+

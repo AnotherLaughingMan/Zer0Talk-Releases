@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $publishDir = Join-Path $repoRoot 'publish'
-$binDll = Join-Path $repoRoot "bin/$Configuration/net9.0/ZTalk.dll"
+$binDll = Join-Path $repoRoot "bin/$Configuration/net9.0/Zer0Talk.dll"
 $errorLog = Join-Path $repoRoot 'error.log'
 
 New-Item -ItemType Directory -Force -Path $publishDir | Out-Null
@@ -48,7 +48,7 @@ if (-not $published) {
 }
 
 # Find artifacts (timestamped zip names)
-$artifacts = Get-ChildItem -Path $publishDir -Filter "ZTalk-$Rid-$Configuration*.zip" | Sort-Object LastWriteTime -Descending
+$artifacts = Get-ChildItem -Path $publishDir -Filter "Zer0Talk-$Rid-$Configuration*.zip" | Sort-Object LastWriteTime -Descending
 if (-not $artifacts) { Write-Trace "No artifacts found for $Rid/$Configuration"; throw "No publish artifacts found" }
 
 # Compute hashes for artifacts
@@ -121,9 +121,9 @@ if ($checkpoints.Count -gt $KeepCheckpoints) {
 # Prune old zips for this RID/Configuration (keep latest 5 per variant)
 $keepZipCount = $KeepZips
 foreach ($pattern in @(
-    "ZTalk-$Rid-$Configuration-*.zip",
-    "ZTalk-$Rid-$Configuration-sc-*.zip",
-    "ZTalk-$Rid-$Configuration-single-*.zip"
+    "Zer0Talk-$Rid-$Configuration-*.zip",
+    "Zer0Talk-$Rid-$Configuration-sc-*.zip",
+    "Zer0Talk-$Rid-$Configuration-single-*.zip"
   )) {
   $zips = Get-ChildItem -Path $publishDir -Filter $pattern | Sort-Object LastWriteTime -Descending
   if ($zips.Count -gt $keepZipCount) {
@@ -135,7 +135,7 @@ foreach ($pattern in @(
 }
 
 # Remove legacy non-timestamp single zip name if present
-$legacySingle = Join-Path $publishDir "ZTalk-$Rid-$Configuration-single.zip"
+$legacySingle = Join-Path $publishDir "Zer0Talk-$Rid-$Configuration-single.zip"
 if (Test-Path $legacySingle) {
   try { Remove-Item -Force $legacySingle -ErrorAction Stop } catch { Write-Trace "Warning: Could not remove legacy single zip: $(Split-Path -Leaf $legacySingle)" }
 }

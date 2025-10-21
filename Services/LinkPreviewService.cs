@@ -10,10 +10,10 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-using ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services;
+namespace Zer0Talk.Services;
 
 public class LinkPreviewService : IDisposable
 {
@@ -501,9 +501,9 @@ public class LinkPreviewService : IDisposable
     {
         try
         {
-            if (!client.DefaultRequestHeaders.UserAgent.TryParseAdd("ZTalk-LinkPreview/1.0"))
+            if (!client.DefaultRequestHeaders.UserAgent.TryParseAdd("Zer0Talk-LinkPreview/1.0"))
             {
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; ZTalk-LinkPreview/1.0)");
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; Zer0Talk-LinkPreview/1.0)");
             }
         }
         catch { }
@@ -813,3 +813,4 @@ public class LinkPreviewService : IDisposable
         return $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
     }
 }
+

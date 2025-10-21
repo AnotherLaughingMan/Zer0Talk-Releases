@@ -11,11 +11,11 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
-using ZTalk.ViewModels;
-using ZTalk.Services;
-using ZTalk.Models;
+using Zer0Talk.ViewModels;
+using Zer0Talk.Services;
+using Zer0Talk.Models;
 
-namespace ZTalk.Views;
+namespace Zer0Talk.Views;
 
 public partial class LogViewerWindow : Window
 {

@@ -6,7 +6,7 @@
 using System;
 using Avalonia.Input;
 
-namespace ZTalk.Models;
+namespace Zer0Talk.Models;
 
 // Removed Auto option: explicit theming only to avoid ambiguity
 public enum ThemeOption { Dark, Light, Sandy, Butter }

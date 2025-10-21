@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Containers
+namespace Zer0Talk.Containers
 {
     public class OutboxContainer
     {
@@ -13,7 +13,7 @@ namespace ZTalk.Containers
 
         private static string GetBaseDir()
         {
-            var dir = ZTalk.Utilities.AppDataPaths.Combine("outbox");
+            var dir = Zer0Talk.Utilities.AppDataPaths.Combine("outbox");
             Directory.CreateDirectory(dir);
             return dir;
         }

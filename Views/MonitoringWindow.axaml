@@ -7,9 +7,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="clr-namespace:ZTalk.ViewModels"
-    xmlns:vc="clr-namespace:ZTalk.Views.Controls"
-        x:Class="ZTalk.Views.MonitoringWindow"
+        xmlns:vm="clr-namespace:Zer0Talk.ViewModels"
+    xmlns:vc="clr-namespace:Zer0Talk.Views.Controls"
+        x:Class="Zer0Talk.Views.MonitoringWindow"
     x:Name="MonitoringWin"
     Title="{Binding LocalizedTitle}"
     Width="700" Height="520"
@@ -30,7 +30,7 @@
                 PointerPressed="DragBar_PointerPressed">
             <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
                 <Border Grid.Column="0" Width="20" Height="20" CornerRadius="4" Background="Transparent"/>
-                <TextBlock Grid.Column="1" Text="ZTalk" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Zer0Talk" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                 <Button Grid.Column="2" Classes="icon-button" Command="{Binding CloseCommand}" Width="32" Height="24" Padding="0" ToolTip.Tip="Close">
                     <TextBlock Classes="icon-mdl2" Text="&#xE106;" FontSize="10"/>
                 </Button>

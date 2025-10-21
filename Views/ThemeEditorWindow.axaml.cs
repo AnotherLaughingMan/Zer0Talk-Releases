@@ -1,10 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using ZTalk.ViewModels;
-using ZTalk.Services;
+using Zer0Talk.ViewModels;
+using Zer0Talk.Services;
 
-namespace ZTalk.Views;
+namespace Zer0Talk.Views;
 
 public partial class ThemeEditorWindow : Window
 {

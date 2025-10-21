@@ -20,10 +20,10 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Text.Json;
-using ZTalk.Models;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class IpBlockingService
     {
@@ -106,7 +106,7 @@ namespace ZTalk.Services
                 if (settings.CustomBadActorIps.Add(ipAddress))
                 {
                     Logger.Log($"[IP-BLOCK] Added bad actor IP: {ipAddress}");
-                    if (save) _settings.Save(ZTalk.Services.AppServices.Passphrase);
+                    if (save) _settings.Save(Zer0Talk.Services.AppServices.Passphrase);
                 }
             }
             catch (Exception ex)
@@ -129,7 +129,7 @@ namespace ZTalk.Services
                 if (settings.CustomBadActorIps?.Remove(ipAddress) == true)
                 {
                     Logger.Log($"[IP-BLOCK] Removed bad actor IP: {ipAddress}");
-                    if (save) _settings.Save(ZTalk.Services.AppServices.Passphrase);
+                    if (save) _settings.Save(Zer0Talk.Services.AppServices.Passphrase);
                 }
             }
             catch (Exception ex)
@@ -161,7 +161,7 @@ namespace ZTalk.Services
                 {
                     settings.BlockedIpRanges.Add(cidrRange);
                     Logger.Log($"[IP-BLOCK] Added CIDR range: {cidrRange}");
-                    if (save) _settings.Save(ZTalk.Services.AppServices.Passphrase);
+                    if (save) _settings.Save(Zer0Talk.Services.AppServices.Passphrase);
                 }
             }
             catch (Exception ex)
@@ -182,7 +182,7 @@ namespace ZTalk.Services
                 if (settings.BlockedIpRanges?.Remove(cidrRange) == true)
                 {
                     Logger.Log($"[IP-BLOCK] Removed CIDR range: {cidrRange}");
-                    if (save) _settings.Save(ZTalk.Services.AppServices.Passphrase);
+                    if (save) _settings.Save(Zer0Talk.Services.AppServices.Passphrase);
                 }
             }
             catch (Exception ex)
@@ -245,7 +245,7 @@ namespace ZTalk.Services
                 
                 if (importedCount > 0)
                 {
-                    _settings.Save(ZTalk.Services.AppServices.Passphrase);
+                    _settings.Save(Zer0Talk.Services.AppServices.Passphrase);
                     Logger.Log($"[IP-BLOCK] Imported {importedCount} entries from {filePath}");
                 }
                 
@@ -268,7 +268,7 @@ namespace ZTalk.Services
                 var settings = _settings.Settings;
                 var lines = new List<string>
                 {
-                    $"# ZTalk IP Block List - Exported {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                    $"# Zer0Talk IP Block List - Exported {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
                     "# Lines starting with # are comments",
                     "# Individual IP addresses:",
                     ""
@@ -401,7 +401,7 @@ namespace ZTalk.Services
             {
                 // Load embedded default blocklist
                 var assembly = Assembly.GetExecutingAssembly();
-                var resourceName = "ZTalk.Assets.Security.default-ip-blocklist.txt";
+                var resourceName = "Zer0Talk.Assets.Security.default-ip-blocklist.txt";
                 
                 using var stream = assembly.GetManifestResourceStream(resourceName);
                 if (stream != null)
@@ -440,7 +440,7 @@ namespace ZTalk.Services
                     // Save to persistent storage if any entries were loaded
                     if (importedCount > 0)
                     {
-                        _settings.Save(ZTalk.Services.AppServices.Passphrase);
+                        _settings.Save(Zer0Talk.Services.AppServices.Passphrase);
                     }
                     
                     System.Diagnostics.Debug.WriteLine($"Loaded {importedCount} IP ranges from default blocklist");
@@ -479,7 +479,7 @@ namespace ZTalk.Services
                 
                 if (removedCount > 0)
                 {
-                    _settings.Save(ZTalk.Services.AppServices.Passphrase);
+                    _settings.Save(Zer0Talk.Services.AppServices.Passphrase);
                     Logger.Log($"[IP-BLOCK] Cleared {removedCount} bad actor IP addresses");
                 }
             }
@@ -506,7 +506,7 @@ namespace ZTalk.Services
                     removedCount = settings.BlockedIpRanges.Count;
                     settings.BlockedIpRanges.Clear();
                     
-                    _settings.Save(ZTalk.Services.AppServices.Passphrase);
+                    _settings.Save(Zer0Talk.Services.AppServices.Passphrase);
                     Logger.Log($"[IP-BLOCK] Cleared {removedCount} blocked IP ranges");
                 }
             }

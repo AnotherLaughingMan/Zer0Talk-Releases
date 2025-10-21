@@ -3,7 +3,7 @@
 */
 using System.Text.Json.Serialization;
 
-namespace ZTalk.Models
+namespace Zer0Talk.Models
 {
     public class Contact : System.IEquatable<Contact>, System.ComponentModel.INotifyPropertyChanged
     {

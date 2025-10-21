@@ -4,7 +4,7 @@ using System.Globalization;
 
 using Avalonia.Data.Converters;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     // Policy: Show shield for verified or live-verified contacts (non-simulated).
     // Accepted bindings (by position):

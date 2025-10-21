@@ -1,5 +1,5 @@
 /*
-    Windows Startup Manager: Handles adding/removing ZTalk from Windows startup registry.
+    Windows Startup Manager: Handles adding/removing Zer0Talk from Windows startup registry.
     - Uses HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run for current user
     - No admin rights required for HKCU
 */
@@ -7,12 +7,12 @@ using System;
 using System.IO;
 using Microsoft.Win32;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public static class WindowsStartupManager
     {
         private const string RunKeyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
-        private const string AppName = "ZTalk";
+        private const string AppName = "Zer0Talk";
 
         public static bool IsRunOnStartupEnabled()
         {
@@ -42,10 +42,10 @@ namespace ZTalk.Services
 
             try
             {
-                using var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, true);
+                using var key = Registry.CurrentUser.CreateSubKey(RunKeyPath);
                 if (key == null)
                 {
-                    Utilities.Logger.Log("WindowsStartup: Could not open registry key");
+                    Utilities.Logger.Log("WindowsStartup: Could not create/open registry key");
                     return false;
                 }
 
@@ -53,6 +53,36 @@ namespace ZTalk.Services
                 {
                     // Get executable path
                     var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+                    
+                    // Handle development scenario (dotnet run) - get the actual executable path
+                    if (string.IsNullOrEmpty(exePath) || exePath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Try alternative methods to get executable path
+                        try
+                        {
+                            exePath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+                            if (exePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                            {
+                                // For published apps, look for .exe in same directory
+                                var exeFile = Path.ChangeExtension(exePath, ".exe");
+                                if (File.Exists(exeFile))
+                                {
+                                    exePath = exeFile;
+                                }
+                                else
+                                {
+                                    Utilities.Logger.Log("WindowsStartup: Running in development mode - startup entry will not work until published");
+                                    return false;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            Utilities.Logger.Log("WindowsStartup: Could not determine executable path");
+                            return false;
+                        }
+                    }
+                    
                     if (string.IsNullOrEmpty(exePath))
                     {
                         Utilities.Logger.Log("WindowsStartup: Could not determine executable path");
@@ -100,3 +130,4 @@ namespace ZTalk.Services
         }
     }
 }
+

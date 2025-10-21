@@ -1,9 +1,9 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using ZTalk.Services;
+using Zer0Talk.Services;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     // Maps a message SenderUID to a display label:
     // - "You" when sender is the local user

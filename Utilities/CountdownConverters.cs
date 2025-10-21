@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using ZTalk.Models;
-using ZTalk.ViewModels;
+using Zer0Talk.Models;
+using Zer0Talk.ViewModels;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public sealed class EditCountdownConverter : IMultiValueConverter
     {

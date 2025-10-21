@@ -3,7 +3,7 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     // Centralized helper to enforce singleton behavior for windows.
     public static class WindowManager
@@ -55,3 +55,4 @@ namespace ZTalk.Services
         }
     }
 }
+

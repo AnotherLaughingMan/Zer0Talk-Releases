@@ -5,7 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 
-namespace ZTalk.Controls.Markdown;
+namespace Zer0Talk.Controls.Markdown;
 
 /// <summary>
 /// Avalonia control for rendering markdown using our custom ZTalkMarkdownRenderer

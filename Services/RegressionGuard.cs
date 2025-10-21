@@ -10,9 +10,9 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
 
-using ZTalk.Utilities;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public sealed class RegressionGuard
     {
@@ -58,7 +58,7 @@ namespace ZTalk.Services
 
         private string GetCheckpointPath()
         {
-            var dir = ZTalk.Utilities.AppDataPaths.Root;
+            var dir = Zer0Talk.Utilities.AppDataPaths.Root;
             Directory.CreateDirectory(dir);
             return Path.Combine(dir, CheckpointFile);
         }
@@ -123,7 +123,7 @@ namespace ZTalk.Services
                         else if (_network.DiscoveryBehavior != NetworkService.DiscoveryMode.BroadcastOnly)
                         {
                             Logger.Log("RegressionGuard: switching discovery to BroadcastOnly due to network anomalies.");
-                            try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] Discovery mode override → BroadcastOnly (network anomalies)"), source: "Regression.Network"); } catch { }
+                            try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] Discovery mode override → BroadcastOnly (network anomalies)"), source: "Regression.Network"); } catch { }
                             // Apply discovery mode in-place without restarting listener
                             _network.ApplyDiscoveryBehavior(NetworkService.DiscoveryMode.BroadcastOnly);
                             _lastNetDowngradeUtc = DateTime.UtcNow;
@@ -144,21 +144,21 @@ namespace ZTalk.Services
                     if (_consecutiveEncFailures >= 2)
                     {
                         Logger.Log("RegressionGuard: encryption self-test failed repeatedly. Check libsodium installation.");
-                        try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] Encryption self-test failed repeatedly"), source: "Regression.Crypto"); } catch { }
+                        try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] Encryption self-test failed repeatedly"), source: "Regression.Crypto"); } catch { }
                         _consecutiveEncFailures = 0;
                     }
             var discFailThreshold = GetDiscoveryFailureThreshold();
             if (_consecutiveDiscFailures >= discFailThreshold)
                     {
                         // Discovery persistent problems: restart discovery service and consider restoring checkpoint
-                        try { AppServices.Discovery.Restart(); Logger.Log("RegressionGuard: restarted DiscoveryService due to anomalies."); try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] DiscoveryService restarted due to anomalies"), source: "Regression.Discovery"); } catch { } } catch { }
+                        try { AppServices.Discovery.Restart(); Logger.Log("RegressionGuard: restarted DiscoveryService due to anomalies."); try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] DiscoveryService restarted due to anomalies"), source: "Regression.Discovery"); } catch { } } catch { }
                         // If issues persist, restore network checkpoint to revert discovery mode/settings
             if (_consecutiveDiscFailures >= discFailThreshold * 2)
                         {
                 MaybeRestoreCheckpoint();
                             var msg = "RegressionGuard: discovery persistent failure; restored last-known-good network/discovery mode.";
                             try { AppServices.Events.RaiseRegressionDetected(msg); } catch { }
-                            try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] Restored last-known-good checkpoint due to discovery failures"), source: "Regression.Discovery"); } catch { }
+                            try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] Restored last-known-good checkpoint due to discovery failures"), source: "Regression.Discovery"); } catch { }
                             _consecutiveDiscFailures = 0; // avoid loops
                         }
                     }
@@ -209,7 +209,7 @@ namespace ZTalk.Services
                     _consecutiveNetFailures = 0;
                 }
                 catch { }
-                try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] Network restart to recover from anomalies"), source: "Regression.Network"); } catch { }
+                try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] Network restart to recover from anomalies"), source: "Regression.Network"); } catch { }
             }
             catch (Exception ex) { Logger.Log($"RegressionGuard restart failed: {ex.Message}"); }
         }
@@ -335,7 +335,7 @@ namespace ZTalk.Services
             try
             {
                 // Snapshot discovery service state for potential restore
-                ZTalk.Services.DiscoveryService.Snapshot? ds = null;
+                Zer0Talk.Services.DiscoveryService.Snapshot? ds = null;
                 try { ds = AppServices.Discovery.GetSnapshot(); } catch { }
                 var cp = new Checkpoint
                 {
@@ -343,7 +343,7 @@ namespace ZTalk.Services
                     MajorNode = _settings.Settings.MajorNode,
                     Discovery = _network.DiscoveryBehavior,
                     AppVersion = GetAppVersion(),
-                    DiscoveryState = ds?.StateValue ?? ZTalk.Services.DiscoveryService.State.Idle,
+                    DiscoveryState = ds?.StateValue ?? Zer0Talk.Services.DiscoveryService.State.Idle,
                     DiscoveryLastSuccessUtc = ds?.LastSuccessUtc,
                     LastListeningPort = _network.ListeningPort ?? 0,
                     LastUdpBeaconsRecv = _network.GetDiagnosticsSnapshot().UdpBeaconsRecv,
@@ -378,14 +378,14 @@ namespace ZTalk.Services
                     var msg = "RegressionGuard: restored last-known-good network checkpoint.";
                     Logger.Log(msg);
                     try { AppServices.Events.RaiseRegressionDetected(msg); } catch { }
-                    try { ZTalk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] Checkpoint restore applied (port/major/discovery)"), source: "Regression.Network"); } catch { }
+                    try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Regression] Checkpoint restore applied (port/major/discovery)"), source: "Regression.Network"); } catch { }
                     TryRestartNetwork();
                 }
                 // If checkpoint indicates discovery was healthy recently, try to nudge discovery back to healthy state
                 try
                 {
                     var snap = AppServices.Discovery.GetSnapshot();
-                    if (cp.DiscoveryState == ZTalk.Services.DiscoveryService.State.Completed && snap.StateValue != ZTalk.Services.DiscoveryService.State.Completed)
+                    if (cp.DiscoveryState == Zer0Talk.Services.DiscoveryService.State.Completed && snap.StateValue != Zer0Talk.Services.DiscoveryService.State.Completed)
                     {
                         AppServices.Discovery.Restart();
                         Logger.Log("RegressionGuard: nudged DiscoveryService to restart based on checkpoint.");
@@ -425,7 +425,7 @@ namespace ZTalk.Services
             public bool MajorNode { get; set; }
             public NetworkService.DiscoveryMode Discovery { get; set; }
             public string AppVersion { get; set; } = "unknown";
-            public ZTalk.Services.DiscoveryService.State DiscoveryState { get; set; } = ZTalk.Services.DiscoveryService.State.Idle;
+            public Zer0Talk.Services.DiscoveryService.State DiscoveryState { get; set; } = Zer0Talk.Services.DiscoveryService.State.Idle;
             public DateTime? DiscoveryLastSuccessUtc { get; set; }
             // Lightweight network health at checkpoint time
             public int LastListeningPort { get; set; }
@@ -441,7 +441,7 @@ namespace ZTalk.Services
             {
                 var snap = AppServices.Discovery.GetSnapshot();
                 // Detect stuck in Discovering only after a longer grace period to avoid churn
-                if (snap.StateValue == ZTalk.Services.DiscoveryService.State.Discovering && snap.LastAttemptUtc is DateTime la && (DateTime.UtcNow - la) > TimeSpan.FromSeconds(75))
+                if (snap.StateValue == Zer0Talk.Services.DiscoveryService.State.Discovering && snap.LastAttemptUtc is DateTime la && (DateTime.UtcNow - la) > TimeSpan.FromSeconds(75))
                 {
                     Logger.Log("RegressionGuard: DiscoveryService appears stuck in Discovering; restarting.");
                     try { AppServices.Discovery.Restart(); } catch { }
@@ -455,7 +455,7 @@ namespace ZTalk.Services
                     return false;
                 }
                 // Healthy signals
-                if (snap.PeersCount > 0 || snap.UdpBeaconsRecv > 0 || snap.StateValue == ZTalk.Services.DiscoveryService.State.Completed)
+                if (snap.PeersCount > 0 || snap.UdpBeaconsRecv > 0 || snap.StateValue == Zer0Talk.Services.DiscoveryService.State.Completed)
                 {
                     _discLastHealthy = DateTime.UtcNow;
                     return true;
@@ -519,3 +519,4 @@ namespace ZTalk.Services
         }
     }
 }
+

@@ -2,11 +2,11 @@
   "id": "legacy-dark",
   "displayName": "Dark",
   "description": "Legacy Dark theme (compatibility mode)",
-  "author": "ZTalk",
+  "author": "Zer0Talk",
   "version": "1.0.0",
   "baseVariant": "Dark",
   "resourceDictionaries": [
-    "avares://ZTalk/Styles/DarkThemeOverrides.axaml"
+    "avares://Zer0Talk/Styles/DarkThemeOverrides.axaml"
   ],
   "colorOverrides": {},
   "gradients": {

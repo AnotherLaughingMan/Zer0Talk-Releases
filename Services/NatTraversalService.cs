@@ -10,9 +10,9 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
-using ZTalk.Utilities;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     // Minimal NAT traversal helper. Real hole punching requires a rendezvous/mediator.
     public class NatTraversalService : IDisposable
@@ -306,8 +306,8 @@ namespace ZTalk.Services
                 // Preemptively delete any stale entries to avoid conflicts
                 try { await _upnp.DeletePortMappingAsync(tcpPort, "TCP"); } catch { }
                 try { await _upnp.DeletePortMappingAsync(udpPort, "UDP"); } catch { }
-                var okTcp = await _upnp.AddPortMappingAsync(tcpPort, tcpPort, "TCP", localIp, "ZTalk TCP");
-                var okUdp = await _upnp.AddPortMappingAsync(udpPort, udpPort, "UDP", localIp, "ZTalk UDP");
+                var okTcp = await _upnp.AddPortMappingAsync(tcpPort, tcpPort, "TCP", localIp, "Zer0Talk TCP");
+                var okUdp = await _upnp.AddPortMappingAsync(udpPort, udpPort, "UDP", localIp, "Zer0Talk UDP");
 
                 // If both failed, try alternates if any
                 if (!okTcp && !okUdp)
@@ -320,8 +320,8 @@ namespace ZTalk.Services
                             Logger.Log($"Retry UPnP mapping via alternate service: {svc}");
                             try { await _upnp.DeletePortMappingAsync(tcpPort, "TCP"); } catch { }
                             try { await _upnp.DeletePortMappingAsync(udpPort, "UDP"); } catch { }
-                            okTcp = okTcp || await _upnp.AddPortMappingAsync(tcpPort, tcpPort, "TCP", localIp, "ZTalk TCP");
-                            okUdp = okUdp || await _upnp.AddPortMappingAsync(udpPort, udpPort, "UDP", localIp, "ZTalk UDP");
+                            okTcp = okTcp || await _upnp.AddPortMappingAsync(tcpPort, tcpPort, "TCP", localIp, "Zer0Talk TCP");
+                            okUdp = okUdp || await _upnp.AddPortMappingAsync(udpPort, udpPort, "UDP", localIp, "Zer0Talk UDP");
                             if (okTcp || okUdp) break;
                         }
                     }
@@ -382,7 +382,7 @@ namespace ZTalk.Services
                     try { udp.Client.Bind(new IPEndPoint(IPAddress.Any, 0)); } catch { }
                 }
                 udp.Client.ReceiveTimeout = 1500;
-                var payload = System.Text.Encoding.ASCII.GetBytes("ztalk-punch");
+                var payload = System.Text.Encoding.ASCII.GetBytes("Zer0Talk-punch");
                 await udp.SendAsync(payload, payload.Length, peerPublicEndpoint);
                 Logger.Log($"NAT: Sent UDP punch to {peerPublicEndpoint}");
                 Status = "Attempting punch";
@@ -593,3 +593,4 @@ namespace ZTalk.Services
         }
     }
 }
+

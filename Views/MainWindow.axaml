@@ -4,22 +4,22 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:core="clr-namespace:ZTalk"
-    xmlns:vm="clr-namespace:ZTalk.ViewModels"
-    xmlns:v="clr-namespace:ZTalk.Views"
-    xmlns:models="clr-namespace:ZTalk.Models"
-    xmlns:util="clr-namespace:ZTalk.Utilities"
-    xmlns:c="clr-namespace:ZTalk.Controls"
-    xmlns:cm="clr-namespace:ZTalk.Controls.Markdown"
+    xmlns:core="clr-namespace:Zer0Talk"
+    xmlns:vm="clr-namespace:Zer0Talk.ViewModels"
+    xmlns:v="clr-namespace:Zer0Talk.Views"
+    xmlns:models="clr-namespace:Zer0Talk.Models"
+    xmlns:util="clr-namespace:Zer0Talk.Utilities"
+    xmlns:c="clr-namespace:Zer0Talk.Controls"
+    xmlns:cm="clr-namespace:Zer0Talk.Controls.Markdown"
 
     xmlns:avedit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
     xmlns:ctb="clr-namespace:ColorTextBlock.Avalonia;assembly=ColorTextBlock.Avalonia"
 
-    x:Class="ZTalk.Views.MainWindow"
+    x:Class="Zer0Talk.Views.MainWindow"
     x:Name="RootWindow"
     x:DataType="vm:MainWindowViewModel"
     mc:Ignorable="d"
-    Title="ZTalk"
+    Title="Zer0Talk"
     Width="1260"
     Height="760"
     MinWidth="1160"
@@ -171,7 +171,7 @@
                   MinWidth="32"
                   MinHeight="32"
                   Stretch="Uniform"/>
-              <TextBlock Text="ZTalk" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+              <TextBlock Text="Zer0Talk" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
                    Foreground="{DynamicResource App.TitleBarForeground}"/>
                 </StackPanel>
 
@@ -343,8 +343,8 @@
                                         <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Width="14" Height="14" CornerRadius="7" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
                                             <Grid>
                                                 <Ellipse Width="10" Height="10" Fill="#22CC66" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsOnline}"/>
-                                                <Image Width="10" Height="10" Source="avares://ZTalk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsAway}"/>
-                                                <Image Width="10" Height="10" Source="avares://ZTalk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsDnd}"/>
+                                                <Image Width="10" Height="10" Source="avares://Zer0Talk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsAway}"/>
+                                                <Image Width="10" Height="10" Source="avares://Zer0Talk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsDnd}"/>
                                                 <Ellipse Width="10" Height="10" Stroke="#888888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding $parent[v:MainWindow].IsOffline}"/>
                                             </Grid>
                                         </Border>
@@ -456,9 +456,9 @@
                                             <Grid>
                                                 <Ellipse Width="10" Height="10" Fill="#22CC66" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                          IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Online}"/>
-                                                <Image Width="10" Height="10" Source="avares://ZTalk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                <Image Width="10" Height="10" Source="avares://Zer0Talk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                        IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Idle}"/>
-                                                <Image Width="10" Height="10" Source="avares://ZTalk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                <Image Width="10" Height="10" Source="avares://Zer0Talk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                        IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=DoNotDisturb}"/>
                                                 <Ellipse Width="10" Height="10" Stroke="#888888" StrokeThickness="1.4" Fill="Transparent" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                          IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Invisible}"/>
@@ -671,7 +671,7 @@
                                                         </StackPanel>
                                                     </Grid>
                                                     <Grid>
-                                                        <cm:ZTalkMarkdownViewer Markdown="{Binding RenderedContent}"
+                                                        <cm:Zer0TalkMarkdownViewer Markdown="{Binding RenderedContent}"
                                                                               IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig}" />
                                                         <TextBlock Text="{Binding RenderedContent}"
                                                                    TextWrapping="Wrap"
@@ -925,8 +925,8 @@
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
                                     <Grid>
                                         <Ellipse Width="12" Height="12" Fill="#22CC66" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Online}"/>
-                                        <Image Width="12" Height="12" Source="avares://ZTalk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Idle}"/>
-                                        <Image Width="12" Height="12" Source="avares://ZTalk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=DoNotDisturb}"/>
+                                        <Image Width="12" Height="12" Source="avares://Zer0Talk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Idle}"/>
+                                        <Image Width="12" Height="12" Source="avares://Zer0Talk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=DoNotDisturb}"/>
                                         <Ellipse Width="12" Height="12" Stroke="#888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" Fill="Transparent" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Invisible}"/>
                                         <Ellipse Width="12" Height="12" Fill="Transparent" Stroke="#888888" StrokeThickness="1.8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Offline}"/>
                                     </Grid>

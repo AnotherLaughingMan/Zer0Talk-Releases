@@ -1,4 +1,4 @@
-# ZTalk Theme Editor - User Guide
+# Zer0Talk Theme Editor - User Guide
 
 **Version**: 1.0.0  
 **Last Updated**: October 2025
@@ -19,7 +19,7 @@
 
 ## Introduction
 
-The **ZTalk Theme Editor** lets you customize every color and gradient in ZTalk's interface. Create professional-looking themes in minutes with an intuitive interface, friendly names, and quick preset options.
+The **Zer0Talk Theme Editor** lets you customize every color and gradient in Zer0Talk's interface. Create professional-looking themes in minutes with an intuitive interface, friendly names, and quick preset options.
 
 ### What You Can Do
 
@@ -36,7 +36,7 @@ The **ZTalk Theme Editor** lets you customize every color and gradient in ZTalk'
 
 ### Opening the Theme Editor
 
-1. Open **ZTalk**
+1. Open **Zer0Talk**
 2. Click the **🎨 Theme Editor** icon in the left sidebar.
 
 A new Theme Editor window opens with all your theme customization tools.
@@ -128,7 +128,7 @@ Gradients are smooth color transitions that add depth and visual interest. For e
 
 Scroll down to the **🌈 Gradients** section. You'll see gradients with friendly names:
 
-- **Title Bar Gradient** - The top bar of ZTalk windows
+- **Title Bar Gradient** - The top bar of Zer0Talk windows
 
 ### Editing a Gradient
 
@@ -512,7 +512,7 @@ Found a bug? Please report:
 
 **Happy Theming!** 🎨
 
-Create beautiful themes and share them with the ZTalk community.
+Create beautiful themes and share them with the Zer0Talk community.
 
 ---
 
@@ -630,7 +630,7 @@ Gradients are smooth color transitions that can make your theme look more dynami
 
 When you open the Theme Editor, scroll down to the **🌈 Gradients** section. You'll see a list of available gradients with user-friendly names:
 
-- **Title Bar Gradient** - The top bar of ZTalk windows
+- **Title Bar Gradient** - The top bar of Zer0Talk windows
 
 Each gradient shows its friendly name (like "Title Bar Gradient") with the technical resource key below in small text (like "App.TitleBarBackground").
 
@@ -686,7 +686,7 @@ You have two ways to customize:
 - Click **❌ Cancel** to discard changes
 - Your title bar immediately shows the new gradient!
 
-**💡 Pro Tip**: If you're working on a custom theme that you have actively set on ZTalk, saving your theme will live update the theme and you will see the changes immediately throughout the application.
+**💡 Pro Tip**: If you're working on a custom theme that you have actively set on Zer0Talk, saving your theme will live update the theme and you will see the changes immediately throughout the application.
 
 ### Understanding the Gradient Editor
 
@@ -1256,7 +1256,7 @@ Themes are stored in memory during session:
 ### Reporting Bugs
 
 When reporting issues, include:
-1. ZTalk version
+1. Zer0Talk version
 2. Steps to reproduce
 3. Expected vs actual behavior
 4. Screenshots (if UI related)
@@ -1347,7 +1347,7 @@ When reporting issues, include:
 
 ---
 
-**Thank you for using ZTalk Theme Editor!** 🎨
+**Thank you for using Zer0Talk Theme Editor!** 🎨
 
 Create amazing themes and share them with the community. Happy theming!
 

@@ -14,10 +14,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 
-using ZTalk.Services;
-using ZTalk.Utilities;
+using Zer0Talk.Services;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.ViewModels;
+namespace Zer0Talk.ViewModels;
 
 public sealed class LogViewerViewModel : INotifyPropertyChanged, IDisposable
 {
@@ -319,7 +319,7 @@ public sealed class LogViewerViewModel : INotifyPropertyChanged, IDisposable
             StatusMessage = $"Trimming {SelectedTab.DisplayName}...";
             
             var result = await Task.Run(() => 
-                ZTalk.Services.AppServices.LogMaintenance.TrimSingleLogFile(SelectedTab.FullPath, "log-viewer"));
+                Zer0Talk.Services.AppServices.LogMaintenance.TrimSingleLogFile(SelectedTab.FullPath, "log-viewer"));
             
             StatusMessage = result;
             

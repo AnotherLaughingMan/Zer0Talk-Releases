@@ -13,7 +13,7 @@ using System;
 using System.Collections.Generic;
 using Avalonia.Media;
 
-namespace ZTalk.Models
+namespace Zer0Talk.Models
 {
     /// <summary>
     /// Defines a complete theme for the ThemeEngine.
@@ -205,7 +205,7 @@ namespace ZTalk.Models
             var json = ToJson();
             System.IO.File.WriteAllText(filePath, json);
             
-            ZTalk.Utilities.Logger.Log($"[Theme Export] Saved theme '{DisplayName}' to {filePath}", ZTalk.Utilities.LogLevel.Info, source: "ThemeDefinition", categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Export] Saved theme '{DisplayName}' to {filePath}", Zer0Talk.Utilities.LogLevel.Info, source: "ThemeDefinition", categoryOverride: "theme");
         }
 
         /// <summary>
@@ -275,8 +275,8 @@ namespace ZTalk.Models
             ValidateThemeContent(theme, warnings);
 
             // Log successful import
-            ZTalk.Utilities.Logger.Log($"[Theme Import] Loaded theme '{theme.DisplayName}' from {filePath} ({warnings.Count} warnings)", 
-                ZTalk.Utilities.LogLevel.Info, source: "ThemeDefinition", categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Import] Loaded theme '{theme.DisplayName}' from {filePath} ({warnings.Count} warnings)", 
+                Zer0Talk.Utilities.LogLevel.Info, source: "ThemeDefinition", categoryOverride: "theme");
 
             return theme;
         }
@@ -431,11 +431,11 @@ namespace ZTalk.Models
         {
             var resourcePath = legacyTheme switch
             {
-                ThemeOption.Dark => "avares://ZTalk/Styles/DarkThemeOverrides.axaml",
-                ThemeOption.Light => "avares://ZTalk/Styles/LightThemeOverrides.axaml",
-                ThemeOption.Sandy => "avares://ZTalk/Styles/SandyThemeOverrides.axaml",
-                ThemeOption.Butter => "avares://ZTalk/Styles/ButterThemeOverride.axaml",
-                _ => "avares://ZTalk/Styles/DarkThemeOverrides.axaml"
+                ThemeOption.Dark => "avares://Zer0Talk/Styles/DarkThemeOverrides.axaml",
+                ThemeOption.Light => "avares://Zer0Talk/Styles/LightThemeOverrides.axaml",
+                ThemeOption.Sandy => "avares://Zer0Talk/Styles/SandyThemeOverrides.axaml",
+                ThemeOption.Butter => "avares://Zer0Talk/Styles/ButterThemeOverride.axaml",
+                _ => "avares://Zer0Talk/Styles/DarkThemeOverrides.axaml"
             };
 
             return new ThemeDefinition
@@ -443,7 +443,7 @@ namespace ZTalk.Models
                 Id = $"legacy-{legacyTheme.ToString().ToLowerInvariant()}",
                 DisplayName = legacyTheme.ToString(),
                 Description = $"Legacy {legacyTheme} theme (compatibility mode)",
-                Author = "ZTalk",
+                Author = "Zer0Talk",
                 BaseVariant = legacyTheme == ThemeOption.Light ? "Light" : "Dark",
                 ResourceDictionaries = new List<string> { resourcePath },
                 IsLegacyTheme = true,
@@ -464,9 +464,9 @@ namespace ZTalk.Models
                 Id = "template-blank",
                 DisplayName = "Blank",
                 Description = "Neutral grey template - perfect starting point for custom themes",
-                Author = "ZTalk",
+                Author = "Zer0Talk",
                 BaseVariant = "Dark",
-                ResourceDictionaries = new List<string> { "avares://ZTalk/Styles/DarkThemeOverrides.axaml" },
+                ResourceDictionaries = new List<string> { "avares://Zer0Talk/Styles/DarkThemeOverrides.axaml" },
                 IsReadOnly = true,
                 ThemeType = ThemeType.BuiltInTemplate,
                 Tags = new List<string> { "template", "built-in" },

@@ -17,11 +17,11 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
-using ZTalk.Models;
-using ZTalk.Services;
-using ZTalk.ViewModels;
+using Zer0Talk.Models;
+using Zer0Talk.Services;
+using Zer0Talk.ViewModels;
 
-namespace ZTalk.Views;
+namespace Zer0Talk.Views;
 
 public partial class NetworkWindow : Window
 {
@@ -52,7 +52,7 @@ public partial class NetworkWindow : Window
             _uiPulseHandler = () => throttled();
             AppServices.Events.UiPulse += _uiPulseHandler;
             // Subscribe to global log stream so the Logging tab updates in real time, independent of Save/tab selection.
-            ZTalk.Utilities.Logger.LineLogged += OnLineLogged;
+            Zer0Talk.Utilities.Logger.LineLogged += OnLineLogged;
             // Horizontal wheel scroll support for the Logging tab
             this.Opened += (_, __) =>
             {
@@ -74,7 +74,7 @@ public partial class NetworkWindow : Window
         {
             try { AppServices.Updates.UnregisterUi(UpdatesKey + ".blink"); } catch { }
             try { if (_uiPulseHandler != null) AppServices.Events.UiPulse -= _uiPulseHandler; } catch { }
-            try { ZTalk.Utilities.Logger.LineLogged -= OnLineLogged; } catch { }
+            try { Zer0Talk.Utilities.Logger.LineLogged -= OnLineLogged; } catch { }
         };
         // Global lock hotkey for this window
         this.AddHandler(InputElement.KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
@@ -84,7 +84,7 @@ public partial class NetworkWindow : Window
 
     private void OpenMonitoring_Click(object? sender, RoutedEventArgs e)
     {
-        try { ZTalk.Services.WindowManager.ShowSingleton<MonitoringWindow>(); } catch { }
+        try { Zer0Talk.Services.WindowManager.ShowSingleton<MonitoringWindow>(); } catch { }
     }
 
     // Horizontal wheel handler for Logging tab
@@ -379,7 +379,7 @@ public partial class NetworkWindow : Window
         catch { }
     }
 
-    private ZTalk.ViewModels.NetworkViewModel.AdapterItem? GetItemAt(ListBox lb, Point pos)
+    private Zer0Talk.ViewModels.NetworkViewModel.AdapterItem? GetItemAt(ListBox lb, Point pos)
     {
         try
         {

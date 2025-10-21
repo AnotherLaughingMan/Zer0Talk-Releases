@@ -12,12 +12,12 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 
-using ZTalk.Models;
-using Models = ZTalk.Models;
-using ZTalk.Services;
-using ZTalk.Utilities;
+using Zer0Talk.Models;
+using Models = Zer0Talk.Models;
+using Zer0Talk.Services;
+using Zer0Talk.Utilities;
 
-namespace ZTalk.ViewModels;
+namespace Zer0Talk.ViewModels;
 
 public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 {
@@ -678,8 +678,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     }
 
     // About panel properties
-    public string AppName => "ZTalk";
-    public string AppVersion => ZTalk.AppInfo.Version;
+    public string AppName => "Zer0Talk";
+    public string AppVersion => Zer0Talk.AppInfo.Version;
     public string AvaloniaVersion
     {
         get
@@ -820,7 +820,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             {
                 _backgroundFramerateFps = v;
                 OnPropertyChanged();
-                try { ZTalk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
+                try { Zer0Talk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
                 try { WritePerformanceLog($"Change BackgroundFramerateFps={_backgroundFramerateFps}"); } catch { }
             }
         }
@@ -1689,13 +1689,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedNotifications => Services.AppServices.Localization.GetString("Settings.Notifications", "Notifications");
     public string LocalizedChatSounds => Services.AppServices.Localization.GetString("Settings.ChatSounds", "Chat Sounds");
     public string LocalizedSystemTray => Services.AppServices.Localization.GetString("Settings.SystemTray", "System Tray");
-    public string LocalizedSystemTrayHelp => Services.AppServices.Localization.GetString("Settings.SystemTrayHelp", "Control how ZTalk behaves with the Windows system tray.");
+    public string LocalizedSystemTrayHelp => Services.AppServices.Localization.GetString("Settings.SystemTrayHelp", "Control how Zer0Talk behaves with the Windows system tray.");
     public string LocalizedShowSystemTrayIcon => Services.AppServices.Localization.GetString("Settings.ShowSystemTrayIcon", "Show icon in system tray");
-    public string LocalizedShowSystemTrayIconHelp => Services.AppServices.Localization.GetString("Settings.ShowSystemTrayIconHelp", "Display ZTalk icon in the Windows system tray for quick access");
+    public string LocalizedShowSystemTrayIconHelp => Services.AppServices.Localization.GetString("Settings.ShowSystemTrayIconHelp", "Display Zer0Talk icon in the Windows system tray for quick access");
     public string LocalizedMinimizeToTray => Services.AppServices.Localization.GetString("Settings.MinimizeToTray", "Minimize to tray on close");
     public string LocalizedMinimizeToTrayHelp => Services.AppServices.Localization.GetString("Settings.MinimizeToTrayHelp", "Close button will minimize to system tray instead of exiting the application");
     public string LocalizedRunOnStartup => Services.AppServices.Localization.GetString("Settings.RunOnStartup", "Run on Windows startup");
-    public string LocalizedRunOnStartupHelp => Services.AppServices.Localization.GetString("Settings.RunOnStartupHelp", "Automatically start ZTalk when Windows starts (minimized to tray)");
+    public string LocalizedRunOnStartupHelp => Services.AppServices.Localization.GetString("Settings.RunOnStartupHelp", "Automatically start Zer0Talk when Windows starts (minimized to tray)");
     public string LocalizedFamily => Services.AppServices.Localization.GetString("Settings.Family", "Family:");
     
     // Profile panel strings
@@ -1795,7 +1795,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Network panel strings
     public string LocalizedPort => Services.AppServices.Localization.GetString("Settings.Port", "Port");
     public string LocalizedPortLabel => Services.AppServices.Localization.GetString("Settings.PortLabel", "Port:");
-    public string LocalizedPortDescription => Services.AppServices.Localization.GetString("Settings.PortDescription", "The port number ZTalk uses for P2P connections. Default is 26264. Changing this requires restarting the application.");
+    public string LocalizedPortDescription => Services.AppServices.Localization.GetString("Settings.PortDescription", "The port number Zer0Talk uses for P2P connections. Default is 26264. Changing this requires restarting the application.");
     public string LocalizedDedicatedPeerNode => Services.AppServices.Localization.GetString("Settings.DedicatedPeerNode", "Dedicated Peer Node");
     public string LocalizedEnableDedicatedPeerNode => Services.AppServices.Localization.GetString("Settings.EnableDedicatedPeerNode", "Enable as dedicated peer node (requires port forwarding)");
     public string LocalizedDedicatedPeerNodeInfo => Services.AppServices.Localization.GetString("Settings.DedicatedPeerNodeInfo", "Dedicated Peer Node:");
@@ -1811,7 +1811,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedRelayServer => Services.AppServices.Localization.GetString("Settings.RelayServer", "Relay Server");
     public string LocalizedRequirements => Services.AppServices.Localization.GetString("Settings.Requirements", "Requirements:");
     public string LocalizedRequiresDedicatedRelay => Services.AppServices.Localization.GetString("Settings.RequiresDedicatedRelay", "• Requires a dedicated relay server with public IP or DNS name");
-    public string LocalizedServerMustBeConfigured => Services.AppServices.Localization.GetString("Settings.ServerMustBeConfigured", "• Server must be configured to accept ZTalk relay protocol connections");
+    public string LocalizedServerMustBeConfigured => Services.AppServices.Localization.GetString("Settings.ServerMustBeConfigured", "• Server must be configured to accept Zer0Talk relay protocol connections");
     public string LocalizedRelayFormat => Services.AppServices.Localization.GetString("Settings.RelayFormat", "• Format: hostname:port or IP:port (e.g., relay.example.com:443)");
     public string LocalizedLeaveBlankToDisable => Services.AppServices.Localization.GetString("Settings.LeaveBlankToDisable", "• Leave blank to disable relay fallback and rely on direct/NAT traversal only");
     public string LocalizedKnownDedicatedPeerNodes => Services.AppServices.Localization.GetString("Settings.KnownDedicatedPeerNodes", "Known Dedicated Peer Nodes");
@@ -1971,10 +1971,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             var engine = AppServices.ThemeEngine;
             var registered = engine.GetRegisteredThemes();
 
-            ZTalk.Utilities.Logger.Log($"[PopulateThemeItems] Found {registered.Count} registered themes", 
-                Utilities.LogLevel.Info, categoryOverride: "theme");
-
-            var themeEntries = registered.Values
+                        Zer0Talk.Utilities.Logger.Log($"[PopulateThemeItems] Found {registered.Count} registered themes", 
+                Utilities.LogLevel.Info, categoryOverride: "theme");            var themeEntries = registered.Values
                 .Where(t => t != null && t.ThemeType != ThemeType.BuiltInTemplate)
                 .Select(t => new
                 {
@@ -1992,12 +1990,12 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 .ThenBy(t => t.Display, StringComparer.CurrentCultureIgnoreCase)
                 .ToList();
 
-            ZTalk.Utilities.Logger.Log($"[PopulateThemeItems] After filtering: {themeEntries.Count} theme entries", 
+            Zer0Talk.Utilities.Logger.Log($"[PopulateThemeItems] After filtering: {themeEntries.Count} theme entries", 
                 Utilities.LogLevel.Info, categoryOverride: "theme");
             
             foreach (var entry in themeEntries)
             {
-                ZTalk.Utilities.Logger.Log($"[PopulateThemeItems] - {entry.Display} (ID: {entry.ThemeId}, Order: {entry.Order})", 
+                Zer0Talk.Utilities.Logger.Log($"[PopulateThemeItems] - {entry.Display} (ID: {entry.ThemeId}, Order: {entry.Order})", 
                     Utilities.LogLevel.Info, categoryOverride: "theme");
             }
 
@@ -2066,14 +2064,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 }
                 catch (Exception ex)
                 {
-                    ZTalk.Utilities.Logger.Log($"[Settings] Error refreshing theme list: {ex.Message}", 
+                    Zer0Talk.Utilities.Logger.Log($"[Settings] Error refreshing theme list: {ex.Message}", 
                         Utilities.LogLevel.Warning, categoryOverride: "theme");
                 }
             });
         }
         catch (Exception ex)
         {
-            ZTalk.Utilities.Logger.Log($"[Settings] Error dispatching theme refresh: {ex.Message}", 
+            Zer0Talk.Utilities.Logger.Log($"[Settings] Error dispatching theme refresh: {ex.Message}", 
                 Utilities.LogLevel.Warning, categoryOverride: "theme");
         }
     }
@@ -2838,7 +2836,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             try { ApplyGpuModeImmediate(s.DisableGpuAcceleration); } catch { }
             try { ApplyFpsThrottleImmediate(s.FpsThrottle); } catch { }
             try { ApplyRefreshRateThrottleImmediate(s.RefreshRateThrottle); } catch { }
-            try { ZTalk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
+            try { Zer0Talk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
             try { ApplyCcdAffinityImmediate(s.CcdAffinityIndex); } catch { }
             // Apply theme + theme engine live
             try
@@ -2880,7 +2878,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                     Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime life)
                 {
                     foreach (var w in life.Windows.OfType<Window>())
-                        ZTalk.Services.ScreenCaptureProtection.SetExcludeFromCapture(w, BlockScreenCapture);
+                        Zer0Talk.Services.ScreenCaptureProtection.SetExcludeFromCapture(w, BlockScreenCapture);
                 }
             }
             catch { }
@@ -2950,13 +2948,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     }
 
     // Lightweight UI logging
-    private static bool UiLoggingEnabled => ZTalk.Utilities.LoggingPaths.Enabled;
+    private static bool UiLoggingEnabled => Zer0Talk.Utilities.LoggingPaths.Enabled;
     private static void WriteUiLog(string line)
     {
         try
         {
             if (!UiLoggingEnabled) return;
-            System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} {line}{Environment.NewLine}");
+            System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} {line}{Environment.NewLine}");
         }
         catch { }
     }
@@ -3503,7 +3501,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 // Update LoggingPaths immediately when toggle changes
                 try
                 {
-                    ZTalk.Utilities.LoggingPaths.SetEnabled(value);
+                    Zer0Talk.Utilities.LoggingPaths.SetEnabled(value);
                 }
                 catch { }
                 // Update Logs button visibility in MainWindow
@@ -3844,13 +3842,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
         catch { }
     }
-    private static bool AccessibilityLoggingEnabled => ZTalk.Utilities.LoggingPaths.Enabled;
+    private static bool AccessibilityLoggingEnabled => Zer0Talk.Utilities.LoggingPaths.Enabled;
     private static void WriteAccessibilityLog(string line)
     {
         try
         {
             if (!AccessibilityLoggingEnabled) return;
-            System.IO.File.AppendAllText(ZTalk.Utilities.LoggingPaths.Debug, $"[ACCESS] {DateTime.Now:O} {line}{Environment.NewLine}");
+            System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.Debug, $"[ACCESS] {DateTime.Now:O} {line}{Environment.NewLine}");
         }
         catch { }
     }
@@ -3995,19 +3993,19 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     }
     private static string GetContactsPath()
     {
-    return ZTalk.Utilities.AppDataPaths.Combine("contacts.p2e");
+    return Zer0Talk.Utilities.AppDataPaths.Combine("contacts.p2e");
     }
     private static string GetMessagesPath()
     {
-    return ZTalk.Utilities.AppDataPaths.Combine("messages.p2e");
+    return Zer0Talk.Utilities.AppDataPaths.Combine("messages.p2e");
     }
     private static string GetPeersPath()
     {
-    return ZTalk.Utilities.AppDataPaths.Combine("peers.p2e");
+    return Zer0Talk.Utilities.AppDataPaths.Combine("peers.p2e");
     }
     private static string GetThemesFolder()
     {
-    return ZTalk.Utilities.AppDataPaths.Combine("Themes");
+    return Zer0Talk.Utilities.AppDataPaths.Combine("Themes");
     }
 
     private async Task PurgeAllMessagesAsync()
@@ -4106,7 +4104,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             // Do not clear passphrase; simply lock the app.
             try { Logger.Log("User logout requested (lock only; passphrase retained)"); } catch { }
             try { CloseRequested?.Invoke(this, EventArgs.Empty); } catch { }
-            try { new ZTalk.Services.LockService().Lock(); } catch { }
+            try { new Zer0Talk.Services.LockService().Lock(); } catch { }
         }
         catch { }
     }
@@ -4472,7 +4470,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            ZTalk.Utilities.Logger.Log($"[Theme Inspector] Error refreshing theme data: {ex.Message}", Utilities.LogLevel.Error);
+            Zer0Talk.Utilities.Logger.Log($"[Theme Inspector] Error refreshing theme data: {ex.Message}", Utilities.LogLevel.Error);
             CurrentThemeId = "error";
             CurrentThemeDisplayName = "Error Loading Theme";
             CurrentThemeDescription = ex.Message;
@@ -4515,7 +4513,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 SuggestedFileName = $"{themeDef.DisplayName}.zttheme",
                 FileTypeChoices = new[]
                 {
-                    new Avalonia.Platform.Storage.FilePickerFileType("ZTalk Theme Files")
+                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
                         Patterns = new[] { "*.zttheme" }
                     },
@@ -4545,7 +4543,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
         catch (Exception ex)
         {
-            ZTalk.Utilities.Logger.Log($"[Theme Export] Error exporting theme: {ex.Message}", Utilities.LogLevel.Error);
+            Zer0Talk.Utilities.Logger.Log($"[Theme Export] Error exporting theme: {ex.Message}", Utilities.LogLevel.Error);
             await ShowSaveToastAsync($"❌ Export failed: {ex.Message}", 4000);
         }
     }
@@ -4573,7 +4571,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 AllowMultiple = false,
                 FileTypeFilter = new[]
                 {
-                    new Avalonia.Platform.Storage.FilePickerFileType("ZTalk Theme Files")
+                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
                         Patterns = new[] { "*.zttheme" }
                     },
@@ -4605,7 +4603,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                     warningMsg += $"\n... and {warnings.Count - 5} more warnings";
                 }
 
-                ZTalk.Utilities.Logger.Log($"[Theme Import] Theme '{themeDef.DisplayName}' imported with {warnings.Count} warning(s)", Utilities.LogLevel.Warning, categoryOverride: "theme");
+                Zer0Talk.Utilities.Logger.Log($"[Theme Import] Theme '{themeDef.DisplayName}' imported with {warnings.Count} warning(s)", Utilities.LogLevel.Warning, categoryOverride: "theme");
                 await ShowSaveToastAsync($"⚠️ Theme imported with warnings:\n{warningMsg}", 6000);
             }
 
@@ -4654,17 +4652,17 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             await ShowSaveToastAsync($"✅ Theme '{themeDef.DisplayName}' imported and previewed\n" +
                                     $"Theme registration UI will be added in Step 4+", 5000);
 
-            ZTalk.Utilities.Logger.Log($"[Theme Import] Successfully imported theme '{themeDef.DisplayName}' from {fileName}", Utilities.LogLevel.Info, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Import] Successfully imported theme '{themeDef.DisplayName}' from {fileName}", Utilities.LogLevel.Info, categoryOverride: "theme");
         }
         catch (InvalidOperationException ex)
         {
             // Validation errors
-            ZTalk.Utilities.Logger.Log($"[Theme Import] Validation error: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Import] Validation error: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
             await ShowSaveToastAsync($"❌ Invalid theme file:\n{ex.Message}", 5000);
         }
         catch (Exception ex)
         {
-            ZTalk.Utilities.Logger.Log($"[Theme Import] Error importing theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Import] Error importing theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
             await ShowSaveToastAsync($"❌ Import failed: {ex.Message}", 4000);
         }
     }
@@ -4680,7 +4678,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         
         OnPropertyChanged(nameof(IsEditingColor));
         OnPropertyChanged(nameof(CanLoadLegacyTheme));
-        ZTalk.Utilities.Logger.Log($"[Theme Edit] Started editing color '{entry.ResourceKey}' (current: {entry.ColorValue})", Utilities.LogLevel.Info, categoryOverride: "theme");
+        Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Started editing color '{entry.ResourceKey}' (current: {entry.ColorValue})", Utilities.LogLevel.Info, categoryOverride: "theme");
     }
 
     private async System.Threading.Tasks.Task SaveColorEditAsync()
@@ -4713,7 +4711,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             // Add to recent colors (Step 5)
             AddToRecentColors(newValue);
 
-            ZTalk.Utilities.Logger.Log($"[Theme Edit] Saved color edit '{entry.ResourceKey}': {oldValue} → {newValue}", Utilities.LogLevel.Info, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Saved color edit '{entry.ResourceKey}': {oldValue} → {newValue}", Utilities.LogLevel.Info, categoryOverride: "theme");
             await ShowSaveToastAsync($"✅ Color updated: {entry.ResourceKey}", 2000);
             
             OnPropertyChanged(nameof(CanUndo));
@@ -4738,7 +4736,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(IsEditingColor));
         OnPropertyChanged(nameof(CanLoadLegacyTheme));
         
-        ZTalk.Utilities.Logger.Log($"[Theme Edit] Cancelled editing color '{entry.ResourceKey}'", Utilities.LogLevel.Info, categoryOverride: "theme");
+        Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Cancelled editing color '{entry.ResourceKey}'", Utilities.LogLevel.Info, categoryOverride: "theme");
     }
 
     private void UndoColorEdit()
@@ -4753,7 +4751,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         if (entry != null)
         {
             entry.ColorValue = action.OldValue;
-            ZTalk.Utilities.Logger.Log($"[Theme Edit] Undo: {action.ResourceKey} restored to {action.OldValue}", Utilities.LogLevel.Info, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Undo: {action.ResourceKey} restored to {action.OldValue}", Utilities.LogLevel.Info, categoryOverride: "theme");
         }
 
         OnPropertyChanged(nameof(CanUndo));
@@ -4772,7 +4770,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         if (entry != null)
         {
             entry.ColorValue = action.NewValue;
-            ZTalk.Utilities.Logger.Log($"[Theme Edit] Redo: {action.ResourceKey} changed to {action.NewValue}", Utilities.LogLevel.Info, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Redo: {action.ResourceKey} changed to {action.NewValue}", Utilities.LogLevel.Info, categoryOverride: "theme");
         }
 
         OnPropertyChanged(nameof(CanUndo));
@@ -4790,7 +4788,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             DeselectAllColors();
         }
         
-        ZTalk.Utilities.Logger.Log($"[Theme Edit] Batch edit mode: {(IsBatchEditMode ? "ON" : "OFF")}", 
+        Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Batch edit mode: {(IsBatchEditMode ? "ON" : "OFF")}", 
                                    Utilities.LogLevel.Info, categoryOverride: "theme");
     }
 
@@ -4821,7 +4819,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _copiedColor = entry.ColorValue;
         OnPropertyChanged(nameof(HasCopiedColor));
         
-        ZTalk.Utilities.Logger.Log($"[Theme Edit] Copied color '{entry.ResourceKey}': {entry.ColorValue}", 
+        Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Copied color '{entry.ResourceKey}': {entry.ColorValue}", 
                                    Utilities.LogLevel.Info, categoryOverride: "theme");
     }
 
@@ -4851,7 +4849,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(CanUndo));
             OnPropertyChanged(nameof(CanRedo));
             
-            ZTalk.Utilities.Logger.Log($"[Theme Edit] Pasted color to '{entry.ResourceKey}': {oldValue} → {newValue}", 
+            Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Pasted color to '{entry.ResourceKey}': {oldValue} → {newValue}", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
         }
     }
@@ -4869,7 +4867,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
 
         await ShowSaveToastAsync($"✅ Reverted {count} color edit(s)", 2000);
-        ZTalk.Utilities.Logger.Log($"[Theme Edit] Reverted all edits ({count} changes)", 
+        Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Reverted all edits ({count} changes)", 
                                    Utilities.LogLevel.Info, categoryOverride: "theme");
     }
 
@@ -4916,12 +4914,12 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             // For now, preview theme is registered but user must manually select from dropdown
 
             await ShowSaveToastAsync($"🎨 Preview theme registered: {editedTheme.DisplayName}\nSelect from theme dropdown to apply", 4000);
-            ZTalk.Utilities.Logger.Log($"[Theme Edit] Applied live preview theme: {editedTheme.Id}", 
+            Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Applied live preview theme: {editedTheme.Id}", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
         }
         catch (Exception ex)
         {
-            ZTalk.Utilities.Logger.Log($"[Theme Edit] Error applying live preview: {ex.Message}", 
+            Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Error applying live preview: {ex.Message}", 
                                        Utilities.LogLevel.Error, categoryOverride: "theme");
             await ShowSaveToastAsync($"❌ Preview failed: {ex.Message}", 4000);
         }
@@ -4959,7 +4957,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         
         OnPropertyChanged(nameof(IsEditingGradient));
         OnPropertyChanged(nameof(CanLoadLegacyTheme));
-        ZTalk.Utilities.Logger.Log($"[Theme Edit] Started editing gradient '{entry.ResourceKey}' (angle: {entry.GradientDefinition.Angle}°)", 
+        Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Started editing gradient '{entry.ResourceKey}' (angle: {entry.GradientDefinition.Angle}°)", 
                                    Utilities.LogLevel.Info, categoryOverride: "theme");
     }
 
@@ -4998,7 +4996,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         if (changed)
         {
             // For gradients, we just log the change (undo for gradients could be added in future)
-            ZTalk.Utilities.Logger.Log($"[Theme Edit] Saved gradient edit '{entry.ResourceKey}': " +
+            Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Saved gradient edit '{entry.ResourceKey}': " +
                                        $"{entry.OriginalStartColor}→{entry.OriginalEndColor} ({entry.OriginalAngle}°) to " +
                                        $"{gradient.StartColor}→{gradient.EndColor} ({gradient.Angle}°)", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
@@ -5028,7 +5026,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(IsEditingGradient));
         OnPropertyChanged(nameof(CanLoadLegacyTheme));
         
-        ZTalk.Utilities.Logger.Log($"[Theme Edit] Cancelled editing gradient '{entry.ResourceKey}'", 
+        Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Cancelled editing gradient '{entry.ResourceKey}'", 
                                    Utilities.LogLevel.Info, categoryOverride: "theme");
     }
 
@@ -5041,7 +5039,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         gradient.EndColor = preset.EndColor;
         gradient.Angle = preset.Angle;
         
-        ZTalk.Utilities.Logger.Log($"[Theme Edit] Applied gradient preset '{preset.Name}' to '{_currentlyEditingGradient.ResourceKey}'", 
+        Zer0Talk.Utilities.Logger.Log($"[Theme Edit] Applied gradient preset '{preset.Name}' to '{_currentlyEditingGradient.ResourceKey}'", 
                                    Utilities.LogLevel.Info, categoryOverride: "theme");
     }
 
@@ -5056,12 +5054,12 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         {
             // For now, log that this feature is being implemented
             await ShowSaveToastAsync("Rename theme feature coming soon", 2000);
-            ZTalk.Utilities.Logger.Log("[Theme Management] Rename theme requested", Utilities.LogLevel.Info, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log("[Theme Management] Rename theme requested", Utilities.LogLevel.Info, categoryOverride: "theme");
         }
         catch (Exception ex)
         {
             await ShowSaveToastAsync($"Error: {ex.Message}", 3000);
-            ZTalk.Utilities.Logger.Log($"[Theme Management] Error renaming theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Management] Error renaming theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
         }
     }
 
@@ -5071,12 +5069,12 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             await ShowSaveToastAsync("Duplicate theme feature coming soon", 2000);
-            ZTalk.Utilities.Logger.Log("[Theme Management] Duplicate theme requested", Utilities.LogLevel.Info, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log("[Theme Management] Duplicate theme requested", Utilities.LogLevel.Info, categoryOverride: "theme");
         }
         catch (Exception ex)
         {
             await ShowSaveToastAsync($"Error: {ex.Message}", 3000);
-            ZTalk.Utilities.Logger.Log($"[Theme Management] Error duplicating theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Management] Error duplicating theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
         }
     }
 
@@ -5086,12 +5084,12 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             await ShowSaveToastAsync("Delete theme feature coming soon", 2000);
-            ZTalk.Utilities.Logger.Log("[Theme Management] Delete theme requested", Utilities.LogLevel.Info, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log("[Theme Management] Delete theme requested", Utilities.LogLevel.Info, categoryOverride: "theme");
         }
         catch (Exception ex)
         {
             await ShowSaveToastAsync($"Error: {ex.Message}", 3000);
-            ZTalk.Utilities.Logger.Log($"[Theme Management] Error deleting theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
+            Zer0Talk.Utilities.Logger.Log($"[Theme Management] Error deleting theme: {ex.Message}", Utilities.LogLevel.Error, categoryOverride: "theme");
         }
     }
 
@@ -5103,7 +5101,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             // Get the blank template
             var blank = Models.ThemeDefinition.CreateBlankTemplate();
             
-            ZTalk.Utilities.Logger.Log("[Blank Template] Loading blank template into editor", 
+            Zer0Talk.Utilities.Logger.Log("[Blank Template] Loading blank template into editor", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
 
             // Populate inspector with blank template data
@@ -5164,13 +5162,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             }
 
             await ShowSaveToastAsync("📄 Blank template loaded - Start customizing!", 3000);
-            ZTalk.Utilities.Logger.Log($"[Blank Template] Loaded {ThemeColors.Count} colors, {ThemeGradients.Count} gradients", 
+            Zer0Talk.Utilities.Logger.Log($"[Blank Template] Loaded {ThemeColors.Count} colors, {ThemeGradients.Count} gradients", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
         }
         catch (Exception ex)
         {
             await ShowSaveToastAsync($"Error loading blank template: {ex.Message}", 3000);
-            ZTalk.Utilities.Logger.Log($"[Blank Template] Error loading template: {ex.Message}", 
+            Zer0Talk.Utilities.Logger.Log($"[Blank Template] Error loading template: {ex.Message}", 
                                        Utilities.LogLevel.Error, categoryOverride: "theme");
         }
     }
@@ -5196,7 +5194,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            ZTalk.Utilities.Logger.Log($"[Load From Legacy] Loading theme '{themeDef.DisplayName}' (ID: {themeDef.Id}) as editable template", 
+            Zer0Talk.Utilities.Logger.Log($"[Load From Legacy] Loading theme '{themeDef.DisplayName}' (ID: {themeDef.Id}) as editable template", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
 
             // Load theme metadata
@@ -5264,7 +5262,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(HasCopiedColor));
 
             await ShowSaveToastAsync($"📂 Loaded '{SelectedLegacyTheme.DisplayName}' theme - Ready to customize!", 3000);
-            ZTalk.Utilities.Logger.Log($"[Load From Legacy] Loaded {ThemeColors.Count} colors, {ThemeGradients.Count} gradients as editable", 
+            Zer0Talk.Utilities.Logger.Log($"[Load From Legacy] Loaded {ThemeColors.Count} colors, {ThemeGradients.Count} gradients as editable", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
 
             // Clear selection after loading
@@ -5273,7 +5271,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             await ShowSaveToastAsync($"Error loading theme: {ex.Message}", 3000);
-            ZTalk.Utilities.Logger.Log($"[Load From Legacy] Error: {ex.Message}", 
+            Zer0Talk.Utilities.Logger.Log($"[Load From Legacy] Error: {ex.Message}", 
                                        Utilities.LogLevel.Error, categoryOverride: "theme");
         }
     }
@@ -5287,7 +5285,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         EditableThemeVersion = CurrentThemeVersion;
         IsEditingMetadata = true;
         
-        ZTalk.Utilities.Logger.Log($"[Theme Metadata] Started editing metadata for theme: {CurrentThemeId}", 
+        Zer0Talk.Utilities.Logger.Log($"[Theme Metadata] Started editing metadata for theme: {CurrentThemeId}", 
                                    Utilities.LogLevel.Info, categoryOverride: "theme");
     }
 
@@ -5325,13 +5323,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             IsEditingMetadata = false;
 
             await ShowSaveToastAsync("Metadata updated successfully", 2000);
-            ZTalk.Utilities.Logger.Log($"[Theme Metadata] Updated metadata for theme: {CurrentThemeId}", 
+            Zer0Talk.Utilities.Logger.Log($"[Theme Metadata] Updated metadata for theme: {CurrentThemeId}", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
         }
         catch (Exception ex)
         {
             await ShowSaveToastAsync($"Error saving metadata: {ex.Message}", 3000);
-            ZTalk.Utilities.Logger.Log($"[Theme Metadata] Error saving metadata: {ex.Message}", 
+            Zer0Talk.Utilities.Logger.Log($"[Theme Metadata] Error saving metadata: {ex.Message}", 
                                        Utilities.LogLevel.Error, categoryOverride: "theme");
         }
     }
@@ -5340,7 +5338,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private void CancelMetadataEdit()
     {
         IsEditingMetadata = false;
-        ZTalk.Utilities.Logger.Log("[Theme Metadata] Cancelled metadata editing", 
+        Zer0Talk.Utilities.Logger.Log("[Theme Metadata] Cancelled metadata editing", 
                                    Utilities.LogLevel.Info, categoryOverride: "theme");
     }
 
@@ -5392,7 +5390,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 SuggestedFileName = $"{theme.DisplayName.Replace(" ", "_")}.zttheme",
                 FileTypeChoices = new[]
                 {
-                    new Avalonia.Platform.Storage.FilePickerFileType("ZTalk Theme Files")
+                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
                         Patterns = new[] { "*.zttheme" }
                     }
@@ -5404,14 +5402,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 var filePath = file.Path.LocalPath;
                 theme.SaveToFile(filePath);
                 await ShowSaveToastAsync($"Theme exported to: {System.IO.Path.GetFileName(filePath)}", 3000);
-                ZTalk.Utilities.Logger.Log($"[Theme Export] Exported modified theme to: {filePath}", 
+                Zer0Talk.Utilities.Logger.Log($"[Theme Export] Exported modified theme to: {filePath}", 
                                            Utilities.LogLevel.Info, categoryOverride: "theme");
             }
         }
         catch (Exception ex)
         {
             await ShowSaveToastAsync($"Error exporting theme: {ex.Message}", 3000);
-            ZTalk.Utilities.Logger.Log($"[Theme Export] Error exporting modified theme: {ex.Message}", 
+            Zer0Talk.Utilities.Logger.Log($"[Theme Export] Error exporting modified theme: {ex.Message}", 
                                        Utilities.LogLevel.Error, categoryOverride: "theme");
         }
     }
@@ -5422,7 +5420,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            ZTalk.Utilities.Logger.Log("[Theme SaveAs] Starting Save As operation", 
+            Zer0Talk.Utilities.Logger.Log("[Theme SaveAs] Starting Save As operation", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
 
             // Get current theme from engine to check if it's read-only
@@ -5439,7 +5437,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             bool isBuiltIn = currentTheme?.IsBuiltIn() ?? false;
             if (isBuiltIn)
             {
-                ZTalk.Utilities.Logger.Log($"[Theme SaveAs] Saving built-in theme '{CurrentThemeDisplayName}' as new custom theme", 
+                Zer0Talk.Utilities.Logger.Log($"[Theme SaveAs] Saving built-in theme '{CurrentThemeDisplayName}' as new custom theme", 
                                            Utilities.LogLevel.Info, categoryOverride: "theme");
             }
 
@@ -5473,7 +5471,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 theme.Gradients[gradient.ResourceKey] = gradient.GradientDefinition!;
             }
 
-            ZTalk.Utilities.Logger.Log($"[Theme SaveAs] Created theme definition with {theme.ColorOverrides.Count} colors, {theme.Gradients.Count} gradients", 
+            Zer0Talk.Utilities.Logger.Log($"[Theme SaveAs] Created theme definition with {theme.ColorOverrides.Count} colors, {theme.Gradients.Count} gradients", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
 
             // Get main window for file dialog
@@ -5501,7 +5499,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 SuggestedFileName = $"{suggestedName}.zttheme",
                 FileTypeChoices = new[]
                 {
-                    new Avalonia.Platform.Storage.FilePickerFileType("ZTalk Theme Files")
+                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
                         Patterns = new[] { "*.zttheme" }
                     },
@@ -5515,7 +5513,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (file == null)
             {
                 // User cancelled
-                ZTalk.Utilities.Logger.Log("[Theme SaveAs] User cancelled file dialog", 
+                Zer0Talk.Utilities.Logger.Log("[Theme SaveAs] User cancelled file dialog", 
                                            Utilities.LogLevel.Info, categoryOverride: "theme");
                 return;
             }
@@ -5526,7 +5524,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             theme.SaveToFile(filePath);
 
             await ShowSaveToastAsync($"💾 Theme saved as: {System.IO.Path.GetFileName(filePath)}", 3000);
-            ZTalk.Utilities.Logger.Log($"[Theme SaveAs] Successfully saved theme to: {filePath}", 
+            Zer0Talk.Utilities.Logger.Log($"[Theme SaveAs] Successfully saved theme to: {filePath}", 
                                        Utilities.LogLevel.Info, categoryOverride: "theme");
 
             // Optional: Ask if user wants to import this new theme
@@ -5535,7 +5533,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             await ShowSaveToastAsync($"❌ Save failed: {ex.Message}", 4000);
-            ZTalk.Utilities.Logger.Log($"[Theme SaveAs] Error saving theme: {ex.Message}", 
+            Zer0Talk.Utilities.Logger.Log($"[Theme SaveAs] Error saving theme: {ex.Message}", 
                                        Utilities.LogLevel.Error, categoryOverride: "theme");
         }
     }
@@ -5672,9 +5670,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
 internal sealed class LockServiceSingleton
 {
-    private LockServiceSingleton() { Service = new ZTalk.Services.LockService(); }
+    private LockServiceSingleton() { Service = new Zer0Talk.Services.LockService(); }
     public static LockServiceSingleton Instance { get; } = new LockServiceSingleton();
-    public ZTalk.Services.LockService Service { get; }
+    public Zer0Talk.Services.LockService Service { get; }
     public void LockNow() => Service.Lock();
 }
 
@@ -5706,7 +5704,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         UntrustPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.SetTrusted(uid, false); RefreshLists(); } });
         ClearAllBlocksCommand = new RelayCommand(_ => ConfirmClearAll());
         RefreshPeersCommand = new RelayCommand(_ => { 
-            try { ZTalk.Utilities.Logger.Log("[NetworkViewModel] Manual refresh peers triggered"); } catch { }
+            try { Zer0Talk.Utilities.Logger.Log("[NetworkViewModel] Manual refresh peers triggered"); } catch { }
             try { AppServices.Discovery.Restart(); } catch { }
             RefreshLists(); 
         });
@@ -5745,10 +5743,10 @@ public class NetworkViewModel : INotifyPropertyChanged
             AppServices.Events.NatChanged += () => _uiThrottled?.Invoke();
             AppServices.Events.NetworkListeningChanged += (_, __) => _uiThrottled?.Invoke();
             AppServices.Events.PeersChanged += () => { 
-                try { ZTalk.Utilities.Logger.Log("[NetworkViewModel] PeersChanged event received"); } catch { }
+                try { Zer0Talk.Utilities.Logger.Log("[NetworkViewModel] PeersChanged event received"); } catch { }
                 _uiThrottled?.Invoke(); 
                 Avalonia.Threading.Dispatcher.UIThread.Post(() => {
-                    try { ZTalk.Utilities.Logger.Log("[NetworkViewModel] RefreshLists called from PeersChanged"); } catch { }
+                    try { Zer0Talk.Utilities.Logger.Log("[NetworkViewModel] RefreshLists called from PeersChanged"); } catch { }
                     RefreshLists();
                 }); 
             };
@@ -5808,7 +5806,7 @@ public class NetworkViewModel : INotifyPropertyChanged
                 try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
                 if (_majorNode)
                 {
-                    InfoMessage = "If prompted, allow ZTalk through Windows Firewall for inbound connections.";
+                    InfoMessage = "If prompted, allow Zer0Talk through Windows Firewall for inbound connections.";
                 }
             }
         }
@@ -6025,7 +6023,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             AppServices.Events.RaiseNetworkConfigChanged();
             if (s.MajorNode)
             {
-                InfoMessage = "If prompted, allow ZTalk through Windows Firewall for inbound connections.";
+                InfoMessage = "If prompted, allow Zer0Talk through Windows Firewall for inbound connections.";
             }
             if (showToast)
             {
@@ -6297,12 +6295,12 @@ public class NetworkViewModel : INotifyPropertyChanged
 
     private void RefreshLists()
     {
-        try { ZTalk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Found {_peerManager.Peers.Count} peers"); } catch { }
+        try { Zer0Talk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Found {_peerManager.Peers.Count} peers"); } catch { }
         var allPeers = _peerManager.Peers.ToList();
         
         // Filter out simulated contacts from discovered peers - they shouldn't appear in the network discovery list
         var peers = allPeers.Where(p => !IsSimulatedContact(p.UID)).ToList();
-        try { ZTalk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Filtered to {peers.Count} non-simulated peers (removed {allPeers.Count - peers.Count} simulated contacts)"); } catch { }
+        try { Zer0Talk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Filtered to {peers.Count} non-simulated peers (removed {allPeers.Count - peers.Count} simulated contacts)"); } catch { }
         
         var blocked = (_settings.Settings.BlockList ?? new System.Collections.Generic.List<string>()).ToList();
         var now = System.DateTime.UtcNow;
@@ -6343,7 +6341,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         DiscoveredPeers = new System.Collections.ObjectModel.ObservableCollection<Peer>(peers);
         BlockedPeers = new System.Collections.ObjectModel.ObservableCollection<string>(blocked);
         KnownMajorNodes = new System.Collections.ObjectModel.ObservableCollection<string>((_settings.Settings.KnownMajorNodes ?? new System.Collections.Generic.List<string>()).ToList());
-        try { ZTalk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Updated UI with {peers.Count} discovered peers"); } catch { }
+        try { Zer0Talk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Updated UI with {peers.Count} discovered peers"); } catch { }
     }
     
     // Check if a peer UID corresponds to a simulated contact (should not appear in discovered peers)
@@ -6351,7 +6349,7 @@ public class NetworkViewModel : INotifyPropertyChanged
     {
         try
         {
-            var contacts = ZTalk.Services.AppServices.Contacts.Contacts;
+            var contacts = Zer0Talk.Services.AppServices.Contacts.Contacts;
             var contact = contacts.FirstOrDefault(c => string.Equals(c.UID, uid, StringComparison.OrdinalIgnoreCase));
             return contact?.IsSimulated == true;
         }
@@ -6500,7 +6498,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             KnownMajorNodes.Add(entry);
             NewMajorNode = string.Empty;
             // Optionally restart crawler for immediacy
-            if (!ZTalk.Utilities.RuntimeFlags.SafeMode) AppServices.Crawler.Start();
+            if (!Zer0Talk.Utilities.RuntimeFlags.SafeMode) AppServices.Crawler.Start();
         }
     }
 
@@ -6511,7 +6509,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         {
             _settings.Save(AppServices.Passphrase);
             KnownMajorNodes.Remove(node);
-            if (!ZTalk.Utilities.RuntimeFlags.SafeMode) AppServices.Crawler.Start();
+            if (!Zer0Talk.Utilities.RuntimeFlags.SafeMode) AppServices.Crawler.Start();
         }
     }
 
@@ -6554,7 +6552,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             AppServices.IpBlocking.AddBadActorIp(NewBadActorIp.Trim());
             NewBadActorIp = string.Empty;
             RefreshIpLists();
-            ZTalk.Utilities.Logger.Log($"[IP-BLOCK] Added bad actor IP via UI: {NewBadActorIp}");
+            Zer0Talk.Utilities.Logger.Log($"[IP-BLOCK] Added bad actor IP via UI: {NewBadActorIp}");
         }
         catch (Exception ex)
         {
@@ -6568,7 +6566,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         {
             AppServices.IpBlocking.RemoveBadActorIp(ip);
             RefreshIpLists();
-            ZTalk.Utilities.Logger.Log($"[IP-BLOCK] Removed bad actor IP via UI: {ip}");
+            Zer0Talk.Utilities.Logger.Log($"[IP-BLOCK] Removed bad actor IP via UI: {ip}");
         }
         catch (Exception ex)
         {
@@ -6585,7 +6583,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             AppServices.IpBlocking.AddBlockedIpRange(NewIpRange.Trim());
             NewIpRange = string.Empty;
             RefreshIpLists();
-            ZTalk.Utilities.Logger.Log($"[IP-BLOCK] Added IP range via UI: {NewIpRange}");
+            Zer0Talk.Utilities.Logger.Log($"[IP-BLOCK] Added IP range via UI: {NewIpRange}");
         }
         catch (Exception ex)
         {
@@ -6599,7 +6597,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         {
             AppServices.IpBlocking.RemoveBlockedIpRange(range);
             RefreshIpLists();
-            ZTalk.Utilities.Logger.Log($"[IP-BLOCK] Removed IP range via UI: {range}");
+            Zer0Talk.Utilities.Logger.Log($"[IP-BLOCK] Removed IP range via UI: {range}");
         }
         catch (Exception ex)
         {
@@ -6612,7 +6610,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         try
         {
             // Check multiple possible locations for IP block lists
-            var appDataPath = ZTalk.Utilities.AppDataPaths.Combine("security", "ip-blocklist.txt");
+            var appDataPath = Zer0Talk.Utilities.AppDataPaths.Combine("security", "ip-blocklist.txt");
             var desktopPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ip-blocklist.txt");
             var downloadsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", "ip-blocklist.txt");
             
@@ -6630,7 +6628,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             else
             {
                 // Ensure the security directory exists
-                var securityDir = ZTalk.Utilities.AppDataPaths.Combine("security");
+                var securityDir = Zer0Talk.Utilities.AppDataPaths.Combine("security");
                 Directory.CreateDirectory(securityDir);
                 
                 await AppServices.Dialogs.ShowInfoAsync("Import IP Block Lists", 
@@ -6659,12 +6657,12 @@ public class NetworkViewModel : INotifyPropertyChanged
         try
         {
             // Create security directory if it doesn't exist
-            var securityDir = ZTalk.Utilities.AppDataPaths.Combine("security");
+            var securityDir = Zer0Talk.Utilities.AppDataPaths.Combine("security");
             Directory.CreateDirectory(securityDir);
             
             // Export with timestamp
             var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm", System.Globalization.CultureInfo.InvariantCulture);
-            var exportPath = Path.Combine(securityDir, $"ztalk-ip-blocklist-{timestamp}.txt");
+            var exportPath = Path.Combine(securityDir, $"zer0talk-ip-blocklist-{timestamp}.txt");
             
             await AppServices.IpBlocking.ExportIpListToFileAsync(exportPath);
             await AppServices.Dialogs.ShowInfoAsync("Export Complete", 
@@ -6693,7 +6691,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             {
                 AppServices.IpBlocking.ClearAllBadActorIps();
                 RefreshIpLists();
-                ZTalk.Utilities.Logger.Log("[IP-BLOCK] Cleared all bad actor IPs via UI");
+                Zer0Talk.Utilities.Logger.Log("[IP-BLOCK] Cleared all bad actor IPs via UI");
                 await AppServices.Dialogs.ShowInfoAsync("Clear Complete", "All blocked individual IPs have been removed.");
             }
             catch (Exception ex)
@@ -6720,7 +6718,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             {
                 AppServices.IpBlocking.ClearAllBlockedRanges();
                 RefreshIpLists();
-                ZTalk.Utilities.Logger.Log("[IP-BLOCK] Cleared all IP ranges via UI");
+                Zer0Talk.Utilities.Logger.Log("[IP-BLOCK] Cleared all IP ranges via UI");
                 await AppServices.Dialogs.ShowInfoAsync("Clear Complete", "All blocked IP ranges have been removed.");
             }
             catch (Exception ex)
@@ -6773,7 +6771,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
-            ZTalk.Utilities.Logger.Log($"[IP-BLOCK] Error refreshing IP lists: {ex.Message}");
+            Zer0Talk.Utilities.Logger.Log($"[IP-BLOCK] Error refreshing IP lists: {ex.Message}");
         }
     }
 

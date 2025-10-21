@@ -5,9 +5,9 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
-using ZTalk.Services;
+using Zer0Talk.Services;
 
-namespace ZTalk.Controls;
+namespace Zer0Talk.Controls;
 
 public class AvatarImage : Image
 {

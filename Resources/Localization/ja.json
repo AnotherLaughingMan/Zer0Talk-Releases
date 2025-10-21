@@ -1,6 +1,6 @@
 {
   "App": {
-    "Title": "ZTalk"
+    "Title": "Zer0Talk"
   },
   "Settings": {
     "Title": "設定",
@@ -50,13 +50,13 @@
     "Notifications": "通知",
     "ChatSounds": "チャット音",
     "SystemTray": "システムトレイ",
-    "SystemTrayHelp": "ZTalkがWindowsシステムトレイとどのように動作するかを制御します。",
+    "SystemTrayHelp": "Zer0TalkがWindowsシステムトレイとどのように動作するかを制御します。",
     "ShowSystemTrayIcon": "システムトレイにアイコンを表示",
-    "ShowSystemTrayIconHelp": "クイックアクセスのためにWindowsシステムトレイにZTalkアイコンを表示",
+    "ShowSystemTrayIconHelp": "クイックアクセスのためにWindowsシステムトレイにZer0Talkアイコンを表示",
     "MinimizeToTray": "閉じる時にトレイに最小化",
     "MinimizeToTrayHelp": "閉じるボタンはアプリケーションを終了する代わりにシステムトレイに最小化します",
     "RunOnStartup": "Windows起動時に実行",
-    "RunOnStartupHelp": "Windows起動時にZTalkを自動的に開始(トレイに最小化)",
+    "RunOnStartupHelp": "Windows起動時にZer0Talkを自動的に開始(トレイに最小化)",
     "Family": "ファミリー:",
     "Identity": "アイデンティティ",
     "Username": "ユーザー名",
@@ -163,7 +163,7 @@
     "RelaySettings": "リレー設定",
     "Port": "ポート",
     "PortLabel": "ポート:",
-    "PortDescription": "ZTalkがP2P接続に使用するポート番号。デフォルトは26264です。変更するにはアプリケーションの再起動が必要です。",
+    "PortDescription": "Zer0TalkがP2P接続に使用するポート番号。デフォルトは26264です。変更するにはアプリケーションの再起動が必要です。",
     "DedicatedPeerNode": "専用ピアノード",
     "EnableDedicatedPeerNode": "専用ピアノードとして有効にする(ポートフォワーディングが必要)",
     "DedicatedPeerNodeInfo": "専用ピアノード:",
@@ -179,7 +179,7 @@
     "RelayServer": "リレーサーバー",
     "Requirements": "要件:",
     "RequiresDedicatedRelay": "• パブリックIPまたはDNS名を持つ専用リレーサーバーが必要",
-    "ServerMustBeConfigured": "• サーバーはZTalkリレープロトコル接続を受け入れるように設定する必要があります",
+    "ServerMustBeConfigured": "• サーバーはZer0Talkリレープロトコル接続を受け入れるように設定する必要があります",
     "RelayFormat": "• 形式: hostname:port または IP:port (例: relay.example.com:443)",
     "LeaveBlankToDisable": "• リレーフォールバックを無効にして直接/NATトラバーサルのみに依存する場合は空白のままにしてください",
     "KnownDedicatedPeerNodes": "既知の専用ピアノード",
@@ -364,7 +364,7 @@
     "Create": "作成"
   },
   "Unlock": {
-    "Title": "ZTalkサインイン",
+    "Title": "Zer0Talkサインイン",
     "EnterPassphrase": "ロックを解除するにはパスフレーズを入力してください",
     "Passphrase": "パスフレーズ",
     "RememberPassphrase": "パスフレーズを記憶",
@@ -449,7 +449,7 @@
     "ISavedIt": "保存しました"
   },
   "Loading": {
-    "Title": "ZTalk - 読み込み中",
+    "Title": "Zer0Talk - 読み込み中",
     "Initializing": "セキュアメッセージングシステムを初期化中..."
   }
 }

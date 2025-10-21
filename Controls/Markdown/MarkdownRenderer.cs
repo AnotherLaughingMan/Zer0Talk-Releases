@@ -6,7 +6,7 @@ using Avalonia.Controls.Documents;
 using Avalonia.Layout;
 using Avalonia.Media;
 
-namespace ZTalk.Controls.Markdown;
+namespace Zer0Talk.Controls.Markdown;
 
 /// <summary>
 /// Renders a RenderModel Document into Avalonia UI controls.

@@ -1,6 +1,6 @@
 {
   "App": {
-    "Title": "ZTalk"
+    "Title": "Zer0Talk"
   },
   "Settings": {
     "Title": "Настройки",
@@ -50,13 +50,13 @@
     "Notifications": "Уведомления",
     "ChatSounds": "Звуки чата",
     "SystemTray": "Системный лоток",
-    "SystemTrayHelp": "Управляйте поведением ZTalk в системном лотке Windows.",
+    "SystemTrayHelp": "Управляйте поведением Zer0Talk в системном лотке Windows.",
     "ShowSystemTrayIcon": "Показывать значок в системном лотке",
-    "ShowSystemTrayIconHelp": "Отображать значок ZTalk в системном лотке Windows для быстрого доступа",
+    "ShowSystemTrayIconHelp": "Отображать значок Zer0Talk в системном лотке Windows для быстрого доступа",
     "MinimizeToTray": "Сворачивать в лоток при закрытии",
     "MinimizeToTrayHelp": "Кнопка закрытия будет сворачивать в системный лоток вместо выхода из приложения",
     "RunOnStartup": "Запускать при старте Windows",
-    "RunOnStartupHelp": "Автоматически запускать ZTalk при запуске Windows (свёрнутым в лоток)",
+    "RunOnStartupHelp": "Автоматически запускать Zer0Talk при запуске Windows (свёрнутым в лоток)",
     "Family": "Семейство:",
     "Identity": "Идентификация",
     "Username": "Имя пользователя",
@@ -163,7 +163,7 @@
     "RelaySettings": "Настройки ретрансляции",
     "Port": "Порт",
     "PortLabel": "Порт:",
-    "PortDescription": "Номер порта, который ZTalk использует для P2P-соединений. По умолчанию 26264. Изменение требует перезапуска приложения.",
+    "PortDescription": "Номер порта, который Zer0Talk использует для P2P-соединений. По умолчанию 26264. Изменение требует перезапуска приложения.",
     "DedicatedPeerNode": "Выделенный узел",
     "EnableDedicatedPeerNode": "Включить как выделенный узел (требуется перенаправление портов)",
     "DedicatedPeerNodeInfo": "Выделенный узел:",
@@ -179,7 +179,7 @@
     "RelayServer": "Сервер ретрансляции",
     "Requirements": "Требования:",
     "RequiresDedicatedRelay": "• Требуется выделенный сервер ретрансляции с публичным IP или DNS-именем",
-    "ServerMustBeConfigured": "• Сервер должен быть настроен для приёма соединений протокола ретрансляции ZTalk",
+    "ServerMustBeConfigured": "• Сервер должен быть настроен для приёма соединений протокола ретрансляции Zer0Talk",
     "RelayFormat": "• Формат: имя_хоста:порт или IP:порт (например, relay.example.com:443)",
     "LeaveBlankToDisable": "• Оставьте пустым, чтобы отключить резервную ретрансляцию и полагаться только на прямое соединение/проход NAT",
     "KnownDedicatedPeerNodes": "Известные выделенные узлы",
@@ -364,7 +364,7 @@
     "Create": "Создать"
   },
   "Unlock": {
-    "Title": "Вход в ZTalk",
+    "Title": "Вход в Zer0Talk",
     "EnterPassphrase": "Введите парольную фразу для разблокировки",
     "Passphrase": "Парольная фраза",
     "RememberPassphrase": "Запомнить парольную фразу",
@@ -449,7 +449,7 @@
     "ISavedIt": "Я сохранил"
   },
   "Loading": {
-    "Title": "ZTalk - Загрузка",
+    "Title": "Zer0Talk - Загрузка",
     "Initializing": "Инициализация безопасной системы обмена сообщениями..."
   }
 }

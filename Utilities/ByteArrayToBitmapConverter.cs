@@ -5,7 +5,7 @@ using System.IO;
 using Avalonia.Data.Converters;
 using Avalonia.Media.Imaging;
 
-namespace ZTalk.Utilities;
+namespace Zer0Talk.Utilities;
 
 public class ByteArrayToBitmapConverter : IValueConverter
 {

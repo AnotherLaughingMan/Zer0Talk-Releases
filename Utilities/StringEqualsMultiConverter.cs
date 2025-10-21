@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Collections.Generic;
 using Avalonia.Data.Converters;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public sealed class StringEqualsMultiConverter : IMultiValueConverter
     {

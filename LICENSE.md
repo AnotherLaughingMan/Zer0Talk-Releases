@@ -1,9 +1,9 @@
 
-## 🛡️ ZTalk Sovereign Software License v1.0
+## 🛡️ Zer0Talk Sovereign Software License v1.0
 
 **Effective Date:** [9/28/2025]  
 **Author:** AnotherLaughingMan  
-**Project:** ZTalk
+**Project:** Zer0Talk
 
 ---
 
@@ -34,7 +34,7 @@ You may not:
 
 ### 4. **Sensitive Nature of the Source**
 
-The source code of ZTalk is not publicly disclosed due to the sensitive nature of its design and functionality. 
+The source code of Zer0Talk is not publicly disclosed due to the sensitive nature of its design and functionality. 
 Its architecture is specifically engineered to prevent unauthorized surveillance, data retention, and external control mechanisms. 
 Making the source code openly available would increase the risk of exploitation, compromise the security measures in place, and potentially endanger the privacy and safety of its users. 
 Restricting access is a necessary measure to maintain the integrity and confidentiality of the software and its communication protocols.

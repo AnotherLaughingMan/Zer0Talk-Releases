@@ -11,7 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public static class ErrorLogger
     {

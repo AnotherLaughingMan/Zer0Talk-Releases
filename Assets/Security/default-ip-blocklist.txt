@@ -1,5 +1,5 @@
-# ZTalk IP Block List
-# This file should be placed in: %APPDATA%\ZTalk\security\ip-blocklist.txt
+# Zer0Talk IP Block List
+# This file should be placed in: %APPDATA%\Zer0Talk\security\ip-blocklist.txt
 # Or on your Desktop or in Downloads folder as ip-blocklist.txt
 #
 # Download updated lists from security providers:
@@ -32,12 +32,12 @@
 # To add your own entries:
 # 1. Research threat intelligence sources
 # 2. Add one IP or CIDR range per line
-# 3. Save this file and click Import in ZTalk settings
+# 3. Save this file and click Import in Zer0Talk settings
 
 # =============================================================================
 # COUNTRY-BASED IP BLOCK LISTS
 # Added: 2025-10-15 17:23:25
-# Source: ZTalk Assets/Bad-Actor directory
+# Source: Zer0Talk Assets/Bad-Actor directory
 # =============================================================================
 
 # CHINA IP RANGES (3,953 ranges)
@@ -10371,7 +10371,7 @@
 # =============================================================================
 # COUNTRY-BASED IP BLOCK LISTS
 # Added: 2025-10-15 17:23:25
-# Source: ZTalk Assets/Bad-Actor directory
+# Source: Zer0Talk Assets/Bad-Actor directory
 # =============================================================================
 
 # CHINA IP RANGES (3,953 ranges)
@@ -31033,7 +31033,7 @@
 # =============================================================================
 # COUNTRY-BASED IP BLOCK LISTS
 # Added: 2025-10-15 17:23:25
-# Source: ZTalk Assets/Bad-Actor directory
+# Source: Zer0Talk Assets/Bad-Actor directory
 # =============================================================================
 
 # CHINA IP RANGES (3,953 ranges)
@@ -51696,7 +51696,7 @@
 # =============================================================================
 # COUNTRY-BASED IP BLOCK LISTS
 # Added: 2025-10-15 17:25:29
-# Source: ZTalk Assets/Bad-Actor directory
+# Source: Zer0Talk Assets/Bad-Actor directory
 # Total: ~27,000+ IP ranges for enhanced security
 # =============================================================================
 

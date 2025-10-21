@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace ZTalk.Utilities
+namespace Zer0Talk.Utilities
 {
     public static class InteractionLogger
     {

@@ -18,11 +18,11 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-using ZTalk.Utilities;
-using ZTalk.Models;
-using Models = ZTalk.Models;
+using Zer0Talk.Utilities;
+using Zer0Talk.Models;
+using Models = Zer0Talk.Models;
 
-namespace ZTalk.Services
+namespace Zer0Talk.Services
 {
     public class NetworkService : IDisposable
     {
@@ -188,7 +188,7 @@ namespace ZTalk.Services
         public void StartIfMajorNode(int port, bool majorNode)
         {
             // Global kill-switch for diagnostics mode: no binds, no UDP, no UPnP.
-            if (ZTalk.Utilities.RuntimeFlags.SafeMode)
+            if (Zer0Talk.Utilities.RuntimeFlags.SafeMode)
             {
                 try { Logger.Log("NetworkService.StartIfMajorNode suppressed due to SafeMode"); } catch { }
                 return;
@@ -285,7 +285,7 @@ namespace ZTalk.Services
             if (majorNode)
             {
                 Logger.Log($"Listening on {boundAddr}:{boundPort} (Major Node mode)");
-                WarningRaised?.Invoke("If Windows Firewall prompts, allow ZTalk for inbound connections on the chosen port.");
+                WarningRaised?.Invoke("If Windows Firewall prompts, allow Zer0Talk for inbound connections on the chosen port.");
                 _ = Task.Run(async () => { try { await _nat.TryMapPortsAsync(boundPort, boundPort); } catch { } });
                 try { _nat.ConfigureDesiredPorts(boundPort, boundPort); _nat.EnableAutoMapping(true, forceKick: true); } catch { }
             }
@@ -298,7 +298,7 @@ namespace ZTalk.Services
             _ = AcceptLoop(_cts.Token);
             IsListening = true;
             _majorNodeActive = majorNode;
-            try { ZTalk.Services.AppServices.Events.RaiseNetworkListeningChanged(true, ListeningPort); } catch { }
+            try { Zer0Talk.Services.AppServices.Events.RaiseNetworkListeningChanged(true, ListeningPort); } catch { }
             try { ListeningChanged?.Invoke(true, ListeningPort); } catch { }
             // [DISCOVERY] Always start LAN discovery; advertising is no longer gated by Major Node.
             StartLanDiscovery(boundPort);
@@ -350,7 +350,7 @@ namespace ZTalk.Services
             _udp = null; _udpTask = null;
             _cts = null; _listener = null; IsListening = false; ListeningPort = null;
             UdpBoundPort = null; UdpBoundAddress = IPAddress.Any;
-            try { ZTalk.Services.AppServices.Events.RaiseNetworkListeningChanged(false, null); } catch { }
+            try { Zer0Talk.Services.AppServices.Events.RaiseNetworkListeningChanged(false, null); } catch { }
             try { ListeningChanged?.Invoke(false, null); } catch { }
         }
 
@@ -576,7 +576,7 @@ namespace ZTalk.Services
                 }
 
                 var secret = dh.DeriveKeyMaterial(peerKey.PublicKey);
-                var info = Encoding.UTF8.GetBytes("ztalk-session");
+                var info = Encoding.UTF8.GetBytes("Zer0Talk-session");
                 var prk = Hkdf.DeriveKey(secret, salt: Array.Empty<byte>(), info: info, length: 32 + 32 + 16 + 16);
                 CryptographicOperations.ZeroMemory(secret);
                 var txKey = new byte[32]; var rxKey = new byte[32]; var txBase = new byte[16]; var rxBase = new byte[16];
@@ -597,7 +597,7 @@ namespace ZTalk.Services
                 try { AppServices.Peers.SetObservedPublicKey(Trim(peerUid), peerPub); } catch { }
                 try { _diag.IncHandshakeOk(); _diag.IncSessionsActive(); } catch { }
                 try { HandshakeCompleted?.Invoke(true, Trim(peerUid), null); } catch { }
-                try { ZTalk.Services.AppServices.Contacts.SetLastKnownEncrypted(Trim(peerUid), true, ZTalk.Services.AppServices.Passphrase); } catch { }
+                try { Zer0Talk.Services.AppServices.Contacts.SetLastKnownEncrypted(Trim(peerUid), true, Zer0Talk.Services.AppServices.Passphrase); } catch { }
                 SafeNetLog($"connect relay success | peer={peerUid} | server={s.RelayServer}");
 
                 // Announce our identity to bind session to our Ed25519 key
@@ -1415,7 +1415,7 @@ namespace ZTalk.Services
             if (string.IsNullOrEmpty(epNow)) epNow = remoteEp;
             // Note: Block check by UID happens after identity announcement (0xA1), not at ECDH stage
             var secret = dh.DeriveKeyMaterial(peerKey.PublicKey);
-            var info = Encoding.UTF8.GetBytes("ztalk-session");
+            var info = Encoding.UTF8.GetBytes("Zer0Talk-session");
             var prk = Hkdf.DeriveKey(secret, salt: Array.Empty<byte>(), info: info, length: 32 + 32 + 16 + 16);
             CryptographicOperations.ZeroMemory(secret);
             var txKey = new byte[32]; var rxKey = new byte[32]; var txBase = new byte[16]; var rxBase = new byte[16];
@@ -1803,7 +1803,7 @@ namespace ZTalk.Services
                         var removed = _sessions.TryRemove(boundUid, out _);
                         try { if (removed) Logger.Log($"[sess] remove | mode=direct | peer={boundUid} | reason=reader-exit | ts={DateTime.UtcNow:o}"); } catch { }
                     }
-                    try { if (!string.IsNullOrEmpty(boundUid)) ZTalk.Services.AppServices.Contacts.SetLastKnownEncrypted(boundUid, false, ZTalk.Services.AppServices.Passphrase); } catch { }
+                    try { if (!string.IsNullOrEmpty(boundUid)) Zer0Talk.Services.AppServices.Contacts.SetLastKnownEncrypted(boundUid, false, Zer0Talk.Services.AppServices.Passphrase); } catch { }
                     try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
                     try { _transportEndpoints.TryRemove(transport, out _); } catch { }
                     try { _diag.DecSessionsActive(); } catch { }
@@ -2620,3 +2620,4 @@ namespace ZTalk.Services
         }
     }
 }
+

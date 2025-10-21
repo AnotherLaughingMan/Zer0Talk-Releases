@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:core="clr-namespace:ZTalk"
-             xmlns:vm="clr-namespace:ZTalk.ViewModels"
-             x:Class="ZTalk.Views.Controls.SettingsView"
+             xmlns:core="clr-namespace:Zer0Talk"
+             xmlns:vm="clr-namespace:Zer0Talk.ViewModels"
+             x:Class="Zer0Talk.Views.Controls.SettingsView"
              x:DataType="vm:SettingsViewModel">
   <Grid ColumnDefinitions="200,1,*">
     <Border Grid.Column="0" Background="{DynamicResource App.Surface}" BorderThickness="0">
@@ -1204,7 +1204,7 @@
                 <LineBreak/>
                 <Run Text="• CIDR Ranges: Block entire network ranges (e.g., 192.168.1.0/24 blocks all IPs 192.168.1.1-254)"/>
                 <LineBreak/>
-                <Run Text="• Import: Place 'ip-blocklist.txt' in %APPDATA%\ZTalk\security\, Desktop, or Downloads"/>
+                <Run Text="• Import: Place 'ip-blocklist.txt' in %APPDATA%\Zer0Talk\security\, Desktop, or Downloads"/>
                 <LineBreak/>
                 <Run Text="• Sources: Spamhaus, FireHOL, abuse.ch, commercial threat intelligence, etc."/>
                 <LineBreak/>
@@ -1283,7 +1283,6 @@
               <Button Content="{Binding LocalizedExportData}" HorizontalAlignment="Left" Padding="12,8"/>
             </StackPanel>
           </Border>
-
 
         </StackPanel>
       </ScrollViewer>
