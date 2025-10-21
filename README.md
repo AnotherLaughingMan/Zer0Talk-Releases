@@ -54,12 +54,11 @@ Zer0Talk is a privacy-focused, decentralized messaging application that puts you
 
 ### Quick Install (Recommended)
 1. Download the latest release from the [Releases](../../releases) page
-2. Download both files:
-   - `Zer0Talk-vX.X.X.XX-Alpha-Setup.exe`
-   - `Zer0Talk-vX.X.X.XX-Alpha-win-x64-Release-single-YYYYMMDD-HHMMSS.zip`
-3. Place both files in the same folder
-4. Run the Setup.exe as Administrator
-5. Follow the installation wizard
+2. Download the installer:
+   - `Zer0Talk-vX.X.X.XX-Alpha-Installer.exe`
+3. Run the installer as Administrator
+4. Follow the installation wizard
+5. Default installation location: `C:\Apps\ZTalk`
 
 ### Manual Installation
 1. Download the standalone zip package
