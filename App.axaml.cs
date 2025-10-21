@@ -139,23 +139,48 @@ public partial class App : Application
             if (!hasAccount)
             {
                 // Show account creation window
-                var acw = new Views.AccountCreationWindow();
-                desktop.MainWindow = acw;
-                loadingWindow?.Close();
-                acw.Show();
-                
-                acw.Closed += (_, __) =>
+                try
                 {
-                    if (AppServices.Accounts.HasAccount())
+                    SafeStartupLog("ShowAppropriateWindow.AccountCreationWindow.Creating");
+                    
+                    // Set shutdown mode BEFORE creating window to prevent premature app exit
+                    desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose;
+                    SafeStartupLog("ShowAppropriateWindow.ShutdownMode.Set");
+                    
+                    var acw = new Views.AccountCreationWindow();
+                    SafeStartupLog("ShowAppropriateWindow.AccountCreationWindow.Created");
+                    
+                    desktop.MainWindow = acw;
+                    SafeStartupLog("ShowAppropriateWindow.AccountCreationWindow.SetAsMainWindow");
+                    
+                    loadingWindow?.Close();
+                    SafeStartupLog("ShowAppropriateWindow.LoadingWindow.Closed");
+                    
+                    acw.Show();
+                    SafeStartupLog("ShowAppropriateWindow.AccountCreationWindow.Shown");
+                    
+                    acw.Closed += (_, __) =>
                     {
-                        ShowMainWindow(desktop);
-                        SetupPostInitialization(desktop);
-                    }
-                    else
-                    {
-                        desktop.Shutdown();
-                    }
-                };
+                        SafeStartupLog("ShowAppropriateWindow.AccountCreationWindow.Closed");
+                        if (AppServices.Accounts.HasAccount())
+                        {
+                            SafeStartupLog("ShowAppropriateWindow.AccountCreationWindow.Closed.AccountExists");
+                            ShowMainWindow(desktop);
+                            SetupPostInitialization(desktop);
+                        }
+                        else
+                        {
+                            SafeStartupLog("ShowAppropriateWindow.AccountCreationWindow.Closed.NoAccount.Shutdown");
+                            desktop.Shutdown();
+                        }
+                    };
+                }
+                catch (Exception ex)
+                {
+                    SafeStartupLog($"ShowAppropriateWindow.AccountCreationWindow.Error: {ex.GetType().Name} - {ex.Message}");
+                    TryWriteErrorTxt("ShowAppropriateWindow.AccountCreationWindow.Exception", ex);
+                    throw;
+                }
             }
             else
             {
@@ -250,10 +275,23 @@ public partial class App : Application
                 }
                 
                 // Show unlock window
+                SafeStartupLog("ShowAppropriateWindow.UnlockWindow.Creating");
+                
+                // Set shutdown mode BEFORE creating window to prevent premature app exit
+                desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose;
+                SafeStartupLog("ShowAppropriateWindow.UnlockWindow.ShutdownMode.Set");
+                
                 var unlock = new Views.UnlockWindow();
+                SafeStartupLog("ShowAppropriateWindow.UnlockWindow.Created");
+                
                 desktop.MainWindow = unlock;
+                SafeStartupLog("ShowAppropriateWindow.UnlockWindow.SetAsMainWindow");
+                
                 loadingWindow?.Close();
+                SafeStartupLog("ShowAppropriateWindow.UnlockWindow.LoadingClosed");
+                
                 unlock.Show();
+                SafeStartupLog("ShowAppropriateWindow.UnlockWindow.Shown");
                 
                 unlock.Closed += (_, __) =>
                 {

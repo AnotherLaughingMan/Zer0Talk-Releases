@@ -111,6 +111,7 @@ namespace Zer0Talk.Utilities
         public static string Crypto => PathFor("crypto.log");
         public static string EncryptedChat => PathFor("enc_chat.log");
         public static string ThemeEngine => PathFor("theme_engine.log");
+        public static string AccountCreation => PathFor("account_creation.log");
 
         public static bool TryWrite(string path, string line)
         {

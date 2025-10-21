@@ -32,29 +32,104 @@ namespace Zer0Talk.ViewModels
         // no DoneCommand; closing handled after modal dialog
 
         // Localized strings
-        public string LocalizedTitle => Services.AppServices.Localization.GetString("AccountCreation.Title", "Create Account");
-        public string LocalizedCreateLocalAccount => Services.AppServices.Localization.GetString("AccountCreation.CreateLocalAccount", "Create your local account");
-        public string LocalizedOnTop => Services.AppServices.Localization.GetString("AccountCreation.OnTop", "On top");
-        public string LocalizedKeepOnTop => Services.AppServices.Localization.GetString("AccountCreation.KeepOnTop", "Keep this window on top of other windows");
-        public string LocalizedPickUsername => Services.AppServices.Localization.GetString("AccountCreation.PickUsername", "Pick a username (6–24 chars). We'll generate a secure keypair and UID.");
-        public string LocalizedDisplayName => Services.AppServices.Localization.GetString("AccountCreation.DisplayName", "Display name");
-        public string LocalizedUsername => Services.AppServices.Localization.GetString("AccountCreation.Username", "Username");
-        public string LocalizedCancel => Services.AppServices.Localization.GetString("AccountCreation.Cancel", "Cancel");
-        public string LocalizedCreate => Services.AppServices.Localization.GetString("AccountCreation.Create", "Create");
+        public string LocalizedTitle 
+        { 
+            get 
+            { 
+                try { return Services.AppServices.Localization.GetString("AccountCreation.Title", "Create Account"); } 
+                catch { return "Create Account"; } 
+            } 
+        }
+        public string LocalizedCreateLocalAccount 
+        { 
+            get 
+            { 
+                try { return Services.AppServices.Localization.GetString("AccountCreation.CreateLocalAccount", "Create your local account"); } 
+                catch { return "Create your local account"; } 
+            } 
+        }
+        public string LocalizedOnTop 
+        { 
+            get 
+            { 
+                try { return Services.AppServices.Localization.GetString("AccountCreation.OnTop", "On top"); } 
+                catch { return "On top"; } 
+            } 
+        }
+        public string LocalizedKeepOnTop 
+        { 
+            get 
+            { 
+                try { return Services.AppServices.Localization.GetString("AccountCreation.KeepOnTop", "Keep this window on top of other windows"); } 
+                catch { return "Keep this window on top of other windows"; } 
+            } 
+        }
+        public string LocalizedPickUsername 
+        { 
+            get 
+            { 
+                try { return Services.AppServices.Localization.GetString("AccountCreation.PickUsername", "Pick a username (6–24 chars). We'll generate a secure keypair and UID."); } 
+                catch { return "Pick a username (6–24 chars). We'll generate a secure keypair and UID."; } 
+            } 
+        }
+        public string LocalizedDisplayName 
+        { 
+            get 
+            { 
+                try { return Services.AppServices.Localization.GetString("AccountCreation.DisplayName", "Display name"); } 
+                catch { return "Display name"; } 
+            } 
+        }
+        public string LocalizedUsername 
+        { 
+            get 
+            { 
+                try { return Services.AppServices.Localization.GetString("AccountCreation.Username", "Username"); } 
+                catch { return "Username"; } 
+            } 
+        }
+        public string LocalizedCancel 
+        { 
+            get 
+            { 
+                try { return Services.AppServices.Localization.GetString("AccountCreation.Cancel", "Cancel"); } 
+                catch { return "Cancel"; } 
+            } 
+        }
+        public string LocalizedCreate 
+        { 
+            get 
+            { 
+                try { return Services.AppServices.Localization.GetString("AccountCreation.Create", "Create"); } 
+                catch { return "Create"; } 
+            } 
+        }
 
         public AccountCreationViewModel()
         {
-            CreateCommand = new RelayCommand(async _ => await CreateAsync(), _ => !string.IsNullOrWhiteSpace(Username));
-            CancelCommand = new RelayCommand(_ => CloseRequested?.Invoke(this, EventArgs.Empty));
-            // no DoneCommand
-
-            // Subscribe to language changes
             try
             {
-                Action languageChangedHandler = () => { Avalonia.Threading.Dispatcher.UIThread.Post(RefreshLocalizedStrings); };
-                AppServices.Localization.LanguageChanged += languageChangedHandler;
+                CreateCommand = new RelayCommand(async _ => await CreateAsync(), _ => !string.IsNullOrWhiteSpace(Username));
+                CancelCommand = new RelayCommand(_ => CloseRequested?.Invoke(this, EventArgs.Empty));
+                // no DoneCommand
+
+                // Subscribe to language changes
+                try
+                {
+                    Action languageChangedHandler = () => { Avalonia.Threading.Dispatcher.UIThread.Post(RefreshLocalizedStrings); };
+                    AppServices.Localization.LanguageChanged += languageChangedHandler;
+                }
+                catch { }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                try
+                {
+                    Zer0Talk.Utilities.ErrorLogger.LogException(ex, source: "AccountCreationViewModel.ctor");
+                }
+                catch { }
+                throw;
+            }
         }
 
         private void RefreshLocalizedStrings()
