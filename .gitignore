@@ -16,6 +16,7 @@ _trash/
 # Installer and Uninstaller (not tracked in repo)
 Uninstaller/
 Zer0Talk.Installer/
+InstallMe.Lite/
 *.msi
 *.wixpdb
 
