@@ -162,6 +162,13 @@ RELEASE-DEBUG-SC.md
 Release-Description.md
 temp_pending_invites.txt
 
+# Documentation and test files (development only)
+markdown-test.md
+INSTALLER-SETUP.md
+BUGS_FIXED.md
+Audit.md
+AUDIO_INTEGRATION_GUIDE.md
+
 # Documentation drafts stay local only
 # Note: track only specific user-facing docs; ignore other markdown files in docs/
 # Allow the docs directory itself
