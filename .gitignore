@@ -1,4 +1,4 @@
-# ZTalk .gitignore
+# Zer0Talk .gitignore
 # Based on the standard .NET template with project-specific additions.
 
 # Build output
@@ -12,6 +12,13 @@ obj/
 [Bb]uild/
 [Bb]uildOutput/
 _trash/
+
+# Installers and Uninstallers
+Installer/
+SimpleInstaller/
+Uninstaller/
+scripts/build-installer.bat
+scripts/build-uninstaller.bat
 
 
 # Publish artifacts
