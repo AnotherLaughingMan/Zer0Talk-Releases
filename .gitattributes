@@ -1,0 +1,3 @@
+# Ensure markdown files are detected correctly by GitHub
+*.md linguist-detectable
+docs/*.md linguist-language=Markdown

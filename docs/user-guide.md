@@ -166,3 +166,5 @@ A Dedicated Peer Node improves the P2P Network stability by being an always-on p
 - Audio not playing: Confirm sound files exist in `Assets/Sounds` and system volume settings. Additionally, sounds might lag on first play because they haven't been cached by the App yet, so you may hear delays in the audio at first.
 
 ---
+
+**End of User Guide**
