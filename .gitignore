@@ -20,9 +20,8 @@ Zer0Talk.Installer/obj/
 *.msi
 *.wixpdb
 
-# Installer build scripts
-scripts/build-installer.bat
-scripts/build-uninstaller.bat
+# Scripts folder - development/build scripts not needed in repo
+scripts/
 
 
 # Publish artifacts
@@ -138,7 +137,6 @@ powershell_history.txt
 *.ps1
 # But allow specific installer build scripts
 !Zer0Talk.Installer/build-installer.ps1
-!scripts/clear-old-firewall-rules.ps1
 
 # Miscellaneous
 *.iws
@@ -173,9 +171,5 @@ temp_pending_invites.txt
 docs/*.md
 !docs/user-guide.md
 !docs/THEME-EDITOR-USER-GUIDE.md
-
-scripts/Markdown.Avalonia/
-
-checklist.md
 
 checklist.md
