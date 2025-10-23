@@ -262,7 +262,32 @@ namespace Zer0Talk.Services
             {
                 try
                 {
-                    // Navigate to the chat with this user
+                    // First, bring the main window to front and activate it
+                    var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                    var mainWindow = desktop?.MainWindow;
+                    if (mainWindow != null)
+                    {
+                        // Show window if hidden (from system tray)
+                        if (!mainWindow.IsVisible)
+                        {
+                            mainWindow.Show();
+                        }
+                        
+                        // Restore if minimized
+                        if (mainWindow.WindowState == Avalonia.Controls.WindowState.Minimized)
+                        {
+                            mainWindow.WindowState = Avalonia.Controls.WindowState.Normal;
+                        }
+                        
+                        // Activate and bring to front
+                        mainWindow.Activate();
+                        mainWindow.Topmost = true;
+                        mainWindow.Topmost = false; // Reset topmost to normal behavior
+                        
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Go to Chat: Main window activated and brought to front\n"); } catch { }
+                    }
+                    
+                    // Then navigate to the chat with this user
                     var fullUid = originUid?.StartsWith("usr-") == true ? originUid : $"usr-{originUid}";
                     AppServices.Events.RaiseOpenConversationRequested(fullUid);
                     host.Close();
@@ -487,47 +512,168 @@ namespace Zer0Talk.Services
             }
             if (notify)
             {
+                // Always notify UI of message notice changes (for notification center)
                 Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Message notice added/updated for notification center: {updated.Title}\n"); } catch { }
             }
             if (created && incoming)
             {
+                // Determine notification behavior based on presence status
+                bool shouldShowToast = false;      // Default: no toast
+                bool shouldPlayAudio = false;      // Default: no audio
+                string presenceMode = "Unknown";
+                
                 try
                 {
-                    // Check if notifications should be suppressed in Do Not Disturb mode
-                    bool shouldShowToast = true;
                     try
                     {
                         var settings = AppServices.Settings.Settings;
-                        if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
+                        presenceMode = settings.Status.ToString();
+                        
+                        // TESTING: Temporarily use normal logic to trace the actual execution path
+                        switch (settings.Status)
                         {
-                            shouldShowToast = false;
-                            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Message toast suppressed (DND): {updated.Title} | {updated.Body} origin={updated.OriginUid}\n"); } catch { }
+                            case Models.PresenceStatus.Online:
+                                shouldPlayAudio = true;   // NORMAL: Should play in Online mode
+                                shouldShowToast = true;   // Online: Show toast (if window inactive)
+                                break;
+                                
+                            case Models.PresenceStatus.Idle:
+                                shouldPlayAudio = true;   // NORMAL: Should play in Idle mode
+                                shouldShowToast = true;   // Idle: Show toast
+                                break;
+                                
+                            case Models.PresenceStatus.DoNotDisturb:
+                                shouldPlayAudio = false;  // NORMAL: Should NOT play in DND mode
+                                shouldShowToast = false;  // DND: NO toast (silent notification to message center only)
+                                break;
+                                
+                            case Models.PresenceStatus.Invisible:
+                                shouldPlayAudio = true;   // NORMAL: Should play in Invisible mode
+                                shouldShowToast = true;   // Invisible: Show toast
+                                break;
+                                
+                            case Models.PresenceStatus.Offline:
+                                shouldPlayAudio = false;  // NORMAL: Should NOT play when Offline
+                                shouldShowToast = false;  // Offline: NO toast (user cannot interact)
+                                break;
+                                
+                            default:
+                                shouldPlayAudio = true;   // NORMAL: Default to playing sound
+                                shouldShowToast = true;   // Unknown: Default to showing toast
+                                break;
+                        }
+                        
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Presence mode behavior: {presenceMode} → shouldPlayAudio={shouldPlayAudio}, shouldShowToast={shouldShowToast}\n"); } catch { }
+                    }
+                    catch (Exception ex)
+                    {
+                        // If we can't determine presence, default to allowing notifications
+                        shouldPlayAudio = true;
+                        shouldShowToast = true;
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Error checking presence status: {ex.Message} → defaulting to shouldPlayAudio=true, shouldShowToast=true\n"); } catch { }
+                    }
+
+                    // Check if main window is active to determine desktop toast behavior
+                    // IMPORTANT: Must run on UI thread to access window properties
+                    bool mainWindowActive = false;
+                    bool windowVisible = false;
+                    string windowStateDebug = "unknown";
+                    
+                    // Use Dispatcher to safely access window properties from any thread
+                    try
+                    {
+                        if (Dispatcher.UIThread.CheckAccess())
+                        {
+                            // Already on UI thread - direct access
+                            var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                            var mainWindow = desktop?.MainWindow;
+                            if (mainWindow != null)
+                            {
+                                windowVisible = mainWindow.IsVisible;
+                                windowStateDebug = $"IsActive={mainWindow.IsActive}, WindowState={mainWindow.WindowState}, IsVisible={mainWindow.IsVisible}";
+                                
+                                // Enhanced window focus detection:
+                                // Consider window "active" (suppress toasts) only if:
+                                // 1. Window is active AND visible AND not minimized (primary check)
+                                // 2. Window is visible AND not minimized (fallback, but must be visible!)
+                                // Note: Removed WindowState==Normal check as it's true even when minimized to tray
+                                mainWindowActive = (mainWindow.IsActive == true && 
+                                                  mainWindow.WindowState != Avalonia.Controls.WindowState.Minimized &&
+                                                  mainWindow.IsVisible) ||
+                                                 (mainWindow.IsVisible && 
+                                                  mainWindow.WindowState != Avalonia.Controls.WindowState.Minimized);
+                            }
+                            else
+                            {
+                                windowStateDebug = "MainWindow is null";
+                            }
+                        }
+                        else
+                        {
+                            // Not on UI thread - use Invoke to marshal to UI thread
+                            mainWindowActive = Dispatcher.UIThread.Invoke(() =>
+                            {
+                                try
+                                {
+                                    var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                                    var mainWindow = desktop?.MainWindow;
+                                    if (mainWindow != null)
+                                    {
+                                        windowVisible = mainWindow.IsVisible;
+                                        windowStateDebug = $"IsActive={mainWindow.IsActive}, WindowState={mainWindow.WindowState}, IsVisible={mainWindow.IsVisible}";
+                                        
+                                        return (mainWindow.IsActive == true && 
+                                               mainWindow.WindowState != Avalonia.Controls.WindowState.Minimized &&
+                                               mainWindow.IsVisible) ||
+                                              (mainWindow.IsVisible && 
+                                               mainWindow.WindowState != Avalonia.Controls.WindowState.Minimized);
+                                    }
+                                    else
+                                    {
+                                        windowStateDebug = "MainWindow is null";
+                                        return false;
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    windowStateDebug = $"Inner Exception: {ex.Message}";
+                                    return false;
+                                }
+                            });
                         }
                     }
-                    catch { }
-
-                    if (shouldShowToast)
+                    catch (Exception ex)
+                    {
+                        windowStateDebug = $"Dispatcher Exception: {ex.Message}";
+                        mainWindowActive = false;
+                    }
+                    
+                    // Log window state and presence mode for debugging
+                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Presence={presenceMode}, Window state: {windowStateDebug}, mainWindowActive={mainWindowActive}, shouldShowToast={shouldShowToast}, shouldPlayAudio={shouldPlayAudio}\n"); } catch { }
+                    
+                    // Show desktop toast when:
+                    // 1. shouldShowToast is true (not suppressed by DND)
+                    // 2. Main window is NOT active/visible (minimized, not focused, or system tray)
+                    if (shouldShowToast && !mainWindowActive)
                     {
                         var toastBody = string.IsNullOrWhiteSpace(updated.FullBody) ? updated.Body : updated.FullBody;
                         ShowTransientToast(updated.Title, toastBody ?? string.Empty, null, updated.OriginUid);
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Desktop toast shown: {updated.Title}\n"); } catch { }
+                    }
+                    else
+                    {
+                        string reason = !shouldShowToast ? "suppressed by presence mode" : "window is active";
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Desktop toast skipped ({reason}): shouldShowToast={shouldShowToast}, mainWindowActive={mainWindowActive}\n"); } catch { }
                     }
                 }
                 catch { }
 
-                // Play incoming message sound (unless suppressed in DND mode)
+                // Play audio based on presence mode (suppressed only in DND)
+                // Audio plays in all modes except DND: Online, Away, Idle, etc.
                 try
                 {
-                    bool shouldPlayAudio = true;
-                    try
-                    {
-                        var settings = AppServices.Settings.Settings;
-                        if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
-                        {
-                            shouldPlayAudio = false;
-                            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Message audio suppressed (DND): {updated.Title} | {updated.Body} origin={updated.OriginUid}\n"); } catch { }
-                        }
-                    }
-                    catch { }
+                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Audio decision: shouldPlayAudio={shouldPlayAudio}, presenceMode={presenceMode}\n"); } catch { }
 
                     if (shouldPlayAudio)
                     {
@@ -535,13 +681,20 @@ namespace Zer0Talk.Services
                         {
                             try
                             {
+                                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Attempting to play MessageIncoming sound for: {updated.Title}\n"); } catch { }
                                 await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.MessageIncoming);
+                                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Successfully played MessageIncoming sound for: {updated.Title}\n"); } catch { }
                             }
                             catch (Exception ex)
                             {
                                 Utilities.Logger.Log($"NotificationService: Incoming message audio failed: {ex.Message}");
+                                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Failed to play MessageIncoming: {ex.Message}\n"); } catch { }
                             }
                         });
+                    }
+                    else
+                    {
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Audio playback skipped (presence mode: {presenceMode}): {updated.Title}\n"); } catch { }
                     }
                 }
                 catch { }

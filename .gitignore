@@ -169,6 +169,7 @@ INSTALLER-SETUP.md
 BUGS_FIXED.md
 Audit.md
 AUDIO_INTEGRATION_GUIDE.md
+HOTFIX-*.md
 
 # Documentation drafts stay local only
 # Note: track only specific user-facing docs; ignore other markdown files in docs/

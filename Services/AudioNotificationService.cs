@@ -271,23 +271,16 @@ namespace Zer0Talk.Services
         public async Task PlaySoundAsync(SoundType soundType)
         {
             var effectiveVolume = GetEffectiveVolume(soundType);
+            SafeAudioLog($"PlaySoundAsync called: soundType={soundType}, _isEnabled={_isEnabled}, effectiveVolume={effectiveVolume}, _mainVolume={_mainVolume}, _chatVolume={_chatVolume}");
+            
             if (!_isEnabled || effectiveVolume <= 0.0f)
             {
-                SafeAudioLog($"Sound disabled or volume zero - skipping {soundType}");
+                SafeAudioLog($"Sound disabled or volume zero - skipping {soundType} (isEnabled={_isEnabled}, effectiveVolume={effectiveVolume})");
                 return;
             }
 
-            // Check if audio should be suppressed in Do Not Disturb mode
-            try
-            {
-                var settings = AppServices.Settings.Settings;
-                if (settings.SuppressNotificationsInDnd && settings.Status == Models.PresenceStatus.DoNotDisturb)
-                {
-                    SafeAudioLog($"Sound suppressed due to Do Not Disturb mode - skipping {soundType}");
-                    return;
-                }
-            }
-            catch { }
+            // Note: DND suppression is now handled by NotificationService before calling this method
+            // This ensures consistent behavior across the notification system
 
             try
             {

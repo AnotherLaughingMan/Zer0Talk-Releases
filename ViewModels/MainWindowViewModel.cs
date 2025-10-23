@@ -567,7 +567,28 @@ namespace Zer0Talk.ViewModels
             TestInfoToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice(Models.NotificationType.Information, "This is a test information notification with some longer text to see how it wraps.", isPersistent: false); } catch { } });
             TestWarningToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice(Models.NotificationType.Warning, "This is a test warning notification that might indicate something needs attention.", isPersistent: false); } catch { } });
             TestErrorToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.PostNotice(Models.NotificationType.Error, "This is a test error notification showing that something went wrong.", isPersistent: false); } catch { } });
-            TestMessageToastCommand = new RelayCommand(_ => { try { AppServices.Notifications.AddOrUpdateMessageNotice("Alice", "Hey, are you available for a quick call? This is a test notification with a longer message that should be truncated in the preview.", "alice123", Guid.NewGuid(), incoming: true, DateTime.UtcNow, isUnread: true); } catch { } });
+            TestMessageToastCommand = new RelayCommand(_ => { 
+                try { 
+                    // Test the actual incoming message notification system
+                    AppServices.Notifications.AddOrUpdateMessageNotice("Alice", "Hey, are you available for a quick call? This is a test notification with a longer message that should be truncated in the preview.", "alice123", Guid.NewGuid(), incoming: true, DateTime.UtcNow, isUnread: true); 
+                    
+                    // Also test direct audio service
+                    _ = System.Threading.Tasks.Task.Run(async () => {
+                        try 
+                        {
+                            System.Diagnostics.Debug.WriteLine("TESTING: Direct audio call");
+                            await AppServices.AudioNotifications.PlaySoundAsync(Services.AudioNotificationService.SoundType.MessageIncoming);
+                            System.Diagnostics.Debug.WriteLine("TESTING: Direct audio call completed");
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"TESTING: Direct audio failed: {ex.Message}");
+                        }
+                    });
+                } catch (Exception ex) { 
+                    System.Diagnostics.Debug.WriteLine($"TESTING: Notification test failed: {ex.Message}");
+                } 
+            });
 #endif
 
             // Aggregation helpers: compute counts and manage optimistic clears
@@ -749,10 +770,9 @@ namespace Zer0Talk.ViewModels
                                 MarkMessagesAsRead(new[] { msg });
                             }
                         });
-                        if (!isSelfOnline)
-                        {
-                            PublishMessageNotification(senderUid, display, msg, incoming: true, unread: true);
-                        }
+                        // FIXED: Always publish notification for selected conversation too
+                        // Audio notifications are handled by presence mode logic, desktop toasts by window state
+                        PublishMessageNotification(senderUid, display, msg, incoming: true, unread: true);
                     }
                     else
                     {
@@ -1451,21 +1471,8 @@ namespace Zer0Talk.ViewModels
                 var timestamp = message?.Timestamp ?? DateTime.UtcNow;
                 AppServices.Notifications.AddOrUpdateMessageNotice(title, preview, trimmedOrigin, message?.Id ?? Guid.NewGuid(), incoming, timestamp, unread);
                 
-                // Play incoming message sound for received messages
-                if (incoming)
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await Services.AudioHelper.PlayIncomingMessageAsync();
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Log($"PublishMessageNotification: Incoming audio notification failed: {ex.Message}");
-                        }
-                    });
-                }
+                // Audio notification is handled by NotificationService.AddOrUpdateMessageNotice
+                // No need to duplicate audio calls here
             }
             catch { }
         }
