@@ -26,6 +26,7 @@
 		},
 		// Disable analyzer/lint surfacing in common C# extensions (harmless if not installed)
 		"omnisharp.enableRoslynAnalyzers": false,
-		"omnisharp.enableEditorConfigSupport": false
+		"omnisharp.enableEditorConfigSupport": false,
+		"powershell.cwd": "Zer0Talk"
 	}
 }
