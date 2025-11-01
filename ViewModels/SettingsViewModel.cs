@@ -479,7 +479,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             EnableDebugLogAutoTrim = settings.EnableDebugLogAutoTrim;
             DebugUiLogMaxLines = ClampRange(settings.DebugUiLogMaxLines <= 0 ? 1000 : settings.DebugUiLogMaxLines, 100, 20000);
             DebugLogRetentionDays = settings.DebugLogRetentionDays < 0 ? 0 : (settings.DebugLogRetentionDays > 30 ? 30 : settings.DebugLogRetentionDays);
-            DebugLogMaxMegabytes = ClampRange(settings.DebugLogMaxMegabytes <= 0 ? 16 : settings.DebugLogMaxMegabytes, 1, 512);
+            _debugLogMaxMegabytes = ClampRange(settings.DebugLogMaxMegabytes <= 0 ? 16 : settings.DebugLogMaxMegabytes, 1, 512);
+            SyncDebugLogMegabytesToSize();
             EnableLogging = settings.EnableLogging;
 
             var persistedThemeId = NormalizeThemeId(settings.ThemeId);
@@ -503,7 +504,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             EnableDebugLogAutoTrim = true;
             DebugUiLogMaxLines = 1000;
             DebugLogRetentionDays = 1;
-            DebugLogMaxMegabytes = 16;
+            _debugLogMaxMegabytes = 16;
+            SyncDebugLogMegabytesToSize();
         }
 
         if (string.IsNullOrWhiteSpace(DisplayName))
@@ -636,7 +638,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             EnableDebugLogAutoTrim = s.EnableDebugLogAutoTrim;
             DebugUiLogMaxLines = ClampRange(s.DebugUiLogMaxLines <= 0 ? 1000 : s.DebugUiLogMaxLines, 100, 20000);
             DebugLogRetentionDays = s.DebugLogRetentionDays < 0 ? 0 : (s.DebugLogRetentionDays > 30 ? 30 : s.DebugLogRetentionDays);
-            DebugLogMaxMegabytes = ClampRange(s.DebugLogMaxMegabytes <= 0 ? 16 : s.DebugLogMaxMegabytes, 1, 512);
+            _debugLogMaxMegabytes = ClampRange(s.DebugLogMaxMegabytes <= 0 ? 16 : s.DebugLogMaxMegabytes, 1, 512);
+            SyncDebugLogMegabytesToSize();
             EnableLogging = s.EnableLogging;
 
             CcdAffinityIndex = ClampRange(s.CcdAffinityIndex, 0, 3);
@@ -3567,6 +3570,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             {
                 _debugLogMaxMegabytes = v;
                 OnPropertyChanged();
+                SyncDebugLogMegabytesToSize();
             }
         }
     }
@@ -4185,9 +4189,73 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand ClearAllRangesCommand => NetworkVm.ClearAllRangesCommand;
     
     // Additional debug properties that were referenced in XAML
-    public int DebugLogSizeValue { get; set; } = 16;
-    public int DebugLogSizeMaxValue { get; set; } = 512;
-    public string DebugLogSizeUnit { get; set; } = "MB";
+    private int _debugLogSizeValue = 16;
+    public int DebugLogSizeValue
+    {
+        get => _debugLogSizeValue;
+        set
+        {
+            if (_debugLogSizeValue != value)
+            {
+                _debugLogSizeValue = value;
+                OnPropertyChanged();
+                SyncDebugLogSizeToMegabytes();
+            }
+        }
+    }
+    
+    public int DebugLogSizeMaxValue => DebugLogSizeUnit == "KB" ? 524288 : 512;
+    
+    private string _debugLogSizeUnit = "MB";
+    public string DebugLogSizeUnit
+    {
+        get => _debugLogSizeUnit;
+        set
+        {
+            if (_debugLogSizeUnit != value)
+            {
+                _debugLogSizeUnit = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(DebugLogSizeMaxValue));
+                SyncDebugLogSizeToMegabytes();
+            }
+        }
+    }
+    
+    private void SyncDebugLogSizeToMegabytes()
+    {
+        try
+        {
+            var megabytes = DebugLogSizeUnit == "KB" ? Math.Max(1, _debugLogSizeValue / 1024) : _debugLogSizeValue;
+            DebugLogMaxMegabytes = megabytes;
+        }
+        catch { }
+    }
+    
+    private void SyncDebugLogMegabytesToSize()
+    {
+        try
+        {
+            var mb = _debugLogMaxMegabytes;
+            if (mb >= 1)
+            {
+                // Use MB for values >= 1 MB
+                _debugLogSizeUnit = "MB";
+                _debugLogSizeValue = mb;
+            }
+            else
+            {
+                // Use KB for sub-MB values (though minimum is 1 MB typically)
+                _debugLogSizeUnit = "KB";
+                _debugLogSizeValue = mb * 1024;
+            }
+            OnPropertyChanged(nameof(DebugLogSizeValue));
+            OnPropertyChanged(nameof(DebugLogSizeUnit));
+            OnPropertyChanged(nameof(DebugLogSizeMaxValue));
+        }
+        catch { }
+    }
+    
     public ICommand ClearErrorLogCommand { get; }
 
     #region Theme Inspector (Phase 3 - Read-Only)

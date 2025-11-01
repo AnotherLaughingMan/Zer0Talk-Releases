@@ -138,6 +138,78 @@ public partial class ThemeEditorWindow : Window
         }
     }
 
+    private void ColorOverridesHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var toggle = this.FindControl<TextBlock>("ColorOverridesToggle");
+        var content = this.FindControl<StackPanel>("ColorOverridesContent");
+        
+        if (toggle != null && content != null)
+        {
+            content.IsVisible = !content.IsVisible;
+            toggle.Text = content.IsVisible ? "▼" : "▶";
+        }
+    }
+
+    private void GradientsHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var toggle = this.FindControl<TextBlock>("GradientsToggle");
+        var content = this.FindControl<StackPanel>("GradientsContent");
+        
+        if (toggle != null && content != null)
+        {
+            content.IsVisible = !content.IsVisible;
+            toggle.Text = content.IsVisible ? "▼" : "▶";
+        }
+    }
+
+    private void SystemAccentHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var toggle = this.FindControl<TextBlock>("SystemAccentToggle");
+        var content = this.FindControl<StackPanel>("SystemAccentContent");
+        
+        if (toggle != null && content != null)
+        {
+            content.IsVisible = !content.IsVisible;
+            toggle.Text = content.IsVisible ? "▼" : "▶";
+        }
+    }
+
+    private void SystemChromeHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var toggle = this.FindControl<TextBlock>("SystemChromeToggle");
+        var content = this.FindControl<StackPanel>("SystemChromeContent");
+        
+        if (toggle != null && content != null)
+        {
+            content.IsVisible = !content.IsVisible;
+            toggle.Text = content.IsVisible ? "▼" : "▶";
+        }
+    }
+
+    private void SystemAltHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var toggle = this.FindControl<TextBlock>("SystemAltToggle");
+        var content = this.FindControl<StackPanel>("SystemAltContent");
+        
+        if (toggle != null && content != null)
+        {
+            content.IsVisible = !content.IsVisible;
+            toggle.Text = content.IsVisible ? "▼" : "▶";
+        }
+    }
+
+    private void SystemBaseHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var toggle = this.FindControl<TextBlock>("SystemBaseToggle");
+        var content = this.FindControl<StackPanel>("SystemBaseContent");
+        
+        if (toggle != null && content != null)
+        {
+            content.IsVisible = !content.IsVisible;
+            toggle.Text = content.IsVisible ? "▼" : "▶";
+        }
+    }
+
     private void SystemAccentColor2_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is ThemeEditorViewModel vm)

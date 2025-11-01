@@ -137,6 +137,23 @@ public class MonitoringViewModel : INotifyPropertyChanged
 
     // NAT + ports
     public string NatStatus => AppServices.Nat.Status;
+    public string NatStatusShort
+    {
+        get
+        {
+            var s = (NatStatus ?? string.Empty).ToLowerInvariant();
+            var v = (NatVerification ?? string.Empty).ToLowerInvariant();
+            if (s.Contains("discovering") || (s.Contains("gateway discovered") && string.IsNullOrWhiteSpace(v)))
+                return "Searching...";
+            if (s.Contains("unmapped") || s.Contains("no gateway"))
+                return "Disconnected";
+            if (s.Contains("failed") || v.Contains("unreachable") || v.Contains("failed"))
+                return "Failed";
+            if (v.Contains("reachable") || v.Contains("ok") || (s.Contains("mapped") && !s.Contains("unmapped")))
+                return "Connected";
+            return "Unknown";
+        }
+    }
     public string NatVerification => AppServices.Nat.MappingVerification;
     public string HairpinStatus => AppServices.Nat.HairpinStatus;
     public string TcpPortLabel => AppServices.Network.ListeningPort is int p ? $"TCP: {p}" : "TCP: n/a";
@@ -272,6 +289,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
     public void NotifyNetworkStatus()
     {
         OnPropertyChanged(nameof(NatStatus));
+        OnPropertyChanged(nameof(NatStatusShort));
         OnPropertyChanged(nameof(NatVerification));
         OnPropertyChanged(nameof(TcpPortLabel));
         OnPropertyChanged(nameof(UdpPortLabel));

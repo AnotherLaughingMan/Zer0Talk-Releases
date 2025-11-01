@@ -910,6 +910,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
     public ICommand EditColorCommand { get; }
     public ICommand SaveColorEditCommand { get; }
     public ICommand CancelColorEditCommand { get; }
+    public ICommand ClearColorCommand { get; }
     public ICommand UndoColorEditCommand { get; }
     public ICommand RedoColorEditCommand { get; }
     public ICommand ToggleHistoryPanelCommand { get; }
@@ -976,6 +977,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         EditColorCommand = new RelayCommand(param => StartEditingColor(param as ThemeColorEntry), param => param is ThemeColorEntry && !IsEditingColor);
         SaveColorEditCommand = new RelayCommand(async _ => await SaveColorEditAsync(), _ => IsEditingColor);
         CancelColorEditCommand = new RelayCommand(_ => CancelColorEdit(), _ => IsEditingColor);
+        ClearColorCommand = new RelayCommand(param => ClearColor(param as ThemeColorEntry), param => param is ThemeColorEntry && !IsEditingColor);
         UndoColorEditCommand = new RelayCommand(_ => UndoColorEdit(), _ => CanUndo && !IsEditingColor);
         RedoColorEditCommand = new RelayCommand(_ => RedoColorEdit(), _ => CanRedo && !IsEditingColor);
         ToggleHistoryPanelCommand = new RelayCommand(_ => ToggleHistoryPanel());
@@ -1269,6 +1271,19 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         (ExportModifiedThemeCommand as RelayCommand)?.RaiseCanExecuteChanged();
         
         Logger.Log($"[Theme Edit] Cancelled editing color '{entry.ResourceKey}'", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearColor(ThemeColorEntry? entry)
+    {
+        if (entry == null) return;
+
+        // Save old value for logging
+        var oldValue = entry.ColorValue;
+        
+        // Clear the color value (empty string means use default/inherited value)
+        entry.ColorValue = string.Empty;
+
+        Logger.Log($"[Theme Edit] Cleared color '{entry.ResourceKey}' (was: {oldValue})", LogLevel.Info, categoryOverride: "theme");
     }
 
     private void UndoColorEdit()
@@ -3312,7 +3327,21 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
                 "App.InversePrimary" => "Inverse Primary",
                 "App.Scrim" => "Scrim/Overlay Color",
                 "App.SurfaceTint" => "Surface Tint",
-                _ => resourceKey.Replace("App.", "").Replace(".", " ") // Fallback: remove prefix and dots
+                "App.SelectionBackground" => "Text Selection Background",
+                "App.SelectionForeground" => "Text Selection Foreground",
+                "App.ItemHover" => "List Item Hover",
+                "App.ItemSelected" => "List Item Selected",
+                "App.InputBorder" => "Input Field Border",
+                "App.ChatSenderName" => "Chat Sender Name",
+                "App.ChatReceiverName" => "Chat Receiver Name",
+                "App.ContactName" => "Contact Name (Inactive)",
+                "App.ContactNameActive" => "Contact Name (Active)",
+                "App.Info" => "Info/Notification Color",
+                "App.OnAccent" => "Text on Accent",
+                "App.OnSuccess" => "Text on Success",
+                "SystemControlHighlightListLowBrush" => "ListBox Item Hover (Fluent)",
+                "SystemControlHighlightListAccentLowBrush" => "ListBox Item Selected (Fluent)",
+                _ => resourceKey.Replace("App.", "").Replace("SystemControl", "System ").Replace("Highlight", "").Replace("Brush", "").Replace(".", " ").Trim() // Fallback: clean up naming
             };
         }
     }

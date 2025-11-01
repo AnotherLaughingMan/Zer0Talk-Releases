@@ -115,14 +115,40 @@ public partial class MonitoringWindow : Window, IDisposable
 #if DEBUG
         try
         {
-            // Add Debug-only checkpoint buttons into placeholder panel
-            var panel = this.FindControl<StackPanel>("DebugCheckpointPanel");
+            // Add Debug-only checkpoint buttons into sidebar stack panel
+            var panel = this.FindControl<StackPanel>("DebugCheckpointStack");
             if (panel != null)
             {
-                var saveBtn = new Button { Content = "Save Checkpoint", Margin = new Thickness(0, 0, 6, 0) };
+                // Save Checkpoint: Down arrow with line underneath
+                var saveBtn = new Button { Classes = { "icon-button" } };
+                ToolTip.SetTip(saveBtn, "Save Checkpoint - Saves the current NAT discovery state for debugging");
                 saveBtn.Bind(Button.CommandProperty, new Avalonia.Data.Binding("SaveCheckpointCommand"));
-                var restoreBtn = new Button { Content = "Restore Checkpoint" };
+                
+                var saveCanvas = new Canvas { Width = 26, Height = 26 };
+                var savePath = new Avalonia.Controls.Shapes.Path
+                {
+                    Stroke = Brushes.White,
+                    StrokeThickness = 2.0,
+                    Data = Avalonia.Media.Geometry.Parse("M13,2 L13,16 M8,11 L13,16 L18,11 M5,20 L21,20")
+                };
+                saveCanvas.Children.Add(savePath);
+                saveBtn.Content = saveCanvas;
+                
+                // Restore Checkpoint: Up arrow with line underneath
+                var restoreBtn = new Button { Classes = { "icon-button" } };
+                ToolTip.SetTip(restoreBtn, "Restore Checkpoint - Restores a previously saved NAT discovery state for debugging");
                 restoreBtn.Bind(Button.CommandProperty, new Avalonia.Data.Binding("RestoreCheckpointCommand"));
+                
+                var restoreCanvas = new Canvas { Width = 26, Height = 26 };
+                var restorePath = new Avalonia.Controls.Shapes.Path
+                {
+                    Stroke = Brushes.White,
+                    StrokeThickness = 2.0,
+                    Data = Avalonia.Media.Geometry.Parse("M13,18 L13,4 M8,9 L13,4 L18,9 M5,20 L21,20")
+                };
+                restoreCanvas.Children.Add(restorePath);
+                restoreBtn.Content = restoreCanvas;
+                
                 panel.Children.Add(saveBtn);
                 panel.Children.Add(restoreBtn);
             }

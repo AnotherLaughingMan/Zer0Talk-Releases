@@ -83,6 +83,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     // Verification popup state
     private Window? _verifyReqPopup;
     private string? _verifyReqUid;
+    // Theme Editor window state
+    private ThemeEditorWindow? _themeEditorWindow;
     // Notification bell flashing
     private Avalonia.Threading.DispatcherTimer? _bellFlashTimer;
     private Avalonia.Threading.DispatcherTimer? _bellFlashStopTimer;
@@ -2179,6 +2181,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
+            // Always save layout first, regardless of minimize to tray behavior
+            if (AppServices.Settings.Settings.MainWindow is { } s)
+            {
+                // Save geometry to cache and persist panel widths to settings
+                SaveLayoutAndPanels(s);
+            }
+            
             // Check if minimize to tray is enabled
             var settings = AppServices.Settings.Settings;
             if (settings.MinimizeToTray && settings.ShowInSystemTray)
@@ -2206,12 +2215,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 catch { }
                 
                 return; // Don't perform shutdown - app continues running in tray
-            }
-            
-            if (AppServices.Settings.Settings.MainWindow is { } s)
-            {
-                // Save geometry to cache and persist panel widths to settings on close only
-                SaveLayoutAndPanels(s);
             }
 
             // Perform graceful shutdown of services (idempotent, safe to call once).
@@ -2252,16 +2255,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
+            // If Theme Editor is already open, bring it to focus
+            if (_themeEditorWindow != null)
+            {
+                Logger.Log("[Theme Editor] Theme Editor already open, bringing to focus...", LogLevel.Info, categoryOverride: "ui");
+                _themeEditorWindow.Activate();
+                _themeEditorWindow.Focus();
+                return;
+            }
+
             Logger.Log("[Theme Editor] Opening Theme Editor window...", LogLevel.Info, categoryOverride: "ui");
             // Open Theme Editor in a separate window
-            var themeEditor = new ThemeEditorWindow();
-            themeEditor.Show(this);
+            _themeEditorWindow = new ThemeEditorWindow();
+            _themeEditorWindow.Closed += (s, ev) =>
+            {
+                Logger.Log("[Theme Editor] Theme Editor window closed", LogLevel.Info, categoryOverride: "ui");
+                _themeEditorWindow = null;
+            };
+            _themeEditorWindow.Show(this);
             Logger.Log("[Theme Editor] Theme Editor window opened successfully", LogLevel.Info, categoryOverride: "ui");
         }
         catch (Exception ex)
         {
             Logger.Log($"[Theme Editor] Failed to open Theme Editor: {ex.Message}", LogLevel.Error, categoryOverride: "ui");
             ErrorLogger.LogException(ex, source: "ThemeEditor.Open");
+            _themeEditorWindow = null;
         }
     }
 

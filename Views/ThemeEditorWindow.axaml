@@ -252,13 +252,17 @@
                             BorderBrush="{DynamicResource App.Border}" 
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="15">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="🔧 System Accent Color Overrides" FontSize="16" FontWeight="Bold"/>
-                                <TextBlock Text="Override OS-provided accent colors to prevent system colors from showing through (e.g., blue highlights)." 
-                                           FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
-                                <TextBlock Text="Leave empty to use system colors. Set all 4 for complete control. Click color preview to open picker." 
-                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" FontStyle="Italic"/>
-                            </StackPanel>
+                            <Grid ColumnDefinitions="*,Auto" PointerPressed="SystemAccentHeader_PointerPressed" Cursor="Hand">
+                                <TextBlock Grid.Column="0" Text="🔧 System Accent Color Overrides" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" x:Name="SystemAccentToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            </Grid>
+                            <StackPanel x:Name="SystemAccentContent" Spacing="15">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Override OS-provided accent colors to prevent system colors from showing through (e.g., blue highlights)." 
+                                               FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
+                                    <TextBlock Text="Leave empty to use system colors. Set all 4 for complete control. Click color preview to open picker." 
+                                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" FontStyle="Italic"/>
+                                </StackPanel>
                             
                             <Grid ColumnDefinitions="Auto,200,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" 
                                   VerticalAlignment="Top" HorizontalAlignment="Left">
@@ -402,6 +406,7 @@
                                         Background="{DynamicResource App.ButtonBackground}"
                                         ToolTip.Tip="Clear to use OS color"/>
                             </Grid>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -410,13 +415,17 @@
                             BorderBrush="{DynamicResource App.Border}" 
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="15">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="System Alt Color Overrides (Layering and Depth)" FontSize="16" FontWeight="Bold"/>
-                                <TextBlock Text="Override OS-provided alternative layer colors used for layering, depth effects, and translucent overlays." 
-                                           FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
-                                <TextBlock Text="These control secondary backgrounds and layered UI elements. Typically translucent whites on dark themes." 
-                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap" FontStyle="Italic"/>
-                            </StackPanel>
+                            <Grid ColumnDefinitions="*,Auto" PointerPressed="SystemAltHeader_PointerPressed" Cursor="Hand">
+                                <TextBlock Grid.Column="0" Text="System Alt Color Overrides (Layering and Depth)" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" x:Name="SystemAltToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            </Grid>
+                            <StackPanel x:Name="SystemAltContent" Spacing="15">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Override OS-provided alternative layer colors used for layering, depth effects, and translucent overlays." 
+                                               FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
+                                    <TextBlock Text="These control secondary backgrounds and layered UI elements. Typically translucent whites on dark themes." 
+                                               FontSize="11" Opacity="0.6" TextWrapping="Wrap" FontStyle="Italic"/>
+                                </StackPanel>
                             
                             <Grid ColumnDefinitions="Auto,200,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" 
                                   VerticalAlignment="Top" HorizontalAlignment="Left">
@@ -524,6 +533,7 @@
                                         Background="{DynamicResource App.ButtonBackground}"
                                         ToolTip.Tip="Clear to use OS color"/>
                             </Grid>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -532,9 +542,13 @@
                             BorderBrush="{DynamicResource App.Border}" 
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="10">
-                            <TextBlock Text="System Base Color Overrides (Foundation Layers)" FontSize="16" FontWeight="Bold"/>
-                            <TextBlock Text="These colors control background layers, surfaces, and core UI foundation elements." 
-                                       FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                            <Grid ColumnDefinitions="*,Auto" PointerPressed="SystemBaseHeader_PointerPressed" Cursor="Hand">
+                                <TextBlock Grid.Column="0" Text="System Base Color Overrides (Foundation Layers)" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" x:Name="SystemBaseToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            </Grid>
+                            <StackPanel x:Name="SystemBaseContent" Spacing="10">
+                                <TextBlock Text="These colors control background layers, surfaces, and core UI foundation elements." 
+                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
 
                             <Grid ColumnDefinitions="Auto,200,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" 
                                   VerticalAlignment="Top" HorizontalAlignment="Left">
@@ -643,6 +657,7 @@
                                         Background="{DynamicResource App.ButtonBackground}"
                                         ToolTip.Tip="Clear to use OS color"/>
                             </Grid>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -651,9 +666,13 @@
                             BorderBrush="{DynamicResource App.Border}" 
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="10">
-                            <TextBlock Text="System Chrome Color Overrides (Window and Frame)" FontSize="16" FontWeight="Bold"/>
-                            <TextBlock Text="These colors control window chrome, frames, borders, title bars, and structural UI elements." 
-                                       FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                            <Grid ColumnDefinitions="*,Auto" PointerPressed="SystemChromeHeader_PointerPressed" Cursor="Hand">
+                                <TextBlock Grid.Column="0" Text="System Chrome Color Overrides (Window and Frame)" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" x:Name="SystemChromeToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            </Grid>
+                            <StackPanel x:Name="SystemChromeContent" Spacing="10">
+                                <TextBlock Text="These colors control window chrome, frames, borders, title bars, and structural UI elements." 
+                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
 
                             <Grid ColumnDefinitions="Auto,200,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" 
                                   VerticalAlignment="Top" HorizontalAlignment="Left">
@@ -906,6 +925,7 @@
                                         Background="{DynamicResource App.ButtonBackground}"
                                         ToolTip.Tip="Clear to use OS color"/>
                             </Grid>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -914,19 +934,22 @@
                             BorderBrush="{DynamicResource App.Border}" 
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="10">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <TextBlock Text="🎨 Color Overrides" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding ThemeColors.Count, StringFormat='({0} colors)'}" 
-                                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
-                            </StackPanel>
-                            <TextBlock Text="Define custom colors for your theme. Click the color preview to open the color picker." 
-                                       FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
-                            
-                            <ScrollViewer MaxHeight="500" VerticalScrollBarVisibility="Auto">
+                            <Grid ColumnDefinitions="*,Auto" PointerPressed="ColorOverridesHeader_PointerPressed" Cursor="Hand">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="🎨 Color Overrides" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ThemeColors.Count, StringFormat='({0} colors)'}" 
+                                               FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" x:Name="ColorOverridesToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            </Grid>
+                            <StackPanel x:Name="ColorOverridesContent" Spacing="10">
+                                <TextBlock Text="Define custom colors for your theme. Click the color preview to open the color picker." 
+                                           FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
+                                
                                 <ItemsControl ItemsSource="{Binding ThemeColors}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="230,200,Auto" Margin="0,0,0,10"
+                                            <Grid ColumnDefinitions="260,180,40,Auto" Margin="0,0,0,8"
                                                   VerticalAlignment="Top" HorizontalAlignment="Left">
                                                 <!-- Label (Display Name) - Fixed Width -->
                                                 <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="12" 
@@ -943,24 +966,35 @@
                                                 <!-- Color Value TextBox -->
                                                 <TextBox Grid.Column="1" Text="{Binding ColorValue, Mode=TwoWay}" 
                                                          Watermark="#RRGGBB" FontFamily="Consolas" FontSize="11"
-                                                         Margin="0,0,10,0"/>
+                                                         Margin="0,0,8,0"/>
                                                 
                                                 <!-- Color Preview (Clickable) -->
-                                                <Border Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
+                                                <Border Grid.Column="2" Width="40" Height="32" CornerRadius="4" 
                                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                                         Cursor="Hand"
                                                         PointerPressed="ColorPreview_PointerPressed"
                                                         Tag="{Binding}"
+                                                        Margin="0,0,8,0"
                                                         ToolTip.Tip="Click to open color picker">
                                                     <Border.Background>
                                                         <SolidColorBrush Color="{Binding PreviewColor}"/>
                                                     </Border.Background>
                                                 </Border>
+                                                
+                                                <!-- Clear Button -->
+                                                <Button Grid.Column="3" 
+                                                        Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).ClearColorCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Padding="8,4" Height="32" CornerRadius="3"
+                                                        Background="{DynamicResource App.ButtonBackground}"
+                                                        ToolTip.Tip="Reset to default">
+                                                    <TextBlock Text="✕" FontSize="12" FontWeight="Bold"/>
+                                                </Button>
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                            </ScrollViewer>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -969,13 +1003,17 @@
                             BorderBrush="{DynamicResource App.Border}" 
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="10">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <TextBlock Text="🌈 Gradients" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding ThemeGradients.Count, StringFormat='({0} gradients)'}" 
-                                           FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
-                            </StackPanel>
+                            <Grid ColumnDefinitions="*,Auto" PointerPressed="GradientsHeader_PointerPressed" Cursor="Hand">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
+                                    <TextBlock Text="🌈 Gradients" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding ThemeGradients.Count, StringFormat='({0} gradients)'}" 
+                                               FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" x:Name="GradientsToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                            </Grid>
                             
-                            <ScrollViewer MaxHeight="400" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="GradientsContent" Spacing="10">
+                            <ScrollViewer MaxHeight="600" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding ThemeGradients}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -1099,6 +1137,7 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

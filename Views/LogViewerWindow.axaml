@@ -20,45 +20,31 @@
     </Window.DataContext>
 
     <Window.Styles>
-        <!-- Custom style for scrollable left-side TabControl -->
-        <Style Selector="TabControl.scrollable-left">
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        
-                        <!-- Left side: Scrollable tab strip -->
-                        <Border Grid.Column="0"
-                                Background="{DynamicResource App.Surface}"
-                                BorderBrush="{DynamicResource App.Border}"
-                                BorderThickness="0,0,1,0"
-                                MinWidth="200">
-                            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                          VerticalScrollBarVisibility="Auto"
-                                          Padding="0">
-                                <ItemsPresenter Name="PART_ItemsPresenter"
-                                                ItemsPanel="{TemplateBinding ItemsPanel}" />
-                            </ScrollViewer>
-                        </Border>
-                        
-                        <!-- Right side: Content area -->
-                        <ContentPresenter Grid.Column="1"
-                                          Name="PART_SelectedContentHost"
-                                          Content="{TemplateBinding SelectedContent}"
-                                          ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
-                    </Grid>
-                </ControlTemplate>
-            </Setter>
-            
-            <!-- Override ItemsPanel to use vertical StackPanel for left placement -->
-            <Setter Property="ItemsPanel">
-                <ItemsPanelTemplate>
-                    <StackPanel Orientation="Vertical" />
-                </ItemsPanelTemplate>
-            </Setter>
+        <!-- ListBox item style for log files -->
+        <Style Selector="ListBox.log-list-box">
+            <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+            <Setter Property="BorderThickness" Value="0,0,1,0"/>
+        </Style>
+        
+        <Style Selector="ListBox.log-list-box ListBoxItem">
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+        </Style>
+        
+        <Style Selector="ListBox.log-list-box ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource App.SurfaceHover}"/>
+        </Style>
+        
+        <Style Selector="ListBox.log-list-box ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource App.AccentBackground}"/>
+        </Style>
+        
+        <Style Selector="ListBox.log-list-box ListBoxItem:selected:pointerover">
+            <Setter Property="Background" Value="{DynamicResource App.AccentBackgroundHover}"/>
         </Style>
     </Window.Styles>
 
@@ -125,60 +111,81 @@
                 </StackPanel>
 
                 <Grid Grid.Row="1">
-                    <TabControl x:Name="LogTabs"
-                                ItemsSource="{Binding Tabs}"
-                                SelectedItem="{Binding SelectedTab}"
-                                Classes="scrollable-left"
-                                Background="{DynamicResource App.Background}">
-                        <TabControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:LogDocumentViewModel">
-                                <StackPanel Margin="4" Spacing="4">
-                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding Info}"
-                                               FontSize="11"
-                                               Opacity="0.7"
-                                               TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </TabControl.ItemTemplate>
-                        <TabControl.ContentTemplate>
-                            <DataTemplate x:DataType="vm:LogDocumentViewModel">
-                                <Border Background="#101010" BorderThickness="0">
-                                    <Grid RowDefinitions="Auto,*">
-                                        <Border Grid.Row="0"
-                                                Padding="14,10"
-                                                Background="#151515"
-                                                BorderBrush="#202020"
-                                                BorderThickness="0 0 0 1">
-                                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                                <TextBlock Text="{Binding DisplayName}"
-                                                           Foreground="#E0E0E0"
-                                                           FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding Info}"
-                                                           Foreground="#B0B0B0"
-                                                           FontSize="12"/>
-                                                <TextBlock Text="Loading..."
-                                                           Foreground="#E0E0E0"
-                                                           FontSize="12"
-                                                           IsVisible="{Binding IsLoading}"/>
-                                            </StackPanel>
-                                        </Border>
-                                        <ScrollViewer x:Name="LogContentScroll"
-                                                      Grid.Row="1"
-                                                      Background="#101010"
-                                                      HorizontalScrollBarVisibility="Auto"
-                                                      VerticalScrollBarVisibility="Auto">
-                                            <TextBlock Text="{Binding Content}"
-                                                       Foreground="#D8D8D8"
-                                                       FontFamily="Consolas"
-                                                       FontSize="13"
-                                                       TextWrapping="NoWrap"/>
-                                        </ScrollViewer>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </TabControl.ContentTemplate>
-                    </TabControl>
+                    <!-- Two-column layout: List on left, Content on right -->
+                    <Grid ColumnDefinitions="260,*">
+                        <!-- Left side: Log file list -->
+                        <Border Grid.Column="0"
+                                Background="{DynamicResource App.Surface}"
+                                BorderBrush="{DynamicResource App.Border}"
+                                BorderThickness="0,0,1,0">
+                            <ListBox x:Name="LogListBox"
+                                     ItemsSource="{Binding Tabs}"
+                                     SelectedItem="{Binding SelectedTab}"
+                                     Classes="log-list-box"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:LogDocumentViewModel">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource App.ForegroundPrimary}"/>
+                                            <TextBlock Text="{Binding Info}"
+                                                       FontSize="11"
+                                                       Opacity="0.75"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource App.ForegroundSecondary}"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                        
+                        <!-- Right side: Selected log content -->
+                        <ContentControl Grid.Column="1"
+                                        Content="{Binding SelectedTab}">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate x:DataType="vm:LogDocumentViewModel">
+                                    <Border Background="#101010" BorderThickness="0">
+                                        <Grid RowDefinitions="Auto,*">
+                                            <Border Grid.Row="0"
+                                                    Padding="14,10"
+                                                    Background="#151515"
+                                                    BorderBrush="#202020"
+                                                    BorderThickness="0 0 0 1">
+                                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                                    <TextBlock Text="{Binding DisplayName}"
+                                                               Foreground="#E0E0E0"
+                                                               FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding Info}"
+                                                               Foreground="#B0B0B0"
+                                                               FontSize="12"/>
+                                                    <TextBlock Text="Loading..."
+                                                               Foreground="#E0E0E0"
+                                                               FontSize="12"
+                                                               IsVisible="{Binding IsLoading}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <ScrollViewer x:Name="LogContentScroll"
+                                                          Grid.Row="1"
+                                                          Background="#101010"
+                                                          HorizontalScrollBarVisibility="Auto"
+                                                          VerticalScrollBarVisibility="Auto">
+                                                <TextBlock Text="{Binding Content}"
+                                                           Foreground="#D8D8D8"
+                                                           FontFamily="Consolas"
+                                                           FontSize="13"
+                                                           TextWrapping="NoWrap"/>
+                                            </ScrollViewer>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
+                    </Grid>
+                    
+                    <!-- Empty state overlay -->
                     <Border Background="#AA000000"
                             CornerRadius="6"
                             Padding="20"

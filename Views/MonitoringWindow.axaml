@@ -24,36 +24,82 @@
         <vm:MonitoringViewModel />
     </Window.DataContext>
 
-    <!-- [CHROME] Custom client area; add a simple drag bar on top. -->
+    <!-- [CHROME] Custom client area; drag bar matching MainWindow style -->
     <Grid RowDefinitions="Auto,*">
         <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.TitleBarBackground}"
                 PointerPressed="DragBar_PointerPressed">
             <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-                <Border Grid.Column="0" Width="20" Height="20" CornerRadius="4" Background="Transparent"/>
-                <TextBlock Grid.Column="1" Text="Zer0Talk" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                <Button Grid.Column="2" Classes="icon-button" Command="{Binding CloseCommand}" Width="32" Height="24" Padding="0" ToolTip.Tip="Close">
-                    <TextBlock Classes="icon-mdl2" Text="&#xE106;" FontSize="10"/>
-                </Button>
+                <TextBlock Grid.Column="0" Text="Monitoring" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Foreground="{DynamicResource App.TitleBarForeground}"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedRetryTooltip}" Command="{Binding RetryNatVerificationCommand}">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE72C;"/>
+                    </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Close" Command="{Binding CloseCommand}">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE8BB;"/>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Border>
 
+    <!-- Body: Left sidebar + main content -->
+    <Grid Grid.Row="1">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="64"/>
+            <ColumnDefinition Width="1"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
+        <!-- Left Navigation Rail -->
+        <Border x:Name="NavRail" Grid.Column="0" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 0" Background="{DynamicResource App.Surface}">
+            <Border.Styles>
+                <!-- Scope: only nav rail icon buttons -->
+                <Style Selector="Button.icon-button">
+                    <Setter Property="Width" Value="64"/>
+                    <Setter Property="Height" Value="56"/>
+                    <Setter Property="HorizontalAlignment" Value="Center"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    <Setter Property="VerticalContentAlignment" Value="Center"/>
+                    <Setter Property="Padding" Value="8,0"/>
+                </Style>
+            </Border.Styles>
+            <Grid Margin="0,12" RowDefinitions="Auto,*,Auto">
+                <!-- Primary action buttons at the top -->
+                <StackPanel Grid.Row="0" Spacing="6" HorizontalAlignment="Center">
+                    <Button Classes="icon-button" ToolTip.Tip="Restart Discovery - Resets the discovery process and attempts to reconnect to peers" Command="{Binding RestartDiscoveryCommand}">
+                        <Grid Width="26" Height="26">
+                            <Path Fill="{DynamicResource App.ForegroundPrimary}" Stretch="Uniform"
+                                  Data="M15.5,14 C15.5,11.52 13.48,9.5 11,9.5 C9.94,9.5 8.97,9.88 8.19,10.52 L10,12.33 L4,13 L4.67,7 L6.41,8.74 C7.55,7.68 9.2,7 11,7 C14.86,7 18,10.14 18,14 C18,17.86 14.86,21 11,21 C8.87,21 6.96,20.02 5.7,18.48 L7.07,17.06 C7.95,18.14 9.38,19 11,19 C13.76,19 16,16.76 16,14 Z M11,11 L11,14.47 L13.21,16.68 L12.5,17.39 L9.75,14.64 L9.75,11 L11,11 Z"/>
+                        </Grid>
+                    </Button>
+                </StackPanel>
+
+                <!-- Debug checkpoint controls at the bottom -->
+                <StackPanel x:Name="DebugCheckpointStack" Grid.Row="2" Spacing="6" HorizontalAlignment="Center">
+                    <!-- Debug buttons will be added programmatically in code-behind -->
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <!-- Vertical divider -->
+        <Border Grid.Column="1" Background="{DynamicResource App.Border}" IsHitTestVisible="False"/>
+        
     <!-- Compact container with consistent padding for a balanced UI -->
-    <Border Grid.Row="1" Padding="10" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}">
+    <Border Grid.Column="2" Padding="10" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}">
         <!-- Layout rows: header, controls, body(*) with chart + log, footer -->
         <!-- Layout polish: reduce row spacing a bit to fit comfortably in default window size -->
         <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="6">
             <!-- Header with NAT indicator and legend -->
             <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center" MinHeight="28">
                 <StackPanel Spacing="4" VerticalAlignment="Center">
+                    <!-- Simplified NAT status with full details in tooltip -->
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <TextBlock Text="{Binding LocalizedNAT}"/>
                         <Ellipse Width="10" Height="10" Fill="{Binding NatIndicatorBrush}" Opacity="{Binding NatIndicatorOpacity}"/>
-                        <!-- [TRUNC-OPTIN] Long NAT status can overflow; opt-in ellipsis + tooltip. -->
-                        <TextBlock Classes="app-trunc" Text="{Binding NatStatus}"/>
-                        <Button Content="{Binding LocalizedRetry}" Margin="8,0,0,0" Command="{Binding RetryNatVerificationCommand}" Height="20" Padding="8,0" ToolTip.Tip="{Binding LocalizedRetryTooltip}"/>
+                        <TextBlock Text="{Binding NatStatusShort}" ToolTip.Tip="{Binding NatStatus}"/>
                     </StackPanel>
                     <!-- [TRUNC-OPTIN] Summary can be lengthy; opt-in ellipsis + tooltip. -->
-                    <TextBlock Classes="app-trunc" Text="{Binding DiagnosticsSummary}" FontSize="11" Opacity="0.85"/>
+                    <TextBlock Classes="app-trunc" Text="{Binding DiagnosticsSummary}" FontSize="11" Opacity="0.85" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
         <!-- Status Legend: fixed, theme-independent styling for consistency across all themes -->
         <!-- Layout tweak: slightly reduced padding to save vertical space without changing style -->
@@ -113,9 +159,9 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Body: ports line, NAT diagnostics, traffic history chart, and diagnostics log -->
+            <!-- Body: ports line, NAT diagnostics, and traffic history chart -->
             <!-- Remove outer ScrollViewer to prevent window-level scrolling from interfering with log scrolling -->
-            <Grid Grid.Row="2" RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="6">
+            <Grid Grid.Row="2" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="6">
                     <StackPanel Orientation="Horizontal" Spacing="16">
                         <TextBlock Text="{Binding LocalizedPorts}" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding TcpPortLabel}"/>
@@ -154,7 +200,7 @@
 
                     <!-- Discovery panel: tiny snapshot with restart control -->
                     <Border Grid.Row="2" Padding="8" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}">
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4" VerticalAlignment="Center">
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4" VerticalAlignment="Center">
                             <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding LocalizedDiscovery}" FontWeight="SemiBold"/>
                                 <TextBlock Text="{Binding DiscoveryState}"/>
@@ -166,10 +212,7 @@
                                 <TextBlock Text="{Binding DiscoveryBackoff}"/>
                                 <TextBlock Text="s"/>
                             </StackPanel>
-                            <Button Grid.Row="0" Grid.Column="2" Content="{Binding LocalizedRestartDiscovery}" Command="{Binding RestartDiscoveryCommand}"/>
-                            <!-- Debug-only checkpoint controls are added programmatically into this panel -->
-                            <StackPanel x:Name="DebugCheckpointPanel" Grid.Row="0" Grid.Column="3" Orientation="Horizontal" Spacing="6"/>
-                            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding LocalizedLastAttempt}"/>
                                 <TextBlock Text="{Binding DiscoveryLastAttemptLabel}"/>
                                 <TextBlock Text="{Binding LocalizedLastSuccess}"/>
@@ -182,59 +225,9 @@
                          height constrained to ensure it fits the default window size -->
                     <Border Grid.Row="3" Padding="4" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}" ClipToBounds="True">
                         <!-- Chart uses fixed colors inside TrafficHistoryView to avoid theme bleed; only bind history -->
-                        <!-- Slightly reduce chart height to make all content fit without window scrolling -->
-                        <vc:TrafficHistoryView Height="150"
-                                               History="{Binding History}"/>
+                        <!-- Chart can now expand vertically to fill remaining space -->
+                        <vc:TrafficHistoryView History="{Binding History}"/>
                     </Border>
-
-                    <!-- Diagnostics log with small, theme-aware text and adjustable font size -->
-                    <!-- Use a Grid (Auto,Auto,*) so the log area fills remaining space and never overlaps other controls -->
-                    <Grid Grid.Row="4" RowDefinitions="Auto,Auto,*" RowSpacing="6">
-                        <!-- Header row: title + visibility toggle -->
-                        <Grid ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding LocalizedDiagnosticsLog}" FontWeight="SemiBold"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="12,0,0,0">
-                                <!-- Keep as ToggleSwitch to render the intented slider UI; do not replace with ToggleButton. -->
-                                <ToggleSwitch Content="{Binding LocalizedShowLog}" IsChecked="{Binding ShowLog}"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Controls row: filter (left) and compact text size controls (right) -->
-                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                            <!-- Filter under the label; compact width -->
-                            <ComboBox Grid.Column="0" Width="84" HorizontalAlignment="Left" SelectedIndex="{Binding FilterIndex}">
-                                <ComboBoxItem Content="ALL"/>
-                                <ComboBoxItem Content="NET"/>
-                                <ComboBoxItem Content="WARNING"/>
-                                <ComboBoxItem Content="INFO"/>
-                            </ComboBox>
-
-                            <!-- Text size for log aligned to the right; label above compact slider -->
-                            <StackPanel Grid.Column="1" Orientation="Vertical" HorizontalAlignment="Right" Spacing="2">
-                                <TextBlock Text="{Binding LocalizedTextSizeForLog}" HorizontalAlignment="Right"/>
-                                <!-- Remove negative margin to avoid overlap with nearby scrollbars; modest width -->
-                                <Slider Minimum="6" Maximum="18" Value="{Binding LogFontSize}" Width="120" HorizontalAlignment="Right"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Star row: border with scroll viewer fills remaining space; avoids whole-window scrolling -->
-                        <Border Grid.Row="2" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}">
-                            <ScrollViewer x:Name="LogScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" IsVisible="{Binding ShowLog}">
-                                <ItemsControl x:Name="LogItemsControl" ItemsSource="{Binding FilteredLogItems}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel Orientation="Vertical"/>
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding .}" FontSize="{Binding DataContext.LogFontSize, ElementName=MonitoringWin}" Foreground="{DynamicResource App.ForegroundPrimary}" TextWrapping="NoWrap"/>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </Border>
-                    </Grid>
                 </Grid>
 
             <!-- Footer actions (logging controls removed) -->
@@ -243,5 +236,6 @@
             </StackPanel>
         </Grid>
     </Border>
+    </Grid>
     </Grid>
 </Window>

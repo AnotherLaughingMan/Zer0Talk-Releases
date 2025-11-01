@@ -21,7 +21,6 @@ public partial class LogViewerWindow : Window
 {
     private LogViewerViewModel? _viewModel;
     private LogDocumentViewModel? _activeDocument;
-    private TabControl? _tabControl;
 
     public LogViewerWindow()
     {
@@ -146,27 +145,10 @@ public partial class LogViewerWindow : Window
 
     private ScrollViewer? FindActiveScrollViewer()
     {
-        _tabControl ??= this.FindControl<TabControl>("LogTabs");
-
-        ScrollViewer? TryFind(Control container) =>
-            container.GetVisualDescendants()
-                     .OfType<ScrollViewer>()
-                     .FirstOrDefault(s => s.Name == "LogContentScroll") ??
-            container.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
-
-        if (_viewModel?.SelectedTab is LogDocumentViewModel doc && _tabControl != null)
-        {
-            if (_tabControl.ContainerFromItem(doc) is Control container)
-            {
-                var scroll = TryFind(container);
-                if (scroll != null) return scroll;
-            }
-        }
-
+        // Find the LogContentScroll ScrollViewer in the ContentControl
         return this.GetVisualDescendants()
                    .OfType<ScrollViewer>()
-                   .FirstOrDefault(s => s.Name == "LogContentScroll") ??
-               this.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+                   .FirstOrDefault(s => s.Name == "LogContentScroll");
     }
 
     private void DragBar_PointerPressed(object? sender, PointerPressedEventArgs e)
