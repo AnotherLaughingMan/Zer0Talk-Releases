@@ -125,6 +125,445 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         }
     }
 
+    // System accent color overrides - these prevent OS colors from showing through
+    private string? _systemAccentColor;
+    public string? SystemAccentColor
+    {
+        get => _systemAccentColor;
+        set
+        {
+            if (_systemAccentColor != value)
+            {
+                _systemAccentColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemAccentColorPreview));
+            }
+        }
+    }
+
+    private string? _systemAccentColor2;
+    public string? SystemAccentColor2
+    {
+        get => _systemAccentColor2;
+        set
+        {
+            if (_systemAccentColor2 != value)
+            {
+                _systemAccentColor2 = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemAccentColor2Preview));
+            }
+        }
+    }
+
+    private string? _systemAccentColor3;
+    public string? SystemAccentColor3
+    {
+        get => _systemAccentColor3;
+        set
+        {
+            if (_systemAccentColor3 != value)
+            {
+                _systemAccentColor3 = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemAccentColor3Preview));
+            }
+        }
+    }
+
+    private string? _systemAccentColor4;
+    public string? SystemAccentColor4
+    {
+        get => _systemAccentColor4;
+        set
+        {
+            if (_systemAccentColor4 != value)
+            {
+                _systemAccentColor4 = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemAccentColor4Preview));
+            }
+        }
+    }
+
+    private string? _systemAccentColorLight;
+    public string? SystemAccentColorLight
+    {
+        get => _systemAccentColorLight;
+        set
+        {
+            if (_systemAccentColorLight != value)
+            {
+                _systemAccentColorLight = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemAccentColorLightPreview));
+            }
+        }
+    }
+
+    private string? _systemListLowColor;
+    public string? SystemListLowColor
+    {
+        get => _systemListLowColor;
+        set
+        {
+            if (_systemListLowColor != value)
+            {
+                _systemListLowColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemListLowColorPreview));
+            }
+        }
+    }
+
+    private string? _systemListMediumColor;
+    public string? SystemListMediumColor
+    {
+        get => _systemListMediumColor;
+        set
+        {
+            if (_systemListMediumColor != value)
+            {
+                _systemListMediumColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemListMediumColorPreview));
+            }
+        }
+    }
+
+    // SystemAlt color properties (layering/depth)
+    private string? _systemAltHighColor;
+    public string? SystemAltHighColor
+    {
+        get => _systemAltHighColor;
+        set
+        {
+            if (_systemAltHighColor != value)
+            {
+                _systemAltHighColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemAltHighColorPreview));
+            }
+        }
+    }
+
+    private string? _systemAltMediumHighColor;
+    public string? SystemAltMediumHighColor
+    {
+        get => _systemAltMediumHighColor;
+        set
+        {
+            if (_systemAltMediumHighColor != value)
+            {
+                _systemAltMediumHighColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemAltMediumHighColorPreview));
+            }
+        }
+    }
+
+    private string? _systemAltMediumColor;
+    public string? SystemAltMediumColor
+    {
+        get => _systemAltMediumColor;
+        set
+        {
+            if (_systemAltMediumColor != value)
+            {
+                _systemAltMediumColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemAltMediumColorPreview));
+            }
+        }
+    }
+
+    private string? _systemAltMediumLowColor;
+    public string? SystemAltMediumLowColor
+    {
+        get => _systemAltMediumLowColor;
+        set
+        {
+            if (_systemAltMediumLowColor != value)
+            {
+                _systemAltMediumLowColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemAltMediumLowColorPreview));
+            }
+        }
+    }
+
+    private string? _systemAltLowColor;
+    public string? SystemAltLowColor
+    {
+        get => _systemAltLowColor;
+        set
+        {
+            if (_systemAltLowColor != value)
+            {
+                _systemAltLowColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemAltLowColorPreview));
+            }
+        }
+    }
+
+    // SystemBase color properties (foundation layers)
+    private string? _systemBaseHighColor;
+    public string? SystemBaseHighColor
+    {
+        get => _systemBaseHighColor;
+        set
+        {
+            if (_systemBaseHighColor != value)
+            {
+                _systemBaseHighColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemBaseHighColorPreview));
+            }
+        }
+    }
+
+    private string? _systemBaseMediumHighColor;
+    public string? SystemBaseMediumHighColor
+    {
+        get => _systemBaseMediumHighColor;
+        set
+        {
+            if (_systemBaseMediumHighColor != value)
+            {
+                _systemBaseMediumHighColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemBaseMediumHighColorPreview));
+            }
+        }
+    }
+
+    private string? _systemBaseMediumColor;
+    public string? SystemBaseMediumColor
+    {
+        get => _systemBaseMediumColor;
+        set
+        {
+            if (_systemBaseMediumColor != value)
+            {
+                _systemBaseMediumColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemBaseMediumColorPreview));
+            }
+        }
+    }
+
+    private string? _systemBaseMediumLowColor;
+    public string? SystemBaseMediumLowColor
+    {
+        get => _systemBaseMediumLowColor;
+        set
+        {
+            if (_systemBaseMediumLowColor != value)
+            {
+                _systemBaseMediumLowColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemBaseMediumLowColorPreview));
+            }
+        }
+    }
+
+    private string? _systemBaseLowColor;
+    public string? SystemBaseLowColor
+    {
+        get => _systemBaseLowColor;
+        set
+        {
+            if (_systemBaseLowColor != value)
+            {
+                _systemBaseLowColor = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SystemBaseLowColorPreview));
+            }
+        }
+    }
+
+    // SystemChrome color properties (window/frame colors)
+    private string? _systemChromeAltLowColor;
+    public string? SystemChromeAltLowColor { get => _systemChromeAltLowColor; set { if (_systemChromeAltLowColor != value) { _systemChromeAltLowColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeAltLowColorPreview)); } } }
+
+    private string? _systemChromeBlackHighColor;
+    public string? SystemChromeBlackHighColor { get => _systemChromeBlackHighColor; set { if (_systemChromeBlackHighColor != value) { _systemChromeBlackHighColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeBlackHighColorPreview)); } } }
+
+    private string? _systemChromeBlackLowColor;
+    public string? SystemChromeBlackLowColor { get => _systemChromeBlackLowColor; set { if (_systemChromeBlackLowColor != value) { _systemChromeBlackLowColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeBlackLowColorPreview)); } } }
+
+    private string? _systemChromeBlackMediumColor;
+    public string? SystemChromeBlackMediumColor { get => _systemChromeBlackMediumColor; set { if (_systemChromeBlackMediumColor != value) { _systemChromeBlackMediumColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeBlackMediumColorPreview)); } } }
+
+    private string? _systemChromeBlackMediumLowColor;
+    public string? SystemChromeBlackMediumLowColor { get => _systemChromeBlackMediumLowColor; set { if (_systemChromeBlackMediumLowColor != value) { _systemChromeBlackMediumLowColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeBlackMediumLowColorPreview)); } } }
+
+    private string? _systemChromeDisabledHighColor;
+    public string? SystemChromeDisabledHighColor { get => _systemChromeDisabledHighColor; set { if (_systemChromeDisabledHighColor != value) { _systemChromeDisabledHighColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeDisabledHighColorPreview)); } } }
+
+    private string? _systemChromeDisabledLowColor;
+    public string? SystemChromeDisabledLowColor { get => _systemChromeDisabledLowColor; set { if (_systemChromeDisabledLowColor != value) { _systemChromeDisabledLowColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeDisabledLowColorPreview)); } } }
+
+    private string? _systemChromeGrayColor;
+    public string? SystemChromeGrayColor { get => _systemChromeGrayColor; set { if (_systemChromeGrayColor != value) { _systemChromeGrayColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeGrayColorPreview)); } } }
+
+    private string? _systemChromeHighColor;
+    public string? SystemChromeHighColor { get => _systemChromeHighColor; set { if (_systemChromeHighColor != value) { _systemChromeHighColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeHighColorPreview)); } } }
+
+    private string? _systemChromeLowColor;
+    public string? SystemChromeLowColor { get => _systemChromeLowColor; set { if (_systemChromeLowColor != value) { _systemChromeLowColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeLowColorPreview)); } } }
+
+    private string? _systemChromeMediumColor;
+    public string? SystemChromeMediumColor { get => _systemChromeMediumColor; set { if (_systemChromeMediumColor != value) { _systemChromeMediumColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeMediumColorPreview)); } } }
+
+    private string? _systemChromeMediumLowColor;
+    public string? SystemChromeMediumLowColor { get => _systemChromeMediumLowColor; set { if (_systemChromeMediumLowColor != value) { _systemChromeMediumLowColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeMediumLowColorPreview)); } } }
+
+    private string? _systemChromeWhiteColor;
+    public string? SystemChromeWhiteColor { get => _systemChromeWhiteColor; set { if (_systemChromeWhiteColor != value) { _systemChromeWhiteColor = value; OnPropertyChanged(); OnPropertyChanged(nameof(SystemChromeWhiteColorPreview)); } } }
+
+    // Color preview properties for binding
+    public Color SystemAccentColorPreview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemAccentColor) || !TryParseColor(SystemAccentColor, out var color))
+                return Color.Parse("#0078D4"); // Windows blue
+            return color;
+        }
+    }
+
+    public Color SystemAccentColor2Preview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemAccentColor2) || !TryParseColor(SystemAccentColor2, out var color))
+                return Color.Parse("#005A9E"); // Darker blue
+            return color;
+        }
+    }
+
+    public Color SystemAccentColor3Preview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemAccentColor3) || !TryParseColor(SystemAccentColor3, out var color))
+                return Color.Parse("#106EBE"); // Medium blue
+            return color;
+        }
+    }
+
+    public Color SystemAccentColor4Preview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemAccentColor4) || !TryParseColor(SystemAccentColor4, out var color))
+                return Color.Parse("#0086F0"); // Lighter blue
+            return color;
+        }
+    }
+
+    public Color SystemAccentColorLightPreview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemAccentColorLight) || !TryParseColor(SystemAccentColorLight, out var color))
+                return Color.Parse("#60CDFF"); // Bright blue for hover
+            return color;
+        }
+    }
+
+    public Color SystemListLowColorPreview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemListLowColor) || !TryParseColor(SystemListLowColor, out var color))
+                return Color.Parse("#33FFFFFF"); // 20% white - subtle hover
+            return color;
+        }
+    }
+
+    public Color SystemListMediumColorPreview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemListMediumColor) || !TryParseColor(SystemListMediumColor, out var color))
+                return Color.Parse("#66FFFFFF"); // 40% white - medium hover
+            return color;
+        }
+    }
+
+    public Color SystemAltHighColorPreview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemAltHighColor) || !TryParseColor(SystemAltHighColor, out var color))
+                return Color.Parse("#FFFFFFFF"); // 100% white - high contrast
+            return color;
+        }
+    }
+
+    public Color SystemAltMediumHighColorPreview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemAltMediumHighColor) || !TryParseColor(SystemAltMediumHighColor, out var color))
+                return Color.Parse("#CCFFFFFF"); // 80% white
+            return color;
+        }
+    }
+
+    public Color SystemAltMediumColorPreview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemAltMediumColor) || !TryParseColor(SystemAltMediumColor, out var color))
+                return Color.Parse("#99FFFFFF"); // 60% white
+            return color;
+        }
+    }
+
+    public Color SystemAltMediumLowColorPreview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemAltMediumLowColor) || !TryParseColor(SystemAltMediumLowColor, out var color))
+                return Color.Parse("#66FFFFFF"); // 40% white
+            return color;
+        }
+    }
+
+    public Color SystemAltLowColorPreview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SystemAltLowColor) || !TryParseColor(SystemAltLowColor, out var color))
+                return Color.Parse("#33FFFFFF"); // 20% white
+            return color;
+        }
+    }
+
+    public Color SystemBaseHighColorPreview { get { if (string.IsNullOrWhiteSpace(SystemBaseHighColor) || !TryParseColor(SystemBaseHighColor, out var color)) return Color.Parse("#FFFFFF"); return color; } }
+    public Color SystemBaseMediumHighColorPreview { get { if (string.IsNullOrWhiteSpace(SystemBaseMediumHighColor) || !TryParseColor(SystemBaseMediumHighColor, out var color)) return Color.Parse("#CCCCCC"); return color; } }
+    public Color SystemBaseMediumColorPreview { get { if (string.IsNullOrWhiteSpace(SystemBaseMediumColor) || !TryParseColor(SystemBaseMediumColor, out var color)) return Color.Parse("#999999"); return color; } }
+    public Color SystemBaseMediumLowColorPreview { get { if (string.IsNullOrWhiteSpace(SystemBaseMediumLowColor) || !TryParseColor(SystemBaseMediumLowColor, out var color)) return Color.Parse("#666666"); return color; } }
+    public Color SystemBaseLowColorPreview { get { if (string.IsNullOrWhiteSpace(SystemBaseLowColor) || !TryParseColor(SystemBaseLowColor, out var color)) return Color.Parse("#333333"); return color; } }
+
+    public Color SystemChromeAltLowColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeAltLowColor) || !TryParseColor(SystemChromeAltLowColor, out var color)) return Color.Parse("#171717"); return color; } }
+    public Color SystemChromeBlackHighColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeBlackHighColor) || !TryParseColor(SystemChromeBlackHighColor, out var color)) return Color.Parse("#000000"); return color; } }
+    public Color SystemChromeBlackLowColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeBlackLowColor) || !TryParseColor(SystemChromeBlackLowColor, out var color)) return Color.Parse("#0D0D0D"); return color; } }
+    public Color SystemChromeBlackMediumColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeBlackMediumColor) || !TryParseColor(SystemChromeBlackMediumColor, out var color)) return Color.Parse("#1A1A1A"); return color; } }
+    public Color SystemChromeBlackMediumLowColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeBlackMediumLowColor) || !TryParseColor(SystemChromeBlackMediumLowColor, out var color)) return Color.Parse("#262626"); return color; } }
+    public Color SystemChromeDisabledHighColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeDisabledHighColor) || !TryParseColor(SystemChromeDisabledHighColor, out var color)) return Color.Parse("#666666"); return color; } }
+    public Color SystemChromeDisabledLowColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeDisabledLowColor) || !TryParseColor(SystemChromeDisabledLowColor, out var color)) return Color.Parse("#3D3D3D"); return color; } }
+    public Color SystemChromeGrayColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeGrayColor) || !TryParseColor(SystemChromeGrayColor, out var color)) return Color.Parse("#808080"); return color; } }
+    public Color SystemChromeHighColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeHighColor) || !TryParseColor(SystemChromeHighColor, out var color)) return Color.Parse("#767676"); return color; } }
+    public Color SystemChromeLowColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeLowColor) || !TryParseColor(SystemChromeLowColor, out var color)) return Color.Parse("#171717"); return color; } }
+    public Color SystemChromeMediumColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeMediumColor) || !TryParseColor(SystemChromeMediumColor, out var color)) return Color.Parse("#1F1F1F"); return color; } }
+    public Color SystemChromeMediumLowColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeMediumLowColor) || !TryParseColor(SystemChromeMediumLowColor, out var color)) return Color.Parse("#2B2B2B"); return color; } }
+    public Color SystemChromeWhiteColorPreview { get { if (string.IsNullOrWhiteSpace(SystemChromeWhiteColor) || !TryParseColor(SystemChromeWhiteColor, out var color)) return Color.Parse("#FFFFFF"); return color; } }
+
     private System.Collections.Generic.List<string> _currentThemeTags = new();
     public System.Collections.Generic.IReadOnlyList<string> CurrentThemeTags => _currentThemeTags;
 
@@ -164,6 +603,14 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
     private readonly System.Collections.Generic.Stack<ColorEditAction> _undoStack = new();
     private readonly System.Collections.Generic.Stack<ColorEditAction> _redoStack = new();
     private ThemeColorEntry? _currentlyEditingColor = null;
+    
+    private ThemeHistoryViewModel? _historyViewModel = new();
+    private Views.ThemeHistoryPanel? _historyPanel;
+    
+    private const int MaxHistorySize = 50; // Reasonable limit for undo/redo
+    private static readonly string HistoryFilePath = System.IO.Path.Combine(
+        System.IO.Path.GetTempPath(), 
+        "Zer0Talk_ThemeEditor_History.json");
     
     public bool CanUndo => _undoStack.Count > 0;
     public bool CanRedo => _redoStack.Count > 0;
@@ -465,6 +912,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
     public ICommand CancelColorEditCommand { get; }
     public ICommand UndoColorEditCommand { get; }
     public ICommand RedoColorEditCommand { get; }
+    public ICommand ToggleHistoryPanelCommand { get; }
     public ICommand ToggleBatchEditModeCommand { get; }
     public ICommand SelectAllColorsCommand { get; }
     public ICommand DeselectAllColorsCommand { get; }
@@ -475,6 +923,36 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
     public ICommand CancelGradientEditCommand { get; }
     public ICommand ApplyGradientPresetCommand { get; }
     public ICommand ClearGradientCommand { get; }
+    public ICommand ClearSystemAccentColorCommand { get; }
+    public ICommand ClearSystemAccentColor2Command { get; }
+    public ICommand ClearSystemAccentColor3Command { get; }
+    public ICommand ClearSystemAccentColor4Command { get; }
+    public ICommand ClearSystemAccentColorLightCommand { get; }
+    public ICommand ClearSystemListLowColorCommand { get; }
+    public ICommand ClearSystemListMediumColorCommand { get; }
+    public ICommand ClearSystemAltHighColorCommand { get; }
+    public ICommand ClearSystemAltMediumHighColorCommand { get; }
+    public ICommand ClearSystemAltMediumColorCommand { get; }
+    public ICommand ClearSystemAltMediumLowColorCommand { get; }
+    public ICommand ClearSystemAltLowColorCommand { get; }
+    public ICommand ClearSystemBaseHighColorCommand { get; }
+    public ICommand ClearSystemBaseMediumHighColorCommand { get; }
+    public ICommand ClearSystemBaseMediumColorCommand { get; }
+    public ICommand ClearSystemBaseMediumLowColorCommand { get; }
+    public ICommand ClearSystemBaseLowColorCommand { get; }
+    public ICommand ClearSystemChromeAltLowColorCommand { get; }
+    public ICommand ClearSystemChromeBlackHighColorCommand { get; }
+    public ICommand ClearSystemChromeBlackLowColorCommand { get; }
+    public ICommand ClearSystemChromeBlackMediumColorCommand { get; }
+    public ICommand ClearSystemChromeBlackMediumLowColorCommand { get; }
+    public ICommand ClearSystemChromeDisabledHighColorCommand { get; }
+    public ICommand ClearSystemChromeDisabledLowColorCommand { get; }
+    public ICommand ClearSystemChromeGrayColorCommand { get; }
+    public ICommand ClearSystemChromeHighColorCommand { get; }
+    public ICommand ClearSystemChromeLowColorCommand { get; }
+    public ICommand ClearSystemChromeMediumColorCommand { get; }
+    public ICommand ClearSystemChromeMediumLowColorCommand { get; }
+    public ICommand ClearSystemChromeWhiteColorCommand { get; }
     public ICommand EditMetadataCommand { get; }
     public ICommand SaveMetadataCommand { get; }
     public ICommand CancelMetadataEditCommand { get; }
@@ -491,12 +969,16 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
 
     public ThemeEditorViewModel()
     {
+        // Load history from temp file
+        LoadHistory();
+        
         // Initialize commands
         EditColorCommand = new RelayCommand(param => StartEditingColor(param as ThemeColorEntry), param => param is ThemeColorEntry && !IsEditingColor);
         SaveColorEditCommand = new RelayCommand(async _ => await SaveColorEditAsync(), _ => IsEditingColor);
         CancelColorEditCommand = new RelayCommand(_ => CancelColorEdit(), _ => IsEditingColor);
         UndoColorEditCommand = new RelayCommand(_ => UndoColorEdit(), _ => CanUndo && !IsEditingColor);
         RedoColorEditCommand = new RelayCommand(_ => RedoColorEdit(), _ => CanRedo && !IsEditingColor);
+        ToggleHistoryPanelCommand = new RelayCommand(_ => ToggleHistoryPanel());
         ToggleBatchEditModeCommand = new RelayCommand(_ => ToggleBatchEditMode(), _ => !IsEditingColor);
         SelectAllColorsCommand = new RelayCommand(_ => SelectAllColors(), _ => IsBatchEditMode);
         DeselectAllColorsCommand = new RelayCommand(_ => DeselectAllColors(), _ => IsBatchEditMode && HasSelectedColors);
@@ -507,6 +989,36 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         CancelGradientEditCommand = new RelayCommand(_ => CancelGradientEdit(), _ => IsEditingGradient);
         ApplyGradientPresetCommand = new RelayCommand(param => ApplyGradientPreset(param as GradientPreset), param => param is GradientPreset && IsEditingGradient);
         ClearGradientCommand = new RelayCommand(_ => ClearGradient(), _ => IsEditingGradient);
+        ClearSystemAccentColorCommand = new RelayCommand(_ => ClearSystemAccentColor());
+        ClearSystemAccentColor2Command = new RelayCommand(_ => ClearSystemAccentColor2());
+        ClearSystemAccentColor3Command = new RelayCommand(_ => ClearSystemAccentColor3());
+        ClearSystemAccentColor4Command = new RelayCommand(_ => ClearSystemAccentColor4());
+        ClearSystemAccentColorLightCommand = new RelayCommand(_ => ClearSystemAccentColorLight());
+        ClearSystemListLowColorCommand = new RelayCommand(_ => ClearSystemListLowColor());
+        ClearSystemListMediumColorCommand = new RelayCommand(_ => ClearSystemListMediumColor());
+        ClearSystemAltHighColorCommand = new RelayCommand(_ => ClearSystemAltHighColor());
+        ClearSystemAltMediumHighColorCommand = new RelayCommand(_ => ClearSystemAltMediumHighColor());
+        ClearSystemAltMediumColorCommand = new RelayCommand(_ => ClearSystemAltMediumColor());
+        ClearSystemAltMediumLowColorCommand = new RelayCommand(_ => ClearSystemAltMediumLowColor());
+        ClearSystemAltLowColorCommand = new RelayCommand(_ => ClearSystemAltLowColor());
+        ClearSystemBaseHighColorCommand = new RelayCommand(_ => ClearSystemBaseHighColor());
+        ClearSystemBaseMediumHighColorCommand = new RelayCommand(_ => ClearSystemBaseMediumHighColor());
+        ClearSystemBaseMediumColorCommand = new RelayCommand(_ => ClearSystemBaseMediumColor());
+        ClearSystemBaseMediumLowColorCommand = new RelayCommand(_ => ClearSystemBaseMediumLowColor());
+        ClearSystemBaseLowColorCommand = new RelayCommand(_ => ClearSystemBaseLowColor());
+        ClearSystemChromeAltLowColorCommand = new RelayCommand(_ => ClearSystemChromeAltLowColor());
+        ClearSystemChromeBlackHighColorCommand = new RelayCommand(_ => ClearSystemChromeBlackHighColor());
+        ClearSystemChromeBlackLowColorCommand = new RelayCommand(_ => ClearSystemChromeBlackLowColor());
+        ClearSystemChromeBlackMediumColorCommand = new RelayCommand(_ => ClearSystemChromeBlackMediumColor());
+        ClearSystemChromeBlackMediumLowColorCommand = new RelayCommand(_ => ClearSystemChromeBlackMediumLowColor());
+        ClearSystemChromeDisabledHighColorCommand = new RelayCommand(_ => ClearSystemChromeDisabledHighColor());
+        ClearSystemChromeDisabledLowColorCommand = new RelayCommand(_ => ClearSystemChromeDisabledLowColor());
+        ClearSystemChromeGrayColorCommand = new RelayCommand(_ => ClearSystemChromeGrayColor());
+        ClearSystemChromeHighColorCommand = new RelayCommand(_ => ClearSystemChromeHighColor());
+        ClearSystemChromeLowColorCommand = new RelayCommand(_ => ClearSystemChromeLowColor());
+        ClearSystemChromeMediumColorCommand = new RelayCommand(_ => ClearSystemChromeMediumColor());
+        ClearSystemChromeMediumLowColorCommand = new RelayCommand(_ => ClearSystemChromeMediumLowColor());
+        ClearSystemChromeWhiteColorCommand = new RelayCommand(_ => ClearSystemChromeWhiteColor());
         EditMetadataCommand = new RelayCommand(_ => StartEditingMetadata(), _ => !IsEditingColor && !IsEditingGradient && !IsEditingMetadata);
         SaveMetadataCommand = new RelayCommand(async _ => await SaveMetadataAsync(), _ => IsEditingMetadata);
         CancelMetadataEditCommand = new RelayCommand(_ => CancelMetadataEdit(), _ => IsEditingMetadata);
@@ -541,6 +1053,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
             dialog.RedSlider.Value = (byte)EditingRed;
             dialog.GreenSlider.Value = (byte)EditingGreen;
             dialog.BlueSlider.Value = (byte)EditingBlue;
+            dialog.AlphaSlider.Value = (byte)EditingAlpha;
             dialog.HexInput.Text = EditingHex;
 
             // Find owner window if running as a desktop app
@@ -555,16 +1068,56 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
             // If user applied the selection, update the entry and save
             if (result == true)
             {
-                // Pull HSV from dialog and update editing state
+                // Pull HSV and alpha from dialog and update editing state
                 var (h, s, v) = dialog.GetHsv();
+                var alpha = dialog.GetAlpha();
                 EditingHue = h;
                 EditingSaturation = s;
                 EditingValue = v;
+                EditingAlpha = alpha;
                 // Convert to ARGB via helper
-                var newColor = ColorFromHsv(EditingHue, EditingSaturation, EditingValue, (byte)EditingAlpha);
-                entry.ColorValue = ColorToHex(newColor);
-                // Save
-                _ = SaveColorEditAsync();
+                var newColor = ColorFromHsv(EditingHue, EditingSaturation, EditingValue, alpha);
+                var oldValue = entry.ColorValue;
+                var newValue = ColorToHex(newColor);
+                entry.ColorValue = newValue;
+                
+                // Record the change for undo/redo
+                if (oldValue != newValue && ThemeDefinition.IsValidColorPublic(newValue))
+                {
+                    _undoStack.Push(new ColorEditAction
+                    {
+                        ResourceKey = entry.ResourceKey,
+                        OldValue = oldValue,
+                        NewValue = newValue
+                    });
+                    _redoStack.Clear();
+                    
+                    TrimHistoryIfNeeded();
+                    SaveHistory();
+                    UpdateHistoryPanel();
+                    
+                    AddToRecentColors(newValue);
+                    Logger.Log($"[Theme Edit] Saved color edit '{entry.ResourceKey}': {oldValue} → {newValue}", LogLevel.Info, categoryOverride: "theme");
+                    
+                    OnPropertyChanged(nameof(CanUndo));
+                    OnPropertyChanged(nameof(CanRedo));
+                    (UndoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                    (RedoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                    
+                    // Apply live preview
+                    try
+                    {
+                        var tempTheme = BuildThemeDefinition(preserveId: true);
+                        if (AppServices.ThemeEngine.ApplyThemePreview(tempTheme))
+                        {
+                            Logger.Log($"[Theme Edit] Applied live preview for color '{entry.ResourceKey}'", LogLevel.Info, categoryOverride: "theme");
+                        }
+                    }
+                    catch (Exception previewEx)
+                    {
+                        Logger.Log($"[Theme Edit] Failed to apply live preview: {previewEx.Message}", LogLevel.Warning, categoryOverride: "theme");
+                    }
+                }
             }
 
             Logger.Log($"[Theme Edit] Modal color picker closed for '{entry.ResourceKey}' (applied: {result})", LogLevel.Info, categoryOverride: "theme");
@@ -626,11 +1179,18 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
             });
             _redoStack.Clear();
 
+            // Limit history size
+            TrimHistoryIfNeeded();
+            SaveHistory(); // Persist after edit
+            UpdateHistoryPanel();
+
             AddToRecentColors(newValue);
             Logger.Log($"[Theme Edit] Saved color edit '{entry.ResourceKey}': {oldValue} → {newValue}", LogLevel.Info, categoryOverride: "theme");
             
             OnPropertyChanged(nameof(CanUndo));
             OnPropertyChanged(nameof(CanRedo));
+            (UndoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RedoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
 
             // Apply live preview of the color change
             try
@@ -718,15 +1278,26 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         var action = _undoStack.Pop();
         _redoStack.Push(action);
 
+        // Try to find in ThemeColors collection first
         var entry = ThemeColors.FirstOrDefault(c => c.ResourceKey == action.ResourceKey);
         if (entry != null)
         {
             entry.ColorValue = action.OldValue;
             Logger.Log($"[Theme Edit] Undo: {action.ResourceKey} restored to {action.OldValue}", LogLevel.Info, categoryOverride: "theme");
         }
+        else
+        {
+            // Handle system color properties
+            SetSystemColorProperty(action.ResourceKey, action.OldValue);
+            Logger.Log($"[Theme Edit] Undo: {action.ResourceKey} restored to {action.OldValue}", LogLevel.Info, categoryOverride: "theme");
+        }
 
+        SaveHistory(); // Persist after undo
+        UpdateHistoryPanel();
         OnPropertyChanged(nameof(CanUndo));
         OnPropertyChanged(nameof(CanRedo));
+        (UndoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RedoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
     private void RedoColorEdit()
@@ -736,21 +1307,226 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         var action = _redoStack.Pop();
         _undoStack.Push(action);
 
+        // Try to find in ThemeColors collection first
         var entry = ThemeColors.FirstOrDefault(c => c.ResourceKey == action.ResourceKey);
         if (entry != null)
         {
             entry.ColorValue = action.NewValue;
             Logger.Log($"[Theme Edit] Redo: {action.ResourceKey} changed to {action.NewValue}", LogLevel.Info, categoryOverride: "theme");
         }
+        else
+        {
+            // Handle system color properties
+            SetSystemColorProperty(action.ResourceKey, action.NewValue);
+            Logger.Log($"[Theme Edit] Redo: {action.ResourceKey} changed to {action.NewValue}", LogLevel.Info, categoryOverride: "theme");
+        }
 
+        SaveHistory(); // Persist after redo
+        UpdateHistoryPanel();
         OnPropertyChanged(nameof(CanUndo));
         OnPropertyChanged(nameof(CanRedo));
+        (UndoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        (RedoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
+
+    private void SetSystemColorProperty(string propertyName, string value)
+    {
+        switch (propertyName)
+        {
+            case "SystemAccentColor": SystemAccentColor = value; break;
+            case "SystemAccentColor2": SystemAccentColor2 = value; break;
+            case "SystemAccentColor3": SystemAccentColor3 = value; break;
+            case "SystemAccentColor4": SystemAccentColor4 = value; break;
+            case "SystemAccentColorLight": SystemAccentColorLight = value; break;
+            case "SystemListLowColor": SystemListLowColor = value; break;
+            case "SystemListMediumColor": SystemListMediumColor = value; break;
+            case "SystemAltHighColor": SystemAltHighColor = value; break;
+            case "SystemAltMediumHighColor": SystemAltMediumHighColor = value; break;
+            case "SystemAltMediumColor": SystemAltMediumColor = value; break;
+            case "SystemAltMediumLowColor": SystemAltMediumLowColor = value; break;
+            case "SystemAltLowColor": SystemAltLowColor = value; break;
+            case "SystemBaseHighColor": SystemBaseHighColor = value; break;
+            case "SystemBaseMediumHighColor": SystemBaseMediumHighColor = value; break;
+            case "SystemBaseMediumColor": SystemBaseMediumColor = value; break;
+            case "SystemBaseMediumLowColor": SystemBaseMediumLowColor = value; break;
+            case "SystemBaseLowColor": SystemBaseLowColor = value; break;
+            case "SystemChromeAltLowColor": SystemChromeAltLowColor = value; break;
+            case "SystemChromeBlackHighColor": SystemChromeBlackHighColor = value; break;
+            case "SystemChromeBlackLowColor": SystemChromeBlackLowColor = value; break;
+            case "SystemChromeBlackMediumColor": SystemChromeBlackMediumColor = value; break;
+            case "SystemChromeBlackMediumLowColor": SystemChromeBlackMediumLowColor = value; break;
+            case "SystemChromeDisabledHighColor": SystemChromeDisabledHighColor = value; break;
+            case "SystemChromeDisabledLowColor": SystemChromeDisabledLowColor = value; break;
+            case "SystemChromeGrayColor": SystemChromeGrayColor = value; break;
+            case "SystemChromeHighColor": SystemChromeHighColor = value; break;
+            case "SystemChromeLowColor": SystemChromeLowColor = value; break;
+            case "SystemChromeMediumColor": SystemChromeMediumColor = value; break;
+            case "SystemChromeMediumLowColor": SystemChromeMediumLowColor = value; break;
+            case "SystemChromeWhiteColor": SystemChromeWhiteColor = value; break;
+            default:
+                Logger.Log($"[Theme Edit] Unknown system color property: {propertyName}", LogLevel.Warning, categoryOverride: "theme");
+                break;
+        }
+    }
+
+    private void ToggleHistoryPanel()
+    {
+        if (_historyPanel == null)
+        {
+            _historyPanel = new Views.ThemeHistoryPanel
+            {
+                DataContext = _historyViewModel
+            };
+        }
+
+        if (_historyPanel.IsVisible)
+        {
+            _historyPanel.Hide();
+        }
+        else
+        {
+            UpdateHistoryPanel();
+            _historyPanel.Show();
+        }
+    }
+
+    private void UpdateHistoryPanel()
+    {
+        if (_historyViewModel != null)
+        {
+            _historyViewModel.UpdateHistory(_undoStack, _redoStack, _undoStack.Count);
+        }
+    }
+
+    public void CloseHistoryPanel()
+    {
+        if (_historyPanel != null && _historyPanel.IsVisible)
+        {
+            _historyPanel.Close();
+        }
+        _historyPanel = null;
+    }
+
+    #region History Persistence
+
+    private void LoadHistory()
+    {
+        try
+        {
+            if (!System.IO.File.Exists(HistoryFilePath))
+                return;
+
+            var json = System.IO.File.ReadAllText(HistoryFilePath);
+            var history = System.Text.Json.JsonSerializer.Deserialize<HistoryData>(json);
+
+            if (history != null)
+            {
+                _undoStack.Clear();
+                _redoStack.Clear();
+
+                foreach (var action in history.UndoStack)
+                    _undoStack.Push(action);
+
+                foreach (var action in history.RedoStack)
+                    _redoStack.Push(action);
+
+                Logger.Log($"[Theme Edit] Loaded history: {_undoStack.Count} undo, {_redoStack.Count} redo", LogLevel.Info, categoryOverride: "theme");
+                
+                OnPropertyChanged(nameof(CanUndo));
+                OnPropertyChanged(nameof(CanRedo));
+                (UndoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                (RedoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Theme Edit] Failed to load history: {ex.Message}", LogLevel.Warning, categoryOverride: "theme");
+        }
+    }
+
+    private void SaveHistory()
+    {
+        try
+        {
+            var history = new HistoryData
+            {
+                UndoStack = _undoStack.Reverse().ToList(),
+                RedoStack = _redoStack.Reverse().ToList()
+            };
+
+            var json = System.Text.Json.JsonSerializer.Serialize(history, new System.Text.Json.JsonSerializerOptions 
+            { 
+                WriteIndented = true 
+            });
+
+            System.IO.File.WriteAllText(HistoryFilePath, json);
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Theme Edit] Failed to save history: {ex.Message}", LogLevel.Warning, categoryOverride: "theme");
+        }
+    }
+
+    public void ClearHistory()
+    {
+        try
+        {
+            _undoStack.Clear();
+            _redoStack.Clear();
+
+            if (System.IO.File.Exists(HistoryFilePath))
+            {
+                System.IO.File.Delete(HistoryFilePath);
+                Logger.Log("[Theme Edit] Cleared history file", LogLevel.Info, categoryOverride: "theme");
+            }
+
+            OnPropertyChanged(nameof(CanUndo));
+            OnPropertyChanged(nameof(CanRedo));
+            (UndoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (RedoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Theme Edit] Failed to clear history: {ex.Message}", LogLevel.Warning, categoryOverride: "theme");
+        }
+    }
+
+    private void TrimHistoryIfNeeded()
+    {
+        // Keep undo stack at reasonable size
+        while (_undoStack.Count > MaxHistorySize)
+        {
+            // Remove oldest items (from bottom of stack)
+            var temp = new System.Collections.Generic.Stack<ColorEditAction>(_undoStack.Reverse().Skip(1));
+            _undoStack.Clear();
+            foreach (var item in temp.Reverse())
+                _undoStack.Push(item);
+        }
+
+        // Keep redo stack at reasonable size
+        while (_redoStack.Count > MaxHistorySize)
+        {
+            var temp = new System.Collections.Generic.Stack<ColorEditAction>(_redoStack.Reverse().Skip(1));
+            _redoStack.Clear();
+            foreach (var item in temp.Reverse())
+                _redoStack.Push(item);
+        }
+    }
+
+    private class HistoryData
+    {
+        public System.Collections.Generic.List<ColorEditAction> UndoStack { get; set; } = new();
+        public System.Collections.Generic.List<ColorEditAction> RedoStack { get; set; } = new();
+    }
+
+    #endregion
 
     #region Color Picker Helpers
 
     private void InitializeEditingState(string colorValue)
     {
+        Logger.Log($"[ColorPicker] InitializeEditingState called with: '{colorValue}'", LogLevel.Debug, categoryOverride: "theme");
+        
         if (string.IsNullOrWhiteSpace(colorValue))
         {
             colorValue = "#FFFFFFFF";
@@ -775,6 +1551,8 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
             _editingBlue = color.B;
             ColorToHsv(color, out _editingHue, out _editingSaturation, out _editingValue);
             _editingHex = ColorToHex(color);
+            
+            Logger.Log($"[ColorPicker] Initialized - A:{color.A} R:{color.R} G:{color.G} B:{color.B} Hex:{_editingHex}", LogLevel.Debug, categoryOverride: "theme");
         }
         finally
         {
@@ -861,7 +1639,15 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(EditingHexIsValid));
     }
 
-    private static string ColorToHex(Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+    private static string ColorToHex(Color color)
+    {
+        // Include alpha channel if not fully opaque
+        if (color.A < 255)
+        {
+            return $"#{color.A:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
+        }
+        return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+    }
 
     private static bool TryParseColor(string hex, out Color color)
     {
@@ -1353,6 +2139,292 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
 
     #endregion
 
+    #region System Accent Color Methods
+
+    private void ClearSystemAccentColor()
+    {
+        SystemAccentColor = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemAccentColor", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemAccentColor2()
+    {
+        SystemAccentColor2 = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemAccentColor2", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemAccentColor3()
+    {
+        SystemAccentColor3 = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemAccentColor3", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemAccentColor4()
+    {
+        SystemAccentColor4 = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemAccentColor4", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemAccentColorLight()
+    {
+        SystemAccentColorLight = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemAccentColorLight", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemListLowColor()
+    {
+        SystemListLowColor = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemListLowColor", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemListMediumColor()
+    {
+        SystemListMediumColor = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemListMediumColor", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemAltHighColor()
+    {
+        SystemAltHighColor = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemAltHighColor", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemAltMediumHighColor()
+    {
+        SystemAltMediumHighColor = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemAltMediumHighColor", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemAltMediumColor()
+    {
+        SystemAltMediumColor = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemAltMediumColor", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemAltMediumLowColor()
+    {
+        SystemAltMediumLowColor = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemAltMediumLowColor", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemAltLowColor()
+    {
+        SystemAltLowColor = string.Empty;
+        Logger.Log($"[Theme Edit] Cleared SystemAltLowColor", LogLevel.Info, categoryOverride: "theme");
+    }
+
+    private void ClearSystemBaseHighColor() { SystemBaseHighColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemBaseHighColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemBaseMediumHighColor() { SystemBaseMediumHighColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemBaseMediumHighColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemBaseMediumColor() { SystemBaseMediumColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemBaseMediumColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemBaseMediumLowColor() { SystemBaseMediumLowColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemBaseMediumLowColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemBaseLowColor() { SystemBaseLowColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemBaseLowColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeAltLowColor() { SystemChromeAltLowColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeAltLowColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeBlackHighColor() { SystemChromeBlackHighColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeBlackHighColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeBlackLowColor() { SystemChromeBlackLowColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeBlackLowColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeBlackMediumColor() { SystemChromeBlackMediumColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeBlackMediumColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeBlackMediumLowColor() { SystemChromeBlackMediumLowColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeBlackMediumLowColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeDisabledHighColor() { SystemChromeDisabledHighColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeDisabledHighColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeDisabledLowColor() { SystemChromeDisabledLowColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeDisabledLowColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeGrayColor() { SystemChromeGrayColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeGrayColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeHighColor() { SystemChromeHighColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeHighColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeLowColor() { SystemChromeLowColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeLowColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeMediumColor() { SystemChromeMediumColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeMediumColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeMediumLowColor() { SystemChromeMediumLowColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeMediumLowColor", LogLevel.Info, categoryOverride: "theme"); }
+    private void ClearSystemChromeWhiteColor() { SystemChromeWhiteColor = string.Empty; Logger.Log($"[Theme Edit] Cleared SystemChromeWhiteColor", LogLevel.Info, categoryOverride: "theme"); }
+
+    public async void OpenSystemAccentColorPicker()
+    {
+        await OpenGenericColorPicker("SystemAccentColor", SystemAccentColor, "#0078D4", c => SystemAccentColor = c);
+    }
+
+    public async void OpenSystemAccentColor2Picker()
+    {
+        await OpenGenericColorPicker("SystemAccentColor2", SystemAccentColor2, "#005A9E", c => SystemAccentColor2 = c);
+    }
+
+    public async void OpenSystemAccentColor3Picker()
+    {
+        await OpenGenericColorPicker("SystemAccentColor3", SystemAccentColor3, "#106EBE", c => SystemAccentColor3 = c);
+    }
+
+    public async void OpenSystemAccentColor4Picker()
+    {
+        await OpenGenericColorPicker("SystemAccentColor4", SystemAccentColor4, "#0086F0", c => SystemAccentColor4 = c);
+    }
+
+    public async void OpenSystemAccentColorLightPicker()
+    {
+        await OpenGenericColorPicker("SystemAccentColorLight", SystemAccentColorLight, "#60CDFF", c => SystemAccentColorLight = c);
+    }
+
+    public async void OpenSystemListLowColorPicker()
+    {
+        await OpenGenericColorPicker("SystemListLowColor", SystemListLowColor, "#33FFFFFF", c => SystemListLowColor = c);
+    }
+
+    public async void OpenSystemListMediumColorPicker()
+    {
+        await OpenGenericColorPicker("SystemListMediumColor", SystemListMediumColor, "#66FFFFFF", c => SystemListMediumColor = c);
+    }
+
+    public async void OpenSystemAltHighColorPicker()
+    {
+        try
+        {
+            var dialog = new Zer0Talk.Controls.ColorPicker.ColorPickerDialog();
+            var currentColor = !string.IsNullOrWhiteSpace(SystemAltHighColor) ? SystemAltHighColor : "#FFFFFFFF";
+            InitializeEditingState(currentColor);
+            
+            dialog.SvPicker.Hue = EditingHue;
+            dialog.SvPicker.Saturation = EditingSaturation;
+            dialog.SvPicker.Value = EditingValue;
+            dialog.HueSlider.Hue = EditingHue;
+            dialog.BrightnessSlider.Brightness = EditingValue;
+            dialog.RedSlider.Value = (byte)EditingRed;
+            dialog.GreenSlider.Value = (byte)EditingGreen;
+            dialog.BlueSlider.Value = (byte)EditingBlue;
+            dialog.HexInput.Text = EditingHex;
+
+            Window? owner = null;
+            if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                owner = desktop.MainWindow;
+            }
+
+            var result = await dialog.ShowDialog<bool?>(owner!);
+            if (result == true)
+            {
+                var (h, s, v) = dialog.GetHsv();
+                EditingHue = h;
+                EditingSaturation = s;
+                EditingValue = v;
+                var newColor = ColorFromHsv(EditingHue, EditingSaturation, EditingValue, (byte)EditingAlpha);
+                SystemAltHighColor = ColorToHex(newColor);
+            }
+
+            Logger.Log($"[Theme Edit] SystemAltHighColor picker closed (applied: {result})", LogLevel.Info, categoryOverride: "theme");
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Theme Edit] Failed to open SystemAltHighColor picker: {ex.Message}", LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    public async void OpenSystemAltMediumHighColorPicker()
+    {
+        await OpenGenericColorPicker("SystemAltMediumHighColor", SystemAltMediumHighColor, "#CCFFFFFF", c => SystemAltMediumHighColor = c);
+    }
+
+    public async void OpenSystemAltMediumColorPicker()
+    {
+        await OpenGenericColorPicker("SystemAltMediumColor", SystemAltMediumColor, "#99FFFFFF", c => SystemAltMediumColor = c);
+    }
+
+    public async void OpenSystemAltMediumLowColorPicker()
+    {
+        await OpenGenericColorPicker("SystemAltMediumLowColor", SystemAltMediumLowColor, "#66FFFFFF", c => SystemAltMediumLowColor = c);
+    }
+
+    public async void OpenSystemAltLowColorPicker()
+    {
+        await OpenGenericColorPicker("SystemAltLowColor", SystemAltLowColor, "#33FFFFFF", c => SystemAltLowColor = c);
+    }
+
+    // SystemBase color pickers
+    public async void OpenSystemBaseHighColorPicker() { await OpenGenericColorPicker("SystemBaseHighColor", SystemBaseHighColor, "#FFFFFF", c => SystemBaseHighColor = c); }
+    public async void OpenSystemBaseMediumHighColorPicker() { await OpenGenericColorPicker("SystemBaseMediumHighColor", SystemBaseMediumHighColor, "#CCCCCC", c => SystemBaseMediumHighColor = c); }
+    public async void OpenSystemBaseMediumColorPicker() { await OpenGenericColorPicker("SystemBaseMediumColor", SystemBaseMediumColor, "#999999", c => SystemBaseMediumColor = c); }
+    public async void OpenSystemBaseMediumLowColorPicker() { await OpenGenericColorPicker("SystemBaseMediumLowColor", SystemBaseMediumLowColor, "#666666", c => SystemBaseMediumLowColor = c); }
+    public async void OpenSystemBaseLowColorPicker() { await OpenGenericColorPicker("SystemBaseLowColor", SystemBaseLowColor, "#333333", c => SystemBaseLowColor = c); }
+
+    // SystemChrome color pickers
+    public async void OpenSystemChromeAltLowColorPicker() { await OpenGenericColorPicker("SystemChromeAltLowColor", SystemChromeAltLowColor, "#171717", c => SystemChromeAltLowColor = c); }
+    public async void OpenSystemChromeBlackHighColorPicker() { await OpenGenericColorPicker("SystemChromeBlackHighColor", SystemChromeBlackHighColor, "#000000", c => SystemChromeBlackHighColor = c); }
+    public async void OpenSystemChromeBlackLowColorPicker() { await OpenGenericColorPicker("SystemChromeBlackLowColor", SystemChromeBlackLowColor, "#0D0D0D", c => SystemChromeBlackLowColor = c); }
+    public async void OpenSystemChromeBlackMediumColorPicker() { await OpenGenericColorPicker("SystemChromeBlackMediumColor", SystemChromeBlackMediumColor, "#1A1A1A", c => SystemChromeBlackMediumColor = c); }
+    public async void OpenSystemChromeBlackMediumLowColorPicker() { await OpenGenericColorPicker("SystemChromeBlackMediumLowColor", SystemChromeBlackMediumLowColor, "#262626", c => SystemChromeBlackMediumLowColor = c); }
+    public async void OpenSystemChromeDisabledHighColorPicker() { await OpenGenericColorPicker("SystemChromeDisabledHighColor", SystemChromeDisabledHighColor, "#666666", c => SystemChromeDisabledHighColor = c); }
+    public async void OpenSystemChromeDisabledLowColorPicker() { await OpenGenericColorPicker("SystemChromeDisabledLowColor", SystemChromeDisabledLowColor, "#3D3D3D", c => SystemChromeDisabledLowColor = c); }
+    public async void OpenSystemChromeGrayColorPicker() { await OpenGenericColorPicker("SystemChromeGrayColor", SystemChromeGrayColor, "#808080", c => SystemChromeGrayColor = c); }
+    public async void OpenSystemChromeHighColorPicker() { await OpenGenericColorPicker("SystemChromeHighColor", SystemChromeHighColor, "#767676", c => SystemChromeHighColor = c); }
+    public async void OpenSystemChromeLowColorPicker() { await OpenGenericColorPicker("SystemChromeLowColor", SystemChromeLowColor, "#171717", c => SystemChromeLowColor = c); }
+    public async void OpenSystemChromeMediumColorPicker() { await OpenGenericColorPicker("SystemChromeMediumColor", SystemChromeMediumColor, "#1F1F1F", c => SystemChromeMediumColor = c); }
+    public async void OpenSystemChromeMediumLowColorPicker() { await OpenGenericColorPicker("SystemChromeMediumLowColor", SystemChromeMediumLowColor, "#2B2B2B", c => SystemChromeMediumLowColor = c); }
+    public async void OpenSystemChromeWhiteColorPicker() { await OpenGenericColorPicker("SystemChromeWhiteColor", SystemChromeWhiteColor, "#FFFFFF", c => SystemChromeWhiteColor = c); }
+
+    private async Task OpenGenericColorPicker(string colorName, string? currentValue, string defaultValue, Action<string> setter)
+    {
+        try
+        {
+            var dialog = new Zer0Talk.Controls.ColorPicker.ColorPickerDialog();
+            var currentColor = !string.IsNullOrWhiteSpace(currentValue) ? currentValue : defaultValue;
+            var oldValue = currentColor;
+            InitializeEditingState(currentColor);
+            
+            dialog.SvPicker.Hue = EditingHue;
+            dialog.SvPicker.Saturation = EditingSaturation;
+            dialog.SvPicker.Value = EditingValue;
+            dialog.HueSlider.Hue = EditingHue;
+            dialog.BrightnessSlider.Brightness = EditingValue;
+            dialog.RedSlider.Value = (byte)EditingRed;
+            dialog.GreenSlider.Value = (byte)EditingGreen;
+            dialog.BlueSlider.Value = (byte)EditingBlue;
+            dialog.AlphaSlider.Value = (byte)EditingAlpha;
+            dialog.HexInput.Text = EditingHex;
+
+            Window? owner = null;
+            if (App.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                owner = desktop.MainWindow;
+            }
+
+            var result = await dialog.ShowDialog<bool?>(owner!);
+            if (result == true)
+            {
+                var (h, s, v) = dialog.GetHsv();
+                var alpha = dialog.GetAlpha();
+                EditingHue = h;
+                EditingSaturation = s;
+                EditingValue = v;
+                EditingAlpha = alpha;
+                var newColor = ColorFromHsv(EditingHue, EditingSaturation, EditingValue, alpha);
+                var newValue = ColorToHex(newColor);
+                setter(newValue);
+                
+                // Record the change for undo/redo
+                if (oldValue != newValue)
+                {
+                    _undoStack.Push(new ColorEditAction
+                    {
+                        ResourceKey = colorName,
+                        OldValue = oldValue,
+                        NewValue = newValue
+                    });
+                    _redoStack.Clear();
+                    
+                    TrimHistoryIfNeeded();
+                    SaveHistory();
+                    UpdateHistoryPanel();
+                    
+                    Logger.Log($"[Theme Edit] Saved {colorName} edit: {oldValue} → {newValue}", LogLevel.Info, categoryOverride: "theme");
+                    
+                    OnPropertyChanged(nameof(CanUndo));
+                    OnPropertyChanged(nameof(CanRedo));
+                    (UndoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                    (RedoColorEditCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                }
+            }
+
+            Logger.Log($"[Theme Edit] {colorName} picker closed (applied: {result})", LogLevel.Info, categoryOverride: "theme");
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Theme Edit] Failed to open {colorName} picker: {ex.Message}", LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    #endregion
+
     #region Metadata Editing Methods
 
     private void StartEditingMetadata()
@@ -1414,6 +2486,39 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(CurrentThemeResourceDictionaries));
             CurrentThemeDefaultFontFamily = blank.DefaultFontFamily;
             CurrentThemeDefaultUiScale = blank.DefaultUiScale <= 0 ? 1.0 : blank.DefaultUiScale;
+            
+            // Load system accent colors
+            SystemAccentColor = blank.SystemAccentColor;
+            SystemAccentColor2 = blank.SystemAccentColor2;
+            SystemAccentColor3 = blank.SystemAccentColor3;
+            SystemAccentColor4 = blank.SystemAccentColor4;
+            SystemAccentColorLight = blank.SystemAccentColorLight;
+            SystemListLowColor = blank.SystemListLowColor;
+            SystemListMediumColor = blank.SystemListMediumColor;
+            SystemAltHighColor = blank.SystemAltHighColor;
+            SystemAltMediumHighColor = blank.SystemAltMediumHighColor;
+            SystemAltMediumColor = blank.SystemAltMediumColor;
+            SystemAltMediumLowColor = blank.SystemAltMediumLowColor;
+            SystemAltLowColor = blank.SystemAltLowColor;
+            SystemBaseHighColor = blank.SystemBaseHighColor;
+            SystemBaseMediumHighColor = blank.SystemBaseMediumHighColor;
+            SystemBaseMediumColor = blank.SystemBaseMediumColor;
+            SystemBaseMediumLowColor = blank.SystemBaseMediumLowColor;
+            SystemBaseLowColor = blank.SystemBaseLowColor;
+            SystemChromeAltLowColor = blank.SystemChromeAltLowColor;
+            SystemChromeBlackHighColor = blank.SystemChromeBlackHighColor;
+            SystemChromeBlackLowColor = blank.SystemChromeBlackLowColor;
+            SystemChromeBlackMediumColor = blank.SystemChromeBlackMediumColor;
+            SystemChromeBlackMediumLowColor = blank.SystemChromeBlackMediumLowColor;
+            SystemChromeDisabledHighColor = blank.SystemChromeDisabledHighColor;
+            SystemChromeDisabledLowColor = blank.SystemChromeDisabledLowColor;
+            SystemChromeGrayColor = blank.SystemChromeGrayColor;
+            SystemChromeHighColor = blank.SystemChromeHighColor;
+            SystemChromeLowColor = blank.SystemChromeLowColor;
+            SystemChromeMediumColor = blank.SystemChromeMediumColor;
+            SystemChromeMediumLowColor = blank.SystemChromeMediumLowColor;
+            SystemChromeWhiteColor = blank.SystemChromeWhiteColor;
+            
             _currentThemeTags = blank.Tags != null
                 ? new System.Collections.Generic.List<string>(blank.Tags)
                 : new System.Collections.Generic.List<string>();
@@ -1530,6 +2635,38 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(CurrentThemeResourceDictionaries));
             CurrentThemeDefaultFontFamily = themeDef.DefaultFontFamily;
             CurrentThemeDefaultUiScale = themeDef.DefaultUiScale <= 0 ? 1.0 : themeDef.DefaultUiScale;
+            
+            // Load system accent colors
+            SystemAccentColor = themeDef.SystemAccentColor;
+            SystemAccentColor2 = themeDef.SystemAccentColor2;
+            SystemAccentColor3 = themeDef.SystemAccentColor3;
+            SystemAccentColor4 = themeDef.SystemAccentColor4;
+            SystemAccentColorLight = themeDef.SystemAccentColorLight;
+            SystemListLowColor = themeDef.SystemListLowColor;
+            SystemListMediumColor = themeDef.SystemListMediumColor;
+            SystemAltHighColor = themeDef.SystemAltHighColor;
+            SystemAltMediumHighColor = themeDef.SystemAltMediumHighColor;
+            SystemAltMediumColor = themeDef.SystemAltMediumColor;
+            SystemAltMediumLowColor = themeDef.SystemAltMediumLowColor;
+            SystemAltLowColor = themeDef.SystemAltLowColor;
+            SystemBaseHighColor = themeDef.SystemBaseHighColor;
+            SystemBaseMediumHighColor = themeDef.SystemBaseMediumHighColor;
+            SystemBaseMediumColor = themeDef.SystemBaseMediumColor;
+            SystemBaseMediumLowColor = themeDef.SystemBaseMediumLowColor;
+            SystemBaseLowColor = themeDef.SystemBaseLowColor;
+            SystemChromeAltLowColor = themeDef.SystemChromeAltLowColor;
+            SystemChromeBlackHighColor = themeDef.SystemChromeBlackHighColor;
+            SystemChromeBlackLowColor = themeDef.SystemChromeBlackLowColor;
+            SystemChromeBlackMediumColor = themeDef.SystemChromeBlackMediumColor;
+            SystemChromeBlackMediumLowColor = themeDef.SystemChromeBlackMediumLowColor;
+            SystemChromeDisabledHighColor = themeDef.SystemChromeDisabledHighColor;
+            SystemChromeDisabledLowColor = themeDef.SystemChromeDisabledLowColor;
+            SystemChromeGrayColor = themeDef.SystemChromeGrayColor;
+            SystemChromeHighColor = themeDef.SystemChromeHighColor;
+            SystemChromeLowColor = themeDef.SystemChromeLowColor;
+            SystemChromeMediumColor = themeDef.SystemChromeMediumColor;
+            SystemChromeMediumLowColor = themeDef.SystemChromeMediumLowColor;
+            SystemChromeWhiteColor = themeDef.SystemChromeWhiteColor;
             _currentThemeTags = themeDef.Tags != null
                 ? new System.Collections.Generic.List<string>(themeDef.Tags)
                 : new System.Collections.Generic.List<string>();
@@ -1633,6 +2770,37 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
             Tags = new System.Collections.Generic.List<string>(_currentThemeTags),
             IsLegacyTheme = false,
             LegacyThemeOption = null,
+            // System accent color overrides
+            SystemAccentColor = SystemAccentColor,
+            SystemAccentColor2 = SystemAccentColor2,
+            SystemAccentColor3 = SystemAccentColor3,
+            SystemAccentColor4 = SystemAccentColor4,
+            SystemAccentColorLight = SystemAccentColorLight,
+            SystemListLowColor = SystemListLowColor,
+            SystemListMediumColor = SystemListMediumColor,
+            SystemAltHighColor = SystemAltHighColor,
+            SystemAltMediumHighColor = SystemAltMediumHighColor,
+            SystemAltMediumColor = SystemAltMediumColor,
+            SystemAltMediumLowColor = SystemAltMediumLowColor,
+            SystemAltLowColor = SystemAltLowColor,
+            SystemBaseHighColor = SystemBaseHighColor,
+            SystemBaseMediumHighColor = SystemBaseMediumHighColor,
+            SystemBaseMediumColor = SystemBaseMediumColor,
+            SystemBaseMediumLowColor = SystemBaseMediumLowColor,
+            SystemBaseLowColor = SystemBaseLowColor,
+            SystemChromeAltLowColor = SystemChromeAltLowColor,
+            SystemChromeBlackHighColor = SystemChromeBlackHighColor,
+            SystemChromeBlackLowColor = SystemChromeBlackLowColor,
+            SystemChromeBlackMediumColor = SystemChromeBlackMediumColor,
+            SystemChromeBlackMediumLowColor = SystemChromeBlackMediumLowColor,
+            SystemChromeDisabledHighColor = SystemChromeDisabledHighColor,
+            SystemChromeDisabledLowColor = SystemChromeDisabledLowColor,
+            SystemChromeGrayColor = SystemChromeGrayColor,
+            SystemChromeHighColor = SystemChromeHighColor,
+            SystemChromeLowColor = SystemChromeLowColor,
+            SystemChromeMediumColor = SystemChromeMediumColor,
+            SystemChromeMediumLowColor = SystemChromeMediumLowColor,
+            SystemChromeWhiteColor = SystemChromeWhiteColor,
             ColorOverrides = new System.Collections.Generic.Dictionary<string, string>(),
             Gradients = new System.Collections.Generic.Dictionary<string, GradientDefinition>()
         };
@@ -1640,6 +2808,18 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         foreach (var colorEntry in ThemeColors)
         {
             theme.ColorOverrides[colorEntry.ResourceKey] = colorEntry.ColorValue;
+            
+            // Automatically sync FluentTheme's ListBoxItem hover brush with App.ItemHover
+            if (colorEntry.ResourceKey == "App.ItemHover")
+            {
+                theme.ColorOverrides["SystemControlHighlightListLowBrush"] = colorEntry.ColorValue;
+            }
+            
+            // Automatically sync FluentTheme's ListBoxItem selected brush with App.ItemSelected
+            if (colorEntry.ResourceKey == "App.ItemSelected")
+            {
+                theme.ColorOverrides["SystemControlHighlightListAccentLowBrush"] = colorEntry.ColorValue;
+            }
         }
 
         foreach (var gradientEntry in ThemeGradients)
@@ -1785,36 +2965,44 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
     {
         try
         {
-            Logger.Log("[Theme Search] Starting drive search for themes...", LogLevel.Info, categoryOverride: "theme");
+            Logger.Log("[Theme Search] Opening search dialog...", LogLevel.Info, categoryOverride: "theme");
 
-            var cts = new System.Threading.CancellationTokenSource();
-            var foundThemes = new System.Collections.Generic.List<string>();
-
-            // Show progress in a simple way (could be enhanced with a dialog)
-            var progressHandler = new Action<string>(msg => 
+            var dialog = new Views.ThemeSearchDialog
             {
-                Logger.Log($"[Theme Search] {msg}", LogLevel.Info, categoryOverride: "theme");
-            });
+                DataContext = new ThemeSearchViewModel()
+            };
 
-            // Search drives
-            foundThemes = await AppServices.ThemeEngine.SearchDrivesForThemesAsync(progressHandler, cts.Token);
+            var viewModel = dialog.DataContext as ThemeSearchViewModel;
 
-            if (foundThemes.Count == 0)
+            // Start the search in the background
+            if (viewModel != null)
             {
-                Logger.Log("[Theme Search] No theme files found", LogLevel.Info, categoryOverride: "theme");
-                return;
+                _ = Task.Run(async () =>
+                {
+                    await viewModel.StartSearchAsync();
+                });
             }
 
-            Logger.Log($"[Theme Search] Found {foundThemes.Count} theme files. Loading...", LogLevel.Info, categoryOverride: "theme");
-
-            // Load found themes
-            var loaded = AppServices.ThemeEngine.LoadThemesFromPaths(foundThemes);
+            // Show dialog modally
+            var mainWindow = Avalonia.Application.Current?.ApplicationLifetime is 
+                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow 
+                : null;
             
-            Logger.Log($"[Theme Search] Successfully loaded {loaded} themes from search results", LogLevel.Info, categoryOverride: "theme");
+            if (mainWindow != null)
+            {
+                await dialog.ShowDialog(mainWindow);
+            }
+            else
+            {
+                dialog.Show();
+            }
+
+            Logger.Log("[Theme Search] Search dialog closed", LogLevel.Info, categoryOverride: "theme");
         }
         catch (Exception ex)
         {
-            Logger.Log($"[Theme Search] Error during drive search: {ex.Message}", LogLevel.Error, categoryOverride: "theme");
+            Logger.Log($"[Theme Search] Error opening search dialog: {ex.Message}", LogLevel.Error, categoryOverride: "theme");
         }
     }
 
@@ -1984,7 +3172,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
 
     #region Helper Classes
 
-    private class ColorEditAction
+    public class ColorEditAction
     {
         public string ResourceKey { get; set; } = string.Empty;
         public string OldValue { get; set; } = string.Empty;

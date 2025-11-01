@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:cp="using:Zer0Talk.Controls.ColorPicker"
         x:Class="Zer0Talk.Controls.ColorPicker.ColorPickerDialog"
-        Width="680" Height="380"
+        Width="680" Height="430"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         Title="Color Picker">
@@ -53,6 +53,9 @@
           <cp:ColorChannelSlider x:Name="RedSlider" Label="Red"/>
           <cp:ColorChannelSlider x:Name="GreenSlider" Label="Green"/>
           <cp:ColorChannelSlider x:Name="BlueSlider" Label="Blue"/>
+          
+          <!-- Alpha Slider -->
+          <cp:ColorChannelSlider x:Name="AlphaSlider" Label="Alpha"/>
 
         </StackPanel>
       </Grid>

@@ -17,6 +17,7 @@ public partial class ThemeEditorWindow : Window
         DataContext = new ThemeEditorViewModel();
         this.Opened += (_, _) => RestoreWindowLayout();
         this.Closing += (_, _) => SaveWindowLayout();
+        this.Closing += (_, _) => ClearHistoryOnClose();
     }
 
     public ThemeEditorWindow(ThemeEditorViewModel viewModel)
@@ -28,6 +29,7 @@ public partial class ThemeEditorWindow : Window
         DataContext = viewModel;
         this.Opened += (_, _) => RestoreWindowLayout();
         this.Closing += (_, _) => SaveWindowLayout();
+        this.Closing += (_, _) => ClearHistoryOnClose();
     }
 
     private void RestoreWindowLayout()
@@ -61,6 +63,19 @@ public partial class ThemeEditorWindow : Window
         {
             var layout = new LayoutCache.WindowLayout(Width, Height, Position.X, Position.Y, (int)WindowState);
             LayoutCache.Save("ThemeEditorWindow", layout);
+        }
+        catch { }
+    }
+
+    private void ClearHistoryOnClose()
+    {
+        try
+        {
+            if (DataContext is ThemeEditorViewModel vm)
+            {
+                vm.CloseHistoryPanel();
+                vm.ClearHistory();
+            }
         }
         catch { }
     }
@@ -114,4 +129,193 @@ public partial class ThemeEditorWindow : Window
             vm.OpenGradientEndColorPicker();
         }
     }
+
+    private void SystemAccentColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemAccentColorPicker();
+        }
+    }
+
+    private void SystemAccentColor2_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemAccentColor2Picker();
+        }
+    }
+
+    private void SystemAccentColor3_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemAccentColor3Picker();
+        }
+    }
+
+    private void SystemAccentColor4_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemAccentColor4Picker();
+        }
+    }
+
+    private void SystemAccentColorLight_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemAccentColorLightPicker();
+        }
+    }
+
+    private void SystemListLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemListLowColorPicker();
+        }
+    }
+
+    private void SystemListMediumColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemListMediumColorPicker();
+        }
+    }
+
+    private void SystemAltHighColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemAltHighColorPicker();
+        }
+    }
+
+    private void SystemAltMediumHighColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemAltMediumHighColorPicker();
+        }
+    }
+
+    private void SystemAltMediumColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemAltMediumColorPicker();
+        }
+    }
+
+    private void SystemAltMediumLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemAltMediumLowColorPicker();
+        }
+    }
+
+    private void SystemAltLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm)
+        {
+            vm.OpenSystemAltLowColorPicker();
+        }
+    }
+
+    // SystemBase color event handlers
+    private void SystemBaseHighColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemBaseHighColorPicker();
+    }
+
+    private void SystemBaseMediumHighColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemBaseMediumHighColorPicker();
+    }
+
+    private void SystemBaseMediumColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemBaseMediumColorPicker();
+    }
+
+    private void SystemBaseMediumLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemBaseMediumLowColorPicker();
+    }
+
+    private void SystemBaseLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemBaseLowColorPicker();
+    }
+
+    // SystemChrome color event handlers
+    private void SystemChromeAltLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeAltLowColorPicker();
+    }
+
+    private void SystemChromeBlackHighColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeBlackHighColorPicker();
+    }
+
+    private void SystemChromeBlackLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeBlackLowColorPicker();
+    }
+
+    private void SystemChromeBlackMediumColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeBlackMediumColorPicker();
+    }
+
+    private void SystemChromeBlackMediumLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeBlackMediumLowColorPicker();
+    }
+
+    private void SystemChromeDisabledHighColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeDisabledHighColorPicker();
+    }
+
+    private void SystemChromeDisabledLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeDisabledLowColorPicker();
+    }
+
+    private void SystemChromeGrayColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeGrayColorPicker();
+    }
+
+    private void SystemChromeHighColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeHighColorPicker();
+    }
+
+    private void SystemChromeLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeLowColorPicker();
+    }
+
+    private void SystemChromeMediumColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeMediumColorPicker();
+    }
+
+    private void SystemChromeMediumLowColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeMediumLowColorPicker();
+    }
+
+    private void SystemChromeWhiteColor_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is ThemeEditorViewModel vm) vm.OpenSystemChromeWhiteColorPicker();
+    }
 }
+

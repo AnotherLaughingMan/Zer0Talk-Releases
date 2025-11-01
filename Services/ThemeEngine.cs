@@ -28,6 +28,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Styling;
+using Avalonia.Themes.Fluent;
 using Zer0Talk.Models;
 
 namespace Zer0Talk.Services
@@ -111,6 +113,8 @@ namespace Zer0Talk.Services
             {
                 case EnginePhase.LegacyWrapper:
                     // Phase 1: Direct passthrough to legacy service
+                    // Clear any system color overrides when switching to legacy themes
+                    ClearSystemColorOverrides();
                     _legacyService.SetTheme(legacyTheme);
                     break;
 
@@ -120,6 +124,8 @@ namespace Zer0Talk.Services
                     {
                         LogEngine($"Hybrid mode failed, falling back to legacy for {legacyTheme}");
                         _fallbackActive = true;
+                        // Clear system color overrides when falling back to pure legacy
+                        ClearSystemColorOverrides();
                         _legacyService.SetTheme(legacyTheme);
                     }
                     break;
@@ -127,6 +133,7 @@ namespace Zer0Talk.Services
                 case EnginePhase.FullEngine:
                     // Phase 3: Use new system exclusively (not implemented)
                     LogEngine("FullEngine phase not yet implemented");
+                    ClearSystemColorOverrides();
                     _legacyService.SetTheme(legacyTheme);
                     break;
             }
@@ -183,6 +190,9 @@ namespace Zer0Talk.Services
                     LogEngine("Application.Current is null");
                     return false;
                 }
+
+                // Apply system accent colors first
+                ApplySystemAccentColors(app, themeDef);
 
                 // Apply gradients (most common use case for preview)
                 ApplyGradients(app, themeDef);
@@ -461,16 +471,19 @@ namespace Zer0Talk.Services
                     #endif
                 }
 
-                // 3. Apply color overrides
+                // 3. Apply system accent color overrides (must be before regular color overrides)
+                ApplySystemAccentColors(app, themeDef);
+
+                // 4. Apply color overrides
                 ApplyColorOverrides(app, themeDef);
 
-                // 4. Apply gradient definitions
+                // 5. Apply gradient definitions
                 ApplyGradients(app, themeDef);
 
-                // 5. Apply font and scale (use current settings from legacy service)
+                // 6. Apply font and scale (use current settings from legacy service)
                 ApplyFontAndScale(app);
 
-                // 6. Refresh windows
+                // 7. Refresh windows
                 RefreshWindows(app);
 
                 // Diagnostic: Log the current resource for the title bar after applying gradients and refreshing
@@ -529,17 +542,33 @@ namespace Zer0Talk.Services
                         var color = Avalonia.Media.Color.Parse(kvp.Value);
                         var brush = new Avalonia.Media.SolidColorBrush(color);
 
+                        // Remove first to ensure clean override
                         if (app.Resources.ContainsKey(kvp.Key))
                         {
-                            app.Resources[kvp.Key] = brush;
+                            app.Resources.Remove(kvp.Key);
                         }
-                        else
+                        
+                        // Add the new brush
+                        app.Resources.Add(kvp.Key, brush);
+
+                        // Log the actual resource type and color to help debugging live UI updates
+                        try
                         {
-                            app.Resources.Add(kvp.Key, brush);
+                            var res = app.Resources[kvp.Key];
+                            var typeName = res?.GetType().FullName ?? "(null)";
+                            string details = typeName;
+                            if (res is Avalonia.Media.SolidColorBrush scb)
+                            {
+                                details += $" Color={scb.Color.ToString()}";
+                            }
+                            LogEngine($"Applied color override: {kvp.Key} = {kvp.Value} (resource: {details})");
+                        }
+                        catch (Exception logEx)
+                        {
+                            LogEngine($"Applied color override: {kvp.Key} = {kvp.Value} (resource logging failed: {logEx.Message})");
                         }
 
                         appliedKeys.Add(kvp.Key);
-                        LogEngine($"Applied color override: {kvp.Key} = {kvp.Value}");
                     }
                     catch (Exception ex)
                     {
@@ -552,6 +581,149 @@ namespace Zer0Talk.Services
             catch (Exception ex)
             {
                 LogEngine($"ApplyColorOverrides failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Apply system accent color overrides to prevent OS colors from showing through.
+        /// These override SystemAccentColor, SystemAccentColor2, SystemAccentColor3, SystemAccentColor4.
+        /// </summary>
+        private void ApplySystemAccentColors(Application app, ThemeDefinition themeDef)
+        {
+            try
+            {
+                var systemColors = new[]
+                {
+                    ("SystemAccentColor", themeDef.SystemAccentColor),
+                    ("SystemAccentColor2", themeDef.SystemAccentColor2),
+                    ("SystemAccentColor3", themeDef.SystemAccentColor3),
+                    ("SystemAccentColor4", themeDef.SystemAccentColor4),
+                    ("SystemAccentColorLight", themeDef.SystemAccentColorLight),
+                    ("SystemListLowColor", themeDef.SystemListLowColor),
+                    ("SystemListMediumColor", themeDef.SystemListMediumColor),
+                    ("SystemAltHighColor", themeDef.SystemAltHighColor),
+                    ("SystemAltMediumHighColor", themeDef.SystemAltMediumHighColor),
+                    ("SystemAltMediumColor", themeDef.SystemAltMediumColor),
+                    ("SystemAltMediumLowColor", themeDef.SystemAltMediumLowColor),
+                    ("SystemAltLowColor", themeDef.SystemAltLowColor),
+                    ("SystemBaseHighColor", themeDef.SystemBaseHighColor),
+                    ("SystemBaseMediumHighColor", themeDef.SystemBaseMediumHighColor),
+                    ("SystemBaseMediumColor", themeDef.SystemBaseMediumColor),
+                    ("SystemBaseMediumLowColor", themeDef.SystemBaseMediumLowColor),
+                    ("SystemBaseLowColor", themeDef.SystemBaseLowColor),
+                    ("SystemChromeAltLowColor", themeDef.SystemChromeAltLowColor),
+                    ("SystemChromeBlackHighColor", themeDef.SystemChromeBlackHighColor),
+                    ("SystemChromeBlackLowColor", themeDef.SystemChromeBlackLowColor),
+                    ("SystemChromeBlackMediumColor", themeDef.SystemChromeBlackMediumColor),
+                    ("SystemChromeBlackMediumLowColor", themeDef.SystemChromeBlackMediumLowColor),
+                    ("SystemChromeDisabledHighColor", themeDef.SystemChromeDisabledHighColor),
+                    ("SystemChromeDisabledLowColor", themeDef.SystemChromeDisabledLowColor),
+                    ("SystemChromeGrayColor", themeDef.SystemChromeGrayColor),
+                    ("SystemChromeHighColor", themeDef.SystemChromeHighColor),
+                    ("SystemChromeLowColor", themeDef.SystemChromeLowColor),
+                    ("SystemChromeMediumColor", themeDef.SystemChromeMediumColor),
+                    ("SystemChromeMediumLowColor", themeDef.SystemChromeMediumLowColor),
+                    ("SystemChromeWhiteColor", themeDef.SystemChromeWhiteColor)
+                };
+
+                var appliedCount = 0;
+                var removedCount = 0;
+                
+                foreach (var (key, value) in systemColors)
+                {
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        // Theme defines this color - apply it
+                        try
+                        {
+                            var color = Avalonia.Media.Color.Parse(value);
+                            
+                            // Remove first to force override
+                            if (app.Resources.ContainsKey(key))
+                            {
+                                app.Resources.Remove(key);
+                            }
+                            app.Resources.Add(key, color);
+
+                            appliedCount++;
+                            LogEngine($"Applied system accent override: {key} = {value}");
+                        }
+                        catch (Exception ex)
+                        {
+                            LogEngine($"Failed to apply system accent {key}: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        // Theme doesn't define this color - remove override to restore OS default
+                        if (app.Resources.ContainsKey(key))
+                        {
+                            app.Resources.Remove(key);
+                            removedCount++;
+                            LogEngine($"Removed system accent override: {key} (restoring OS default)");
+                        }
+                    }
+                }
+
+                if (appliedCount > 0 || removedCount > 0)
+                {
+                    LogEngine($"Applied {appliedCount} system color overrides, removed {removedCount} overrides");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogEngine($"ApplySystemAccentColors failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Clear all system color overrides to restore OS defaults.
+        /// Called when switching to legacy themes that don't define system colors.
+        /// </summary>
+        private void ClearSystemColorOverrides()
+        {
+            try
+            {
+                var app = Application.Current;
+                if (app == null)
+                {
+                    LogEngine("ClearSystemColorOverrides: Application.Current is null");
+                    return;
+                }
+
+                var systemColorKeys = new[]
+                {
+                    "SystemAccentColor", "SystemAccentColor2", "SystemAccentColor3", "SystemAccentColor4",
+                    "SystemAccentColorLight", "SystemListLowColor", "SystemListMediumColor",
+                    "SystemAltHighColor", "SystemAltMediumHighColor", "SystemAltMediumColor",
+                    "SystemAltMediumLowColor", "SystemAltLowColor",
+                    "SystemBaseHighColor", "SystemBaseMediumHighColor", "SystemBaseMediumColor",
+                    "SystemBaseMediumLowColor", "SystemBaseLowColor",
+                    "SystemChromeAltLowColor", "SystemChromeBlackHighColor", "SystemChromeBlackLowColor",
+                    "SystemChromeBlackMediumColor", "SystemChromeBlackMediumLowColor",
+                    "SystemChromeDisabledHighColor", "SystemChromeDisabledLowColor",
+                    "SystemChromeGrayColor", "SystemChromeHighColor", "SystemChromeLowColor",
+                    "SystemChromeMediumColor", "SystemChromeMediumLowColor", "SystemChromeWhiteColor"
+                };
+
+                var removedCount = 0;
+                foreach (var key in systemColorKeys)
+                {
+                    if (app.Resources.ContainsKey(key))
+                    {
+                        app.Resources.Remove(key);
+                        removedCount++;
+                    }
+                }
+
+                if (removedCount > 0)
+                {
+                    LogEngine($"Cleared {removedCount} system color overrides (restoring OS defaults)");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogEngine($"ClearSystemColorOverrides failed: {ex.Message}");
             }
         }
 
@@ -1036,11 +1208,62 @@ namespace Zer0Talk.Services
         {
             var foundThemes = new List<string>();
             
-            LogEngine("Starting drive-wide theme search...");
-            progressCallback?.Invoke("Starting drive search...");
+            LogEngine("Starting theme search...");
+            progressCallback?.Invoke("Starting theme search...");
 
             await System.Threading.Tasks.Task.Run(() =>
             {
+                // First, search the primary AppData theme folder
+                try
+                {
+                    var appDataThemes = System.IO.Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        "Zer0Talk",
+                        "Themes");
+
+                    if (System.IO.Directory.Exists(appDataThemes))
+                    {
+                        progressCallback?.Invoke($"Searching {appDataThemes}...");
+                        LogEngine($"Searching primary theme folder: {appDataThemes}");
+
+                        var themes = SearchDirectoryRecursive(appDataThemes, cancellationToken, progressCallback);
+                        foundThemes.AddRange(themes);
+                        
+                        LogEngine($"Found {themes.Count} themes in AppData folder");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogEngine($"Error searching AppData themes folder: {ex.Message}");
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+                // Next, search user's Documents folder
+                try
+                {
+                    var documentsFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    if (!string.IsNullOrEmpty(documentsFolder) && System.IO.Directory.Exists(documentsFolder))
+                    {
+                        progressCallback?.Invoke($"Searching Documents folder...");
+                        LogEngine($"Searching Documents folder: {documentsFolder}");
+
+                        var themes = SearchDirectoryRecursive(documentsFolder, cancellationToken, progressCallback, maxDepth: 3);
+                        foundThemes.AddRange(themes);
+                        
+                        LogEngine($"Found {themes.Count} themes in Documents folder");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogEngine($"Error searching Documents folder: {ex.Message}");
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+                // Finally, search other user-accessible drives
                 var drives = System.IO.DriveInfo.GetDrives()
                     .Where(d => d.IsReady && (d.DriveType == System.IO.DriveType.Fixed || d.DriveType == System.IO.DriveType.Removable))
                     .ToList();
@@ -1057,7 +1280,7 @@ namespace Zer0Talk.Services
                         progressCallback?.Invoke($"Searching {drive.Name}...");
                         LogEngine($"Scanning drive: {drive.Name}");
 
-                        var themes = SearchDirectoryRecursive(drive.RootDirectory.FullName, cancellationToken, progressCallback);
+                        var themes = SearchDirectoryRecursive(drive.RootDirectory.FullName, cancellationToken, progressCallback, maxDepth: 4);
                         foundThemes.AddRange(themes);
                     }
                     catch (Exception ex)
@@ -1067,7 +1290,7 @@ namespace Zer0Talk.Services
                 }
             }, cancellationToken);
 
-            LogEngine($"Drive search complete. Found {foundThemes.Count} theme files.");
+            LogEngine($"Theme search complete. Found {foundThemes.Count} unique theme files.");
             progressCallback?.Invoke($"Search complete. Found {foundThemes.Count} themes.");
             
             return foundThemes;
@@ -1076,21 +1299,28 @@ namespace Zer0Talk.Services
         /// <summary>
         /// Recursively search a directory for .zttheme files.
         /// </summary>
-        private List<string> SearchDirectoryRecursive(string path, System.Threading.CancellationToken cancellationToken, Action<string>? progressCallback)
+        private List<string> SearchDirectoryRecursive(
+            string path, 
+            System.Threading.CancellationToken cancellationToken, 
+            Action<string>? progressCallback,
+            int maxDepth = 10,
+            int currentDepth = 0)
         {
             var results = new List<string>();
 
+            // Stop if max depth reached
+            if (currentDepth >= maxDepth)
+                return results;
+
             try
             {
-                // Skip system and hidden directories
                 var dirInfo = new System.IO.DirectoryInfo(path);
-                if (dirInfo.Attributes.HasFlag(System.IO.FileAttributes.System) || 
-                    dirInfo.Attributes.HasFlag(System.IO.FileAttributes.Hidden))
-                {
+                
+                // Skip protected system folders
+                if (IsProtectedFolder(path, dirInfo))
                     return results;
-                }
 
-                // Search current directory
+                // Search current directory for .zttheme files
                 try
                 {
                     var themeFiles = System.IO.Directory.GetFiles(path, "*.zttheme", System.IO.SearchOption.TopDirectoryOnly);
@@ -1098,7 +1328,8 @@ namespace Zer0Talk.Services
                     
                     if (themeFiles.Length > 0)
                     {
-                        progressCallback?.Invoke($"Found {themeFiles.Length} in {path}");
+                        progressCallback?.Invoke($"Found {themeFiles.Length} in {System.IO.Path.GetFileName(path)}");
+                        LogEngine($"Found {themeFiles.Length} themes in: {path}");
                     }
                 }
                 catch { /* Access denied to files, skip */ }
@@ -1114,7 +1345,7 @@ namespace Zer0Talk.Services
                             if (cancellationToken.IsCancellationRequested)
                                 break;
 
-                            results.AddRange(SearchDirectoryRecursive(subdir, cancellationToken, progressCallback));
+                            results.AddRange(SearchDirectoryRecursive(subdir, cancellationToken, progressCallback, maxDepth, currentDepth + 1));
                         }
                     }
                     catch { /* Access denied to subdirectories, skip */ }
@@ -1123,6 +1354,60 @@ namespace Zer0Talk.Services
             catch { /* Access denied to directory, skip */ }
 
             return results;
+        }
+
+        /// <summary>
+        /// Check if a folder should be skipped (protected system folders, etc.)
+        /// </summary>
+        private bool IsProtectedFolder(string path, System.IO.DirectoryInfo dirInfo)
+        {
+            try
+            {
+                // Skip system and hidden directories
+                if (dirInfo.Attributes.HasFlag(System.IO.FileAttributes.System) || 
+                    dirInfo.Attributes.HasFlag(System.IO.FileAttributes.Hidden))
+                {
+                    return true;
+                }
+
+                var folderName = dirInfo.Name.ToLowerInvariant();
+                var fullPath = path.ToLowerInvariant();
+
+                // Skip Windows system folders
+                if (folderName == "windows" || 
+                    folderName == "program files" || 
+                    folderName == "program files (x86)" ||
+                    folderName == "programdata" ||
+                    folderName == "$recycle.bin" ||
+                    folderName == "system volume information" ||
+                    folderName == "recovery" ||
+                    folderName == "perflogs" ||
+                    folderName.StartsWith("$"))
+                {
+                    return true;
+                }
+
+                // Skip AppData cache/temp folders
+                if (fullPath.Contains("\\appdata\\local\\temp") ||
+                    fullPath.Contains("\\appdata\\local\\microsoft") ||
+                    fullPath.Contains("\\appdata\\local\\packages") ||
+                    fullPath.Contains("\\appdata\\locallow") ||
+                    fullPath.Contains("\\cache") ||
+                    fullPath.Contains("\\.git") ||
+                    fullPath.Contains("\\node_modules") ||
+                    fullPath.Contains("\\.vs") ||
+                    fullPath.Contains("\\obj") ||
+                    fullPath.Contains("\\bin"))
+                {
+                    return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return true; // If we can't check, skip it
+            }
         }
 
         /// <summary>

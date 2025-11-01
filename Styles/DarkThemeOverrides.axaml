@@ -187,11 +187,6 @@
   <Style Selector="ListBoxItem">
     <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
   </Style>
-  <!-- Subtle highlight colors for list items -->
-  <Styles.Resources>
-    <SolidColorBrush x:Key="App.ItemHover" Color="#404040"/>
-    <SolidColorBrush x:Key="App.ItemSelected" Color="#383838"/>
-  </Styles.Resources>
 
   <!-- Contact card visuals: thin 1px outline; prevent double borders from ListBoxItem container -->
   <Style Selector="#ContactsList ListBoxItem /template/ Border" x:SetterTargetType="Border">

@@ -3,6 +3,7 @@
 <Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Styles.Resources>
     <!-- Core brush contract (can be overridden by theme override files) -->
+    <!-- Note: These are fallback defaults. Themes should override via ColorOverrides in JSON. -->
   <SolidColorBrush x:Key="App.Background" Color="#181818"/>
   <!-- App.TitleBarBackground moved to gradient definition in theme JSON -->
   <SolidColorBrush x:Key="App.Surface" Color="#202020"/>
@@ -10,8 +11,8 @@
     <SolidColorBrush x:Key="App.ForegroundPrimary" Color="#FFFFFF"/>
   <SolidColorBrush x:Key="App.TitleBarForeground" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="App.Border" Color="#333333"/>
-    <SolidColorBrush x:Key="App.ItemHover" Color="#242424"/>
-    <SolidColorBrush x:Key="App.ItemSelected" Color="#2D2D2D"/>
+    <!-- App.ItemHover removed - defined dynamically by ThemeEngine -->
+    <!-- App.ItemSelected removed - defined dynamically by ThemeEngine -->
     <SolidColorBrush x:Key="App.SelectionBackground" Color="#3A3A3A"/>
     <SolidColorBrush x:Key="App.SelectionForeground" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="App.ButtonBackground" Color="#252525"/>

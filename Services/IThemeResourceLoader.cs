@@ -113,13 +113,14 @@ namespace Zer0Talk.Services
         {
             var styles = new List<IStyle>();
 
-            try
+            // Try to load each resource dictionary individually, continuing on failures
+            foreach (var resourcePath in theme.ResourceDictionaries)
             {
-                foreach (var resourcePath in theme.ResourceDictionaries)
-                {
-                    if (string.IsNullOrWhiteSpace(resourcePath))
-                        continue;
+                if (string.IsNullOrWhiteSpace(resourcePath))
+                    continue;
 
+                try
+                {
                     // Create StyleInclude for each resource dictionary
                     var baseUri = new Uri("avares://Zer0Talk/");
                     var styleInclude = new Avalonia.Markup.Xaml.Styling.StyleInclude(baseUri)
@@ -129,9 +130,19 @@ namespace Zer0Talk.Services
 
                     styles.Add(styleInclude);
                 }
+                catch (Exception ex)
+                {
+                    // Log but continue - invalid paths should not break the entire theme
+                    Zer0Talk.Utilities.Logger.Log($"[ThemeLoader] Failed to load resource dictionary '{resourcePath}': {ex.Message}", 
+                        Zer0Talk.Utilities.LogLevel.Warning, source: "EmbeddedThemeResourceLoader", categoryOverride: "theme");
+                }
+            }
 
-                // If theme does not specify external dictionaries, synthesize resources from overrides
-                if (styles.Count == 0)
+            // If theme does not specify external dictionaries OR all failed to load, 
+            // synthesize resources from ColorOverrides and Gradients
+            if (styles.Count == 0)
+            {
+                try
                 {
                     var generated = BuildGeneratedStyle(theme);
                     if (generated != null)
@@ -139,11 +150,12 @@ namespace Zer0Talk.Services
                         styles.Add(generated);
                     }
                 }
-            }
-            catch
-            {
-                // Return empty list on failure
-                return Task.FromResult(new List<IStyle>());
+                catch (Exception ex)
+                {
+                    // Log failure to build generated style
+                    Zer0Talk.Utilities.Logger.Log($"[ThemeLoader] Failed to build generated style for theme '{theme.Id}': {ex.Message}", 
+                        Zer0Talk.Utilities.LogLevel.Error, source: "EmbeddedThemeResourceLoader", categoryOverride: "theme");
+                }
             }
 
             return Task.FromResult(styles);

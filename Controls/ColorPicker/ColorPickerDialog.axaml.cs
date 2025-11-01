@@ -31,6 +31,7 @@ namespace Zer0Talk.Controls.ColorPicker
             RedSlider.ValueChanged += (_, _) => { if (!_isUpdating) OnRgbChanged(); };
             GreenSlider.ValueChanged += (_, _) => { if (!_isUpdating) OnRgbChanged(); };
             BlueSlider.ValueChanged += (_, _) => { if (!_isUpdating) OnRgbChanged(); };
+            AlphaSlider.ValueChanged += (_, _) => { if (!_isUpdating) OnAlphaChanged(); };
             
             // Hex input handling with throttle
             var hexObs = HexInput.GetObservable(TextBox.TextProperty);
@@ -51,10 +52,10 @@ namespace Zer0Talk.Controls.ColorPicker
             _disposables.Add(hexThrottleSub);
 
             // Initialize to red
-            InitializeColor(0, 1, 1); // Hue=0 (red), full saturation, full value
+            InitializeColor(0, 1, 1, 255); // Hue=0 (red), full saturation, full value, full opacity
         }
 
-        private void InitializeColor(double hue, double saturation, double value)
+        private void InitializeColor(double hue, double saturation, double value, byte alpha)
         {
             _isUpdating = true;
             
@@ -63,9 +64,11 @@ namespace Zer0Talk.Controls.ColorPicker
             SvPicker.Saturation = saturation;
             SvPicker.Value = value;
             BrightnessSlider.Brightness = value;
+            AlphaSlider.Value = alpha;
             
             UpdateRgbFromHsv();
             UpdatePreview();
+            UpdateAlphaSliderGradient();
             
             _isUpdating = false;
         }
@@ -79,6 +82,7 @@ namespace Zer0Talk.Controls.ColorPicker
             SvPicker.Hue = hue;
             
             UpdateRgbFromHsv();
+            UpdateAlphaSliderGradient();
             UpdatePreview();
             
             _isUpdating = false;
@@ -92,7 +96,18 @@ namespace Zer0Talk.Controls.ColorPicker
             SvPicker.Value = BrightnessSlider.Brightness;
             
             UpdateRgbFromHsv();
+            UpdateAlphaSliderGradient();
             UpdatePreview();
+            
+            _isUpdating = false;
+        }
+
+        private void OnAlphaChanged()
+        {
+            _isUpdating = true;
+            
+            UpdatePreview();
+            UpdateHexWithAlpha();
             
             _isUpdating = false;
         }
@@ -104,8 +119,9 @@ namespace Zer0Talk.Controls.ColorPicker
             var r = RedSlider.Value;
             var g = GreenSlider.Value;
             var b = BlueSlider.Value;
+            var a = AlphaSlider.Value;
             
-            var color = Color.FromArgb(255, r, g, b);
+            var color = Color.FromArgb(a, r, g, b);
             ColorUtils.ColorToHsv(color, out var h, out var s, out var v);
             
             HueSlider.Hue = h;
@@ -114,8 +130,9 @@ namespace Zer0Talk.Controls.ColorPicker
             SvPicker.Value = v;
             BrightnessSlider.Brightness = v;
             
-            HexInput.Text = $"#{r:X2}{g:X2}{b:X2}";
+            UpdateHexWithAlpha();
             UpdateRgbSliderGradients();
+            UpdateAlphaSliderGradient();
             UpdatePreview();
             
             _isUpdating = false;
@@ -133,18 +150,37 @@ namespace Zer0Talk.Controls.ColorPicker
                 hex = string.Concat(hex.Select(c => new string(c, 2)));
             }
             
-            if (hex.Length == 6 && 
-                byte.TryParse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out var r) &&
-                byte.TryParse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out var g) &&
-                byte.TryParse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, null, out var b))
+            // Support both #RRGGBB (6 digits) and #AARRGGBB (8 digits)
+            byte a = 255; // Default to fully opaque
+            byte r = 0, g = 0, b = 0;
+            bool parsed = false;
+            
+            if (hex.Length == 8 &&
+                byte.TryParse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out a) &&
+                byte.TryParse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out r) &&
+                byte.TryParse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, null, out g) &&
+                byte.TryParse(hex.Substring(6, 2), System.Globalization.NumberStyles.HexNumber, null, out b))
+            {
+                parsed = true;
+            }
+            else if (hex.Length == 6 && 
+                byte.TryParse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out r) &&
+                byte.TryParse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out g) &&
+                byte.TryParse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, null, out b))
+            {
+                parsed = true;
+            }
+            
+            if (parsed)
             {
                 _isUpdating = true;
                 
                 RedSlider.Value = r;
                 GreenSlider.Value = g;
                 BlueSlider.Value = b;
+                AlphaSlider.Value = a;
                 
-                var color = Color.FromArgb(255, r, g, b);
+                var color = Color.FromArgb(a, r, g, b);
                 ColorUtils.ColorToHsv(color, out var h, out var s, out var v);
                 
                 HueSlider.Hue = h;
@@ -154,6 +190,7 @@ namespace Zer0Talk.Controls.ColorPicker
                 BrightnessSlider.Brightness = v;
                 
                 UpdateRgbSliderGradients();
+                UpdateAlphaSliderGradient();
                 UpdatePreview();
                 
                 _isUpdating = false;
@@ -162,15 +199,42 @@ namespace Zer0Talk.Controls.ColorPicker
 
         private void UpdateRgbFromHsv()
         {
-            var color = ColorUtils.ColorFromHsv(SvPicker.Hue, SvPicker.Saturation, SvPicker.Value, 255);
+            var alpha = AlphaSlider.Value;
+            var color = ColorUtils.ColorFromHsv(SvPicker.Hue, SvPicker.Saturation, SvPicker.Value, alpha);
             
             RedSlider.Value = color.R;
             GreenSlider.Value = color.G;
             BlueSlider.Value = color.B;
             
-            HexInput.Text = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
-            
+            UpdateHexWithAlpha();
             UpdateRgbSliderGradients();
+        }
+
+        private void UpdateHexWithAlpha()
+        {
+            var r = RedSlider.Value;
+            var g = GreenSlider.Value;
+            var b = BlueSlider.Value;
+            var a = AlphaSlider.Value;
+            
+            if (a < 255)
+            {
+                HexInput.Text = $"#{a:X2}{r:X2}{g:X2}{b:X2}";
+            }
+            else
+            {
+                HexInput.Text = $"#{r:X2}{g:X2}{b:X2}";
+            }
+        }
+
+        private void UpdateAlphaSliderGradient()
+        {
+            var r = RedSlider.Value;
+            var g = GreenSlider.Value;
+            var b = BlueSlider.Value;
+            
+            AlphaSlider.StartColor = Color.FromArgb(0, r, g, b);
+            AlphaSlider.EndColor = Color.FromArgb(255, r, g, b);
         }
 
         private void UpdateRgbSliderGradients()
@@ -194,11 +258,14 @@ namespace Zer0Talk.Controls.ColorPicker
 
         private void UpdatePreview()
         {
-            var color = ColorUtils.ColorFromHsv(SvPicker.Hue, SvPicker.Saturation, SvPicker.Value, 255);
+            var alpha = AlphaSlider.Value;
+            var color = ColorUtils.ColorFromHsv(SvPicker.Hue, SvPicker.Saturation, SvPicker.Value, alpha);
             ColorPreview.Background = new SolidColorBrush(color);
         }
 
         public (double H, double S, double V) GetHsv() => (SvPicker.Hue, SvPicker.Saturation, SvPicker.Value);
+        
+        public byte GetAlpha() => AlphaSlider.Value;
 
         protected override void OnClosed(EventArgs e)
         {

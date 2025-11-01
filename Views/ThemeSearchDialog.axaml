@@ -1,0 +1,109 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:Zer0Talk.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="250"
+        x:Class="Zer0Talk.Views.ThemeSearchDialog"
+        x:DataType="vm:ThemeSearchViewModel"
+        Title="Search for Themes"
+        Width="500" Height="250"
+        MinWidth="500" MinHeight="250"
+        MaxWidth="500" MaxHeight="250"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="32">
+
+    <Grid RowDefinitions="32,*">
+        <!-- Custom Title Bar -->
+        <Border Grid.Row="0" 
+                Background="{DynamicResource App.TitleBarBackground}" 
+                BorderBrush="{DynamicResource App.Border}" 
+                BorderThickness="0,0,0,1"
+                PointerPressed="OnTitleBarPointerPressed">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" 
+                           Orientation="Horizontal" 
+                           Margin="12,0" 
+                           VerticalAlignment="Center">
+                    <TextBlock Text="🔍" 
+                              FontSize="14" 
+                              VerticalAlignment="Center" 
+                              Margin="0,0,8,0" 
+                              Foreground="{DynamicResource App.TitleBarForeground}"/>
+                    <TextBlock Text="Search for Themes" 
+                              FontSize="13" 
+                              FontWeight="SemiBold" 
+                              VerticalAlignment="Center" 
+                              Foreground="{DynamicResource App.TitleBarForeground}"/>
+                </StackPanel>
+
+                <Button Grid.Column="1" 
+                       Content="✕" 
+                       Width="46" 
+                       Height="32" 
+                       Background="Transparent" 
+                       BorderThickness="0"
+                       Foreground="{DynamicResource App.TitleBarForeground}"
+                       Click="OnCloseClick"
+                       FontSize="14"
+                       HorizontalContentAlignment="Center"
+                       VerticalContentAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Content -->
+        <Border Grid.Row="1" 
+                Background="{DynamicResource App.Background}" 
+                Padding="20">
+            <StackPanel Spacing="15" VerticalAlignment="Center">
+                <!-- Progress Message -->
+                <TextBlock Text="{Binding ProgressMessage}" 
+                          FontSize="14"
+                          TextWrapping="Wrap"
+                          HorizontalAlignment="Center"
+                          Foreground="{DynamicResource App.ForegroundPrimary}"/>
+
+                <!-- Progress Bar -->
+                <ProgressBar IsIndeterminate="{Binding IsScanning}"
+                            Height="6"
+                            Background="{DynamicResource App.Surface}"
+                            Foreground="{DynamicResource SystemAccentColor}"/>
+
+                <!-- Status Info -->
+                <TextBlock Text="{Binding StatusInfo}" 
+                          FontSize="12"
+                          TextWrapping="Wrap"
+                          HorizontalAlignment="Center"
+                          Foreground="{DynamicResource App.ForegroundSecondary}"/>
+
+                <!-- Buttons -->
+                <StackPanel Orientation="Horizontal" 
+                           HorizontalAlignment="Center" 
+                           Spacing="40"
+                           Margin="0,10,0,0">
+                    <!-- Cancel Scan Button -->
+                    <Button Content="Cancel Scan" 
+                           Command="{Binding CancelScanCommand}"
+                           IsVisible="{Binding IsScanning}"
+                           Background="{DynamicResource App.ButtonBackground}"
+                           Padding="20,8"
+                           MinWidth="120"
+                           CornerRadius="4"/>
+
+                    <!-- Close Button -->
+                    <Button Content="Close" 
+                           Click="OnCloseClick"
+                           IsVisible="{Binding !IsScanning}"
+                           Background="{DynamicResource App.ButtonBackground}"
+                           Padding="20,8"
+                           MinWidth="120"
+                           CornerRadius="4"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

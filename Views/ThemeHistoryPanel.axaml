@@ -1,0 +1,94 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:Zer0Talk.ViewModels"
+        mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="300"
+        x:Class="Zer0Talk.Views.ThemeHistoryPanel"
+        x:DataType="vm:ThemeHistoryViewModel"
+        Title="History"
+        Width="200" Height="300"
+        MinWidth="180" MinHeight="200"
+        CanResize="True"
+        WindowStartupLocation="Manual"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="32">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Custom Title Bar -->
+        <Border Grid.Row="0" 
+                Background="{DynamicResource App.TitleBarBackground}" 
+                BorderBrush="{DynamicResource App.Border}" 
+                BorderThickness="0,0,0,1" 
+                Padding="6"
+                PointerPressed="OnTitleBarPointerPressed">
+            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                <TextBlock Grid.Column="0" 
+                          Text="History" 
+                          FontSize="14" 
+                          FontWeight="SemiBold" 
+                          VerticalAlignment="Center" 
+                          Margin="6,0"
+                          Foreground="{DynamicResource App.TitleBarForeground}"/>
+
+                <Button Grid.Column="1" 
+                       Classes="icon-button" 
+                       ToolTip.Tip="Close" 
+                       Click="OnCloseClick">
+                    <TextBlock Classes="icon-mdl2" Text="&#xE8BB;"/>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- History List -->
+        <Border Grid.Row="1" 
+                Background="{DynamicResource App.Background}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding HistoryItems}" Margin="4">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding Background}"
+                                    BorderBrush="{DynamicResource App.Border}"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="6,4"
+                                    Margin="0,1">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <!-- Icon -->
+                                    <Viewbox Grid.Column="0" 
+                                            Width="16" Height="16" 
+                                            Margin="0,0,6,0">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Data="M19,11.5C19,11.5 17,13.67 17,15A2,2 0 0,0 19,17A2,2 0 0,0 21,15C21,13.67 19,11.5 19,11.5M5.21,10L10,5.21L14.79,10M16.56,8.94L7.62,0L6.21,1.41L8.59,3.79L3.44,8.94C2.85,9.5 2.85,10.47 3.44,11.06L8.94,16.56C9.23,16.85 9.62,17 10,17C10.38,17 10.77,16.85 11.06,16.56L16.56,11.06C17.15,10.47 17.15,9.5 16.56,8.94Z" 
+                                                  Fill="{DynamicResource App.ForegroundPrimary}"/>
+                                        </Canvas>
+                                    </Viewbox>
+
+                                    <!-- Description -->
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <TextBlock Text="{Binding Description}" 
+                                                  FontSize="12"
+                                                  FontWeight="{Binding FontWeight}"
+                                                  Foreground="{Binding Foreground}"/>
+                                        <TextBlock Text="{Binding ColorChange}" 
+                                                  FontSize="10"
+                                                  Opacity="0.7"
+                                                  Foreground="{Binding Foreground}"/>
+                                    </StackPanel>
+
+                                    <!-- Color Preview -->
+                                    <Border Grid.Column="2" 
+                                            Width="20" Height="20" 
+                                            CornerRadius="3"
+                                            BorderBrush="{DynamicResource App.Border}"
+                                            BorderThickness="1"
+                                            Background="{Binding NewColorBrush}"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Window>

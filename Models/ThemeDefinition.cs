@@ -69,6 +69,63 @@ namespace Zer0Talk.Models
         public Dictionary<string, GradientDefinition> Gradients { get; set; } = new();
 
         /// <summary>
+        /// System accent color overrides. These override OS-provided accent colors to prevent
+        /// system colors from bleeding through (e.g., blue highlights in lists/tabs).
+        /// If null, system colors will be used. Set all variants for complete control.
+        /// </summary>
+        public string? SystemAccentColor { get; set; }
+        public string? SystemAccentColor2 { get; set; }
+        public string? SystemAccentColor3 { get; set; }
+        public string? SystemAccentColor4 { get; set; }
+        public string? SystemAccentColorLight { get; set; }
+        
+        /// <summary>
+        /// System list/hover color overrides. These control subtle hover effects.
+        /// SystemListLowColor = subtle list hover (the faded grey you see on menu items)
+        /// SystemListMediumColor = medium emphasis list hover
+        /// </summary>
+        public string? SystemListLowColor { get; set; }
+        public string? SystemListMediumColor { get; set; }
+
+        /// <summary>
+        /// System Alt colors - Alternative layer colors for layering and depth effects.
+        /// Used for secondary backgrounds, overlays, and layered UI elements.
+        /// </summary>
+        public string? SystemAltHighColor { get; set; }
+        public string? SystemAltLowColor { get; set; }
+        public string? SystemAltMediumColor { get; set; }
+        public string? SystemAltMediumHighColor { get; set; }
+        public string? SystemAltMediumLowColor { get; set; }
+
+        /// <summary>
+        /// System Base colors - Foundation layer colors that form the base of the UI.
+        /// Used for backgrounds, surfaces, and core UI elements.
+        /// </summary>
+        public string? SystemBaseHighColor { get; set; }
+        public string? SystemBaseLowColor { get; set; }
+        public string? SystemBaseMediumColor { get; set; }
+        public string? SystemBaseMediumHighColor { get; set; }
+        public string? SystemBaseMediumLowColor { get; set; }
+
+        /// <summary>
+        /// System Chrome colors - Colors for window chrome, frames, borders, and app bars.
+        /// Used for window decorations, title bars, and structural UI elements.
+        /// </summary>
+        public string? SystemChromeAltLowColor { get; set; }
+        public string? SystemChromeBlackHighColor { get; set; }
+        public string? SystemChromeBlackLowColor { get; set; }
+        public string? SystemChromeBlackMediumColor { get; set; }
+        public string? SystemChromeBlackMediumLowColor { get; set; }
+        public string? SystemChromeDisabledHighColor { get; set; }
+        public string? SystemChromeDisabledLowColor { get; set; }
+        public string? SystemChromeGrayColor { get; set; }
+        public string? SystemChromeHighColor { get; set; }
+        public string? SystemChromeLowColor { get; set; }
+        public string? SystemChromeMediumColor { get; set; }
+        public string? SystemChromeMediumLowColor { get; set; }
+        public string? SystemChromeWhiteColor { get; set; }
+
+        /// <summary>
         /// Default font family for this theme (null = use system default).
         /// </summary>
         public string? DefaultFontFamily { get; set; }
@@ -369,6 +426,134 @@ namespace Zer0Talk.Models
                 }
             }
 
+            // Validate system accent color overrides
+            if (!string.IsNullOrWhiteSpace(theme.SystemAccentColor) && !IsValidColor(theme.SystemAccentColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemAccentColor format: {theme.SystemAccentColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemAccentColor2) && !IsValidColor(theme.SystemAccentColor2))
+            {
+                throw new InvalidOperationException($"Invalid SystemAccentColor2 format: {theme.SystemAccentColor2}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemAccentColor3) && !IsValidColor(theme.SystemAccentColor3))
+            {
+                throw new InvalidOperationException($"Invalid SystemAccentColor3 format: {theme.SystemAccentColor3}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemAccentColor4) && !IsValidColor(theme.SystemAccentColor4))
+            {
+                throw new InvalidOperationException($"Invalid SystemAccentColor4 format: {theme.SystemAccentColor4}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemAccentColorLight) && !IsValidColor(theme.SystemAccentColorLight))
+            {
+                throw new InvalidOperationException($"Invalid SystemAccentColorLight format: {theme.SystemAccentColorLight}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemListLowColor) && !IsValidColor(theme.SystemListLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemListLowColor format: {theme.SystemListLowColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemListMediumColor) && !IsValidColor(theme.SystemListMediumColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemListMediumColor format: {theme.SystemListMediumColor}");
+            }
+            
+            // Validate SystemAlt colors
+            if (!string.IsNullOrWhiteSpace(theme.SystemAltHighColor) && !IsValidColor(theme.SystemAltHighColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemAltHighColor format: {theme.SystemAltHighColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemAltLowColor) && !IsValidColor(theme.SystemAltLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemAltLowColor format: {theme.SystemAltLowColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemAltMediumColor) && !IsValidColor(theme.SystemAltMediumColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemAltMediumColor format: {theme.SystemAltMediumColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemAltMediumHighColor) && !IsValidColor(theme.SystemAltMediumHighColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemAltMediumHighColor format: {theme.SystemAltMediumHighColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemAltMediumLowColor) && !IsValidColor(theme.SystemAltMediumLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemAltMediumLowColor format: {theme.SystemAltMediumLowColor}");
+            }
+
+            // Validate SystemBase colors
+            if (!string.IsNullOrWhiteSpace(theme.SystemBaseHighColor) && !IsValidColor(theme.SystemBaseHighColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemBaseHighColor format: {theme.SystemBaseHighColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemBaseLowColor) && !IsValidColor(theme.SystemBaseLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemBaseLowColor format: {theme.SystemBaseLowColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemBaseMediumColor) && !IsValidColor(theme.SystemBaseMediumColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemBaseMediumColor format: {theme.SystemBaseMediumColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemBaseMediumHighColor) && !IsValidColor(theme.SystemBaseMediumHighColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemBaseMediumHighColor format: {theme.SystemBaseMediumHighColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemBaseMediumLowColor) && !IsValidColor(theme.SystemBaseMediumLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemBaseMediumLowColor format: {theme.SystemBaseMediumLowColor}");
+            }
+
+            // Validate SystemChrome colors
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeAltLowColor) && !IsValidColor(theme.SystemChromeAltLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeAltLowColor format: {theme.SystemChromeAltLowColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeBlackHighColor) && !IsValidColor(theme.SystemChromeBlackHighColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeBlackHighColor format: {theme.SystemChromeBlackHighColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeBlackLowColor) && !IsValidColor(theme.SystemChromeBlackLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeBlackLowColor format: {theme.SystemChromeBlackLowColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeBlackMediumColor) && !IsValidColor(theme.SystemChromeBlackMediumColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeBlackMediumColor format: {theme.SystemChromeBlackMediumColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeBlackMediumLowColor) && !IsValidColor(theme.SystemChromeBlackMediumLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeBlackMediumLowColor format: {theme.SystemChromeBlackMediumLowColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeDisabledHighColor) && !IsValidColor(theme.SystemChromeDisabledHighColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeDisabledHighColor format: {theme.SystemChromeDisabledHighColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeDisabledLowColor) && !IsValidColor(theme.SystemChromeDisabledLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeDisabledLowColor format: {theme.SystemChromeDisabledLowColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeGrayColor) && !IsValidColor(theme.SystemChromeGrayColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeGrayColor format: {theme.SystemChromeGrayColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeHighColor) && !IsValidColor(theme.SystemChromeHighColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeHighColor format: {theme.SystemChromeHighColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeLowColor) && !IsValidColor(theme.SystemChromeLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeLowColor format: {theme.SystemChromeLowColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeMediumColor) && !IsValidColor(theme.SystemChromeMediumColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeMediumColor format: {theme.SystemChromeMediumColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeMediumLowColor) && !IsValidColor(theme.SystemChromeMediumLowColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeMediumLowColor format: {theme.SystemChromeMediumLowColor}");
+            }
+            if (!string.IsNullOrWhiteSpace(theme.SystemChromeWhiteColor) && !IsValidColor(theme.SystemChromeWhiteColor))
+            {
+                throw new InvalidOperationException($"Invalid SystemChromeWhiteColor format: {theme.SystemChromeWhiteColor}");
+            }
+
             // Validate resource dictionaries (warning only - paths may be custom)
             foreach (var path in theme.ResourceDictionaries)
             {
@@ -521,7 +706,43 @@ namespace Zer0Talk.Models
                         EndColor = "#1C1C1C",
                         Angle = 90.0
                     }
-                }
+                },
+                // Override system accent colors to prevent OS colors from showing through
+                // These match typical Windows 11 blue accent colors
+                SystemAccentColor = "#0078D4",      // Primary - Windows blue
+                SystemAccentColor2 = "#005A9E",     // Secondary - darker blue
+                SystemAccentColor3 = "#106EBE",     // Tertiary - medium blue
+                SystemAccentColor4 = "#0086F0",     // Quaternary - lighter blue
+                SystemAccentColorLight = "#60CDFF",  // Hover/Light - bright blue
+                // Override system list/hover colors (the subtle faded grey hovers)
+                SystemListLowColor = "#33FFFFFF",    // 20% white - subtle hover
+                SystemListMediumColor = "#66FFFFFF", // 40% white - medium hover
+                // Override system alt colors (layering/depth - translucent whites on dark themes)
+                SystemAltHighColor = "#FFFFFFFF",    // 100% white - high contrast alt layer
+                SystemAltMediumHighColor = "#CCFFFFFF", // 80% white - medium-high alt layer
+                SystemAltMediumColor = "#99FFFFFF",  // 60% white - medium alt layer
+                SystemAltMediumLowColor = "#66FFFFFF", // 40% white - medium-low alt layer
+                SystemAltLowColor = "#33FFFFFF",     // 20% white - low contrast alt layer
+                // Override system base colors (foundation layers)
+                SystemBaseHighColor = "#FFFFFF",     // 100% white - high contrast base
+                SystemBaseMediumHighColor = "#CCCCCC", // 80% white - medium-high base
+                SystemBaseMediumColor = "#999999",   // 60% white - medium base
+                SystemBaseMediumLowColor = "#666666", // 40% white - medium-low base
+                SystemBaseLowColor = "#333333",      // 20% white - low contrast base
+                // Override system chrome colors (window/frame colors)
+                SystemChromeAltLowColor = "#171717", // Very dark grey
+                SystemChromeBlackHighColor = "#000000", // Pure black - high contrast
+                SystemChromeBlackLowColor = "#0D0D0D",  // Near black - low contrast
+                SystemChromeBlackMediumColor = "#1A1A1A", // Dark grey - medium
+                SystemChromeBlackMediumLowColor = "#262626", // Medium-dark grey
+                SystemChromeDisabledHighColor = "#666666", // Disabled high contrast
+                SystemChromeDisabledLowColor = "#3D3D3D",  // Disabled low contrast
+                SystemChromeGrayColor = "#808080",    // Medium grey
+                SystemChromeHighColor = "#767676",    // High contrast chrome
+                SystemChromeLowColor = "#171717",     // Low contrast chrome
+                SystemChromeMediumColor = "#1F1F1F",  // Medium chrome
+                SystemChromeMediumLowColor = "#2B2B2B", // Medium-low chrome
+                SystemChromeWhiteColor = "#FFFFFF"    // White chrome
             };
 
             return blank;
