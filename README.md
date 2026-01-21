@@ -4,6 +4,12 @@
 
 Zer0Talk is a privacy-focused, decentralized messaging application that puts you in complete control of your communications. With no central servers, your conversations stay between you and your contacts—encrypted, local, and truly private.
 
+---
+
+<img width="1176" height="739" alt="Screenshot 2026-01-21 134143" src="https://github.com/user-attachments/assets/c1b73997-bdc2-46b6-b1db-cbf76fc53d63" />
+
+---
+
 ## ✨ Key Features
 
 ### 🔐 Privacy & Security First
