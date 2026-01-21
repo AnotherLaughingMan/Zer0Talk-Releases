@@ -32,6 +32,9 @@ internal sealed class Program
     
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int SetCurrentProcessExplicitAppUserModelID(string appID);
     
     private const int SW_RESTORE = 9;
     
@@ -41,6 +44,16 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Ensure stable taskbar grouping and identity on Windows
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                SetCurrentProcessExplicitAppUserModelID(AppInfo.AppUserModelId);
+            }
+        }
+        catch { }
+
         // Single-instance enforcement: prevent multiple Zer0Talk instances
         try
         {

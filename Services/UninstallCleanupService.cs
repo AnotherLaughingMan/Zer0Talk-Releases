@@ -19,6 +19,8 @@ namespace Zer0Talk.Services
     /// </summary>
     public static class UninstallCleanupService
     {
+        private static readonly string[] AppNameKeywords = { "Zer0Talk", "ZTalk", "P2PTalk" };
+
         /// <summary>
         /// Performs system cleanup for Zer0Talk uninstall
         /// User data in %APPDATA%\Zer0Talk is preserved
@@ -38,11 +40,17 @@ namespace Zer0Talk.Services
                 
                 // 1. Remove Windows startup registry entry
                 success &= CleanupWindowsStartup(results);
+
+                // 2. Remove legacy registry entries (uninstall/app paths/registered apps)
+                success &= CleanupRegistryEntries(results);
+
+                // 3. Remove taskbar pinned entries and shortcuts
+                success &= CleanupTaskbarPins(results);
                 
-                // 2. Clean up application logs
+                // 4. Clean up application logs
                 success &= CleanupApplicationLogs(results);
                 
-                // 3. Clean up temporary files
+                // 5. Clean up temporary files
                 success &= CleanupTemporaryFiles(results);
                 
                 results.Add("");
@@ -76,7 +84,7 @@ namespace Zer0Talk.Services
                 
                 const string runKeyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
                 // Check for current and legacy application names
-                var appNames = new[] { "Zer0Talk", "P2PTalk", "Zer0Talk.exe", "P2PTalk.exe" };
+                var appNames = new[] { "Zer0Talk", "ZTalk", "P2PTalk", "Zer0Talk.exe", "ZTalk.exe", "P2PTalk.exe" };
                 
                 using var key = Registry.CurrentUser.OpenSubKey(runKeyPath, true);
                 if (key == null)
@@ -153,6 +161,197 @@ namespace Zer0Talk.Services
                 Utilities.Logger.Log($"UninstallCleanup: Failed to clean Windows startup registry: {ex.Message}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Remove legacy registry entries for Zer0Talk/ZTalk/P2PTalk
+        /// </summary>
+        private static bool CleanupRegistryEntries(List<string> results)
+        {
+            try
+            {
+                if (!OperatingSystem.IsWindows())
+                {
+                    results.Add("✓ Registry cleanup: Not applicable (non-Windows platform)");
+                    return true;
+                }
+
+                int removedKeys = 0;
+                int removedValues = 0;
+
+                var registryPaths = new[]
+                {
+                    (Hive: Registry.CurrentUser, Path: @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", Mode: "uninstall"),
+                    (Hive: Registry.LocalMachine, Path: @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", Mode: "uninstall"),
+                    (Hive: Registry.LocalMachine, Path: @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall", Mode: "uninstall"),
+                    (Hive: Registry.CurrentUser, Path: @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths", Mode: "subkeys"),
+                    (Hive: Registry.LocalMachine, Path: @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths", Mode: "subkeys"),
+                    (Hive: Registry.CurrentUser, Path: @"SOFTWARE\Classes\Applications", Mode: "subkeys"),
+                    (Hive: Registry.LocalMachine, Path: @"SOFTWARE\Classes\Applications", Mode: "subkeys"),
+                    (Hive: Registry.CurrentUser, Path: @"SOFTWARE\RegisteredApplications", Mode: "values"),
+                    (Hive: Registry.LocalMachine, Path: @"SOFTWARE\RegisteredApplications", Mode: "values")
+                };
+
+                foreach (var (hive, path, mode) in registryPaths)
+                {
+                    try
+                    {
+                        using var key = hive.OpenSubKey(path, true);
+                        if (key == null) continue;
+
+                        if (mode == "values")
+                        {
+                            foreach (var valueName in key.GetValueNames())
+                            {
+                                var value = key.GetValue(valueName)?.ToString() ?? string.Empty;
+                                if (ContainsAppKeyword(valueName) || ContainsAppKeyword(value))
+                                {
+                                    try
+                                    {
+                                        key.DeleteValue(valueName, false);
+                                        removedValues++;
+                                    }
+                                    catch { }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            foreach (var subkeyName in key.GetSubKeyNames())
+                            {
+                                try
+                                {
+                                    using var subkey = key.OpenSubKey(subkeyName);
+                                    if (mode == "uninstall")
+                                    {
+                                        if (!IsUninstallSubkeyMatch(subkeyName, subkey))
+                                            continue;
+                                    }
+                                    else
+                                    {
+                                        if (!ContainsAppKeyword(subkeyName))
+                                        {
+                                            var defaultValue = subkey?.GetValue("")?.ToString() ?? string.Empty;
+                                            if (!ContainsAppKeyword(defaultValue))
+                                                continue;
+                                        }
+                                    }
+
+                                    key.DeleteSubKeyTree(subkeyName, false);
+                                    removedKeys++;
+                                }
+                                catch { }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                if (removedKeys == 0 && removedValues == 0)
+                {
+                    results.Add("✓ Registry cleanup: No legacy entries found");
+                }
+                else
+                {
+                    results.Add($"✓ Registry cleanup: Removed {removedKeys} keys and {removedValues} values");
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                results.Add($"✗ Registry cleanup: Failed - {ex.Message}");
+                Utilities.Logger.Log($"UninstallCleanup: Registry cleanup failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Remove taskbar pinned entries and shortcuts
+        /// </summary>
+        private static bool CleanupTaskbarPins(List<string> results)
+        {
+            try
+            {
+                if (!OperatingSystem.IsWindows())
+                {
+                    results.Add("✓ Taskbar pins: Not applicable (non-Windows platform)");
+                    return true;
+                }
+
+                int removedCount = 0;
+                var locations = new[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Microsoft\Internet Explorer\Quick Launch\User Pinned\StartMenu"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu), "Programs")
+                };
+
+                foreach (var location in locations)
+                {
+                    try
+                    {
+                        if (!Directory.Exists(location)) continue;
+                        foreach (var file in Directory.GetFiles(location, "*.lnk", SearchOption.TopDirectoryOnly))
+                        {
+                            var fileName = Path.GetFileNameWithoutExtension(file) ?? string.Empty;
+                            if (ContainsAppKeyword(fileName))
+                            {
+                                try
+                                {
+                                    File.Delete(file);
+                                    removedCount++;
+                                }
+                                catch { }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                if (removedCount > 0)
+                {
+                    results.Add($"✓ Taskbar pins: Removed {removedCount} pinned shortcut(s)");
+                    results.Add("  Note: Windows may take a moment to refresh the taskbar list");
+                }
+                else
+                {
+                    results.Add("✓ Taskbar pins: No pinned shortcuts found");
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                results.Add($"✗ Taskbar pins: Failed to clean - {ex.Message}");
+                Utilities.Logger.Log($"UninstallCleanup: Taskbar pin cleanup failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static bool IsUninstallSubkeyMatch(string subkeyName, RegistryKey? subkey)
+        {
+            if (ContainsAppKeyword(subkeyName)) return true;
+            if (subkey == null) return false;
+
+            var displayName = subkey.GetValue("DisplayName")?.ToString() ?? string.Empty;
+            var uninstallString = subkey.GetValue("UninstallString")?.ToString() ?? string.Empty;
+            var installLocation = subkey.GetValue("InstallLocation")?.ToString() ?? string.Empty;
+            var displayIcon = subkey.GetValue("DisplayIcon")?.ToString() ?? string.Empty;
+
+            return ContainsAppKeyword(displayName) || ContainsAppKeyword(uninstallString) ||
+                   ContainsAppKeyword(installLocation) || ContainsAppKeyword(displayIcon);
+        }
+
+        private static bool ContainsAppKeyword(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return false;
+            foreach (var keyword in AppNameKeywords)
+            {
+                if (value.Contains(keyword, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
         }
         
         /// <summary>
@@ -268,6 +467,23 @@ namespace Zer0Talk.Services
                 "REGISTRY ENTRIES:",
                 "• Windows startup entry (if exists)",
                 "  HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\Zer0Talk",
+                "• Legacy uninstall/app paths entries (Zer0Talk/ZTalk/P2PTalk)",
+                "  HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+                "  HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+                "  HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall",
+                "  HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths",
+                "  HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths",
+                "  HKEY_CURRENT_USER\\SOFTWARE\\Classes\\Applications",
+                "  HKEY_LOCAL_MACHINE\\SOFTWARE\\Classes\\Applications",
+                "  HKEY_CURRENT_USER\\SOFTWARE\\RegisteredApplications",
+                "  HKEY_LOCAL_MACHINE\\SOFTWARE\\RegisteredApplications",
+                "",
+                "TASKBAR PINS:",
+                "• Pinned taskbar/start menu shortcuts (Zer0Talk/ZTalk/P2PTalk)",
+                "  %APPDATA%\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\TaskBar",
+                "  %APPDATA%\\Microsoft\\Internet Explorer\\Quick Launch\\User Pinned\\StartMenu",
+                "  %APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs",
+                "  %PROGRAMDATA%\\Microsoft\\Windows\\Start Menu\\Programs",
                 "",
                 "APPLICATION LOGS:",
                 "• Debug logs (if any exist next to executable)",
