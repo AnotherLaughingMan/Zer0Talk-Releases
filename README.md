@@ -13,12 +13,12 @@ Zer0Talk is a privacy-focused, decentralized messaging application that puts you
 ## ✨ Key Features
 
 ### 🔐 Privacy & Security First
-- **End-to-End Encryption:** All messages are encrypted using industry-standard cryptography
+- **End-to-End Encryption:** All messages are encrypted with modern cryptography in a custom peer-to-peer protocol
 - **Peer-to-Peer Architecture:** Direct connections—no servers storing your data
 - **Local Storage:** Your messages, contacts, and settings stay on your machine
 - **Secure File Wiping:** Enhanced privacy with military-grade secure deletion
 - **Identity Verification:** Verify your contacts with trusted identity badges
-- **IP Blocking:** Built-in security to block unwanted connections
+- **Peer & Key Blocking:** Block peers by identity and key fingerprint, with optional IP blocks for unwanted connections
 
 ### 💬 Rich Messaging Experience
 - **Real-Time Chat:** Instant peer-to-peer messaging with delivery confirmation
@@ -53,8 +53,7 @@ Zer0Talk is a privacy-focused, decentralized messaging application that puts you
 - **Lock Screen:** Secure your conversations with a custom lock overlay
 - **Framerate Optimization:** Intelligent performance tuning for resource efficiency
 - **Auto-Start:** Launch Zer0Talk automatically with Windows
-- **Comprehensive Logging:** Detailed diagnostics for troubleshooting
-- **Settings Encryption:** Secure local settings storage with DPAPI
+- **Settings Encryption:** Encrypted local settings storage; DPAPI only protects remembered passphrases
 
 ## 📥 Installation
 
@@ -105,7 +104,7 @@ Zer0Talk uses peer-to-peer connections, which means:
 - **No Servers:** Your data never touches a central server
 - **No Tracking:** We don't collect analytics, telemetry, or usage data
 - **Local Storage:** All data stored in `%AppData%\Roaming\Zer0Talk\`
-- **Encrypted Settings:** Settings file is encrypted using Windows DPAPI
+- **Encrypted Settings:** Settings are stored in an encrypted container; DPAPI protects the remembered-passphrase sidecar
 - **You Own Your Data:** Export, backup, or delete anytime
 
 ## ⚠️ Alpha Release Notice
