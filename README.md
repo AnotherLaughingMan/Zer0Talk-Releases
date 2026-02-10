@@ -70,13 +70,13 @@ Zer0Talk is a privacy-focused, decentralized messaging application that puts you
 2. Extract to your preferred location
 3. Run `Zer0Talk.exe`
 
-## � User Guide
+## 📄 User Guide
 
 For step-by-step instructions (adding contacts, deleting contacts, setting up a dedicated node, backups, and troubleshooting), see the full User Guide:
 
 - `docs/user-guide.md`
 
-## �🖥️ System Requirements
+## 📄🖥️ System Requirements
 
 - **OS:** Windows 10 or Windows 11 (64-bit)
 - **Architecture:** x64 only
