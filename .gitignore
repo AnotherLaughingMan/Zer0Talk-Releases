@@ -104,6 +104,10 @@ secret*/
 # Sensitive encryption source
 Services/EncryptionService.cs
 Services/EncryptionService.*
+Utilities/AeadTransport.cs
+Utilities/AeadTransport.*
+Utilities/Hkdf.cs
+Utilities/Hkdf.*
 
 # OS-generated files
 .DS_Store
