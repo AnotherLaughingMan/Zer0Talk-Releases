@@ -11,6 +11,7 @@ public partial class ThemeEditorWindow : Window
     public ThemeEditorWindow()
     {
         InitializeComponent();
+        UpdateMaximizeRestoreButtonVisual();
 #if DEBUG
         this.AttachDevTools();
 #endif
@@ -23,6 +24,7 @@ public partial class ThemeEditorWindow : Window
     public ThemeEditorWindow(ThemeEditorViewModel viewModel)
     {
         InitializeComponent();
+        UpdateMaximizeRestoreButtonVisual();
 #if DEBUG
         this.AttachDevTools();
 #endif
@@ -93,6 +95,28 @@ public partial class ThemeEditorWindow : Window
     private void OnMaximizeClick(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
     {
         WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == WindowStateProperty)
+            UpdateMaximizeRestoreButtonVisual();
+    }
+
+    private void UpdateMaximizeRestoreButtonVisual()
+    {
+        var maximizeIcon = this.FindControl<TextBlock>("ThemeEditorMaximizeRestoreIcon");
+        var maximizeButton = this.FindControl<Button>("ThemeEditorMaximizeRestoreButton");
+        if (maximizeIcon == null || maximizeButton == null) return;
+
+        bool isMaximized = WindowState == WindowState.Maximized;
+        maximizeIcon.Text = isMaximized ? "\uE923" : "\uE922";
+
+        var tip = isMaximized
+            ? AppServices.Localization.GetString("MainWindow.Restore", "Restore")
+            : AppServices.Localization.GetString("MainWindow.Maximize", "Maximize");
+        ToolTip.SetTip(maximizeButton, tip);
     }
 
     private void OnCloseClick(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)

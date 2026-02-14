@@ -25,13 +25,13 @@
     <Setter Property="Margin" Value="0"/>
   </Style>
   <!-- Keep border thickness stable across states to avoid jitter -->
-  <Style Selector="Button /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="Button /template/ Border">
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
-  <Style Selector="Button:pointerover /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="Button:pointerover /template/ Border">
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
-  <Style Selector="Button:pressed /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="Button:pressed /template/ Border">
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
 
@@ -80,7 +80,7 @@
     <Setter Property="Margin" Value="0,1,0,0"/>
   </Style>
   <Style Selector="TextBlock.icon-mdl2">
-    <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+    <Setter Property="FontFamily" Value="Segoe Fluent Icons"/>
     <Setter Property="FontSize" Value="13"/>
     <Setter Property="HorizontalAlignment" Value="Center"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
@@ -111,7 +111,7 @@
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="FocusAdorner" Value="{x:Null}"/>
   </Style>
-  <Style Selector="TextBox /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="TextBox /template/ Border">
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
 
@@ -121,7 +121,7 @@
     <Setter Property="Padding" Value="8"/>
     <Setter Property="BorderThickness" Value="0"/>
   </Style>
-  <Style Selector="TextBox.chat-input /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="TextBox.chat-input /template/ Border">
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
 
@@ -136,7 +136,7 @@
       </Transitions>
     </Setter>
   </Style>
-  <Style Selector="TabItem:selected /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="TabItem:selected /template/ Border">
     <Setter Property="BorderThickness" Value="0,0,0,2"/>
   </Style>
 
@@ -166,14 +166,14 @@
     </Setter>
   </Style>
   <!-- Move thumb to the right when checked (neutral metric) -->
-  <Style Selector="ToggleSwitch:checked /template/ #Thumb" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch:checked /template/ Border#Thumb">
     <Setter Property="Canvas.Left" Value="25"/>
   </Style>
   <!-- Neutral part thickness so themes don't set metrics -->
-  <Style Selector="ToggleSwitch /template/ #Track" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch /template/ Border#Track">
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
-  <Style Selector="ToggleSwitch /template/ #Thumb" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch /template/ Border#Thumb">
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
 
@@ -194,16 +194,16 @@
   </Style>
 
   <!-- Contacts list metrics: container and card outlines -->
-  <Style Selector="#ContactsList ListBoxItem /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="#ContactsList ListBoxItem /template/ Border">
     <Setter Property="BorderThickness" Value="0"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:pointerover /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="#ContactsList ListBoxItem:pointerover /template/ Border">
     <Setter Property="BorderThickness" Value="0"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:selected /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="#ContactsList ListBoxItem:selected /template/ Border">
     <Setter Property="BorderThickness" Value="0"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem .contact-card" x:SetterTargetType="Border">
+  <Style Selector="#ContactsList ListBoxItem Border.contact-card">
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="0"/>
   </Style>

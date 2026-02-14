@@ -7,6 +7,7 @@
 using System;
 using System.IO;
 using System.Security.Cryptography;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -50,6 +51,7 @@ namespace Zer0Talk.Services
             // Derive UID from public key
             var uid = IdentityService.ComputeUidFromPublicKey(pub);
             var initialDisplay = string.IsNullOrWhiteSpace(displayName) ? uid : displayName.Trim();
+            var initialAvatar = BundledAvatarService.TryGetRandomAvatarBytes();
             var account = new AccountData
             {
                 DisplayName = initialDisplay,
@@ -65,7 +67,7 @@ namespace Zer0Talk.Services
                 },
                 DisplayNameChangeCount = 0,
                 ShareAvatar = false,
-                Avatar = null,
+                Avatar = initialAvatar,
                 Bio = null
             };
             SaveAccount(account, passphrase);
@@ -88,7 +90,8 @@ namespace Zer0Talk.Services
 
         public void SaveAccount(AccountData account, string passphrase)
         {
-        var json = JsonSerializer.Serialize(account, SerializationDefaults.Indented);
+            ValidateAccountForPersistence(account);
+            var json = JsonSerializer.Serialize(account, SerializationDefaults.Indented);
             var bytes = Encoding.UTF8.GetBytes(json);
             var path = GetPath();
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -101,6 +104,7 @@ namespace Zer0Talk.Services
             var bytes = _container.LoadFile(path, passphrase);
             var json = Encoding.UTF8.GetString(bytes);
             var account = JsonSerializer.Deserialize<AccountData>(json) ?? throw new InvalidDataException("Invalid account container");
+            ValidateLoadedAccount(account);
             return account;
         }
 
@@ -114,28 +118,72 @@ namespace Zer0Talk.Services
             // Confirm user intent with a strong warning
             if (!await confirm()) throw new InvalidOperationException("Recovery canceled.");
 
-            // Preserve metadata as best-effort
-            var displayName = AppServices.Settings.Settings.DisplayName;
-            var createdAt = File.GetCreationTimeUtc(path);
+            // Load and validate current account using existing unlocked passphrase.
+            var existingPassphrase = AppServices.Passphrase;
+            if (string.IsNullOrWhiteSpace(existingPassphrase))
+            {
+                throw new InvalidOperationException("Recovery requires unlocking with your current passphrase first.");
+            }
 
-            // Load current account using current in-memory passphrase if available; otherwise we cannot decrypt keys.
-            AccountData? current = null;
-            try { current = LoadAccount(AppServices.Passphrase); }
-            catch { }
+            AccountData current;
+            try
+            {
+                current = LoadAccount(existingPassphrase);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("Unable to decrypt the current account with the active passphrase. Recovery aborted to protect key integrity.", ex);
+            }
 
-            // Create a new passphrase and re-write account data (keys unchanged)
+            // Create a new passphrase and re-encrypt account data with keys unchanged.
             var newPass = GenerateStrongPassphrase();
             var account = new AccountData
             {
-                DisplayName = displayName,
-                Username = current?.Username ?? "user",
-                UID = current?.UID ?? "",
-                PublicKey = current?.PublicKey ?? Array.Empty<byte>(),
-                PrivateKey = current?.PrivateKey ?? Array.Empty<byte>(),
-                KeyId = current?.KeyId ?? RandomNumberGenerator.GetBytes(16),
-                CreatedAtUtc = createdAt
+                DisplayName = current.DisplayName,
+                Username = current.Username,
+                UID = current.UID,
+                PublicKey = current.PublicKey?.ToArray() ?? Array.Empty<byte>(),
+                PrivateKey = current.PrivateKey?.ToArray() ?? Array.Empty<byte>(),
+                KeyId = current.KeyId?.ToArray() ?? Array.Empty<byte>(),
+                CreatedAtUtc = current.CreatedAtUtc,
+                DisplayNameHistory = current.DisplayNameHistory == null
+                    ? null
+                    : new System.Collections.Generic.List<DisplayNameRecord>(current.DisplayNameHistory.Select(r => new DisplayNameRecord { Name = r.Name, ChangedAtUtc = r.ChangedAtUtc })),
+                DisplayNameChangeCount = current.DisplayNameChangeCount,
+                Avatar = current.Avatar?.ToArray(),
+                ShareAvatar = current.ShareAvatar,
+                Bio = current.Bio
             };
-            SaveAccount(account, newPass);
+
+            var backupPath = path + ".bak";
+            try
+            {
+                File.Copy(path, backupPath, true);
+            }
+            catch { }
+
+            try
+            {
+                SaveAccount(account, newPass);
+                var reloaded = LoadAccount(newPass);
+                if (!AreSameIdentity(account, reloaded))
+                {
+                    throw new InvalidDataException("Identity verification failed after recovery write.");
+                }
+            }
+            catch
+            {
+                try
+                {
+                    if (File.Exists(backupPath)) File.Copy(backupPath, path, true);
+                }
+                catch { }
+                throw;
+            }
+            finally
+            {
+                try { if (File.Exists(backupPath)) File.Delete(backupPath); } catch { }
+            }
 
             // Re-encrypt other containers with the new passphrase (settings, contacts)
             try
@@ -143,7 +191,7 @@ namespace Zer0Talk.Services
                 AppServices.Passphrase = newPass;
                 AppServices.Settings.Save(AppServices.Passphrase);
                 AppServices.Contacts.Save(AppServices.Passphrase);
-                if (current != null) AppServices.Identity.LoadFromAccount(current);
+                AppServices.Identity.LoadFromAccount(current);
             }
             catch { }
 
@@ -178,6 +226,39 @@ namespace Zer0Talk.Services
             var bytes = RandomNumberGenerator.GetBytes(32);
             return Convert.ToBase64String(bytes).Replace('+', '-').Replace('/', '_').TrimEnd('=');
         }
+
+        private static void ValidateLoadedAccount(AccountData account)
+        {
+            if (account == null) throw new InvalidDataException("Account data is missing.");
+            if (account.PublicKey == null || account.PublicKey.Length != 32)
+                throw new InvalidDataException("Account public key is invalid.");
+            if (account.PrivateKey == null || account.PrivateKey.Length < 32)
+                throw new InvalidDataException("Account private key is invalid.");
+            if (string.IsNullOrWhiteSpace(account.UID))
+                throw new InvalidDataException("Account UID is missing.");
+        }
+
+        private static void ValidateAccountForPersistence(AccountData account)
+        {
+            ValidateLoadedAccount(account);
+            var derivedUid = IdentityService.ComputeUidFromPublicKey(account.PublicKey);
+            if (!string.Equals((account.UID ?? string.Empty).Trim(), derivedUid, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("Refusing to save account because UID does not match the stored public key.");
+            }
+        }
+
+        private static bool AreSameIdentity(AccountData expected, AccountData actual)
+        {
+            if (expected.PublicKey == null || actual.PublicKey == null) return false;
+            if (expected.PrivateKey == null || actual.PrivateKey == null) return false;
+            if (!expected.PublicKey.SequenceEqual(actual.PublicKey)) return false;
+            if (!expected.PrivateKey.SequenceEqual(actual.PrivateKey)) return false;
+            var expectedUid = (expected.UID ?? string.Empty).Trim();
+            var actualUid = (actual.UID ?? string.Empty).Trim();
+            return string.Equals(expectedUid, actualUid, StringComparison.Ordinal);
+        }
+
     }
 }
 

@@ -204,9 +204,9 @@ namespace Zer0Talk.Services
             }
         }
 
-        public async Task DiscoverUpnpAsync(TimeSpan? timeout = null, bool bypassThrottle = false)
+        public async Task DiscoverUpnpAsync(TimeSpan? timeout = null, bool bypassThrottle = false, bool lockAlreadyHeld = false)
         {
-            await _sync.WaitAsync();
+            if (!lockAlreadyHeld) await _sync.WaitAsync();
             try
             {
                 // If we already have an active mapping, don't rediscover unless explicitly unmapped
@@ -248,7 +248,7 @@ namespace Zer0Talk.Services
                 Logger.Log($"UPnP discovery failed: {ex.Message}");
                 SetState(MappingState.NoGateway);
             }
-            finally { try { _sync.Release(); } catch { } }
+            finally { if (!lockAlreadyHeld) { try { _sync.Release(); } catch { } } }
         }
 
         // Attempts to map TCP/UDP ports via UPnP. Returns true on any successful mapping.
@@ -263,7 +263,7 @@ namespace Zer0Talk.Services
                 LastMappingAttemptUtc = DateTime.UtcNow;
                 if (_upnp is null)
                 {
-                    await DiscoverUpnpAsync(bypassThrottle: true);
+                    await DiscoverUpnpAsync(bypassThrottle: true, lockAlreadyHeld: true);
                     if (_upnp is null) return false;
                 }
                 var ip = await _upnp!.GetExternalIPAddressAsync();
@@ -297,7 +297,8 @@ namespace Zer0Talk.Services
                     _mappedTcpPort = existingOkTcp ? tcpPort : null;
                     _mappedUdpPort = existingOkUdp ? udpPort : null;
                     SetState(MappingState.Mapped, $"Mapped TCP {(existingOkTcp ? tcpPort : 0)}, UDP {(existingOkUdp ? udpPort : 0)} (adopted)");
-                    _ = Task.Run(async () => { try { await VerifyMappingsAsync(ip, localIp); } catch { } });
+                    // Verify adopted mappings inline (we hold _sync)
+                    try { await VerifyMappingsAsync(ip, localIp); } catch { }
                     return true;
                 }
 
@@ -336,8 +337,8 @@ namespace Zer0Talk.Services
                 }
                 _mappedTcpPort = tcpPort; _mappedUdpPort = udpPort;
                 SetState(MappingState.Mapped, $"Mapped TCP {tcpPort}, UDP {udpPort} via {_upnp.SelectedServiceType}");
-                // Verify mappings best-effort
-                _ = Task.Run(async () => { try { await VerifyMappingsAsync(ip, localIp); } catch { } });
+                // Verify mappings inline (we already hold _sync)
+                try { await VerifyMappingsAsync(ip, localIp); } catch { }
                 // Keep auto-verify loop active
                 try { ScheduleAutoVerifyIfNeeded(); } catch { }
                 return true;
@@ -374,13 +375,27 @@ namespace Zer0Talk.Services
             try
             {
                 // Allow caller to pass 0 to request an ephemeral local port.
-                using var udp = localPort > 0
-                    ? new UdpClient(new IPEndPoint(IPAddress.Any, localPort))
-                    : new UdpClient(AddressFamily.InterNetwork);
-                if (localPort <= 0)
+                // If preferred local port is busy (common when discovery already binds UDP), fall back to ephemeral.
+                UdpClient udp;
+                if (localPort > 0)
                 {
+                    try
+                    {
+                        udp = new UdpClient(new IPEndPoint(IPAddress.Any, localPort));
+                    }
+                    catch
+                    {
+                        udp = new UdpClient(AddressFamily.InterNetwork);
+                        try { udp.Client.Bind(new IPEndPoint(IPAddress.Any, 0)); } catch { }
+                    }
+                }
+                else
+                {
+                    udp = new UdpClient(AddressFamily.InterNetwork);
                     try { udp.Client.Bind(new IPEndPoint(IPAddress.Any, 0)); } catch { }
                 }
+                using (udp)
+                {
                 udp.Client.ReceiveTimeout = 1500;
                 var payload = System.Text.Encoding.ASCII.GetBytes("Zer0Talk-punch");
                 await udp.SendAsync(payload, payload.Length, peerPublicEndpoint);
@@ -401,6 +416,7 @@ namespace Zer0Talk.Services
                     try { Changed?.Invoke(); } catch { }
                     return true;
                 }
+                }
             }
             catch (Exception ex)
             {
@@ -414,15 +430,18 @@ namespace Zer0Talk.Services
         }
 
         // Simple relay fallback stub: in a real system, this would connect to a relay service.
+        // Phase 2 relay protocol now uses session-key-only preface: "RELAY <sessionKey>".
         // Returns a connected TcpClient kept alive by the caller; NetworkStream is obtained from it.
-        public async Task<System.Net.Sockets.TcpClient?> TryRelayAsync(string relayHost, int relayPort, string targetUid, CancellationToken ct)
+        public async Task<System.Net.Sockets.TcpClient?> TryRelayAsync(string relayHost, int relayPort, string sourceUid, string targetUid, string sessionKey, CancellationToken ct)
         {
             try
             {
                 var client = new System.Net.Sockets.TcpClient();
                 await client.ConnectAsync(relayHost, relayPort, ct);
+                try { client.NoDelay = true; } catch { }
+                try { client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true); } catch { }
                 var ns = client.GetStream();
-                var hello = System.Text.Encoding.UTF8.GetBytes($"RELAY {targetUid}\n");
+            var hello = System.Text.Encoding.UTF8.GetBytes($"RELAY {sessionKey}\n");
                 await ns.WriteAsync(hello.AsMemory(0, hello.Length), ct);
                 await ns.FlushAsync(ct);
                 Status = "Using relay";
@@ -463,6 +482,7 @@ namespace Zer0Talk.Services
             if (_upnp == null) { MappingVerification = "No UPnP"; SetState(MappingState.NoGateway, Status); return; }
             var sb = new System.Text.StringBuilder();
             bool tcpListed = false, udpListed = false;
+            bool hairpinAttempted = false, hairpinReachable = false;
             try
             {
                 if (_mappedTcpPort is int tp)
@@ -486,26 +506,39 @@ namespace Zer0Talk.Services
                     else sb.Append(System.Globalization.CultureInfo.InvariantCulture, $"| UDP {up} not listed ");
                 }
 
-                // Optional TCP hairpin check
-                if (externalIp != null && _mappedTcpPort is int checkTcp)
+                // Optional TCP hairpin check (only if TCP mapping is still listed)
+                if (externalIp != null && _mappedTcpPort is int checkTcp && tcpListed)
                 {
+                    hairpinAttempted = true;
                     try
                     {
-                        using var c = new System.Net.Sockets.TcpClient();
-                        var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(1200));
-                        await c.ConnectAsync(new IPEndPoint(externalIp, checkTcp), cts.Token);
-                        if (c.Connected)
+                        // Hairpin support varies by router/ISP. Retry once before classifying as unavailable.
+                        bool connected = false;
+                        for (var attempt = 0; attempt < 2 && !connected; attempt++)
+                        {
+                            using var c = new System.Net.Sockets.TcpClient();
+                            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(5000));
+                            try { await c.ConnectAsync(new IPEndPoint(externalIp, checkTcp), cts.Token); } catch { }
+                            connected = c.Connected;
+                            if (!connected && attempt == 0)
+                            {
+                                try { await Task.Delay(250); } catch { }
+                            }
+                        }
+
+                        if (connected)
                         {
                             sb.Append("| TCP hairpin: reachable");
                             HairpinStatus = "reachable";
+                            hairpinReachable = true;
                         }
                         else
                         {
-                            sb.Append("| TCP hairpin: not connected");
-                            HairpinStatus = "not connected";
+                            sb.Append("| TCP hairpin: unavailable");
+                            HairpinStatus = "unavailable";
                         }
                     }
-                    catch { sb.Append("| TCP hairpin: failed"); HairpinStatus = "failed"; }
+                    catch { sb.Append("| TCP hairpin: unavailable"); HairpinStatus = "unavailable"; }
                 }
                 else
                 {
@@ -518,19 +551,46 @@ namespace Zer0Talk.Services
             if (string.IsNullOrWhiteSpace(result)) result = "Verification not available";
             MappingVerification = result;
             Logger.Log($"UPnP verify: {result}");
-            // If previously mapped ports are no longer listed, clear local state and mark Unmapped so auto-mapper can retry.
+            // If previously mapped ports are no longer listed, attempt to re-create them before giving up.
             if ((_mappedTcpPort.HasValue && !tcpListed) || (_mappedUdpPort.HasValue && !udpListed))
             {
-                _mappedTcpPort = tcpListed ? _mappedTcpPort : null;
-                _mappedUdpPort = udpListed ? _mappedUdpPort : null;
-                // If any mapping disappeared, ensure auto-map loop is nudged soon
-                if (!_mappedTcpPort.HasValue && !_mappedUdpPort.HasValue) SetState(MappingState.Unmapped, "Unmapped (mappings disappeared)");
-                try { _autoMapBackoffSeconds = 10; _nextAutoMapUtc = DateTime.MinValue; ScheduleAutoMapIfNeeded(initial: true); } catch { }
+                Logger.Log($"UPnP mapping(s) disappeared: tcpListed={tcpListed} udpListed={udpListed}. Attempting re-map.");
+                bool remapped = false;
+                try
+                {
+                    var localIpForRemap = localIp;
+                    if (!tcpListed && _mappedTcpPort is int reTcp)
+                    {
+                        try { await _upnp.DeletePortMappingAsync(reTcp, "TCP"); } catch { }
+                        var ok = await _upnp.AddPortMappingAsync(reTcp, reTcp, "TCP", localIpForRemap, "Zer0Talk TCP");
+                        if (ok) { tcpListed = true; remapped = true; Logger.Log($"UPnP re-mapped TCP {reTcp}"); }
+                    }
+                    if (!udpListed && _mappedUdpPort is int reUdp)
+                    {
+                        try { await _upnp.DeletePortMappingAsync(reUdp, "UDP"); } catch { }
+                        var ok = await _upnp.AddPortMappingAsync(reUdp, reUdp, "UDP", localIpForRemap, "Zer0Talk UDP");
+                        if (ok) { udpListed = true; remapped = true; Logger.Log($"UPnP re-mapped UDP {reUdp}"); }
+                    }
+                }
+                catch (Exception ex) { Logger.Log($"UPnP re-map attempt failed: {ex.Message}"); }
+
+                if (!remapped)
+                {
+                    _mappedTcpPort = tcpListed ? _mappedTcpPort : null;
+                    _mappedUdpPort = udpListed ? _mappedUdpPort : null;
+                    // Nudge auto-map regardless of partial state so it can recover the missing mapping
+                    if (!_mappedTcpPort.HasValue || !_mappedUdpPort.HasValue)
+                    {
+                        if (!_mappedTcpPort.HasValue && !_mappedUdpPort.HasValue)
+                            SetState(MappingState.Unmapped, "Unmapped (mappings disappeared)");
+                        try { _autoMapBackoffSeconds = 10; _nextAutoMapUtc = DateTime.MinValue; ScheduleAutoMapIfNeeded(initial: true); } catch { }
+                    }
+                }
             }
             // Derive state refinement (Verified vs HairpinFailed)
-            var lower = result.ToLowerInvariant();
-            if (lower.Contains("hairpin: reachable")) SetState(MappingState.Verified, $"Mapped ({result})");
-            else if (lower.Contains("hairpin: failed") || lower.Contains("hairpin: not connected")) SetState(MappingState.HairpinFailed, $"Mapped ({result})");
+            if (hairpinReachable) SetState(MappingState.Verified, $"Mapped ({result})");
+            else if (tcpListed || udpListed) SetState(MappingState.Mapped, $"Mapped ({result})");
+            else if (hairpinAttempted) SetState(MappingState.HairpinFailed, $"Mapped ({result})");
             else SetState(MappingState.Mapped, $"Mapped ({result})");
             LastVerificationUtc = DateTime.UtcNow;
             ScheduleAutoVerifyIfNeeded();
@@ -557,29 +617,34 @@ namespace Zer0Talk.Services
 
         private async Task SafeReverifyAsync()
         {
+            if (!await _sync.WaitAsync(TimeSpan.FromSeconds(5))) return; // skip if another op is running
             try
             {
                 if (_upnp == null) return;
-                var ip = ExternalIPAddress ?? await _upnp.GetExternalIPAddressAsync();
+                // Always refresh external IP to detect ISP DHCP changes / router reboots
+                IPAddress? ip;
+                try { ip = await _upnp.GetExternalIPAddressAsync(); } catch { ip = ExternalIPAddress; }
                 ExternalIPAddress = ip;
                 var local = GetLocalIPv4() ?? IPAddress.Loopback;
                 await VerifyMappingsAsync(ip, local);
             }
             catch { }
+            finally { try { _sync.Release(); } catch { } }
         }
 
         public async Task RetryVerificationAsync()
         {
+            await _sync.WaitAsync();
             try
             {
-                await _sync.WaitAsync();
-                var ip = ExternalIPAddress;
-                if (_upnp != null && (ip == null || ip.Equals(IPAddress.Any)))
+                // Always refresh external IP for manual retries
+                IPAddress? ip = null;
+                if (_upnp != null)
                 {
-                    try { ip = await _upnp.GetExternalIPAddressAsync(); ExternalIPAddress = ip; } catch { }
+                    try { ip = await _upnp.GetExternalIPAddressAsync(); ExternalIPAddress = ip; } catch { ip = ExternalIPAddress; }
                 }
                 var local = GetLocalIPv4() ?? IPAddress.Loopback;
-                _ = Task.Run(async () => { try { await VerifyMappingsAsync(ip, local); } catch { } });
+                await VerifyMappingsAsync(ip, local);
             }
             finally { try { _sync.Release(); } catch { } }
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using Zer0Talk.Utilities;
@@ -11,6 +12,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
+using Zer0Talk.ViewModels;
 
 namespace Zer0Talk.Services
 {
@@ -20,17 +22,97 @@ namespace Zer0Talk.Services
     public class NotificationService
     {
     public sealed record NotificationItem(Guid Id, string Title, string Body, string? OriginUid, DateTime Utc, string? FullBody = null, bool IsUnread = false, bool IsMessage = false, bool IsIncoming = false, Guid? MessageId = null, DateTime? ReadUtc = null, bool IsPersistent = true, Models.NotificationType? Type = null);
+    public sealed record SecurityEventItem(Guid Id, string AccountName, string PeerUid, string Summary, string Details, DateTime Utc, bool IsUnread = true);
 
     private readonly List<NotificationItem> _notices = new();
+    private readonly List<SecurityEventItem> _securityEvents = new();
+    private readonly IReadOnlyList<NotificationItem> _noticesReadOnly;
+    private readonly IReadOnlyList<SecurityEventItem> _securityEventsReadOnly;
     private readonly object _removalLock = new();
     private readonly Queue<Guid> _messageRemovalQueue = new();
     private readonly HashSet<Guid> _messageRemovalPending = new();
     private bool _messageRemovalWorkerRunning;
     private readonly List<Window> _activeToastWindows = new();
+    private readonly object _messageAudioDedupLock = new();
+    private readonly object _uiLogThrottleLock = new();
+    private readonly Dictionary<string, DateTime> _uiLogThrottleUtc = new();
+    private string _lastMessageAudioFingerprint = string.Empty;
+    private DateTime _lastMessageAudioUtc = DateTime.MinValue;
+    private int _noticesChangedQueued;
+    private int _securityEventsChangedQueued;
 
     private const int ToastMargin = 12;
     private const int ToastSpacing = 8;
     private const int ToastWidth = 420;
+#if DEBUG
+    private static readonly bool VerboseUiLogs = true;
+#else
+    private static readonly bool VerboseUiLogs = false;
+#endif
+    private static readonly TimeSpan MessageAudioDedupWindow = TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan ToastReflowLogInterval = TimeSpan.FromMilliseconds(1200);
+    private static readonly TimeSpan ToastAnimationLogInterval = TimeSpan.FromMilliseconds(1200);
+    private static readonly TimeSpan PresenceDecisionLogInterval = TimeSpan.FromMilliseconds(2000);
+    private static readonly FontFamily SegoeFluentIconsFont = new FontFamily("Segoe Fluent Icons");
+    private static readonly IBrush ToastSurfaceFallbackBrush = new SolidColorBrush(Color.FromArgb(255, 64, 64, 64));
+    private static readonly IBrush ToastBorderErrorBrush = new SolidColorBrush(Color.FromArgb(255, 211, 47, 47));
+    private static readonly IBrush ToastBorderWarningBrush = new SolidColorBrush(Color.FromArgb(255, 255, 152, 0));
+    private static readonly IBrush ToastBorderMessageBrush = new SolidColorBrush(Color.FromArgb(255, 33, 150, 243));
+    private static readonly IBrush ToastBorderInfoBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80));
+    private static readonly IBrush ToastBorderFallbackBrush = new SolidColorBrush(Color.FromArgb(255, 128, 128, 128));
+    private static readonly IBrush ToastButtonLightBackgroundBrush = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255));
+    private static readonly IBrush ToastButtonDarkForegroundBrush = new SolidColorBrush(Color.FromArgb(255, 0, 0, 0));
+
+    public NotificationService()
+    {
+        _noticesReadOnly = _notices.AsReadOnly();
+        _securityEventsReadOnly = _securityEvents.AsReadOnly();
+    }
+
+    private void TryWriteUiLogThrottled(string key, TimeSpan minInterval, Func<string> messageFactory)
+    {
+        try
+        {
+            if (!Utilities.LoggingPaths.Enabled) return;
+            var now = DateTime.UtcNow;
+            lock (_uiLogThrottleLock)
+            {
+                if (_uiLogThrottleUtc.TryGetValue(key, out var lastUtc))
+                {
+                    if ((now - lastUtc) < minInterval) return;
+                }
+                _uiLogThrottleUtc[key] = now;
+            }
+            Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, messageFactory());
+        }
+        catch { }
+    }
+
+    private void TryWriteUiVerboseLogThrottled(string key, TimeSpan minInterval, Func<string> messageFactory)
+    {
+        if (!VerboseUiLogs) return;
+        TryWriteUiLogThrottled(key, minInterval, messageFactory);
+    }
+
+    private void QueueNoticesChanged()
+    {
+        if (Interlocked.Exchange(ref _noticesChangedQueued, 1) == 1) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            Interlocked.Exchange(ref _noticesChangedQueued, 0);
+            try { NoticesChanged?.Invoke(); } catch { }
+        }, DispatcherPriority.Background);
+    }
+
+    private void QueueSecurityEventsChanged()
+    {
+        if (Interlocked.Exchange(ref _securityEventsChangedQueued, 1) == 1) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            Interlocked.Exchange(ref _securityEventsChangedQueued, 0);
+            try { SecurityEventsChanged?.Invoke(); } catch { }
+        }, DispatcherPriority.Background);
+    }
 
     private void RemoveToastWindow(Window toast)
     {
@@ -43,12 +125,14 @@ namespace Zer0Talk.Services
                 var beforeCount = _activeToastWindows.Count;
                 if (_activeToastWindows.Remove(toast))
                 {
-                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Removed: {beforeCount} -> {_activeToastWindows.Count} active\n"); } catch { }
+                    TryWriteUiVerboseLogThrottled("toast.remove.ok", ToastReflowLogInterval,
+                        () => $"{DateTime.Now:O} [Toast] Removed: {beforeCount} -> {_activeToastWindows.Count} active\n");
                     ReflowToastPositionsCore();
                 }
                 else
                 {
-                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Remove failed: not found in {beforeCount} active\n"); } catch { }
+                    TryWriteUiVerboseLogThrottled("toast.remove.miss", ToastReflowLogInterval,
+                        () => $"{DateTime.Now:O} [Toast] Remove failed: not found in {beforeCount} active\n");
                 }
             }
             catch { }
@@ -99,13 +183,15 @@ namespace Zer0Talk.Services
             PruneToastWindows();
             if (_activeToastWindows.Count == 0) 
             {
-                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow: No active windows\n"); } catch { }
+                TryWriteUiVerboseLogThrottled("toast.reflow.empty", ToastReflowLogInterval,
+                    () => $"{DateTime.Now:O} [Toast] Reflow: No active windows\n");
                 return;
             }
 
             var area = GetPrimaryWorkingArea();
             var targetLeft = area.Right - ToastWidth - ToastMargin;
-            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow: {_activeToastWindows.Count} windows, area={area}, targetLeft={targetLeft}\n"); } catch { }
+            TryWriteUiVerboseLogThrottled("toast.reflow.summary", ToastReflowLogInterval,
+                () => $"{DateTime.Now:O} [Toast] Reflow: {_activeToastWindows.Count} windows, area={area}, targetLeft={targetLeft}\n");
 
             var cumulativeTop = area.Y + ToastMargin;
             for (int i = 0; i < _activeToastWindows.Count; i++)
@@ -117,7 +203,8 @@ namespace Zer0Talk.Services
                 try { toast.Position = new PixelPoint(targetLeft, cumulativeTop); } catch { }
                 
                 var toastHeight = (int)Math.Max(1, toast.Bounds.Height > 0 ? toast.Bounds.Height : toast.Height);
-                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Reflow[{i}]: height={toastHeight}, {oldPos} -> ({targetLeft},{cumulativeTop})\n"); } catch { }
+                TryWriteUiVerboseLogThrottled($"toast.reflow.item.{i}", ToastReflowLogInterval,
+                    () => $"{DateTime.Now:O} [Toast] Reflow[{i}]: height={toastHeight}, {oldPos} -> ({targetLeft},{cumulativeTop})\n");
                 
                 cumulativeTop += toastHeight + ToastSpacing;
             }
@@ -141,6 +228,19 @@ namespace Zer0Talk.Services
         return new PixelRect(0, 0, 1280, 720);
     }
 
+    private static string GetFluentNotificationGlyph(Models.NotificationType? type, bool isMessage)
+    {
+        if (isMessage) return "\uE8BD";
+        return type switch
+        {
+            Models.NotificationType.Error => "\uE783",
+            Models.NotificationType.Warning => "\uE7BA",
+            Models.NotificationType.Success => "\uE73E",
+            Models.NotificationType.Information => "\uE946",
+            _ => "\uE946"
+        };
+    }
+
     private Control CreateToastContent(Window host, string? title, string text, Models.NotificationType? type = null, string? originUid = null)
     {
         var resolvedTitle = string.IsNullOrWhiteSpace(title) ? "Zer0Talk" : title;
@@ -148,38 +248,40 @@ namespace Zer0Talk.Services
         var hasOrigin = !string.IsNullOrWhiteSpace(originUid);
         
         // Determine toast border color based on notification type - use theme background
-        IBrush backgroundColor = (IBrush?)Application.Current?.FindResource("App.Surface") ?? new SolidColorBrush(Color.FromArgb(255, 64, 64, 64));
+        IBrush backgroundColor = (IBrush?)Application.Current?.FindResource("App.Surface") ?? ToastSurfaceFallbackBrush;
         IBrush borderBrush;
         IBrush accentColor; // Used for title/icon color
         
         switch (type)
         {
             case Models.NotificationType.Error:
-                borderBrush = new SolidColorBrush(Color.FromArgb(255, 211, 47, 47)); // Red
+                borderBrush = ToastBorderErrorBrush; // Red
                 accentColor = borderBrush;
                 break;
             case Models.NotificationType.Warning:
-                borderBrush = new SolidColorBrush(Color.FromArgb(255, 255, 152, 0)); // Orange
+                borderBrush = ToastBorderWarningBrush; // Orange
                 accentColor = borderBrush;
                 break;
             case Models.NotificationType.Information:
-                borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green
+                borderBrush = hasOrigin
+                    ? ToastBorderMessageBrush // Blue for message toasts
+                    : ToastBorderInfoBrush; // Green for general info
                 accentColor = borderBrush;
                 break;
             case Models.NotificationType.Success:
-                borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green (same as Information)
+                borderBrush = ToastBorderInfoBrush; // Green (same as Information)
                 accentColor = borderBrush;
                 break;
             default:
                 // Messages or default case - blue for messages, gray for other
                 if (hasOrigin)
                 {
-                    borderBrush = new SolidColorBrush(Color.FromArgb(255, 33, 150, 243)); // Blue
+                    borderBrush = ToastBorderMessageBrush; // Blue
                     accentColor = borderBrush;
                 }
                 else
                 {
-                    borderBrush = (IBrush?)Application.Current?.FindResource("App.Border") ?? new SolidColorBrush(Color.FromArgb(255, 128, 128, 128));
+                    borderBrush = (IBrush?)Application.Current?.FindResource("App.Border") ?? ToastBorderFallbackBrush;
                     accentColor = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary") ?? Brushes.White;
                 }
                 break;
@@ -187,9 +289,19 @@ namespace Zer0Talk.Services
 
         var grid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
             RowDefinitions = new RowDefinitions("Auto,Auto,Auto"),
             Margin = new Thickness(12, 10, 12, 12),
+        };
+
+        var iconBlock = new TextBlock
+        {
+            Text = GetFluentNotificationGlyph(type, hasOrigin),
+            FontFamily = SegoeFluentIconsFont,
+            FontSize = 16,
+            Foreground = accentColor,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            Margin = new Thickness(0, 0, 8, 0)
         };
 
         var titleBlock = new TextBlock
@@ -229,14 +341,17 @@ namespace Zer0Talk.Services
         };
         closeButton.PointerPressed += (_, e) => { e.Handled = true; };
 
+        Grid.SetRow(iconBlock, 0);
+        Grid.SetColumn(iconBlock, 0);
         Grid.SetRow(titleBlock, 0);
-        Grid.SetColumn(titleBlock, 0);
+        Grid.SetColumn(titleBlock, 1);
         Grid.SetRow(closeButton, 0);
-        Grid.SetColumn(closeButton, 1);
+        Grid.SetColumn(closeButton, 2);
         Grid.SetRow(bodyBlock, 1);
         Grid.SetColumn(bodyBlock, 0);
-        Grid.SetColumnSpan(bodyBlock, 2);
+        Grid.SetColumnSpan(bodyBlock, 3);
 
+        grid.Children.Add(iconBlock);
         grid.Children.Add(titleBlock);
         grid.Children.Add(closeButton);
         grid.Children.Add(bodyBlock);
@@ -251,8 +366,8 @@ namespace Zer0Talk.Services
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
                 Margin = new Thickness(0, 8, 0, 0),
                 Padding = new Thickness(12, 6),
-                Background = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255)),
-                Foreground = new SolidColorBrush(Color.FromArgb(255, 0, 0, 0)),
+                Background = ToastButtonLightBackgroundBrush,
+                Foreground = ToastButtonDarkForegroundBrush,
                 BorderBrush = Brushes.Transparent,
                 CornerRadius = new CornerRadius(4),
                 FontWeight = FontWeight.SemiBold
@@ -297,7 +412,7 @@ namespace Zer0Talk.Services
 
             Grid.SetRow(goToChatButton, 2);
             Grid.SetColumn(goToChatButton, 0);
-            Grid.SetColumnSpan(goToChatButton, 2);
+            Grid.SetColumnSpan(goToChatButton, 3);
             grid.Children.Add(goToChatButton);
         }
 
@@ -317,9 +432,95 @@ namespace Zer0Talk.Services
         };
     }
 
-    public IReadOnlyList<NotificationItem> Notices => _notices.AsReadOnly();
+    public IReadOnlyList<NotificationItem> Notices => _noticesReadOnly;
+    public IReadOnlyList<SecurityEventItem> SecurityEvents => _securityEventsReadOnly;
 
         public event Action? NoticesChanged;
+        public event Action? SecurityEventsChanged;
+
+        public void PostSecurityEvent(string? peerUid, string? accountName, string summary, string details)
+        {
+            try
+            {
+                var normalizedUid = TrimUidPrefix(peerUid ?? string.Empty);
+                var unknownAccount = AppServices.Localization.GetString("Notifications.UnknownAccount", "Unknown");
+                var defaultSummary = AppServices.Localization.GetString("Notifications.SecurityEventDetected", "Security event detected.");
+                var resolvedAccount = string.IsNullOrWhiteSpace(accountName) ? (!string.IsNullOrWhiteSpace(normalizedUid) ? normalizedUid : unknownAccount) : accountName.Trim();
+                var resolvedSummary = string.IsNullOrWhiteSpace(summary) ? defaultSummary : summary.Trim();
+                var resolvedDetails = string.IsNullOrWhiteSpace(details) ? resolvedSummary : details.Trim();
+
+                lock (_securityEvents)
+                {
+                    _securityEvents.Add(new SecurityEventItem(
+                        Guid.NewGuid(),
+                        resolvedAccount,
+                        normalizedUid,
+                        resolvedSummary,
+                        resolvedDetails,
+                        DateTime.UtcNow,
+                        IsUnread: true));
+                }
+
+                QueueSecurityEventsChanged();
+
+                var toastBody = string.IsNullOrWhiteSpace(normalizedUid)
+                    ? $"{resolvedAccount}: {resolvedSummary}"
+                    : $"{resolvedAccount} ({normalizedUid}): {resolvedSummary}";
+                try { PostNotice(Models.NotificationType.Warning, toastBody, originUid: normalizedUid, fullBody: resolvedDetails, isPersistent: false); } catch { }
+            }
+            catch { }
+        }
+
+        public void RemoveSecurityEvent(Guid eventId)
+        {
+            if (eventId == Guid.Empty) return;
+            try
+            {
+                lock (_securityEvents)
+                {
+                    _securityEvents.RemoveAll(e => e.Id == eventId);
+                }
+                QueueSecurityEventsChanged();
+            }
+            catch { }
+        }
+
+        public void ClearSecurityEvents()
+        {
+            try
+            {
+                lock (_securityEvents) { _securityEvents.Clear(); }
+                QueueSecurityEventsChanged();
+            }
+            catch { }
+        }
+
+        public void RemoveNotice(Guid noticeId)
+        {
+            if (noticeId == Guid.Empty) return;
+            try
+            {
+                lock (_notices)
+                {
+                    _notices.RemoveAll(n => n.Id == noticeId);
+                }
+                QueueNoticesChanged();
+            }
+            catch { }
+        }
+
+        public void ClearPersistentGeneralAlerts()
+        {
+            try
+            {
+                lock (_notices)
+                {
+                    _notices.RemoveAll(n => !n.IsMessage && string.IsNullOrWhiteSpace(n.OriginUid) && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase));
+                }
+                QueueNoticesChanged();
+            }
+            catch { }
+        }
 
         // Backwards-compatible convenience: post a simple notice with combined text
         public void PostNotice(string text, bool isPersistent = true)
@@ -343,17 +544,14 @@ namespace Zer0Talk.Services
 
                 var item = new NotificationItem(Guid.NewGuid(), title, body ?? string.Empty, originUid, DateTime.UtcNow, fullBody, IsPersistent: isPersistent, Type: type);
                 
-                // Only add to notice list if persistent (test toasts should not appear in notification center)
-                if (isPersistent)
+                // Add all notices to the in-app list so Alerts panel always reflects what user saw.
+                lock (_notices)
                 {
-                    lock (_notices)
-                    {
-                        _notices.Add(item);
-                    }
-
-                    // Notify in-app listeners on UI thread
-                    Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
+                    _notices.Add(item);
                 }
+
+                // Notify in-app listeners on UI thread
+                QueueNoticesChanged();
                 try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Posted (persistent={isPersistent}): {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
 
                 // Show transient pop-up; attach origin so click may open conversation
@@ -400,32 +598,8 @@ namespace Zer0Talk.Services
 
                     if (shouldPlayAudio)
                     {
-                        _ = System.Threading.Tasks.Task.Run(async () =>
-                        {
-                            try
-                            {
-                                // Play type-specific sounds based on notification type
-                                switch (item.Type)
-                                {
-                                    case Models.NotificationType.Warning:
-                                        await AppServices.AudioNotifications.PlayCustomSoundAsync("ui-10-smooth-warnnotify-sound-effect-365842.mp3");
-                                        break;
-                                    case Models.NotificationType.Information:
-                                        await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-notify-alert-toast-warn-274736.mp3");
-                                        break;
-                                    case Models.NotificationType.Error:
-                                        await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-completed-notify-starting-alert-274739.mp3");
-                                        break;
-                                    default:
-                                        await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.NotificationGeneral);
-                                        break;
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Utilities.Logger.Log($"NotificationService: Audio notification failed: {ex.Message}");
-                            }
-                        });
+                        var requestedAtUtc = DateTime.UtcNow;
+                        _ = PlayToastAudioAsync(item, requestedAtUtc);
                     }
                 }
                 catch { }
@@ -438,7 +612,7 @@ namespace Zer0Talk.Services
             try
             {
                 lock (_notices) { _notices.Clear(); }
-                Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
+                QueueNoticesChanged();
             }
             catch { }
         }
@@ -455,7 +629,7 @@ namespace Zer0Talk.Services
                 {
                     _notices.RemoveAll(n => n.OriginUid != null && set.Contains(n.OriginUid));
                 }
-                Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
+                QueueNoticesChanged();
             }
             catch { }
         }
@@ -513,14 +687,16 @@ namespace Zer0Talk.Services
             if (notify)
             {
                 // Always notify UI of message notice changes (for notification center)
-                Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
-                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Message notice added/updated for notification center: {updated.Title}\n"); } catch { }
+                QueueNoticesChanged();
+                TryWriteUiVerboseLogThrottled("notices.message.update", TimeSpan.FromMilliseconds(1500),
+                    () => $"{DateTime.Now:O} [Notices] Message notice added/updated for notification center: {updated.Title}\n");
             }
             if (created && incoming)
             {
                 // Determine notification behavior based on presence status
                 bool shouldShowToast = false;      // Default: no toast
                 bool shouldPlayAudio = false;      // Default: no audio
+                bool conversationFocused = false;
                 string presenceMode = "Unknown";
                 
                 try
@@ -564,107 +740,33 @@ namespace Zer0Talk.Services
                                 break;
                         }
                         
-                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Presence mode behavior: {presenceMode} → shouldPlayAudio={shouldPlayAudio}, shouldShowToast={shouldShowToast}\n"); } catch { }
+                        TryWriteUiVerboseLogThrottled("notices.presence.mode", PresenceDecisionLogInterval,
+                            () => $"{DateTime.Now:O} [Notices] Presence mode behavior: {presenceMode} → shouldPlayAudio={shouldPlayAudio}, shouldShowToast={shouldShowToast}\n");
                     }
                     catch (Exception ex)
                     {
                         // If we can't determine presence, default to allowing notifications
                         shouldPlayAudio = true;
                         shouldShowToast = true;
-                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Error checking presence status: {ex.Message} → defaulting to shouldPlayAudio=true, shouldShowToast=true\n"); } catch { }
+                        TryWriteUiVerboseLogThrottled("notices.presence.error", PresenceDecisionLogInterval,
+                            () => $"{DateTime.Now:O} [Notices] Error checking presence status: {ex.Message} → defaulting to shouldPlayAudio=true, shouldShowToast=true\n");
                     }
 
-                    // Check if main window is active to determine desktop toast behavior
-                    // IMPORTANT: Must run on UI thread to access window properties
-                    bool mainWindowActive = false;
-                    bool windowVisible = false;
-                    string windowStateDebug = "unknown";
-                    
-                    // Use Dispatcher to safely access window properties from any thread
-                    try
-                    {
-                        if (Dispatcher.UIThread.CheckAccess())
-                        {
-                            // Already on UI thread - direct access
-                            var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
-                            var mainWindow = desktop?.MainWindow;
-                            if (mainWindow != null)
-                            {
-                                windowVisible = mainWindow.IsVisible;
-                                windowStateDebug = $"IsActive={mainWindow.IsActive}, WindowState={mainWindow.WindowState}, IsVisible={mainWindow.IsVisible}";
-                                
-                                // Enhanced window focus detection:
-                                // Consider window "active" (suppress toasts) only if:
-                                // 1. Window is active AND visible AND not minimized (primary check)
-                                // 2. Window is visible AND not minimized (fallback, but must be visible!)
-                                // Note: Removed WindowState==Normal check as it's true even when minimized to tray
-                                mainWindowActive = (mainWindow.IsActive == true && 
-                                                  mainWindow.WindowState != Avalonia.Controls.WindowState.Minimized &&
-                                                  mainWindow.IsVisible) ||
-                                                 (mainWindow.IsVisible && 
-                                                  mainWindow.WindowState != Avalonia.Controls.WindowState.Minimized);
-                            }
-                            else
-                            {
-                                windowStateDebug = "MainWindow is null";
-                            }
-                        }
-                        else
-                        {
-                            // Not on UI thread - use Invoke to marshal to UI thread
-                            mainWindowActive = Dispatcher.UIThread.Invoke(() =>
-                            {
-                                try
-                                {
-                                    var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
-                                    var mainWindow = desktop?.MainWindow;
-                                    if (mainWindow != null)
-                                    {
-                                        windowVisible = mainWindow.IsVisible;
-                                        windowStateDebug = $"IsActive={mainWindow.IsActive}, WindowState={mainWindow.WindowState}, IsVisible={mainWindow.IsVisible}";
-                                        
-                                        return (mainWindow.IsActive == true && 
-                                               mainWindow.WindowState != Avalonia.Controls.WindowState.Minimized &&
-                                               mainWindow.IsVisible) ||
-                                              (mainWindow.IsVisible && 
-                                               mainWindow.WindowState != Avalonia.Controls.WindowState.Minimized);
-                                    }
-                                    else
-                                    {
-                                        windowStateDebug = "MainWindow is null";
-                                        return false;
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    windowStateDebug = $"Inner Exception: {ex.Message}";
-                                    return false;
-                                }
-                            });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        windowStateDebug = $"Dispatcher Exception: {ex.Message}";
-                        mainWindowActive = false;
-                    }
-                    
-                    // Log window state and presence mode for debugging
-                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Presence={presenceMode}, Window state: {windowStateDebug}, mainWindowActive={mainWindowActive}, shouldShowToast={shouldShowToast}, shouldPlayAudio={shouldPlayAudio}\n"); } catch { }
-                    
-                    // Show desktop toast when:
-                    // 1. shouldShowToast is true (not suppressed by DND)
-                    // 2. Main window is NOT active/visible (minimized, not focused, or system tray)
-                    if (shouldShowToast && !mainWindowActive)
+                    conversationFocused = IsConversationFocused(updated.OriginUid);
+                    TryWriteUiVerboseLogThrottled("notices.presence.decision", PresenceDecisionLogInterval,
+                        () => $"{DateTime.Now:O} [Notices] Presence={presenceMode}, conversationFocused={conversationFocused}, shouldShowToast={shouldShowToast}, shouldPlayAudio={shouldPlayAudio}, origin={updated.OriginUid}\n");
+
+                    // Show message toast only when the message is from a contact that is not currently focused.
+                    if (shouldShowToast && !conversationFocused)
                     {
                         var toastBody = string.IsNullOrWhiteSpace(updated.FullBody) ? updated.Body : updated.FullBody;
-                        ShowTransientToast(updated.Title, toastBody ?? string.Empty, null, updated.OriginUid);
+                        ShowTransientToast(updated.Title, toastBody ?? string.Empty, Models.NotificationType.Information, updated.OriginUid);
                         try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Desktop toast shown: {updated.Title}\n"); } catch { }
                     }
                     else
                     {
-                        string reason = !shouldShowToast ? "suppressed by presence mode" : "window is active";
-                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Desktop toast skipped ({reason}): shouldShowToast={shouldShowToast}, mainWindowActive={mainWindowActive}\n"); } catch { }
+                        string reason = !shouldShowToast ? "suppressed by presence mode" : "conversation is focused";
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Desktop toast skipped ({reason}): shouldShowToast={shouldShowToast}, conversationFocused={conversationFocused}\n"); } catch { }
                     }
                 }
                 catch { }
@@ -677,20 +779,21 @@ namespace Zer0Talk.Services
 
                     if (shouldPlayAudio)
                     {
-                        _ = System.Threading.Tasks.Task.Run(async () =>
+                        if (!ShouldPlayMessageAudio(updated))
                         {
-                            try
-                            {
-                                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Attempting to play MessageIncoming sound for: {updated.Title}\n"); } catch { }
-                                await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.MessageIncoming);
-                                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Successfully played MessageIncoming sound for: {updated.Title}\n"); } catch { }
-                            }
-                            catch (Exception ex)
-                            {
-                                Utilities.Logger.Log($"NotificationService: Incoming message audio failed: {ex.Message}");
-                                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Failed to play MessageIncoming: {ex.Message}\n"); } catch { }
-                            }
-                        });
+                            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Message audio deduped: {updated.Title} origin={updated.OriginUid}\n"); } catch { }
+                            return updated;
+                        }
+
+                        var requestedAtUtc = DateTime.UtcNow;
+                        if (conversationFocused)
+                        {
+                            _ = PlayFocusedConversationMessageAudioAsync(updated, requestedAtUtc);
+                        }
+                        else
+                        {
+                            _ = PlayIncomingMessageAudioAsync(updated, requestedAtUtc);
+                        }
                     }
                     else
                     {
@@ -700,6 +803,132 @@ namespace Zer0Talk.Services
                 catch { }
             }
             return updated;
+        }
+
+        private bool ShouldPlayMessageAudio(NotificationItem item)
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                var normalizedOrigin = TrimUidPrefix(item.OriginUid ?? string.Empty);
+                var messagePart = item.MessageId?.ToString() ?? string.Empty;
+                var bodyPart = item.Body ?? string.Empty;
+                if (bodyPart.Length > 64) bodyPart = bodyPart.Substring(0, 64);
+                var fingerprint = $"{normalizedOrigin}|{messagePart}|{bodyPart}";
+
+                lock (_messageAudioDedupLock)
+                {
+                    if (string.Equals(_lastMessageAudioFingerprint, fingerprint, StringComparison.Ordinal) &&
+                        (now - _lastMessageAudioUtc) <= MessageAudioDedupWindow)
+                    {
+                        return false;
+                    }
+
+                    _lastMessageAudioFingerprint = fingerprint;
+                    _lastMessageAudioUtc = now;
+                }
+
+                return true;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        private async Task PlayToastAudioAsync(NotificationItem item, DateTime requestedAtUtc)
+        {
+            try
+            {
+                switch (item.Type)
+                {
+                    case Models.NotificationType.Warning:
+                        await AppServices.AudioNotifications.PlayCustomSoundAsync("ui-10-smooth-warnnotify-sound-effect-365842.mp3", requestedAtUtc, "NotificationService.Toast.Warning");
+                        break;
+                    case Models.NotificationType.Information:
+                        await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-notify-alert-toast-warn-274736.mp3", requestedAtUtc, "NotificationService.Toast.Information");
+                        break;
+                    case Models.NotificationType.Error:
+                        await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-completed-notify-starting-alert-274739.mp3", requestedAtUtc, "NotificationService.Toast.Error");
+                        break;
+                    default:
+                        await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.NotificationGeneral, requestedAtUtc, "NotificationService.Toast.General");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Utilities.Logger.Log($"NotificationService: Audio notification failed: {ex.Message}");
+            }
+        }
+
+        private async Task PlayIncomingMessageAudioAsync(NotificationItem updated, DateTime requestedAtUtc)
+        {
+            try
+            {
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Attempting to play MessageIncoming sound for: {updated.Title}\n"); } catch { }
+                await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.MessageIncoming, requestedAtUtc, "NotificationService.MessageIncoming.OutOfFocus");
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Successfully played MessageIncoming sound for: {updated.Title}\n"); } catch { }
+            }
+            catch (Exception ex)
+            {
+                Utilities.Logger.Log($"NotificationService: Incoming message audio failed: {ex.Message}");
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Failed to play MessageIncoming: {ex.Message}\n"); } catch { }
+            }
+        }
+
+        private async Task PlayFocusedConversationMessageAudioAsync(NotificationItem updated, DateTime requestedAtUtc)
+        {
+            try
+            {
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Attempting focused-conversation pop sound for: {updated.Title}\n"); } catch { }
+                await AppServices.AudioNotifications.PlayCustomSoundAsync("multi-pop-2-188167.mp3", requestedAtUtc, "NotificationService.MessageIncoming.Focused");
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Successfully played focused-conversation pop sound for: {updated.Title}\n"); } catch { }
+            }
+            catch (Exception ex)
+            {
+                Utilities.Logger.Log($"NotificationService: Focused incoming message audio failed: {ex.Message}");
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Failed focused-conversation pop sound: {ex.Message}\n"); } catch { }
+            }
+        }
+
+        private bool IsConversationFocused(string? originUid)
+        {
+            try
+            {
+                var trimmedOrigin = TrimUidPrefix(originUid ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(trimmedOrigin)) return false;
+
+                return Dispatcher.UIThread.Invoke(() =>
+                {
+                    try
+                    {
+                        var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                        var mainWindow = desktop?.MainWindow;
+                        if (mainWindow == null) return false;
+                        if (!mainWindow.IsVisible) return false;
+                        if (mainWindow.WindowState == Avalonia.Controls.WindowState.Minimized) return false;
+                        if (!mainWindow.IsActive) return false;
+
+                        if (mainWindow.DataContext is MainWindowViewModel vm)
+                        {
+                            var selectedUid = vm.SelectedContact?.UID ?? string.Empty;
+                            var trimmedSelected = TrimUidPrefix(selectedUid);
+                            return string.Equals(trimmedSelected, trimmedOrigin, StringComparison.OrdinalIgnoreCase);
+                        }
+
+                        return false;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                });
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public void MarkMessageNoticeRead(Guid messageId, bool scheduleRemoval = true)
@@ -721,7 +950,7 @@ namespace Zer0Talk.Services
             }
             if (notify)
             {
-                Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
+                QueueNoticesChanged();
             }
             if (scheduleRemoval) EnqueueMessageRemoval(messageId);
         }
@@ -730,20 +959,16 @@ namespace Zer0Talk.Services
         {
             if (string.IsNullOrWhiteSpace(originUid)) return;
             var trimmed = TrimUidPrefix(originUid);
-            List<Guid> toRemove;
+            var toRemove = new List<Guid>();
             bool notify = false;
             lock (_notices)
             {
-                toRemove = _notices
-                    .Where(n => n.IsMessage && n.MessageId.HasValue && string.Equals(n.OriginUid, trimmed, StringComparison.OrdinalIgnoreCase))
-                    .Select(n => n.MessageId!.Value)
-                    .ToList();
-                if (toRemove.Count == 0) return;
                 for (int i = 0; i < _notices.Count; i++)
                 {
                     var n = _notices[i];
                     if (n.IsMessage && n.MessageId.HasValue && string.Equals(n.OriginUid, trimmed, StringComparison.OrdinalIgnoreCase))
                     {
+                        toRemove.Add(n.MessageId.Value);
                         if (n.IsUnread || !n.ReadUtc.HasValue)
                         {
                             _notices[i] = n with { IsUnread = false, ReadUtc = DateTime.UtcNow };
@@ -751,10 +976,11 @@ namespace Zer0Talk.Services
                         }
                     }
                 }
+                if (toRemove.Count == 0) return;
             }
             if (notify)
             {
-                Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
+                QueueNoticesChanged();
             }
             foreach (var id in toRemove)
             {
@@ -764,17 +990,16 @@ namespace Zer0Talk.Services
 
         public void MarkAllMessageNoticesRead()
         {
-            List<Guid> ids;
+            var ids = new List<Guid>();
             bool notify = false;
             lock (_notices)
             {
-                ids = _notices.Where(n => n.IsMessage && n.MessageId.HasValue).Select(n => n.MessageId!.Value).ToList();
-                if (ids.Count == 0) return;
                 for (int i = 0; i < _notices.Count; i++)
                 {
                     var n = _notices[i];
                     if (n.IsMessage && n.MessageId.HasValue)
                     {
+                        ids.Add(n.MessageId.Value);
                         if (n.IsUnread || !n.ReadUtc.HasValue)
                         {
                             _notices[i] = n with { IsUnread = false, ReadUtc = DateTime.UtcNow };
@@ -782,10 +1007,11 @@ namespace Zer0Talk.Services
                         }
                     }
                 }
+                if (ids.Count == 0) return;
             }
             if (notify)
             {
-                Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
+                QueueNoticesChanged();
             }
             foreach (var id in ids)
             {
@@ -840,7 +1066,7 @@ namespace Zer0Talk.Services
                     }
                     if (removed)
                     {
-                        Dispatcher.UIThread.Post(() => { try { NoticesChanged?.Invoke(); } catch { } });
+                        QueueNoticesChanged();
                     }
                     lock (_removalLock)
                     {
@@ -887,14 +1113,16 @@ namespace Zer0Talk.Services
                         var startLeft = area.Right + ToastMargin; // start off-screen to right
                         var startTop = area.Y + ToastMargin; // temporary position
 
-                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Creating: beforeCount={beforeCount}\n"); } catch { }
+                        TryWriteUiVerboseLogThrottled("toast.create", ToastAnimationLogInterval,
+                            () => $"{DateTime.Now:O} [Toast] Creating: beforeCount={beforeCount}\n");
 
                         // Place window initially off-screen at top-right
                         try { win.Position = new Avalonia.PixelPoint((int)startLeft, (int)startTop); } catch { }
                         win.Show();
                         _activeToastWindows.Add(win);
                         win.Closed += (_, __) => RemoveToastWindow(win);
-                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Added to list: now {_activeToastWindows.Count} active\n"); } catch { }
+                        TryWriteUiVerboseLogThrottled("toast.added", ToastAnimationLogInterval,
+                            () => $"{DateTime.Now:O} [Toast] Added to list: now {_activeToastWindows.Count} active\n");
                         
                         // Delay reflow slightly to allow window to measure with SizeToContent, then animate
                         Dispatcher.UIThread.Post(() => 
@@ -907,7 +1135,8 @@ namespace Zer0Talk.Services
                             // Start slide-in animation from off-screen
                             var durationMs = 320.0;
                             var start = DateTime.UtcNow;
-                            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Animation: start=({startLeft},{targetPos.Y}) -> target=({targetLeft},{targetPos.Y})\n"); } catch { }
+                            TryWriteUiVerboseLogThrottled("toast.anim.start", ToastAnimationLogInterval,
+                                () => $"{DateTime.Now:O} [Toast] Animation: start=({startLeft},{targetPos.Y}) -> target=({targetLeft},{targetPos.Y})\n");
                             var timer = new Avalonia.Threading.DispatcherTimer()
                             {
                                 Interval = TimeSpan.FromMilliseconds(16)
@@ -926,7 +1155,8 @@ namespace Zer0Talk.Services
                                     if (t >= 1.0)
                                     {
                                         timer.Stop();
-                                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Toast] Animation complete: final=({(int)left},{targetPos.Y})\n"); } catch { }
+                                        TryWriteUiVerboseLogThrottled("toast.anim.complete", ToastAnimationLogInterval,
+                                            () => $"{DateTime.Now:O} [Toast] Animation complete: final=({(int)left},{targetPos.Y})\n");
                                     }
                                 }
                                 catch { }
@@ -954,20 +1184,16 @@ namespace Zer0Talk.Services
                             catch { }
                         };
 
-                        // Auto close after timeout (with slide-out)
-                        _ = System.Threading.Tasks.Task.Run(async () =>
+                        // Auto close after timeout (with slide-out) - keep on UI thread to avoid extra dispatch hops.
+                        var durationSeconds = 4.5; // Default fallback
+                        try { durationSeconds = Math.Clamp(AppServices.Settings.Settings.NotificationDurationSeconds, 0.5, 30.0); } catch { }
+                        DispatcherTimer.RunOnce(() =>
                         {
                             try
                             {
-                                // Use user-configurable notification duration
-                                var durationSeconds = 4.5; // Default fallback
-                                try { durationSeconds = Math.Clamp(AppServices.Settings.Settings.NotificationDurationSeconds, 0.5, 30.0); } catch { }
-                                await System.Threading.Tasks.Task.Delay((int)(durationSeconds * 1000));
-                                // Slide-out animation (reverse)
                                 var outStart = DateTime.UtcNow;
                                 var outDur = 260.0;
-                                var currentY = 0;
-                                Dispatcher.UIThread.Post(() => { try { currentY = win.Position.Y; } catch { } });
+                                var currentY = win.Position.Y;
                                 var outTimer = new Avalonia.Threading.DispatcherTimer() { Interval = TimeSpan.FromMilliseconds(16) };
                                 outTimer.Tick += (_, __) =>
                                 {
@@ -978,11 +1204,11 @@ namespace Zer0Talk.Services
                                         var tt = Math.Clamp(elapsed / outDur, 0.0, 1.0);
                                         var eased = Math.Pow(tt, 3); // ease-in
                                         var left = targetLeft + ((startLeft - targetLeft) * eased);
-                                        Dispatcher.UIThread.Post(() => { try { win.Position = new Avalonia.PixelPoint((int)left, currentY); } catch { } });
+                                        win.Position = new Avalonia.PixelPoint((int)left, currentY);
                                         if (tt >= 1.0)
                                         {
                                             outTimer.Stop();
-                                            Dispatcher.UIThread.Post(() => { try { win.Close(); } catch { } });
+                                            try { win.Close(); } catch { }
                                         }
                                     }
                                     catch { }
@@ -990,7 +1216,7 @@ namespace Zer0Talk.Services
                                 outTimer.Start();
                             }
                             catch { }
-                        });
+                        }, TimeSpan.FromSeconds(durationSeconds));
                     }
                     catch { }
                 }, Avalonia.Threading.DispatcherPriority.Normal);

@@ -5,10 +5,10 @@
     <AssemblyName>Zer0Talk</AssemblyName>
     <Nullable>enable</Nullable>
     <!-- Version Information -->
-    <Version>0.0.2.09</Version>
-    <AssemblyVersion>0.0.2.09</AssemblyVersion>
-    <FileVersion>0.0.2.09</FileVersion>
-    <InformationalVersion>0.0.2.09-Alpha</InformationalVersion>
+    <Version>0.0.3.00</Version>
+    <AssemblyVersion>0.0.3.00</AssemblyVersion>
+    <FileVersion>0.0.3.00</FileVersion>
+    <InformationalVersion>0.0.3.00-Alpha</InformationalVersion>
     <!-- Enable automatic assembly attribute generation -->
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
@@ -64,6 +64,7 @@
     <Content Include="Assets\Icons\Icon.png" Condition="Exists('Assets\\Icons\\Icon.png')" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Icons\Icon.ico" Condition="Exists('Assets\\Icons\\Icon.ico')" CopyToOutputDirectory="PreserveNewest" /><!-- Legacy probe compatibility: some incremental Avalonia resource passes still look for Assets/Icon.ico -->
     <None Include="Assets\Icons\Icon.ico" Link="Assets\Icon.ico" Condition="Exists('Assets\\Icons\\Icon.ico')" />
+    <Content Include="Assets\Avatars\*.png" CopyToOutputDirectory="PreserveNewest" />
     <!-- Include sound assets -->
     <Content Include="Assets\Sounds\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     <!-- Include localization JSON files -->
@@ -79,6 +80,7 @@
   <Compile Remove="Installer/**/*.cs" />
   <Compile Remove="SimpleInstaller/**/*.cs" />
   <Compile Remove="InstallMe.Lite/**/*.cs" />
+  <Compile Remove="Zer0Talk.RelayServer/**/*.cs" />
   <None Remove="scripts/**/*.csproj" />
   <None Remove="Scripts/**/*.csproj" />
   <None Remove="Uninstaller/**/*.csproj" />
@@ -87,6 +89,7 @@
   <None Remove="Installer/**/*.cs" />
   <None Remove="SimpleInstaller/**/*.csproj" />
   <None Remove="SimpleInstaller/**/*.cs" />
+  <None Remove="Zer0Talk.RelayServer/**" />
     <AvaloniaResource Remove="Styles/ThemeSovereignty.axaml" />
     <AvaloniaResource Remove="Styles/ThemeSovereignty_OLD.axaml" />
     <AvaloniaResource Remove="Styles/ThemeSovereignty.full.bak" />
@@ -94,8 +97,10 @@
     <AvaloniaResource Remove="Styles/ThemeSovereignty*.axaml" />
     <AvaloniaResource Remove="scripts/Markdown.Avalonia/**/*.axaml" />
     <AvaloniaResource Remove="Scripts/Markdown.Avalonia/**/*.axaml" />
+    <AvaloniaResource Remove="Zer0Talk.RelayServer/**/*.axaml" />
     <AvaloniaXaml Remove="scripts/Markdown.Avalonia/**/*.axaml" />
     <AvaloniaXaml Remove="Scripts/Markdown.Avalonia/**/*.axaml" />
+    <AvaloniaXaml Remove="Zer0Talk.RelayServer/**/*.axaml" />
   </ItemGroup><!-- Re-include only the minimal active sovereignty style -->
   <ItemGroup>
     <AvaloniaResource Include="Styles/ThemeSovereigntyCore.axaml" />

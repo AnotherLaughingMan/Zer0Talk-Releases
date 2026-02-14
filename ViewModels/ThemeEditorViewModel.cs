@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Media;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using Zer0Talk.Models;
 using Zer0Talk.Services;
 using Zer0Talk.Utilities;
@@ -30,6 +31,225 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         get => _themeGradients;
         set { _themeGradients = value; OnPropertyChanged(); }
     }
+
+    #region Localization
+
+    public string LocalizedThemeEditorTitle => AppServices.Localization.GetString("ThemeEditor.Title", "Zer0Talk Theme Editor");
+    public string LocalizedMinimize => AppServices.Localization.GetString("MainWindow.Minimize", "Minimize");
+    public string LocalizedMaximize => AppServices.Localization.GetString("MainWindow.Maximize", "Maximize / Restore");
+    public string LocalizedClose => AppServices.Localization.GetString("Common.Close", "Close");
+    public string LocalizedUndo => AppServices.Localization.GetString("ThemeEditor.Undo", "Undo");
+    public string LocalizedRedo => AppServices.Localization.GetString("ThemeEditor.Redo", "Redo");
+    public string LocalizedHistory => AppServices.Localization.GetString("ThemeEditor.History", "History");
+    public string LocalizedNewTheme => AppServices.Localization.GetString("ThemeEditor.NewTheme", "New Theme");
+    public string LocalizedOpenTheme => AppServices.Localization.GetString("ThemeEditor.OpenTheme", "Open Theme");
+    public string LocalizedSaveTheme => AppServices.Localization.GetString("ThemeEditor.SaveTheme", "Save Theme");
+    public string LocalizedSaveThemeAs => AppServices.Localization.GetString("ThemeEditor.SaveThemeAs", "Save Theme As");
+    public string LocalizedSearchThemes => AppServices.Localization.GetString("ThemeEditor.SearchThemes", "Search Themes");
+    public string LocalizedThemeMetadata => AppServices.Localization.GetString("ThemeEditor.ThemeMetadata", "Theme Metadata");
+    public string LocalizedNameLabel => AppServices.Localization.GetString("ThemeEditor.NameLabel", "Name:");
+    public string LocalizedAuthorLabel => AppServices.Localization.GetString("ThemeEditor.AuthorLabel", "Author:");
+    public string LocalizedVersionLabel => AppServices.Localization.GetString("ThemeEditor.VersionLabel", "Version:");
+    public string LocalizedDescriptionLabel => AppServices.Localization.GetString("ThemeEditor.DescriptionLabel", "Description:");
+    public string LocalizedEditMetadata => AppServices.Localization.GetString("ThemeEditor.EditMetadata", "Edit Metadata");
+    public string LocalizedSave => AppServices.Localization.GetString("Common.Save", "Save");
+    public string LocalizedCancel => AppServices.Localization.GetString("Common.Cancel", "Cancel");
+    public string LocalizedSystemAccentOverrides => AppServices.Localization.GetString("ThemeEditor.SystemAccentOverrides", "System Accent Color Overrides");
+    public string LocalizedSystemAccentDescription1 => AppServices.Localization.GetString("ThemeEditor.SystemAccentDescription1", "Override OS-provided accent colors to prevent system colors from showing through (e.g., blue highlights).");
+    public string LocalizedSystemAccentDescription2 => AppServices.Localization.GetString("ThemeEditor.SystemAccentDescription2", "Leave empty to use system colors. Set all 4 for complete control. Click color preview to open picker.");
+    public string LocalizedPrimaryAccent => AppServices.Localization.GetString("ThemeEditor.PrimaryAccent", "Primary Accent:");
+    public string LocalizedSecondaryAccent => AppServices.Localization.GetString("ThemeEditor.SecondaryAccent", "Secondary Accent:");
+    public string LocalizedTertiaryAccent => AppServices.Localization.GetString("ThemeEditor.TertiaryAccent", "Tertiary Accent:");
+    public string LocalizedQuaternaryAccent => AppServices.Localization.GetString("ThemeEditor.QuaternaryAccent", "Quaternary Accent:");
+    public string LocalizedHoverAccent => AppServices.Localization.GetString("ThemeEditor.HoverAccent", "Hover Accent:");
+    public string LocalizedSubtleHover => AppServices.Localization.GetString("ThemeEditor.SubtleHover", "Subtle Hover:");
+    public string LocalizedMediumHover => AppServices.Localization.GetString("ThemeEditor.MediumHover", "Medium Hover:");
+    public string LocalizedClickToOpenColorPicker => AppServices.Localization.GetString("ThemeEditor.ClickToOpenColorPicker", "Click to open color picker");
+    public string LocalizedClearToUseOsColor => AppServices.Localization.GetString("ThemeEditor.ClearToUseOsColor", "Clear to use OS color");
+    public string LocalizedClear => AppServices.Localization.GetString("Settings.Clear", "Clear");
+    public string LocalizedSystemAltOverrides => AppServices.Localization.GetString("ThemeEditor.SystemAltOverrides", "System Alt Color Overrides (Layering and Depth)");
+    public string LocalizedSystemAltDescription1 => AppServices.Localization.GetString("ThemeEditor.SystemAltDescription1", "Override OS-provided alternative layer colors used for layering, depth effects, and translucent overlays.");
+    public string LocalizedSystemAltDescription2 => AppServices.Localization.GetString("ThemeEditor.SystemAltDescription2", "These control secondary backgrounds and layered UI elements. Typically translucent whites on dark themes.");
+    public string LocalizedAltHigh => AppServices.Localization.GetString("ThemeEditor.AltHigh", "Alt High:");
+    public string LocalizedAltMediumHigh => AppServices.Localization.GetString("ThemeEditor.AltMediumHigh", "Alt Medium-High:");
+    public string LocalizedAltMedium => AppServices.Localization.GetString("ThemeEditor.AltMedium", "Alt Medium:");
+    public string LocalizedAltMediumLow => AppServices.Localization.GetString("ThemeEditor.AltMediumLow", "Alt Medium-Low:");
+    public string LocalizedAltLow => AppServices.Localization.GetString("ThemeEditor.AltLow", "Alt Low:");
+    public string LocalizedSystemBaseOverrides => AppServices.Localization.GetString("ThemeEditor.SystemBaseOverrides", "System Base Color Overrides (Foundation Layers)");
+    public string LocalizedSystemBaseDescription => AppServices.Localization.GetString("ThemeEditor.SystemBaseDescription", "These colors control background layers, surfaces, and core UI foundation elements.");
+    public string LocalizedBaseHigh => AppServices.Localization.GetString("ThemeEditor.BaseHigh", "Base High:");
+    public string LocalizedBaseMediumHigh => AppServices.Localization.GetString("ThemeEditor.BaseMediumHigh", "Base Medium-High:");
+    public string LocalizedBaseMedium => AppServices.Localization.GetString("ThemeEditor.BaseMedium", "Base Medium:");
+    public string LocalizedBaseMediumLow => AppServices.Localization.GetString("ThemeEditor.BaseMediumLow", "Base Medium-Low:");
+    public string LocalizedBaseLow => AppServices.Localization.GetString("ThemeEditor.BaseLow", "Base Low:");
+    public string LocalizedBaseHighHelp => AppServices.Localization.GetString("ThemeEditor.BaseHighHelp", "High contrast backgrounds and surfaces");
+    public string LocalizedBaseMediumHighHelp => AppServices.Localization.GetString("ThemeEditor.BaseMediumHighHelp", "Medium-high contrast surfaces");
+    public string LocalizedBaseMediumHelp => AppServices.Localization.GetString("ThemeEditor.BaseMediumHelp", "Medium contrast backgrounds");
+    public string LocalizedBaseMediumLowHelp => AppServices.Localization.GetString("ThemeEditor.BaseMediumLowHelp", "Low-medium contrast surfaces");
+    public string LocalizedBaseLowHelp => AppServices.Localization.GetString("ThemeEditor.BaseLowHelp", "Low contrast backgrounds");
+    public string LocalizedSystemChromeOverrides => AppServices.Localization.GetString("ThemeEditor.SystemChromeOverrides", "System Chrome Color Overrides (Window and Frame)");
+    public string LocalizedSystemChromeDescription => AppServices.Localization.GetString("ThemeEditor.SystemChromeDescription", "These colors control window chrome, frames, borders, title bars, and structural UI elements.");
+    public string LocalizedChromeAltLow => AppServices.Localization.GetString("ThemeEditor.ChromeAltLow", "Chrome Alt Low:");
+    public string LocalizedChromeBlackHigh => AppServices.Localization.GetString("ThemeEditor.ChromeBlackHigh", "Chrome Black High:");
+    public string LocalizedChromeBlackLow => AppServices.Localization.GetString("ThemeEditor.ChromeBlackLow", "Chrome Black Low:");
+    public string LocalizedChromeBlackMedium => AppServices.Localization.GetString("ThemeEditor.ChromeBlackMedium", "Chrome Black Medium:");
+    public string LocalizedChromeBlackMediumLow => AppServices.Localization.GetString("ThemeEditor.ChromeBlackMediumLow", "Chrome Black Medium-Low:");
+    public string LocalizedChromeDisabledHigh => AppServices.Localization.GetString("ThemeEditor.ChromeDisabledHigh", "Chrome Disabled High:");
+    public string LocalizedChromeDisabledLow => AppServices.Localization.GetString("ThemeEditor.ChromeDisabledLow", "Chrome Disabled Low:");
+    public string LocalizedChromeGray => AppServices.Localization.GetString("ThemeEditor.ChromeGray", "Chrome Gray:");
+    public string LocalizedChromeHigh => AppServices.Localization.GetString("ThemeEditor.ChromeHigh", "Chrome High:");
+    public string LocalizedChromeLow => AppServices.Localization.GetString("ThemeEditor.ChromeLow", "Chrome Low:");
+    public string LocalizedChromeMedium => AppServices.Localization.GetString("ThemeEditor.ChromeMedium", "Chrome Medium:");
+    public string LocalizedChromeMediumLow => AppServices.Localization.GetString("ThemeEditor.ChromeMediumLow", "Chrome Medium-Low:");
+    public string LocalizedChromeWhite => AppServices.Localization.GetString("ThemeEditor.ChromeWhite", "Chrome White:");
+    public string LocalizedChromeAltLowHelp => AppServices.Localization.GetString("ThemeEditor.ChromeAltLowHelp", "Alternative low contrast chrome");
+    public string LocalizedChromeBlackHighHelp => AppServices.Localization.GetString("ThemeEditor.ChromeBlackHighHelp", "Pure black chrome elements");
+    public string LocalizedChromeBlackLowHelp => AppServices.Localization.GetString("ThemeEditor.ChromeBlackLowHelp", "Very dark chrome elements");
+    public string LocalizedChromeBlackMediumHelp => AppServices.Localization.GetString("ThemeEditor.ChromeBlackMediumHelp", "Medium dark chrome elements");
+    public string LocalizedChromeBlackMediumLowHelp => AppServices.Localization.GetString("ThemeEditor.ChromeBlackMediumLowHelp", "Medium-low dark chrome");
+    public string LocalizedChromeDisabledHighHelp => AppServices.Localization.GetString("ThemeEditor.ChromeDisabledHighHelp", "Disabled UI elements, high contrast");
+    public string LocalizedChromeDisabledLowHelp => AppServices.Localization.GetString("ThemeEditor.ChromeDisabledLowHelp", "Disabled UI elements, low contrast");
+    public string LocalizedChromeGrayHelp => AppServices.Localization.GetString("ThemeEditor.ChromeGrayHelp", "Neutral gray chrome elements");
+    public string LocalizedChromeHighHelp => AppServices.Localization.GetString("ThemeEditor.ChromeHighHelp", "High contrast chrome");
+    public string LocalizedChromeLowHelp => AppServices.Localization.GetString("ThemeEditor.ChromeLowHelp", "Low contrast chrome");
+    public string LocalizedChromeMediumHelp => AppServices.Localization.GetString("ThemeEditor.ChromeMediumHelp", "Medium contrast chrome");
+    public string LocalizedChromeMediumLowHelp => AppServices.Localization.GetString("ThemeEditor.ChromeMediumLowHelp", "Medium-low contrast chrome");
+    public string LocalizedChromeWhiteHelp => AppServices.Localization.GetString("ThemeEditor.ChromeWhiteHelp", "Pure white chrome elements");
+    public string LocalizedColorOverrides => AppServices.Localization.GetString("ThemeEditor.ColorOverrides", "Color Overrides");
+    public string LocalizedColorsLabel => AppServices.Localization.GetString("ThemeEditor.ColorsLabel", "colors");
+    public string LocalizedColorOverridesDescription => AppServices.Localization.GetString("ThemeEditor.ColorOverridesDescription", "Define custom colors for your theme. Click the color preview to open the color picker.");
+    public string LocalizedResetToDefault => AppServices.Localization.GetString("ThemeEditor.ResetToDefault", "Reset to default");
+    public string LocalizedGradients => AppServices.Localization.GetString("ThemeEditor.Gradients", "Gradients");
+    public string LocalizedGradientsLabel => AppServices.Localization.GetString("ThemeEditor.GradientsLabel", "gradients");
+    public string LocalizedEditGradient => AppServices.Localization.GetString("ThemeEditor.EditGradient", "Edit Gradient");
+    public string LocalizedSaveGradient => AppServices.Localization.GetString("ThemeEditor.SaveGradient", "Save Gradient");
+    public string LocalizedCancelEdit => AppServices.Localization.GetString("ThemeEditor.CancelEdit", "Cancel Edit");
+    public string LocalizedStartColorLabel => AppServices.Localization.GetString("ThemeEditor.StartColorLabel", "Start Color:");
+    public string LocalizedEndColorLabel => AppServices.Localization.GetString("ThemeEditor.EndColorLabel", "End Color:");
+    public string LocalizedAngleLabel => AppServices.Localization.GetString("ThemeEditor.AngleLabel", "Angle (0-360°):");
+    public string LocalizedClearGradient => AppServices.Localization.GetString("ThemeEditor.ClearGradient", "Clear Gradient");
+    public string LocalizedClearGradientHelp => AppServices.Localization.GetString("ThemeEditor.ClearGradientHelp", "Set both colors to background color (removes gradient effect)");
+    public string LocalizedApplyPresetLabel => AppServices.Localization.GetString("ThemeEditor.ApplyPresetLabel", "Apply Preset:");
+    public string LocalizedThemeInfo => AppServices.Localization.GetString("ThemeEditor.ThemeInfo", "Theme Info");
+    public string LocalizedEditStatus => AppServices.Localization.GetString("ThemeEditor.EditStatus", "Edit Status");
+    public string LocalizedRecentColors => AppServices.Localization.GetString("ThemeEditor.RecentColors", "Recent Colors");
+    public string LocalizedReadyStatus => AppServices.Localization.GetString("ThemeEditor.ReadyStatus", "Ready to edit theme");
+    public string LocalizedCanUndoLabel => AppServices.Localization.GetString("ThemeEditor.CanUndoLabel", "Can Undo");
+    public string LocalizedCanRedoLabel => AppServices.Localization.GetString("ThemeEditor.CanRedoLabel", "Can Redo");
+    public string LocalizedEditingColorLabel => AppServices.Localization.GetString("ThemeEditor.EditingColorLabel", "Editing Color");
+    public string LocalizedEditingGradientLabel => AppServices.Localization.GetString("ThemeEditor.EditingGradientLabel", "Editing Gradient");
+    public string LocalizedBatchModeLabel => AppServices.Localization.GetString("ThemeEditor.BatchModeLabel", "Batch Mode");
+
+    private void RefreshLocalizedStrings()
+    {
+        OnPropertyChanged(nameof(LocalizedThemeEditorTitle));
+        OnPropertyChanged(nameof(LocalizedMinimize));
+        OnPropertyChanged(nameof(LocalizedMaximize));
+        OnPropertyChanged(nameof(LocalizedClose));
+        OnPropertyChanged(nameof(LocalizedUndo));
+        OnPropertyChanged(nameof(LocalizedRedo));
+        OnPropertyChanged(nameof(LocalizedHistory));
+        OnPropertyChanged(nameof(LocalizedNewTheme));
+        OnPropertyChanged(nameof(LocalizedOpenTheme));
+        OnPropertyChanged(nameof(LocalizedSaveTheme));
+        OnPropertyChanged(nameof(LocalizedSaveThemeAs));
+        OnPropertyChanged(nameof(LocalizedSearchThemes));
+        OnPropertyChanged(nameof(LocalizedThemeMetadata));
+        OnPropertyChanged(nameof(LocalizedNameLabel));
+        OnPropertyChanged(nameof(LocalizedAuthorLabel));
+        OnPropertyChanged(nameof(LocalizedVersionLabel));
+        OnPropertyChanged(nameof(LocalizedDescriptionLabel));
+        OnPropertyChanged(nameof(LocalizedEditMetadata));
+        OnPropertyChanged(nameof(LocalizedSave));
+        OnPropertyChanged(nameof(LocalizedCancel));
+        OnPropertyChanged(nameof(LocalizedSystemAccentOverrides));
+        OnPropertyChanged(nameof(LocalizedSystemAccentDescription1));
+        OnPropertyChanged(nameof(LocalizedSystemAccentDescription2));
+        OnPropertyChanged(nameof(LocalizedPrimaryAccent));
+        OnPropertyChanged(nameof(LocalizedSecondaryAccent));
+        OnPropertyChanged(nameof(LocalizedTertiaryAccent));
+        OnPropertyChanged(nameof(LocalizedQuaternaryAccent));
+        OnPropertyChanged(nameof(LocalizedHoverAccent));
+        OnPropertyChanged(nameof(LocalizedSubtleHover));
+        OnPropertyChanged(nameof(LocalizedMediumHover));
+        OnPropertyChanged(nameof(LocalizedClickToOpenColorPicker));
+        OnPropertyChanged(nameof(LocalizedClearToUseOsColor));
+        OnPropertyChanged(nameof(LocalizedClear));
+        OnPropertyChanged(nameof(LocalizedSystemAltOverrides));
+        OnPropertyChanged(nameof(LocalizedSystemAltDescription1));
+        OnPropertyChanged(nameof(LocalizedSystemAltDescription2));
+        OnPropertyChanged(nameof(LocalizedAltHigh));
+        OnPropertyChanged(nameof(LocalizedAltMediumHigh));
+        OnPropertyChanged(nameof(LocalizedAltMedium));
+        OnPropertyChanged(nameof(LocalizedAltMediumLow));
+        OnPropertyChanged(nameof(LocalizedAltLow));
+        OnPropertyChanged(nameof(LocalizedSystemBaseOverrides));
+        OnPropertyChanged(nameof(LocalizedSystemBaseDescription));
+        OnPropertyChanged(nameof(LocalizedBaseHigh));
+        OnPropertyChanged(nameof(LocalizedBaseMediumHigh));
+        OnPropertyChanged(nameof(LocalizedBaseMedium));
+        OnPropertyChanged(nameof(LocalizedBaseMediumLow));
+        OnPropertyChanged(nameof(LocalizedBaseLow));
+        OnPropertyChanged(nameof(LocalizedBaseHighHelp));
+        OnPropertyChanged(nameof(LocalizedBaseMediumHighHelp));
+        OnPropertyChanged(nameof(LocalizedBaseMediumHelp));
+        OnPropertyChanged(nameof(LocalizedBaseMediumLowHelp));
+        OnPropertyChanged(nameof(LocalizedBaseLowHelp));
+        OnPropertyChanged(nameof(LocalizedSystemChromeOverrides));
+        OnPropertyChanged(nameof(LocalizedSystemChromeDescription));
+        OnPropertyChanged(nameof(LocalizedChromeAltLow));
+        OnPropertyChanged(nameof(LocalizedChromeBlackHigh));
+        OnPropertyChanged(nameof(LocalizedChromeBlackLow));
+        OnPropertyChanged(nameof(LocalizedChromeBlackMedium));
+        OnPropertyChanged(nameof(LocalizedChromeBlackMediumLow));
+        OnPropertyChanged(nameof(LocalizedChromeDisabledHigh));
+        OnPropertyChanged(nameof(LocalizedChromeDisabledLow));
+        OnPropertyChanged(nameof(LocalizedChromeGray));
+        OnPropertyChanged(nameof(LocalizedChromeHigh));
+        OnPropertyChanged(nameof(LocalizedChromeLow));
+        OnPropertyChanged(nameof(LocalizedChromeMedium));
+        OnPropertyChanged(nameof(LocalizedChromeMediumLow));
+        OnPropertyChanged(nameof(LocalizedChromeWhite));
+        OnPropertyChanged(nameof(LocalizedChromeAltLowHelp));
+        OnPropertyChanged(nameof(LocalizedChromeBlackHighHelp));
+        OnPropertyChanged(nameof(LocalizedChromeBlackLowHelp));
+        OnPropertyChanged(nameof(LocalizedChromeBlackMediumHelp));
+        OnPropertyChanged(nameof(LocalizedChromeBlackMediumLowHelp));
+        OnPropertyChanged(nameof(LocalizedChromeDisabledHighHelp));
+        OnPropertyChanged(nameof(LocalizedChromeDisabledLowHelp));
+        OnPropertyChanged(nameof(LocalizedChromeGrayHelp));
+        OnPropertyChanged(nameof(LocalizedChromeHighHelp));
+        OnPropertyChanged(nameof(LocalizedChromeLowHelp));
+        OnPropertyChanged(nameof(LocalizedChromeMediumHelp));
+        OnPropertyChanged(nameof(LocalizedChromeMediumLowHelp));
+        OnPropertyChanged(nameof(LocalizedChromeWhiteHelp));
+        OnPropertyChanged(nameof(LocalizedColorOverrides));
+        OnPropertyChanged(nameof(LocalizedColorsLabel));
+        OnPropertyChanged(nameof(LocalizedColorOverridesDescription));
+        OnPropertyChanged(nameof(LocalizedResetToDefault));
+        OnPropertyChanged(nameof(LocalizedGradients));
+        OnPropertyChanged(nameof(LocalizedGradientsLabel));
+        OnPropertyChanged(nameof(LocalizedEditGradient));
+        OnPropertyChanged(nameof(LocalizedSaveGradient));
+        OnPropertyChanged(nameof(LocalizedCancelEdit));
+        OnPropertyChanged(nameof(LocalizedStartColorLabel));
+        OnPropertyChanged(nameof(LocalizedEndColorLabel));
+        OnPropertyChanged(nameof(LocalizedAngleLabel));
+        OnPropertyChanged(nameof(LocalizedClearGradient));
+        OnPropertyChanged(nameof(LocalizedClearGradientHelp));
+        OnPropertyChanged(nameof(LocalizedApplyPresetLabel));
+        OnPropertyChanged(nameof(LocalizedThemeInfo));
+        OnPropertyChanged(nameof(LocalizedEditStatus));
+        OnPropertyChanged(nameof(LocalizedRecentColors));
+        OnPropertyChanged(nameof(LocalizedReadyStatus));
+        OnPropertyChanged(nameof(LocalizedCanUndoLabel));
+        OnPropertyChanged(nameof(LocalizedCanRedoLabel));
+        OnPropertyChanged(nameof(LocalizedEditingColorLabel));
+        OnPropertyChanged(nameof(LocalizedEditingGradientLabel));
+        OnPropertyChanged(nameof(LocalizedBatchModeLabel));
+    }
+
+    #endregion
 
     // Theme metadata
     private string _currentThemeId = string.Empty;
@@ -970,6 +1190,13 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
 
     public ThemeEditorViewModel()
     {
+        try
+        {
+            RefreshLocalizedStrings();
+            AppServices.Localization.LanguageChanged += OnLocalizationChanged;
+        }
+        catch { }
+
         // Load history from temp file
         LoadHistory();
         
@@ -1030,6 +1257,18 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         ImportThemeCommand = new RelayCommand(async _ => await ImportThemeAsync(), _ => true);
         SearchDrivesForThemesCommand = new RelayCommand(async _ => await SearchDrivesForThemesAsync(), _ => true);
         ExportModifiedThemeCommand = new RelayCommand(async _ => await ExportModifiedThemeAsync(), _ => CanUndo && !IsEditingColor && !IsEditingGradient);
+    }
+
+    private void OnLocalizationChanged()
+    {
+        try
+        {
+            Dispatcher.UIThread.Post(RefreshLocalizedStrings);
+        }
+        catch
+        {
+            RefreshLocalizedStrings();
+        }
     }
 
     #endregion

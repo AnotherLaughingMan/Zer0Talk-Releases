@@ -9,11 +9,11 @@ using Zer0Talk.Utilities;
 
 namespace Zer0Talk.Services
 {
-    // Orchestrates peer discovery across LAN and WAN without duplicating lower-level logic.
+    // Orchestrates peer discovery across LAN without duplicating lower-level logic.
     // Delegates:
     // - LAN multicast/broadcast discovery is handled by NetworkService.
     // - UPnP gateway discovery is handled by NatTraversalService.
-    // - WAN bootstrap via Known Major Nodes is handled by PeerCrawler.
+    // - Optional relay fallback is handled by NetworkService connection policy.
     public sealed class DiscoveryService : IDisposable
     {
         public enum State { Idle, Discovering, Completed, Failed }
@@ -21,7 +21,6 @@ namespace Zer0Talk.Services
         private readonly SettingsService _settings;
         private readonly NetworkService _network;
         private readonly NatTraversalService _nat;
-        private readonly PeerCrawler _crawler;
 
         private readonly object _gate = new();
         private CancellationTokenSource? _cts;
@@ -38,8 +37,8 @@ namespace Zer0Talk.Services
         public State CurrentState { get; private set; } = State.Idle;
         public event Action? Changed; // lightweight state change event
 
-        public DiscoveryService(SettingsService settings, NetworkService network, NatTraversalService nat, PeerCrawler crawler)
-        { _settings = settings; _network = network; _nat = nat; _crawler = crawler; }
+        public DiscoveryService(SettingsService settings, NetworkService network, NatTraversalService nat)
+        { _settings = settings; _network = network; _nat = nat; }
 
         public void Start()
         {
@@ -104,10 +103,7 @@ namespace Zer0Talk.Services
                     // Step 1: Ensure NAT diagnostics are available only if needed
                     await TryNatProbeAsync(ct);
 
-                    // Step 2: Ensure WAN bootstrap crawler is running if seeds exist
-                    StartCrawlerIfSeeded();
-
-                    // Step 3: Observe for a short window for any discovery signals
+                    // Step 2: Observe for a short window for any discovery signals
                     var success = await WaitForSignalsAsync(TimeSpan.FromSeconds(12), ct);
                     if (success)
                     {
@@ -178,18 +174,6 @@ namespace Zer0Talk.Services
             catch { }
         }
 
-        private void StartCrawlerIfSeeded()
-        {
-            var seeds = _settings.Settings.KnownMajorNodes ?? new List<string>();
-            if (seeds.Count == 0)
-            {
-                AppendLog("Bootstrap: no known major nodes configured");
-                return;
-            }
-            AppendLog($"Bootstrap: {seeds.Count} seed(s)");
-            try { _crawler.Start(); } catch { }
-        }
-
         private static async Task<bool> WaitForSignalsAsync(TimeSpan window, CancellationToken ct)
         {
             var start = DateTime.UtcNow;
@@ -258,7 +242,7 @@ namespace Zer0Talk.Services
                 LastError = _lastError,
                 BackoffSeconds = _backoffSeconds,
                 Log = _log.ToArray(),
-                Seeds = (_settings.Settings.KnownMajorNodes ?? new List<string>()).ToArray(),
+                Seeds = Array.Empty<string>(),
                 PeersCount = AppServices.Peers.Peers.Count,
                 UdpBeaconsRecv = (int)AppServices.Network.GetDiagnosticsSnapshot().UdpBeaconsRecv
             };

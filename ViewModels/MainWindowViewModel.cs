@@ -31,14 +31,7 @@ namespace Zer0Talk.ViewModels
         // Expose a debug-only UI flag for XAML visibility bindings
         public bool IsDebugUi
         {
-            get
-            {
-#if DEBUG
-                return true;
-#else
-                return false;
-#endif
-            }
+            get => Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi;
         }
 
         public string PrototypeBadgeText => Zer0Talk.AppInfo.PrototypeBadgeText;
@@ -423,6 +416,13 @@ namespace Zer0Talk.ViewModels
                 _teardownActions.Add(() => AppServices.Notifications.NoticesChanged -= noticesChanged);
             }
             catch { }
+            try
+            {
+                Action securityEventsChanged = () => { Avalonia.Threading.Dispatcher.UIThread.Post(() => { RefreshHasPendingInvites(); }); };
+                AppServices.Notifications.SecurityEventsChanged += securityEventsChanged;
+                _teardownActions.Add(() => AppServices.Notifications.SecurityEventsChanged -= securityEventsChanged);
+            }
+            catch { }
 
             // Ensure initial badge state
             RefreshHasPendingInvites();
@@ -571,20 +571,6 @@ namespace Zer0Talk.ViewModels
                 try { 
                     // Test the actual incoming message notification system
                     AppServices.Notifications.AddOrUpdateMessageNotice("Alice", "Hey, are you available for a quick call? This is a test notification with a longer message that should be truncated in the preview.", "alice123", Guid.NewGuid(), incoming: true, DateTime.UtcNow, isUnread: true); 
-                    
-                    // Also test direct audio service
-                    _ = System.Threading.Tasks.Task.Run(async () => {
-                        try 
-                        {
-                            System.Diagnostics.Debug.WriteLine("TESTING: Direct audio call");
-                            await AppServices.AudioNotifications.PlaySoundAsync(Services.AudioNotificationService.SoundType.MessageIncoming);
-                            System.Diagnostics.Debug.WriteLine("TESTING: Direct audio call completed");
-                        }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"TESTING: Direct audio failed: {ex.Message}");
-                        }
-                    });
                 } catch (Exception ex) { 
                     System.Diagnostics.Debug.WriteLine($"TESTING: Notification test failed: {ex.Message}");
                 } 
@@ -1368,6 +1354,7 @@ namespace Zer0Talk.ViewModels
             {
                 var invites = AppServices.ContactRequests.PendingInboundRequests.ToList();
                 var notices = AppServices.Notifications.Notices.ToList();
+                var securityEvents = AppServices.Notifications.SecurityEvents.ToList();
 
                 var inviteOrigins = new HashSet<string>(invites.Where(p => !string.IsNullOrWhiteSpace(p.Uid)).Select(p => TrimUidPrefix(p.Uid!)), StringComparer.OrdinalIgnoreCase);
                 var noticeOrigins = new HashSet<string>(notices.Where(n => !string.IsNullOrWhiteSpace(n.OriginUid)).Select(n => TrimUidPrefix(n.OriginUid!)), StringComparer.OrdinalIgnoreCase);
@@ -1382,11 +1369,11 @@ namespace Zer0Talk.ViewModels
                 var uniqueOrigins = new HashSet<string>(inviteOrigins, StringComparer.OrdinalIgnoreCase);
                 foreach (var o in noticeOrigins) uniqueOrigins.Add(o);
 
-                // Count persistent general notifications (alerts without origin - Info/Warning/Error)
+                // Count general notifications (alerts without origin - Info/Warning/Error)
                 // Exclude invite notifications as they're already counted via inviteOrigins
-                var generalAlerts = notices.Count(n => string.IsNullOrWhiteSpace(n.OriginUid) && n.IsPersistent && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase));
+                var generalAlerts = notices.Count(n => string.IsNullOrWhiteSpace(n.OriginUid) && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase));
 
-                var total = uniqueOrigins.Count + generalAlerts;
+                var total = uniqueOrigins.Count + generalAlerts + securityEvents.Count;
 
                 // Marshal property updates to UI thread
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -2118,6 +2105,7 @@ namespace Zer0Talk.ViewModels
         public string LocalizedClearAllAlerts => Services.AppServices.Localization.GetString("MainWindow.ClearAllAlerts", "Clear All Alerts");
         public string LocalizedMessages => Services.AppServices.Localization.GetString("MainWindow.Messages", "Messages");
         public string LocalizedAlerts => Services.AppServices.Localization.GetString("MainWindow.Alerts", "Alerts");
+        public string LocalizedThemeEditor => Services.AppServices.Localization.GetString("MainWindow.ThemeEditor", "Theme Editor");
         public string LocalizedAccept => Services.AppServices.Localization.GetString("MainWindow.Accept", "Accept");
         public string LocalizedReject => Services.AppServices.Localization.GetString("MainWindow.Reject", "Reject");
         public string LocalizedNoPendingInvites => Services.AppServices.Localization.GetString("MainWindow.NoPendingInvites", "No pending invites.");
@@ -2125,6 +2113,15 @@ namespace Zer0Talk.ViewModels
         public string LocalizedNoAlerts => Services.AppServices.Localization.GetString("MainWindow.NoAlerts", "No alerts.");
         public string LocalizedPrevName => Services.AppServices.Localization.GetString("MainWindow.PrevName", "Prev. Name");
         public string LocalizedChanges => Services.AppServices.Localization.GetString("MainWindow.Changes", "Changes");
+        public string LocalizedIdentityLabel => Services.AppServices.Localization.GetString("MainWindow.Identity", "Identity");
+        public string LocalizedDisplayNameLabel => Services.AppServices.Localization.GetString("Settings.DisplayName", "Display Name");
+        public string LocalizedUidLabel => Services.AppServices.Localization.GetString("Settings.UID", "UID");
+        public string LocalizedPresenceLabel => Services.AppServices.Localization.GetString("MainWindow.Presence", "Presence");
+        public string LocalizedPublicKeyLabel => Services.AppServices.Localization.GetString("Settings.PublicKey", "Public Key");
+        public string LocalizedBioLabel => Services.AppServices.Localization.GetString("Settings.Bio", "Bio");
+        public string LocalizedCopyPublicKey => Services.AppServices.Localization.GetString("MainWindow.CopyPublicKey", "Copy Public Key");
+        public string LocalizedSave => Services.AppServices.Localization.GetString("Common.Save", "Save");
+        public string LocalizedCloseEsc => Services.AppServices.Localization.GetString("MainWindow.CloseEsc", "Close (Esc)");
         public string LocalizedVerify => Services.AppServices.Localization.GetString("MainWindow.Verify", "Verify");
         public string LocalizedSaveSimulated => Services.AppServices.Localization.GetString("MainWindow.SaveSimulated", "Save (Simulated)");
         public string LocalizedMessagePending => Services.AppServices.Localization.GetString("MainWindow.MessagePending", "Message pending - contact is offline");
@@ -2145,10 +2142,12 @@ namespace Zer0Talk.ViewModels
         public string LocalizedMonitoring => Services.AppServices.Localization.GetString("MainWindow.Monitoring", "Monitoring");
         public string LocalizedLogs => Services.AppServices.Localization.GetString("MainWindow.Logs", "Logs");
         public string LocalizedSettings => Services.AppServices.Localization.GetString("MainWindow.Settings", "Settings");
+        public string LocalizedAbout => Services.AppServices.Localization.GetString("MainWindow.About", "About");
         public string LocalizedOnline => Services.AppServices.Localization.GetString("Settings.Online", "Online");
         public string LocalizedAway => Services.AppServices.Localization.GetString("Settings.Away", "Away");
         public string LocalizedDoNotDisturb => Services.AppServices.Localization.GetString("Settings.DoNotDisturb", "Do Not Disturb");
-        public string LocalizedInvisible => Services.AppServices.Localization.GetString("MainWindow.Close", "Invisible");
+        public string LocalizedInvisible => Services.AppServices.Localization.GetString("MainWindow.Invisible", "Invisible");
+        public string LocalizedOffline => Services.AppServices.Localization.GetString("Settings.Offline", "Offline");
 
         private void RefreshLocalizedStrings()
         {
@@ -2182,6 +2181,7 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedClearAllAlerts));
             OnPropertyChanged(nameof(LocalizedMessages));
             OnPropertyChanged(nameof(LocalizedAlerts));
+            OnPropertyChanged(nameof(LocalizedThemeEditor));
             OnPropertyChanged(nameof(LocalizedAccept));
             OnPropertyChanged(nameof(LocalizedReject));
             OnPropertyChanged(nameof(LocalizedNoPendingInvites));
@@ -2189,6 +2189,15 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedNoAlerts));
             OnPropertyChanged(nameof(LocalizedPrevName));
             OnPropertyChanged(nameof(LocalizedChanges));
+            OnPropertyChanged(nameof(LocalizedIdentityLabel));
+            OnPropertyChanged(nameof(LocalizedDisplayNameLabel));
+            OnPropertyChanged(nameof(LocalizedUidLabel));
+            OnPropertyChanged(nameof(LocalizedPresenceLabel));
+            OnPropertyChanged(nameof(LocalizedPublicKeyLabel));
+            OnPropertyChanged(nameof(LocalizedBioLabel));
+            OnPropertyChanged(nameof(LocalizedCopyPublicKey));
+            OnPropertyChanged(nameof(LocalizedSave));
+            OnPropertyChanged(nameof(LocalizedCloseEsc));
             OnPropertyChanged(nameof(LocalizedVerify));
             OnPropertyChanged(nameof(LocalizedSaveSimulated));
             OnPropertyChanged(nameof(LocalizedMessagePending));
@@ -2209,10 +2218,12 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedMonitoring));
             OnPropertyChanged(nameof(LocalizedLogs));
             OnPropertyChanged(nameof(LocalizedSettings));
+            OnPropertyChanged(nameof(LocalizedAbout));
             OnPropertyChanged(nameof(LocalizedOnline));
             OnPropertyChanged(nameof(LocalizedAway));
             OnPropertyChanged(nameof(LocalizedDoNotDisturb));
             OnPropertyChanged(nameof(LocalizedInvisible));
+            OnPropertyChanged(nameof(LocalizedOffline));
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

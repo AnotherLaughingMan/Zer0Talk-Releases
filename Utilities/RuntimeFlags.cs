@@ -6,5 +6,6 @@ namespace Zer0Talk.Utilities
     internal static class RuntimeFlags
     {
         public static volatile bool SafeMode;
+        public static volatile bool ShowDebugUi;
     }
 }

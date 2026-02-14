@@ -38,7 +38,8 @@
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedTheme}" FontWeight="SemiBold"/>
-              <ComboBox x:Name="ThemeCombo" ItemsSource="{Binding ThemeItems}" SelectedIndex="{Binding ThemeIndex}" Width="180"/>
+              <ComboBox x:Name="ThemeCombo" ItemsSource="{Binding ThemeItems}" SelectedIndex="{Binding ThemeIndex}" Width="180"
+                        ToolTip.Tip="{Binding LocalizedThemeHelp}"/>
             </StackPanel>
           </Border>
 
@@ -48,7 +49,8 @@
               <TextBlock Text="{Binding LocalizedFont}" FontWeight="SemiBold"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedFamily}" VerticalAlignment="Center"/>
-                <TextBox Text="{Binding UiFontFamily}" Width="200" Watermark="{Binding LocalizedEnterFontFamilyName}"/>
+                <TextBox Text="{Binding UiFontFamily}" Width="200" Watermark="{Binding LocalizedEnterFontFamilyName}"
+                         ToolTip.Tip="{Binding LocalizedFontHelp}"/>
               </StackPanel>
               <!-- UI Scaling removed: OS-level scaling should be used instead (Windows Display Settings, etc.) -->
               <!-- DO NOT re-add UI scaling - RenderTransform scaling causes severe layout issues, content clipping, -->
@@ -61,7 +63,8 @@
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left" BorderBrush="{DynamicResource App.Accent}" BorderThickness="2">
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedLanguage}" FontWeight="SemiBold"/>
-              <ComboBox ItemsSource="{Binding AvailableLanguages}" SelectedItem="{Binding Language}" Width="200" HorizontalAlignment="Left"/>
+              <ComboBox ItemsSource="{Binding AvailableLanguages}" SelectedItem="{Binding Language}" Width="200" HorizontalAlignment="Left"
+                        ToolTip.Tip="{Binding LocalizedLanguageHelp}"/>
               <TextBlock Text="{Binding LocalizedAdditionalLanguagesMessage}" FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
             </StackPanel>
           </Border>
@@ -79,12 +82,13 @@
               <TextBlock Text="{Binding LocalizedDefaultPresence}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
                 <TextBlock Text="{Binding LocalizedStatus}" VerticalAlignment="Center"/>
-                <ComboBox Grid.Column="1" ItemsSource="{Binding PresenceItems}" SelectedIndex="{Binding DefaultPresenceIndex}" Width="150"/>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding PresenceItems}" SelectedIndex="{Binding DefaultPresenceIndex}" Width="150"
+                          ToolTip.Tip="{Binding LocalizedDefaultPresenceHelp}"/>
               </Grid>
               <TextBlock Text="{Binding LocalizedOfflineAutomatic}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding SuppressNotificationsInDnd}"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding SuppressNotificationsInDnd}" ToolTip.Tip="{Binding LocalizedSuppressNotifications}"/>
                 <TextBlock Grid.Column="1" Text="{Binding LocalizedSuppressNotifications}" VerticalAlignment="Center"/>
               </Grid>
               
@@ -136,7 +140,7 @@
 
               <!-- Notification Bell Flash -->
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableNotificationBellFlash}"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableNotificationBellFlash}" ToolTip.Tip="{Binding LocalizedNotificationBellFlashHelp}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                   <TextBlock Text="{Binding LocalizedEnableNotificationBellFlash}" VerticalAlignment="Center"/>
                   <TextBlock Text="{Binding LocalizedNotificationBellFlashHelp}" 
@@ -154,11 +158,12 @@
               <TextBlock Text="{Binding LocalizedAutoLock}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalizedEnableAutoLock}" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding AutoLockEnabled}"/>
+                <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding AutoLockEnabled}" ToolTip.Tip="{Binding LocalizedAutoLockHelp}"/>
                 <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding LocalizedMinutes}" VerticalAlignment="Center"/>
-                <NumericUpDown Grid.Row="0" Grid.Column="4" Value="{Binding AutoLockMinutes}" Minimum="0" Maximum="1440" Width="64" ShowButtonSpinner="False" IsEnabled="{Binding AutoLockEnabled}"/>
+                <NumericUpDown Grid.Row="0" Grid.Column="4" Value="{Binding AutoLockMinutes}" Minimum="0" Maximum="1440" Width="64" ShowButtonSpinner="False" IsEnabled="{Binding AutoLockEnabled}"
+                             ToolTip.Tip="{Binding LocalizedAutoLockMinutesHelp}"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LocalizedLockOnMinimize}" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Row="1" Grid.Column="0" IsChecked="{Binding LockOnMinimize}"/>
+                <ToggleSwitch Grid.Row="1" Grid.Column="0" IsChecked="{Binding LockOnMinimize}" ToolTip.Tip="{Binding LocalizedLockOnMinimizeHelp}"/>
               </Grid>
             </StackPanel>
           </Border>
@@ -168,7 +173,8 @@
             <StackPanel Spacing="8">
               <TextBlock Text="{Binding LocalizedLockBlurRadius}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="280,Auto" ColumnSpacing="12">
-                <Slider Grid.Column="0" Value="{Binding LockBlurRadius}" Minimum="0" Maximum="10" Width="280"/>
+                <Slider Grid.Column="0" Value="{Binding LockBlurRadius}" Minimum="0" Maximum="10" Width="280"
+                  ToolTip.Tip="{Binding LocalizedLockBlurHelp}"/>
     <Border Grid.Column="1"
                         BorderBrush="{DynamicResource App.Border}"
                         BorderThickness="1"
@@ -190,7 +196,7 @@
               <TextBlock Text="{Binding LocalizedPrivacy}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
                 <TextBlock Grid.Column="1" Text="{Binding LocalizedBlockScreenCapture}" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding BlockScreenCapture}"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding BlockScreenCapture}" ToolTip.Tip="{Binding LocalizedScreenCaptureWarning}"/>
               </Grid>
               <TextBlock Text="{Binding LocalizedScreenCaptureWarning}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
             </StackPanel>
@@ -202,7 +208,7 @@
               <TextBlock Text="{Binding LocalizedKeyVisibility}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
                 <TextBlock Grid.Column="1" Text="{Binding LocalizedShowPublicKeys}" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowPublicKeys}"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowPublicKeys}" ToolTip.Tip="{Binding LocalizedShowPublicKeysHelp}"/>
               </Grid>
             </StackPanel>
           </Border>
@@ -302,7 +308,7 @@
               
               <!-- Show in System Tray -->
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowInSystemTray}"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowInSystemTray}" ToolTip.Tip="{Binding LocalizedShowSystemTrayIconHelp}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                   <TextBlock Text="{Binding LocalizedShowSystemTrayIcon}" FontWeight="Medium"/>
                   <TextBlock Text="{Binding LocalizedShowSystemTrayIconHelp}" 
@@ -312,7 +318,7 @@
 
               <!-- Minimize to Tray -->
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding MinimizeToTray}"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding MinimizeToTray}" ToolTip.Tip="{Binding LocalizedMinimizeToTrayHelp}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                   <TextBlock Text="{Binding LocalizedMinimizeToTray}" FontWeight="Medium"/>
                   <TextBlock Text="{Binding LocalizedMinimizeToTrayHelp}" 
@@ -320,9 +326,19 @@
                 </StackPanel>
               </Grid>
 
+              <!-- Start Minimized -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding StartMinimized}" ToolTip.Tip="{Binding LocalizedStartMinimizedHelp}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding LocalizedStartMinimized}" FontWeight="Medium"/>
+                  <TextBlock Text="{Binding LocalizedStartMinimizedHelp}"
+                             FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
+
               <!-- Run on Startup -->
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding RunOnStartup}"/>
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding RunOnStartup}" ToolTip.Tip="{Binding LocalizedRunOnStartupHelp}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                   <TextBlock Text="{Binding LocalizedRunOnStartup}" FontWeight="Medium"/>
                   <TextBlock Text="{Binding LocalizedRunOnStartupHelp}" 
@@ -358,7 +374,8 @@
                         CornerRadius="4"
                         Background="{DynamicResource App.Background}"
                         Padding="12,8"
-                        Cursor="Hand">
+                  Cursor="Hand"
+                  ToolTip.Tip="{Binding LocalizedLockApplicationHelp}">
                   <Grid>
                     <TextBlock Text="{Binding LockHotkeyDisplay}" 
                                FontFamily="Consolas"
@@ -375,7 +392,8 @@
                         Content="Reset to Default (Ctrl+L)" 
                         Command="{Binding ResetLockHotkeyCommand}"
                         HorizontalAlignment="Left"
-                        Padding="10,6"/>
+                  Padding="10,6"
+                  ToolTip.Tip="{Binding LocalizedResetToDefault}"/>
               </Grid>
             </StackPanel>
           </Border>
@@ -395,7 +413,8 @@
                         CornerRadius="4"
                         Background="{DynamicResource App.Background}"
                         Padding="12,8"
-                        Cursor="Hand">
+                  Cursor="Hand"
+                  ToolTip.Tip="{Binding LocalizedClearMessageInputHelp}">
                   <Grid>
                     <TextBlock Text="{Binding ClearInputHotkeyDisplay}" 
                                FontFamily="Consolas"
@@ -412,7 +431,8 @@
                         Content="Reset to Default (Ctrl+Shift+Q)" 
                         Command="{Binding ResetClearInputHotkeyCommand}"
                         HorizontalAlignment="Left"
-                        Padding="10,6"/>
+                  Padding="10,6"
+                  ToolTip.Tip="{Binding LocalizedResetToDefault}"/>
               </Grid>
             </StackPanel>
           </Border>
@@ -451,7 +471,8 @@
                   </StackPanel>
 
                   <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedDisplayName}" VerticalAlignment="Center"/>
-                  <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DisplayName}" Watermark="{Binding LocalizedEnterDisplayName}"/>
+                  <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DisplayName}" Watermark="{Binding LocalizedEnterDisplayName}"
+                           ToolTip.Tip="{Binding LocalizedEnterDisplayName}"/>
 
                   <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding LocalizedPrevName}" VerticalAlignment="Center"/>
                   <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8">
@@ -492,10 +513,13 @@
                     </Border>
                     <Button Content="{Binding LocalizedChoose}" Command="{Binding ChooseAvatarCommand}"/>
                     <Button Content="{Binding LocalizedClear}" Command="{Binding ClearAvatarCommand}"/>
+                    <Button Command="{Binding AssignRandomBundledAvatarCommand}" ToolTip.Tip="{Binding LocalizedRandomAvatarTooltip}" Width="32" Height="32" MinWidth="32" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                      <PathIcon Width="14" Height="14" Data="M12,4V1L8,5L12,9V6C14.76,6 17,8.24 17,11C17,11.71 16.85,12.39 16.58,13L18.04,14.46C18.64,13.42 19,12.24 19,11C19,7.13 15.87,4 12,4M7.42,9L5.96,7.54C5.36,8.58 5,9.76 5,11C5,14.87 8.13,18 12,18V21L16,17L12,13V16C9.24,16 7,13.76 7,11C7,10.29 7.15,9.61 7.42,9Z"/>
+                    </Button>
                   </StackPanel>
                   <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <TextBlock Text="{Binding LocalizedShareAvatar}" VerticalAlignment="Center"/>
-                    <ToggleSwitch IsChecked="{Binding ShareAvatar}"/>
+                    <ToggleSwitch IsChecked="{Binding ShareAvatar}" ToolTip.Tip="{Binding LocalizedShareAvatar}"/>
                   </StackPanel>
                 </Grid>
               </StackPanel>
@@ -509,7 +533,8 @@
                 <Grid ColumnDefinitions="160,*" ColumnSpacing="12">
                   <TextBlock Grid.Column="0" Text="{Binding LocalizedBio}" VerticalAlignment="Top"/>
                   <StackPanel Grid.Column="1" Spacing="6">
-                    <TextBox Text="{Binding Bio}" TextWrapping="Wrap" AcceptsReturn="True" Height="140"/>
+                    <TextBox Text="{Binding Bio}" TextWrapping="Wrap" AcceptsReturn="True" Height="140"
+                             ToolTip.Tip="{Binding LocalizedBioHelp}"/>
                     <TextBlock Text="{Binding BioCounter}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" HorizontalAlignment="Right"/>
                   </StackPanel>
                 </Grid>
@@ -557,11 +582,12 @@
               <TextBlock Text="{Binding CcdAffinityNotice}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" IsVisible="{Binding CcdAffinityNoticeVisible}"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedEnforceRAMLimit}" VerticalAlignment="Center"/>
-                <ToggleSwitch IsChecked="{Binding EnforceRamLimit}"/>
+                <ToggleSwitch IsChecked="{Binding EnforceRamLimit}" ToolTip.Tip="{Binding LocalizedEnforceRAMLimitHelp}"/>
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding EnforceRamLimit}">
                 <TextBlock Text="{Binding LocalizedRAMLimit}" VerticalAlignment="Center"/>
-                <NumericUpDown Value="{Binding RamUsageLimitMb}" Minimum="0" Width="80" ShowButtonSpinner="False"/>
+                <NumericUpDown Value="{Binding RamUsageLimitMb}" Minimum="0" Width="80" ShowButtonSpinner="False"
+                             ToolTip.Tip="{Binding LocalizedRamLimitHelp}"/>
                 <TextBlock Text="{Binding LocalizedMBUnlimited}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
             </StackPanel>
@@ -573,16 +599,17 @@
               <TextBlock Text="{Binding LocalizedGPU}" FontWeight="SemiBold"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedEnableGPUAcceleration}" VerticalAlignment="Center"/>
-                <ToggleSwitch IsChecked="{Binding EnableGpuAcceleration}"/>
+                <ToggleSwitch IsChecked="{Binding EnableGpuAcceleration}" ToolTip.Tip="{Binding LocalizedEnableGpuAccelerationHelp}"/>
               </StackPanel>
               <TextBlock Text="{Binding GpuTextNotice}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedEnforceVRAMLimit}" VerticalAlignment="Center"/>
-                <ToggleSwitch IsChecked="{Binding EnforceVramLimit}"/>
+                <ToggleSwitch IsChecked="{Binding EnforceVramLimit}" ToolTip.Tip="{Binding LocalizedEnforceVramLimitHelp}"/>
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding EnforceVramLimit}">
                 <TextBlock Text="{Binding LocalizedVRAMLimit}" VerticalAlignment="Center"/>
-                <NumericUpDown Value="{Binding VramUsageLimitMb}" Minimum="0" Width="80" ShowButtonSpinner="False"/>
+                <NumericUpDown Value="{Binding VramUsageLimitMb}" Minimum="0" Width="80" ShowButtonSpinner="False"
+                             ToolTip.Tip="{Binding LocalizedVramLimitHelp}"/>
                 <TextBlock Text="{Binding LocalizedMBUnlimited}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
             </StackPanel>
@@ -594,17 +621,20 @@
               <TextBlock Text="{Binding LocalizedFramerate}" FontWeight="SemiBold"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedFPSThrottle}" VerticalAlignment="Center"/>
-                <NumericUpDown Value="{Binding FpsThrottle}" Minimum="0" Maximum="300" Width="80" ShowButtonSpinner="False"/>
+                <NumericUpDown Value="{Binding FpsThrottle}" Minimum="0" Maximum="300" Width="80" ShowButtonSpinner="False"
+                             ToolTip.Tip="{Binding LocalizedFpsThrottleHelp}"/>
                 <TextBlock Text="{Binding LocalizedFPSUnlimited}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedRefreshRateThrottle}" VerticalAlignment="Center"/>
-                <NumericUpDown Value="{Binding RefreshRateThrottle}" Minimum="0" Maximum="300" Width="80" ShowButtonSpinner="False"/>
+                <NumericUpDown Value="{Binding RefreshRateThrottle}" Minimum="0" Maximum="300" Width="80" ShowButtonSpinner="False"
+                             ToolTip.Tip="{Binding LocalizedRefreshRateThrottleHelp}"/>
                 <TextBlock Text="{Binding LocalizedHzUnlimited}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedBackgroundFramerate}" VerticalAlignment="Center"/>
-                <NumericUpDown Value="{Binding BackgroundFramerateFps}" Minimum="1" Maximum="60" Width="80" ShowButtonSpinner="False"/>
+                <NumericUpDown Value="{Binding BackgroundFramerateFps}" Minimum="1" Maximum="60" Width="80" ShowButtonSpinner="False"
+                             ToolTip.Tip="{Binding LocalizedBackgroundFramerateHelp}"/>
                 <TextBlock Text="{Binding LocalizedFPS}" VerticalAlignment="Center"/>
               </StackPanel>
             </StackPanel>
@@ -648,9 +678,9 @@
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedKeyboardNavigation}" FontWeight="SemiBold"/>
               <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
-                <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding ShowKeyboardFocus}"/>
+                <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding ShowKeyboardFocus}" ToolTip.Tip="{Binding LocalizedShowKeyboardFocusHelp}"/>
                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalizedShowKeyboardFocusIndicators}" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Row="1" Grid.Column="0" IsChecked="{Binding EnhancedKeyboardNavigation}"/>
+                <ToggleSwitch Grid.Row="1" Grid.Column="0" IsChecked="{Binding EnhancedKeyboardNavigation}" ToolTip.Tip="{Binding LocalizedEnhancedKeyboardNavigationHelp}"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LocalizedEnhancedKeyboardNavigation}" VerticalAlignment="Center"/>
               </Grid>
               
@@ -709,7 +739,7 @@
               
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <TextBlock Text="{Binding LocalizedEnableLogging}" VerticalAlignment="Center"/>
-                <ToggleSwitch IsChecked="{Binding EnableLogging}"/>
+                <ToggleSwitch IsChecked="{Binding EnableLogging}" ToolTip.Tip="{Binding LocalizedPerformanceWarningText}"/>
               </StackPanel>
               
               <Border Background="#33FFA500" Padding="12" CornerRadius="4">
@@ -730,19 +760,22 @@
 
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <TextBlock Text="{Binding LocalizedAutoTrimUILog}" VerticalAlignment="Center"/>
-                <ToggleSwitch IsChecked="{Binding EnableDebugLogAutoTrim}"/>
+                <ToggleSwitch IsChecked="{Binding EnableDebugLogAutoTrim}" ToolTip.Tip="{Binding LocalizedAutoTrimUILogHelp}"/>
               </StackPanel>
 
               <Grid ColumnDefinitions="220,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedMaxEntries}" VerticalAlignment="Center"/>
-                <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding DebugUiLogMaxLines}" Minimum="100" Maximum="20000" Increment="100" Width="100" ShowButtonSpinner="False"/>
+                <NumericUpDown Grid.Row="0" Grid.Column="1" Value="{Binding DebugUiLogMaxLines}" Minimum="100" Maximum="20000" Increment="100" Width="100" ShowButtonSpinner="False"
+                             ToolTip.Tip="{Binding LocalizedDebugUiLogMaxLinesHelp}"/>
 
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedRetentionDays}" VerticalAlignment="Center"/>
-                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding DebugLogRetentionDays}" Minimum="0" Maximum="30" Width="80" ShowButtonSpinner="False"/>
+                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding DebugLogRetentionDays}" Minimum="0" Maximum="30" Width="80" ShowButtonSpinner="False"
+                             ToolTip.Tip="{Binding LocalizedDebugLogRetentionDaysHelp}"/>
 
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedSizeCap}" VerticalAlignment="Center"/>
                 <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="4">
-                  <NumericUpDown Value="{Binding DebugLogSizeValue}" Minimum="1" Maximum="{Binding DebugLogSizeMaxValue}" Width="80" ShowButtonSpinner="False"/>
+                  <NumericUpDown Value="{Binding DebugLogSizeValue}" Minimum="1" Maximum="{Binding DebugLogSizeMaxValue}" Width="80" ShowButtonSpinner="False"
+                               ToolTip.Tip="{Binding LocalizedDebugLogSizeHelp}"/>
                   <ComboBox SelectedItem="{Binding DebugLogSizeUnit}" Width="80" MinWidth="80">
                     <x:String>KB</x:String>
                     <x:String>MB</x:String>
@@ -839,26 +872,26 @@
                 <Run Text="{Binding LocalizedPortLabel}"/>
                 <Run Text="{Binding LocalizedPortDescription}"/>
               </TextBlock>
-              <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+              <Grid ColumnDefinitions="160,*" RowDefinitions="Auto" RowSpacing="8" ColumnSpacing="12">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedPort}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Port}" Width="120" HorizontalAlignment="Left" Watermark="26264"/>
-                
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedDedicatedPeerNode}" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Row="1" Grid.Column="1" IsChecked="{Binding MajorNode}" Content="{Binding LocalizedEnableDedicatedPeerNode}"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Port}" Width="120" HorizontalAlignment="Left" Watermark="26264"
+                         ToolTip.Tip="{Binding LocalizedPortDescription}"/>
               </Grid>
-              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820" Margin="0,4,0,0">
-                <Run Text="{Binding LocalizedDedicatedPeerNodeInfo}"/>
-                <LineBreak/>
-                <Run Text="{Binding LocalizedEnablesUPnP}"/>
-                <LineBreak/>
-                <Run Text="{Binding LocalizedMakesNodeAccessible}"/>
-                <LineBreak/>
-                <Run Text="{Binding LocalizedImprovesConnectivity}"/>
-                <LineBreak/>
-                <Run Text="{Binding LocalizedDoesNotRelay}"/>
-                <LineBreak/>
-                <Run Text="{Binding LocalizedRequiresPortForwarding}"/>
-              </TextBlock>
+            </StackPanel>
+          </Border>
+
+          <!-- Network Troubleshooter -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="10">
+              <TextBlock Text="Network Troubleshooter" FontWeight="SemiBold"/>
+              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820"
+                         Text="Use this to clear old Zer0Talk firewall rules and re-create allow rules automatically for this app on Windows."/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Run Firewall Troubleshooter" Command="{Binding RunFirewallTroubleshooterCommand}"/>
+                <TextBlock Text="Admin permission required" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource App.SecondaryText}"/>
+              </StackPanel>
+              <TextBlock Text="{Binding NetworkInfoMessage}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="820"/>
+              <TextBlock Text="{Binding NetworkErrorMessage}" FontSize="12" Foreground="{DynamicResource App.Warning}" TextWrapping="Wrap" MaxWidth="820"/>
             </StackPanel>
           </Border>
 
@@ -871,12 +904,20 @@
                 <LineBreak/>
                 <Run Text="{Binding LocalizedRelayDescription2}"/>
               </TextBlock>
-              <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+              <Grid ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedRelayFallback}" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding RelayFallbackEnabled}" Content="{Binding LocalizedEnableRelayFallback}"/>
+                <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding RelayFallbackEnabled}" Content="{Binding LocalizedEnableRelayFallback}"
+                              ToolTip.Tip="{Binding LocalizedRelayFallbackHelp}"/>
                 
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedRelayServer}" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RelayServer}" Watermark="relay.example.com:443" Width="280" HorizontalAlignment="Left"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RelayServer}" Watermark="relay.example.com:443, [IPv6]:443, or token" Width="320" HorizontalAlignment="Left"
+                         ToolTip.Tip="{Binding LocalizedRelayServerHelp}"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedRelayPresenceTimeout}" VerticalAlignment="Center"/>
+                <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding RelayPresenceTimeoutSeconds}" Minimum="10" Maximum="300" Width="120" ShowButtonSpinner="False" HorizontalAlignment="Left"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding LocalizedRelayDiscoveryTtl}" VerticalAlignment="Center"/>
+                <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding RelayDiscoveryTtlMinutes}" Minimum="1" Maximum="60" Width="120" ShowButtonSpinner="False" HorizontalAlignment="Left"/>
               </Grid>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820" Margin="0,4,0,0">
                 <Run Text="{Binding LocalizedRequirements}"/>
@@ -892,173 +933,41 @@
             </StackPanel>
           </Border>
 
-          <!-- Known Dedicated Peer Nodes -->
+          <!-- Saved Relay Endpoints -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedKnownDedicatedPeerNodes}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedSavedRelays}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedSavedRelaysHelp}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="820"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBox Text="{Binding NewMajorNode}" Watermark="example.com:26264" Width="240"/>
-                <Button Content="{Binding LocalizedAdd}" Command="{Binding AddMajorNodeCommand}"/>
+                <TextBox Text="{Binding NewRelayServer}" Watermark="relay.example.com:443, [IPv6]:443, or 16-char token" Width="360"/>
+                <Button Content="{Binding LocalizedAdd}" Command="{Binding AddRelayServerCommand}"/>
+                <Button Content="Use" Command="{Binding UseRelayServerCommand}" CommandParameter="{Binding SelectedRelayServer}"/>
               </StackPanel>
               <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" MinHeight="120" MaxHeight="200">
-                <ScrollViewer>
-                  <ItemsControl ItemsSource="{Binding KnownMajorNodes}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <Grid ColumnDefinitions="*,Auto" Margin="8,4">
-                          <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"/>
-                          <Button Grid.Column="1" Content="{Binding $parent[UserControl].DataContext.LocalizedRemove}" Command="{Binding $parent[UserControl].DataContext.RemoveMajorNodeCommand}" CommandParameter="{Binding}"/>
-                        </Grid>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </ScrollViewer>
+                <ListBox ItemsSource="{Binding SavedRelayServers}" SelectedItem="{Binding SelectedRelayServer}" BorderThickness="0" Background="Transparent">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Grid ColumnDefinitions="*,Auto,Auto" Margin="8,4">
+                        <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Margin="8,0,0,0" Content="Use" Command="{Binding $parent[UserControl].DataContext.UseRelayServerCommand}" CommandParameter="{Binding}"/>
+                        <Button Grid.Column="2" Margin="8,0,0,0" Content="{Binding $parent[UserControl].DataContext.LocalizedRemove}" Command="{Binding $parent[UserControl].DataContext.RemoveRelayServerCommand}" CommandParameter="{Binding}"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
               </Border>
             </StackPanel>
           </Border>
 
-          <!-- Discovered Peers (Table-like DHT Peer List) -->
+          <!-- Discovered Peers moved to dedicated operational window (left rail) -->
           <Border CornerRadius="8" Padding="16" Width="920" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
-              <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,4">
-                <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2">
-                  <TextBlock Text="{Binding LocalizedDiscoveredPeers}" FontWeight="SemiBold"/>
-                  <TextBlock Text="{Binding LocalizedLocationsEstimated}" FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
-                </StackPanel>
-                <Button Grid.Column="1" Content="{Binding LocalizedBlockSelected}" Command="{Binding BlockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
-                <Button Grid.Column="2" Content="{Binding LocalizedUnblockSelected}" Command="{Binding UnblockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
-                <Button Grid.Column="3" Command="{Binding RefreshPeersCommand}" Padding="8,4" ToolTip.Tip="Refresh Peer List" FontFamily="Segoe MDL2 Assets" FontSize="14" Content="&#xE72C;"/>
-              </Grid>
-              <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Height="320">
-                <Grid>
-                  <!-- Table Header -->
-                  <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                  </Grid.RowDefinitions>
-                  <Border Grid.Row="0" Background="{DynamicResource App.SecondaryBackground}" BorderBrush="{DynamicResource App.Border}" BorderThickness="0,0,0,1" Padding="6,4">
-                    <Grid ColumnDefinitions="32,36,180,*,50,50">
-                      <TextBlock Grid.Column="0" Text="☑" FontWeight="SemiBold" FontSize="11" Opacity="0.7" Margin="3,0,0,0"/>
-                      <TextBlock Grid.Column="1" Text="🌍" FontWeight="SemiBold" FontSize="11" Opacity="0.7" HorizontalAlignment="Center"/>
-                      <TextBlock Grid.Column="2" Text="{Binding LocalizedUID}" FontWeight="SemiBold" FontSize="11" Opacity="0.8" Margin="3,0,0,0"/>
-                      <TextBlock Grid.Column="3" Text="{Binding LocalizedPublicKey}" FontWeight="SemiBold" FontSize="11" Opacity="0.8" Margin="3,0,0,0"/>
-                      <TextBlock Grid.Column="4" Text="{Binding LocalizedNode}" FontWeight="SemiBold" FontSize="11" Opacity="0.8" HorizontalAlignment="Center"/>
-                      <TextBlock Grid.Column="5" Text="{Binding LocalizedBlock}" FontWeight="SemiBold" FontSize="11" Opacity="0.8" HorizontalAlignment="Center"/>
-                    </Grid>
-                  </Border>
-                  <!-- Scrollable peer list -->
-                  <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <ListBox x:Name="DiscoveredPeersList" 
-                             ItemsSource="{Binding DiscoveredPeers}" 
-                             SelectionMode="Multiple"
-                             BorderThickness="0"
-                             Background="Transparent">
-                      <ListBox.Styles>
-                        <!-- Alternating row colors -->
-                        <Style Selector="ListBoxItem:nth-child(even)">
-                          <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
-                        </Style>
-                        <Style Selector="ListBoxItem:nth-child(odd)">
-                          <Setter Property="Background" Value="{DynamicResource App.SecondaryBackground}"/>
-                        </Style>
-                        <Style Selector="ListBoxItem:selected">
-                          <Setter Property="Background" Value="{DynamicResource App.ItemSelected}"/>
-                        </Style>
-                        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
-                          <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
-                        </Style>
-                      </ListBox.Styles>
-                      <ListBox.ItemTemplate>
-                        <DataTemplate>
-                          <Grid ColumnDefinitions="32,36,180,*,50,50" Margin="6,3" HorizontalAlignment="Stretch">
-                            <!-- Checkbox (implicit via SelectionMode=Multiple) -->
-                            <CheckBox Grid.Column="0" IsChecked="{Binding $parent[ListBoxItem].IsSelected}" VerticalAlignment="Center" MinWidth="0" Padding="0" Margin="3,0,0,0"/>
-                            
-                            <!-- Country Flag (decorative, from IP - shows placeholder until connected) -->
-                            <TextBlock Grid.Column="1" 
-                                       Text="{Binding CountryCode, FallbackValue='⚪'}" 
-                                       FontSize="18" 
-                                       VerticalAlignment="Center"
-                                       HorizontalAlignment="Center"
-                                       ToolTip.Tip="Region hint from IP (decorative)"/>
-                            
-                            <!-- UID with verified badge -->
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="3,0,0,0">
-                              <TextBlock Text="{Binding DisplayUID}" 
-                                         TextTrimming="CharacterEllipsis" 
-                                         ToolTip.Tip="{Binding DisplayUID}"
-                                         FontSize="11"
-                                         VerticalAlignment="Center"
-                                         MaxWidth="150"/>
-                              <!-- Use VerifiedBadge control instead of circle -->
-                              <ContentControl Width="14" Height="14"
-                                              IsVisible="{Binding PublicKeyVerified}" 
-                                              VerticalAlignment="Center"
-                                              Content="{Binding}"
-                                              ToolTip.Tip="Identity verified">
-                                <ContentControl.ContentTemplate>
-                                  <DataTemplate>
-                                    <Viewbox Stretch="Uniform" Width="14" Height="14">
-                                      <Canvas Width="24" Height="24">
-                                        <Path Fill="{DynamicResource App.Success}"
-                                              Data="M12,2 L20,6 V11 C20,15.75 16.92,19.87 12,21.75 7.08,19.87 4,15.75 4,11 V6 L12,2 Z"/>
-                                        <Path Stroke="{DynamicResource App.OnSuccess}"
-                                              StrokeThickness="2.2"
-                                              StrokeLineCap="Round"
-                                              StrokeJoin="Round"
-                                              Data="M9.4,12.6 L11.9,15.1 16.6,9.6"/>
-                                      </Canvas>
-                                    </Viewbox>
-                                  </DataTemplate>
-                                </ContentControl.ContentTemplate>
-                              </ContentControl>
-                            </StackPanel>
-                            
-                            <!-- Public Key (with full UID tooltip on hover) -->
-                            <TextBlock Grid.Column="3" 
-                                       Text="{Binding PublicKeyDisplay}" 
-                                       TextTrimming="CharacterEllipsis" 
-                                       ToolTip.Tip="{Binding UID}"
-                                       FontSize="10"
-                                       VerticalAlignment="Center" 
-                                       Margin="3,0,0,0"
-                                       Foreground="{DynamicResource App.ForegroundSecondary}"/>
-                            
-                            <!-- Dedicated Peer Node indicator -->
-                            <TextBlock Grid.Column="4" 
-                                       Classes="icon-mdl2" 
-                                       Text="&#xE774;" 
-                                       Foreground="{DynamicResource App.Accent}" 
-                                       IsVisible="{Binding IsMajorNode}"
-                                       FontSize="14"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       ToolTip.Tip="Dedicated Peer Node"/>
-                            
-                            <!-- Block Status indicator -->
-                            <Grid Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center">
-                              <!-- Blocked: Red Prohibition/Do Not Enter Sign -->
-                              <TextBlock Classes="icon-mdl2" 
-                                         Text="&#xF140;" 
-                                         Foreground="#D32F2F" 
-                                         FontSize="16"
-                                         IsVisible="{Binding IsBlocked}"
-                                         ToolTip.Tip="Blocked"/>
-                              <!-- Not Blocked: Green Checkmark -->
-                              <TextBlock Classes="icon-mdl2" 
-                                         Text="&#xE73E;" 
-                                         Foreground="#4CAF50" 
-                                         FontSize="14"
-                                         IsVisible="{Binding !IsBlocked}"
-                                         ToolTip.Tip="Not Blocked"/>
-                            </Grid>
-                          </Grid>
-                        </DataTemplate>
-                      </ListBox.ItemTemplate>
-                    </ListBox>
-                  </ScrollViewer>
-                </Grid>
-              </Border>
+              <TextBlock Text="{Binding LocalizedDiscoveredPeers}" FontWeight="SemiBold"/>
+              <TextBlock Text="Peer discovery is now managed in a dedicated live window to avoid manual-save friction in Settings." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="860"/>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Content="Open Discovered Peers" Click="OpenDiscoveredPeersWindow_Click"/>
+                <Button Command="{Binding RefreshPeersCommand}" Padding="8,4" ToolTip.Tip="Refresh Peer List" FontFamily="Segoe Fluent Icons" FontSize="14" Content="&#xE72C;"/>
+              </StackPanel>
             </StackPanel>
           </Border>
 
@@ -1123,7 +1032,8 @@
               <StackPanel Spacing="8">
                 <TextBlock Text="Add Individual IPs" FontWeight="Medium"/>
                 <Grid ColumnDefinitions="200,Auto" ColumnSpacing="8">
-                  <TextBox Grid.Column="0" Text="{Binding NewBadActorIp}" Watermark="e.g., 192.168.1.100" VerticalAlignment="Center"/>
+                  <TextBox Grid.Column="0" Text="{Binding NewBadActorIp}" Watermark="e.g., 192.168.1.100" VerticalAlignment="Center"
+                           ToolTip.Tip="{Binding LocalizedAddBadActorIpHelp}"/>
                   <Button Grid.Column="1" Content="Add IP" Command="{Binding AddBadActorIpCommand}" VerticalAlignment="Center"/>
                 </Grid>
               </StackPanel>
@@ -1132,7 +1042,8 @@
               <StackPanel Spacing="8">
                 <TextBlock Text="Add IP Ranges (CIDR)" FontWeight="Medium"/>
                 <Grid ColumnDefinitions="200,Auto" ColumnSpacing="8">
-                  <TextBox Grid.Column="0" Text="{Binding NewIpRange}" Watermark="e.g., 192.168.1.0/24" VerticalAlignment="Center"/>
+                  <TextBox Grid.Column="0" Text="{Binding NewIpRange}" Watermark="e.g., 192.168.1.0/24" VerticalAlignment="Center"
+                           ToolTip.Tip="{Binding LocalizedAddIpRangeHelp}"/>
                   <Button Grid.Column="1" Content="Add Range" Command="{Binding AddIpRangeCommand}" VerticalAlignment="Center"/>
                 </Grid>
               </StackPanel>

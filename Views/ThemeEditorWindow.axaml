@@ -8,7 +8,7 @@
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
         x:Class="Zer0Talk.Views.ThemeEditorWindow"
         x:DataType="vm:ThemeEditorViewModel"
-        Title="🎨 Zer0Talk Theme Editor"
+        Title="{Binding LocalizedThemeEditorTitle}"
         Width="1200" Height="800"
         MinWidth="900" MinHeight="600"
         CanResize="True"
@@ -41,19 +41,19 @@
                 <Border Grid.Column="0" Background="Transparent" PointerPressed="OnTitleBarPointerPressed">
                     <StackPanel Orientation="Horizontal" Margin="6,0" VerticalAlignment="Center" Spacing="6">
                         <TextBlock Text="🎨" FontSize="14" VerticalAlignment="Center" Foreground="{DynamicResource App.TitleBarForeground}"/>
-                        <TextBlock Text="Zer0Talk Theme Editor" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource App.TitleBarForeground}"/>
+                        <TextBlock Text="{Binding LocalizedThemeEditorTitle}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource App.TitleBarForeground}"/>
                     </StackPanel>
                 </Border>
                 
                 <!-- Window Control Buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <Button Classes="icon-button" ToolTip.Tip="Minimize" Click="OnMinimizeClick">
+                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedMinimize}" Click="OnMinimizeClick">
                         <TextBlock Classes="icon-mdl2" Text="&#xE921;"/>
                     </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Maximize" Click="OnMaximizeClick">
-                        <TextBlock Classes="icon-mdl2" Text="&#xE922;"/>
+                    <Button x:Name="ThemeEditorMaximizeRestoreButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedMaximize}" Click="OnMaximizeClick">
+                        <TextBlock x:Name="ThemeEditorMaximizeRestoreIcon" Classes="icon-mdl2" Text="&#xE922;"/>
                     </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="Close" Click="OnCloseClick">
+                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedClose}" Click="OnCloseClick">
                         <TextBlock Classes="icon-mdl2" Text="&#xE8BB;"/>
                     </Button>
                 </StackPanel>
@@ -71,7 +71,7 @@
                 <Button Command="{Binding UndoColorEditCommand}" 
                     Background="{DynamicResource App.ButtonBackground}"
                         IsEnabled="{Binding CanUndo}"
-                        Width="32" Height="32" Padding="4" CornerRadius="4" ToolTip.Tip="Undo">
+                        Width="32" Height="32" Padding="4" CornerRadius="4" ToolTip.Tip="{Binding LocalizedUndo}">
                     <Viewbox Width="24" Height="24">
                         <Canvas Width="24" Height="24">
                             <Path Data="M12.5,8C9.85,8 7.45,9 5.6,10.6L2,7V16H11L7.38,12.38C8.77,11.22 10.54,10.5 12.5,10.5C16.04,10.5 19.05,12.81 20.1,16L22.47,15.22C21.08,11.03 17.15,8 12.5,8Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -82,7 +82,7 @@
                 <Button Command="{Binding RedoColorEditCommand}" 
                     Background="{DynamicResource App.ButtonBackground}"
                         IsEnabled="{Binding CanRedo}"
-                        Width="32" Height="32" Padding="4" CornerRadius="4" ToolTip.Tip="Redo">
+                        Width="32" Height="32" Padding="4" CornerRadius="4" ToolTip.Tip="{Binding LocalizedRedo}">
                     <Viewbox Width="24" Height="24">
                         <Canvas Width="24" Height="24">
                             <Path Data="M18.4,10.6C16.55,8.99 14.15,8 11.5,8C6.85,8 2.92,11.03 1.54,15.22L3.9,16C4.95,12.81 7.95,10.5 11.5,10.5C13.45,10.5 15.23,11.22 16.62,12.38L13,16H22V7L18.4,10.6Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -92,7 +92,7 @@
 
                 <Button Command="{Binding ToggleHistoryPanelCommand}" 
                     Background="{DynamicResource App.ButtonBackground}"
-                        Width="32" Height="32" Padding="4" CornerRadius="4" ToolTip.Tip="History">
+                        Width="32" Height="32" Padding="4" CornerRadius="4" ToolTip.Tip="{Binding LocalizedHistory}">
                     <Viewbox Width="24" Height="24">
                         <Canvas Width="24" Height="24">
                             <Path Data="M13.5,8H12V13L16.28,15.54L17,14.33L13.5,12.25V8M13,3A9,9 0 0,0 4,12H1L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -121,7 +121,7 @@
                     <Button Command="{Binding NewFromBlankTemplateCommand}" 
                             Background="{DynamicResource App.ButtonBackground}"
                             Width="32" Height="32" Padding="4" CornerRadius="4"
-                            ToolTip.Tip="New Theme">
+                            ToolTip.Tip="{Binding LocalizedNewTheme}">
                         <Viewbox Width="24" Height="24">
                             <Canvas Width="24" Height="24">
                                 <Path Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -133,7 +133,7 @@
                     <Button Command="{Binding ImportThemeCommand}" 
                             Background="{DynamicResource App.ButtonBackground}"
                             Width="32" Height="32" Padding="4" CornerRadius="4"
-                            ToolTip.Tip="Open Theme">
+                            ToolTip.Tip="{Binding LocalizedOpenTheme}">
                         <Viewbox Width="24" Height="24">
                             <Canvas Width="24" Height="24">
                                 <Path Data="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -147,7 +147,7 @@
                     <Button Command="{Binding SaveCommand}" 
                             Background="{DynamicResource App.ButtonBackground}"
                             Width="32" Height="32" Padding="4" CornerRadius="4"
-                            ToolTip.Tip="Save Theme">
+                            ToolTip.Tip="{Binding LocalizedSaveTheme}">
                         <Viewbox Width="24" Height="24">
                             <Canvas Width="24" Height="24">
                                 <Path Data="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -159,7 +159,7 @@
                     <Button Command="{Binding SaveAsCommand}" 
                             Background="{DynamicResource App.ButtonBackground}"
                             Width="32" Height="32" Padding="4" CornerRadius="4"
-                            ToolTip.Tip="Save Theme As">
+                            ToolTip.Tip="{Binding LocalizedSaveThemeAs}">
                         <Viewbox Width="24" Height="24">
                             <Canvas Width="24" Height="24">
                                 <Path Data="M14,17H17V14H19V17H22V19H19V22H17V19H14V17M12,17V19H5V5H15V12H17V5C17,3.89 16.1,3 15,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H12.4C12.14,20.36 12,19.69 12,19C12,18.3 12.14,17.64 12.4,17H12Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -171,7 +171,7 @@
                     <Button Command="{Binding SearchDrivesForThemesCommand}" 
                             Background="{DynamicResource App.ButtonBackground}"
                             Width="32" Height="32" Padding="4" CornerRadius="4"
-                            ToolTip.Tip="Search Themes">
+                            ToolTip.Tip="{Binding LocalizedSearchThemes}">
                         <Viewbox Width="24" Height="24">
                             <Canvas Width="24" Height="24">
                                 <Path Data="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -191,7 +191,7 @@
                                 BorderThickness="1" CornerRadius="6" Padding="15"
                                 HorizontalAlignment="Left" MaxWidth="650">
                         <StackPanel Spacing="10">
-                            <TextBlock Text="📝 Theme Metadata" FontSize="16" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding LocalizedThemeMetadata}" FontSize="16" FontWeight="Bold"/>
                             
                             <Grid ColumnDefinitions="Auto,400" RowDefinitions="Auto,Auto,Auto,Auto" 
                                   VerticalAlignment="Top" HorizontalAlignment="Left">
@@ -205,22 +205,22 @@
                                     </Style>
                                 </Grid.Styles>
                                 
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" Classes="label"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedNameLabel}" Classes="label"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" 
                                          Text="{Binding EditableThemeName}" 
                                          IsEnabled="{Binding IsEditingMetadata}"/>
                                 
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Author:" Classes="label"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedAuthorLabel}" Classes="label"/>
                                 <TextBox Grid.Row="1" Grid.Column="1" 
                                          Text="{Binding EditableThemeAuthor}" 
                                          IsEnabled="{Binding IsEditingMetadata}"/>
                                 
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Version:" Classes="label"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedVersionLabel}" Classes="label"/>
                                 <TextBox Grid.Row="2" Grid.Column="1" 
                                          Text="{Binding EditableThemeVersion}" 
                                          IsEnabled="{Binding IsEditingMetadata}"/>
                                 
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Description:" Classes="label"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding LocalizedDescriptionLabel}" Classes="label"/>
                                 <TextBox Grid.Row="3" Grid.Column="1" 
                                          Text="{Binding EditableThemeDescription}" 
                                          IsEnabled="{Binding IsEditingMetadata}"
@@ -228,17 +228,17 @@
                             </Grid>
                             
                             <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                                <Button Content="Edit Metadata" 
+                                <Button Content="{Binding LocalizedEditMetadata}" 
                                     Command="{Binding EditMetadataCommand}"
                                     IsVisible="{Binding !IsEditingMetadata}"
                                     Background="{DynamicResource App.ButtonBackground}"
                                     Padding="10,5" CornerRadius="4"/>
-                                <Button Content="Save" 
+                                <Button Content="{Binding LocalizedSave}" 
                                     Command="{Binding SaveMetadataCommand}"
                                     IsVisible="{Binding IsEditingMetadata}"
                                     Background="{DynamicResource App.ButtonBackground}"
                                     Padding="10,5" CornerRadius="4"/>
-                                <Button Content="Cancel" 
+                                <Button Content="{Binding LocalizedCancel}" 
                                     Command="{Binding CancelMetadataEditCommand}"
                                     IsVisible="{Binding IsEditingMetadata}"
                                     Background="{DynamicResource App.ButtonBackground}"
@@ -253,14 +253,14 @@
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="15">
                             <Grid ColumnDefinitions="*,Auto" PointerPressed="SystemAccentHeader_PointerPressed" Cursor="Hand">
-                                <TextBlock Grid.Column="0" Text="🔧 System Accent Color Overrides" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="0" Text="{Binding LocalizedSystemAccentOverrides}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="1" x:Name="SystemAccentToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
                             </Grid>
                             <StackPanel x:Name="SystemAccentContent" Spacing="15">
                                 <StackPanel Spacing="8">
-                                    <TextBlock Text="Override OS-provided accent colors to prevent system colors from showing through (e.g., blue highlights)." 
+                                    <TextBlock Text="{Binding LocalizedSystemAccentDescription1}" 
                                                FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
-                                    <TextBlock Text="Leave empty to use system colors. Set all 4 for complete control. Click color preview to open picker." 
+                                    <TextBlock Text="{Binding LocalizedSystemAccentDescription2}" 
                                                FontSize="11" Opacity="0.6" TextWrapping="Wrap" FontStyle="Italic"/>
                                 </StackPanel>
                             
@@ -281,130 +281,130 @@
                                     </Style>
                                 </Grid.Styles>
                                 <!-- SystemAccentColor -->
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Primary Accent:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedPrimaryAccent}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SystemAccentColor}" 
                                          Watermark="#0078D4" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="0" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemAccentColor_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemAccentColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="0" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="0" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemAccentColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                                 
                                 <!-- SystemAccentColor2 -->
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Secondary Accent:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedSecondaryAccent}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SystemAccentColor2}" 
                                          Watermark="#005A9E" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="1" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemAccentColor2_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemAccentColor2Preview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="1" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="1" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemAccentColor2Command}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                                 
                                 <!-- SystemAccentColor3 -->
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Tertiary Accent:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedTertiaryAccent}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SystemAccentColor3}" 
                                          Watermark="#106EBE" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="2" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemAccentColor3_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemAccentColor3Preview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="2" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="2" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemAccentColor3Command}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                                 
                                 <!-- SystemAccentColor4 -->
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Quaternary Accent:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding LocalizedQuaternaryAccent}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SystemAccentColor4}" 
                                          Watermark="#0086F0" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="3" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemAccentColor4_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemAccentColor4Preview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="3" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="3" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemAccentColor4Command}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                                 
                                 <!-- SystemAccentColorLight -->
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Hover Accent:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding LocalizedHoverAccent}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SystemAccentColorLight}" 
                                          Watermark="#60CDFF" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="4" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemAccentColorLight_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemAccentColorLightPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="4" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="4" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemAccentColorLightCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemListLowColor -->
-                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Subtle Hover:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding LocalizedSubtleHover}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding SystemListLowColor}" 
                                          Watermark="#33FFFFFF" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="5" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemListLowColor_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemListLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="5" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="5" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemListLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemListMediumColor -->
-                                <TextBlock Grid.Row="6" Grid.Column="0" Text="Medium Hover:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding LocalizedMediumHover}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding SystemListMediumColor}" 
                                          Watermark="#66FFFFFF" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="6" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemListMediumColor_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemListMediumColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="6" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="6" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemListMediumColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                             </Grid>
                             </StackPanel>
                         </StackPanel>
@@ -416,14 +416,14 @@
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="15">
                             <Grid ColumnDefinitions="*,Auto" PointerPressed="SystemAltHeader_PointerPressed" Cursor="Hand">
-                                <TextBlock Grid.Column="0" Text="System Alt Color Overrides (Layering and Depth)" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="0" Text="{Binding LocalizedSystemAltOverrides}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="1" x:Name="SystemAltToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
                             </Grid>
                             <StackPanel x:Name="SystemAltContent" Spacing="15">
                                 <StackPanel Spacing="8">
-                                    <TextBlock Text="Override OS-provided alternative layer colors used for layering, depth effects, and translucent overlays." 
+                                    <TextBlock Text="{Binding LocalizedSystemAltDescription1}" 
                                                FontSize="11" Opacity="0.7" TextWrapping="Wrap"/>
-                                    <TextBlock Text="These control secondary backgrounds and layered UI elements. Typically translucent whites on dark themes." 
+                                    <TextBlock Text="{Binding LocalizedSystemAltDescription2}" 
                                                FontSize="11" Opacity="0.6" TextWrapping="Wrap" FontStyle="Italic"/>
                                 </StackPanel>
                             
@@ -444,94 +444,94 @@
                                     </Style>
                                 </Grid.Styles>
                                 <!-- SystemAltHighColor -->
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Alt High:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedAltHigh}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SystemAltHighColor}" 
                                          Watermark="#FFFFFFFF" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="0" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemAltHighColor_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemAltHighColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="0" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="0" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemAltHighColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                                 
                                 <!-- SystemAltMediumHighColor -->
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Alt Medium-High:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedAltMediumHigh}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SystemAltMediumHighColor}" 
                                          Watermark="#CCFFFFFF" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="1" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemAltMediumHighColor_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemAltMediumHighColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="1" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="1" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemAltMediumHighColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                                 
                                 <!-- SystemAltMediumColor -->
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Alt Medium:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedAltMedium}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SystemAltMediumColor}" 
                                          Watermark="#99FFFFFF" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="2" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemAltMediumColor_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemAltMediumColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="2" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="2" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemAltMediumColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                                 
                                 <!-- SystemAltMediumLowColor -->
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Alt Medium-Low:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding LocalizedAltMediumLow}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SystemAltMediumLowColor}" 
                                          Watermark="#66FFFFFF" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="3" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemAltMediumLowColor_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemAltMediumLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="3" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="3" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemAltMediumLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                                 
                                 <!-- SystemAltLowColor -->
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Alt Low:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding LocalizedAltLow}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SystemAltLowColor}" 
                                          Watermark="#33FFFFFF" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="4" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemAltLowColor_PointerPressed"
-                                        ToolTip.Tip="Click to open color picker">
+                                        ToolTip.Tip="{Binding LocalizedClickToOpenColorPicker}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemAltLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="4" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="4" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemAltLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                             </Grid>
                             </StackPanel>
                         </StackPanel>
@@ -543,11 +543,11 @@
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="10">
                             <Grid ColumnDefinitions="*,Auto" PointerPressed="SystemBaseHeader_PointerPressed" Cursor="Hand">
-                                <TextBlock Grid.Column="0" Text="System Base Color Overrides (Foundation Layers)" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="0" Text="{Binding LocalizedSystemBaseOverrides}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="1" x:Name="SystemBaseToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
                             </Grid>
                             <StackPanel x:Name="SystemBaseContent" Spacing="10">
-                                <TextBlock Text="These colors control background layers, surfaces, and core UI foundation elements." 
+                                <TextBlock Text="{Binding LocalizedSystemBaseDescription}" 
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
 
                             <Grid ColumnDefinitions="Auto,200,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" 
@@ -568,94 +568,94 @@
                                 </Grid.Styles>
 
                                 <!-- SystemBaseHighColor -->
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Base High:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedBaseHigh}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SystemBaseHighColor}" 
                                          Watermark="#FFFFFF" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="0" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemBaseHighColor_PointerPressed"
-                                        ToolTip.Tip="High contrast backgrounds and surfaces">
+                                        ToolTip.Tip="{Binding LocalizedBaseHighHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemBaseHighColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="0" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="0" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemBaseHighColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemBaseMediumHighColor -->
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Base Medium-High:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedBaseMediumHigh}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SystemBaseMediumHighColor}" 
                                          Watermark="#CCCCCC" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="1" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemBaseMediumHighColor_PointerPressed"
-                                        ToolTip.Tip="Medium-high contrast surfaces">
+                                        ToolTip.Tip="{Binding LocalizedBaseMediumHighHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemBaseMediumHighColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="1" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="1" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemBaseMediumHighColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemBaseMediumColor -->
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Base Medium:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedBaseMedium}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SystemBaseMediumColor}" 
                                          Watermark="#999999" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="2" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemBaseMediumColor_PointerPressed"
-                                        ToolTip.Tip="Medium contrast backgrounds">
+                                        ToolTip.Tip="{Binding LocalizedBaseMediumHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemBaseMediumColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="2" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="2" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemBaseMediumColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemBaseMediumLowColor -->
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Base Medium-Low:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding LocalizedBaseMediumLow}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SystemBaseMediumLowColor}" 
                                          Watermark="#666666" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="3" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemBaseMediumLowColor_PointerPressed"
-                                        ToolTip.Tip="Low-medium contrast surfaces">
+                                        ToolTip.Tip="{Binding LocalizedBaseMediumLowHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemBaseMediumLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="3" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="3" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemBaseMediumLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemBaseLowColor -->
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Base Low:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding LocalizedBaseLow}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SystemBaseLowColor}" 
                                          Watermark="#333333" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="4" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemBaseLowColor_PointerPressed"
-                                        ToolTip.Tip="Low contrast backgrounds">
+                                        ToolTip.Tip="{Binding LocalizedBaseLowHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemBaseLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="4" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="4" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemBaseLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                             </Grid>
                             </StackPanel>
                         </StackPanel>
@@ -667,11 +667,11 @@
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="10">
                             <Grid ColumnDefinitions="*,Auto" PointerPressed="SystemChromeHeader_PointerPressed" Cursor="Hand">
-                                <TextBlock Grid.Column="0" Text="System Chrome Color Overrides (Window and Frame)" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="0" Text="{Binding LocalizedSystemChromeOverrides}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="1" x:Name="SystemChromeToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
                             </Grid>
                             <StackPanel x:Name="SystemChromeContent" Spacing="10">
-                                <TextBlock Text="These colors control window chrome, frames, borders, title bars, and structural UI elements." 
+                                <TextBlock Text="{Binding LocalizedSystemChromeDescription}" 
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
 
                             <Grid ColumnDefinitions="Auto,200,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" 
@@ -692,238 +692,238 @@
                                 </Grid.Styles>
 
                                 <!-- SystemChromeAltLowColor -->
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Chrome Alt Low:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedChromeAltLow}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SystemChromeAltLowColor}" 
                                          Watermark="#171717" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="0" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeAltLowColor_PointerPressed"
-                                        ToolTip.Tip="Alternative low contrast chrome">
+                                        ToolTip.Tip="{Binding LocalizedChromeAltLowHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeAltLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="0" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="0" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeAltLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeBlackHighColor -->
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="Chrome Black High:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedChromeBlackHigh}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SystemChromeBlackHighColor}" 
                                          Watermark="#000000" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="1" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeBlackHighColor_PointerPressed"
-                                        ToolTip.Tip="Pure black chrome elements">
+                                        ToolTip.Tip="{Binding LocalizedChromeBlackHighHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeBlackHighColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="1" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="1" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeBlackHighColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeBlackLowColor -->
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Chrome Black Low:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedChromeBlackLow}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SystemChromeBlackLowColor}" 
                                          Watermark="#0D0D0D" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="2" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeBlackLowColor_PointerPressed"
-                                        ToolTip.Tip="Very dark chrome elements">
+                                        ToolTip.Tip="{Binding LocalizedChromeBlackLowHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeBlackLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="2" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="2" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeBlackLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeBlackMediumColor -->
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Chrome Black Medium:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding LocalizedChromeBlackMedium}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SystemChromeBlackMediumColor}" 
                                          Watermark="#1A1A1A" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="3" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeBlackMediumColor_PointerPressed"
-                                        ToolTip.Tip="Medium dark chrome elements">
+                                        ToolTip.Tip="{Binding LocalizedChromeBlackMediumHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeBlackMediumColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="3" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="3" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeBlackMediumColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeBlackMediumLowColor -->
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="Chrome Black Medium-Low:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding LocalizedChromeBlackMediumLow}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SystemChromeBlackMediumLowColor}" 
                                          Watermark="#262626" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="4" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeBlackMediumLowColor_PointerPressed"
-                                        ToolTip.Tip="Medium-low dark chrome">
+                                        ToolTip.Tip="{Binding LocalizedChromeBlackMediumLowHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeBlackMediumLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="4" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="4" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeBlackMediumLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeDisabledHighColor -->
-                                <TextBlock Grid.Row="5" Grid.Column="0" Text="Chrome Disabled High:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding LocalizedChromeDisabledHigh}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding SystemChromeDisabledHighColor}" 
                                          Watermark="#666666" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="5" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeDisabledHighColor_PointerPressed"
-                                        ToolTip.Tip="Disabled UI elements, high contrast">
+                                        ToolTip.Tip="{Binding LocalizedChromeDisabledHighHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeDisabledHighColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="5" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="5" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeDisabledHighColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeDisabledLowColor -->
-                                <TextBlock Grid.Row="6" Grid.Column="0" Text="Chrome Disabled Low:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding LocalizedChromeDisabledLow}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding SystemChromeDisabledLowColor}" 
                                          Watermark="#3D3D3D" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="6" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeDisabledLowColor_PointerPressed"
-                                        ToolTip.Tip="Disabled UI elements, low contrast">
+                                        ToolTip.Tip="{Binding LocalizedChromeDisabledLowHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeDisabledLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="6" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="6" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeDisabledLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeGrayColor -->
-                                <TextBlock Grid.Row="7" Grid.Column="0" Text="Chrome Gray:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="7" Grid.Column="0" Text="{Binding LocalizedChromeGray}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding SystemChromeGrayColor}" 
                                          Watermark="#808080" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="7" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeGrayColor_PointerPressed"
-                                        ToolTip.Tip="Neutral gray chrome elements">
+                                        ToolTip.Tip="{Binding LocalizedChromeGrayHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeGrayColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="7" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="7" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeGrayColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeHighColor -->
-                                <TextBlock Grid.Row="8" Grid.Column="0" Text="Chrome High:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="8" Grid.Column="0" Text="{Binding LocalizedChromeHigh}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding SystemChromeHighColor}" 
                                          Watermark="#767676" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="8" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeHighColor_PointerPressed"
-                                        ToolTip.Tip="High contrast chrome">
+                                        ToolTip.Tip="{Binding LocalizedChromeHighHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeHighColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="8" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="8" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeHighColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeLowColor -->
-                                <TextBlock Grid.Row="9" Grid.Column="0" Text="Chrome Low:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="9" Grid.Column="0" Text="{Binding LocalizedChromeLow}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding SystemChromeLowColor}" 
                                          Watermark="#171717" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="9" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeLowColor_PointerPressed"
-                                        ToolTip.Tip="Low contrast chrome">
+                                        ToolTip.Tip="{Binding LocalizedChromeLowHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="9" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="9" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeMediumColor -->
-                                <TextBlock Grid.Row="10" Grid.Column="0" Text="Chrome Medium:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="10" Grid.Column="0" Text="{Binding LocalizedChromeMedium}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding SystemChromeMediumColor}" 
                                          Watermark="#1F1F1F" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="10" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeMediumColor_PointerPressed"
-                                        ToolTip.Tip="Medium contrast chrome">
+                                        ToolTip.Tip="{Binding LocalizedChromeMediumHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeMediumColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="10" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="10" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeMediumColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeMediumLowColor -->
-                                <TextBlock Grid.Row="11" Grid.Column="0" Text="Chrome Medium-Low:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="11" Grid.Column="0" Text="{Binding LocalizedChromeMediumLow}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding SystemChromeMediumLowColor}" 
                                          Watermark="#2B2B2B" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="11" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeMediumLowColor_PointerPressed"
-                                        ToolTip.Tip="Medium-low contrast chrome">
+                                        ToolTip.Tip="{Binding LocalizedChromeMediumLowHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeMediumLowColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="11" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="11" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeMediumLowColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
 
                                 <!-- SystemChromeWhiteColor -->
-                                <TextBlock Grid.Row="12" Grid.Column="0" Text="Chrome White:" VerticalAlignment="Center" FontSize="12"/>
+                                <TextBlock Grid.Row="12" Grid.Column="0" Text="{Binding LocalizedChromeWhite}" VerticalAlignment="Center" FontSize="12"/>
                                 <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding SystemChromeWhiteColor}" 
                                          Watermark="#FFFFFF" FontFamily="Consolas" FontSize="11"/>
                                 <Border Grid.Row="12" Grid.Column="2" Width="40" Height="40" CornerRadius="4" 
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                         Cursor="Hand" PointerPressed="SystemChromeWhiteColor_PointerPressed"
-                                        ToolTip.Tip="Pure white chrome elements">
+                                        ToolTip.Tip="{Binding LocalizedChromeWhiteHelp}">
                                     <Border.Background>
                                         <SolidColorBrush Color="{Binding SystemChromeWhiteColorPreview}"/>
                                     </Border.Background>
                                 </Border>
-                                <Button Grid.Row="12" Grid.Column="3" Content="Clear" 
+                                <Button Grid.Row="12" Grid.Column="3" Content="{Binding LocalizedClear}" 
                                         Command="{Binding ClearSystemChromeWhiteColorCommand}"
                                         Padding="8,4" CornerRadius="3" FontSize="11"
                                         Background="{DynamicResource App.ButtonBackground}"
-                                        ToolTip.Tip="Clear to use OS color"/>
+                                    ToolTip.Tip="{Binding LocalizedClearToUseOsColor}"/>
                             </Grid>
                             </StackPanel>
                         </StackPanel>
@@ -936,14 +936,23 @@
                         <StackPanel Spacing="10">
                             <Grid ColumnDefinitions="*,Auto" PointerPressed="ColorOverridesHeader_PointerPressed" Cursor="Hand">
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                    <TextBlock Text="🎨 Color Overrides" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding ThemeColors.Count, StringFormat='({0} colors)'}" 
-                                               FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                                    <TextBlock FontSize="16" FontWeight="Bold" VerticalAlignment="Center">
+                                        <Run Text="🎨 "/>
+                                        <Run Text="{Binding LocalizedColorOverrides}"/>
+                                    </TextBlock>
+                                    <TextBlock FontSize="12" Opacity="0.7" VerticalAlignment="Center">
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="({0} {1})">
+                                                <Binding Path="ThemeColors.Count"/>
+                                                <Binding Path="LocalizedColorsLabel"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" x:Name="ColorOverridesToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
                             </Grid>
                             <StackPanel x:Name="ColorOverridesContent" Spacing="10">
-                                <TextBlock Text="Define custom colors for your theme. Click the color preview to open the color picker." 
+                                <TextBlock Text="{Binding LocalizedColorOverridesDescription}" 
                                            FontSize="11" Opacity="0.6" TextWrapping="Wrap"/>
                                 
                                 <ItemsControl ItemsSource="{Binding ThemeColors}">
@@ -975,7 +984,7 @@
                                                         PointerPressed="ColorPreview_PointerPressed"
                                                         Tag="{Binding}"
                                                         Margin="0,0,8,0"
-                                                        ToolTip.Tip="Click to open color picker">
+                                                        ToolTip.Tip="{ReflectionBinding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedClickToOpenColorPicker}">
                                                     <Border.Background>
                                                         <SolidColorBrush Color="{Binding PreviewColor}"/>
                                                     </Border.Background>
@@ -987,7 +996,7 @@
                                                         CommandParameter="{Binding}"
                                                         Padding="8,4" Height="32" CornerRadius="3"
                                                         Background="{DynamicResource App.ButtonBackground}"
-                                                        ToolTip.Tip="Reset to default">
+                                                        ToolTip.Tip="{ReflectionBinding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedResetToDefault}">
                                                     <TextBlock Text="✕" FontSize="12" FontWeight="Bold"/>
                                                 </Button>
                                             </Grid>
@@ -1005,9 +1014,18 @@
                         <StackPanel Spacing="10">
                             <Grid ColumnDefinitions="*,Auto" PointerPressed="GradientsHeader_PointerPressed" Cursor="Hand">
                                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                    <TextBlock Text="🌈 Gradients" FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding ThemeGradients.Count, StringFormat='({0} gradients)'}" 
-                                               FontSize="12" Opacity="0.7" VerticalAlignment="Center"/>
+                                    <TextBlock FontSize="16" FontWeight="Bold" VerticalAlignment="Center">
+                                        <Run Text="🌈 "/>
+                                        <Run Text="{Binding LocalizedGradients}"/>
+                                    </TextBlock>
+                                    <TextBlock FontSize="12" Opacity="0.7" VerticalAlignment="Center">
+                                        <TextBlock.Text>
+                                            <MultiBinding StringFormat="({0} {1})">
+                                                <Binding Path="ThemeGradients.Count"/>
+                                                <Binding Path="LocalizedGradientsLabel"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" x:Name="GradientsToggle" Text="▼" FontSize="14" VerticalAlignment="Center" Margin="0,0,5,0"/>
                             </Grid>
@@ -1033,7 +1051,7 @@
                                                                 IsVisible="{Binding !IsEditing}"
                                                                 Padding="6,3" CornerRadius="3"
                                                                 Background="{DynamicResource App.ButtonBackground}"
-                                                                ToolTip.Tip="Edit Gradient">
+                                                                ToolTip.Tip="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedEditGradient}">
                                                                 <Viewbox Width="14" Height="14">
                                                                     <Canvas Width="24" Height="24">
                                                                         <Path Data="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -1044,7 +1062,7 @@
                                                                 IsVisible="{Binding IsEditing}"
                                                                 Padding="6,3" CornerRadius="3"
                                                                 Background="{DynamicResource App.ButtonBackground}"
-                                                                ToolTip.Tip="Save Gradient">
+                                                                ToolTip.Tip="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedSaveGradient}">
                                                                 <Viewbox Width="14" Height="14">
                                                                     <Canvas Width="24" Height="24">
                                                                         <Path Data="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -1055,7 +1073,7 @@
                                                                 IsVisible="{Binding IsEditing}"
                                                                 Padding="6,3" CornerRadius="3"
                                                                 Background="{DynamicResource App.ButtonBackground}"
-                                                                ToolTip.Tip="Cancel Edit">
+                                                                ToolTip.Tip="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedCancelEdit}">
                                                                 <Viewbox Width="14" Height="14">
                                                                     <Canvas Width="24" Height="24">
                                                                         <Path Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
@@ -1067,7 +1085,7 @@
                                                     
                                                     <!-- Gradient Editor (when editing) -->
                                                     <StackPanel IsVisible="{Binding IsEditing}" Spacing="5">
-                                                        <TextBlock Text="Start Color:" FontSize="11"/>
+                                                        <TextBlock Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedStartColorLabel}" FontSize="11"/>
                                                         <Grid ColumnDefinitions="*,Auto">
                                                             <TextBox Grid.Column="0" Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingGradientStartColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                                                      FontFamily="Consolas" FontSize="11" Margin="0,0,5,0"/>
@@ -1079,7 +1097,7 @@
                                                                     Tag="{Binding}"/>
                                                         </Grid>
                                                         
-                                                        <TextBlock Text="End Color:" FontSize="11"/>
+                                                        <TextBlock Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedEndColorLabel}" FontSize="11"/>
                                                         <Grid ColumnDefinitions="*,Auto">
                                                             <TextBox Grid.Column="0" Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingGradientEndColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                                                      FontFamily="Consolas" FontSize="11" Margin="0,0,5,0"/>
@@ -1091,21 +1109,21 @@
                                                                     Tag="{Binding}"/>
                                                         </Grid>
                                                         
-                                                        <TextBlock Text="Angle (0-360°):" FontSize="11"/>
+                                                        <TextBlock Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedAngleLabel}" FontSize="11"/>
                                                         <TextBox Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).EditingGradientAngle}" 
                                                                  FontFamily="Consolas" FontSize="11"/>
                                                         
                                                         <!-- Quick Action Buttons -->
                                                         <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,5,0,0">
-                                                            <Button Content="Clear Gradient"
+                                                                <Button Content="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedClearGradient}"
                                                                     Command="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).ClearGradientCommand}"
                                                                     Padding="8,4" CornerRadius="3" FontSize="11"
-                                                                    ToolTip.Tip="Set both colors to background color (removes gradient effect)"
+                                                                    ToolTip.Tip="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedClearGradientHelp}"
                                                                     Background="{DynamicResource App.ButtonBackground}"/>
                                                         </StackPanel>
                                                         
                                                         <!-- Preset Selector -->
-                                                        <TextBlock Text="Apply Preset:" FontSize="11" Margin="0,5,0,0"/>
+                                                        <TextBlock Text="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).LocalizedApplyPresetLabel}" FontSize="11" Margin="0,5,0,0"/>
                                                         <ComboBox ItemsSource="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).GradientPresets}"
                                                                   SelectedItem="{Binding $parent[ItemsControl].((vm:ThemeEditorViewModel)DataContext).SelectedGradientPreset}"
                                                                   Width="200" HorizontalAlignment="Left">
@@ -1157,11 +1175,26 @@
                             BorderBrush="{DynamicResource App.Border}" 
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="8">
-                            <TextBlock Text="ℹ️ Theme Info" FontSize="16" FontWeight="Bold"/>
+                            <TextBlock FontSize="16" FontWeight="Bold">
+                                <Run Text="ℹ️ "/>
+                                <Run Text="{Binding LocalizedThemeInfo}"/>
+                            </TextBlock>
                             <StackPanel Spacing="4">
-                                <TextBlock Text="{Binding CurrentThemeDisplayName, StringFormat='Name: {0}'}" FontSize="12"/>
-                                <TextBlock Text="{Binding CurrentThemeAuthor, StringFormat='Author: {0}'}" FontSize="12"/>
-                                <TextBlock Text="{Binding CurrentThemeVersion, StringFormat='Version: {0}'}" FontSize="12"/>
+                                <TextBlock FontSize="12">
+                                    <Run Text="{Binding LocalizedNameLabel}"/>
+                                    <Run Text=" "/>
+                                    <Run Text="{Binding CurrentThemeDisplayName}"/>
+                                </TextBlock>
+                                <TextBlock FontSize="12">
+                                    <Run Text="{Binding LocalizedAuthorLabel}"/>
+                                    <Run Text=" "/>
+                                    <Run Text="{Binding CurrentThemeAuthor}"/>
+                                </TextBlock>
+                                <TextBlock FontSize="12">
+                                    <Run Text="{Binding LocalizedVersionLabel}"/>
+                                    <Run Text=" "/>
+                                    <Run Text="{Binding CurrentThemeVersion}"/>
+                                </TextBlock>
                                 <TextBlock Text="{Binding CurrentThemeDescription}" FontSize="11" TextWrapping="Wrap" Opacity="0.8"/>
                             </StackPanel>
                         </StackPanel>
@@ -1172,13 +1205,36 @@
                             BorderBrush="{DynamicResource App.Border}" 
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="8">
-                            <TextBlock Text="📊 Edit Status" FontSize="16" FontWeight="Bold"/>
+                            <TextBlock FontSize="16" FontWeight="Bold">
+                                <Run Text="📊 "/>
+                                <Run Text="{Binding LocalizedEditStatus}"/>
+                            </TextBlock>
                             <StackPanel Spacing="4">
-                                <TextBlock Text="{Binding CanUndo, StringFormat='Can Undo: {0}'}" FontSize="12"/>
-                                <TextBlock Text="{Binding CanRedo, StringFormat='Can Redo: {0}'}" FontSize="12"/>
-                                <TextBlock Text="{Binding IsEditingColor, StringFormat='Editing Color: {0}'}" FontSize="12"/>
-                                <TextBlock Text="{Binding IsEditingGradient, StringFormat='Editing Gradient: {0}'}" FontSize="12"/>
-                                <TextBlock Text="{Binding IsBatchEditMode, StringFormat='Batch Mode: {0}'}" FontSize="12"/>
+                                <TextBlock FontSize="12">
+                                    <Run Text="{Binding LocalizedCanUndoLabel}"/>
+                                    <Run Text=": "/>
+                                    <Run Text="{Binding CanUndo}"/>
+                                </TextBlock>
+                                <TextBlock FontSize="12">
+                                    <Run Text="{Binding LocalizedCanRedoLabel}"/>
+                                    <Run Text=": "/>
+                                    <Run Text="{Binding CanRedo}"/>
+                                </TextBlock>
+                                <TextBlock FontSize="12">
+                                    <Run Text="{Binding LocalizedEditingColorLabel}"/>
+                                    <Run Text=": "/>
+                                    <Run Text="{Binding IsEditingColor}"/>
+                                </TextBlock>
+                                <TextBlock FontSize="12">
+                                    <Run Text="{Binding LocalizedEditingGradientLabel}"/>
+                                    <Run Text=": "/>
+                                    <Run Text="{Binding IsEditingGradient}"/>
+                                </TextBlock>
+                                <TextBlock FontSize="12">
+                                    <Run Text="{Binding LocalizedBatchModeLabel}"/>
+                                    <Run Text=": "/>
+                                    <Run Text="{Binding IsBatchEditMode}"/>
+                                </TextBlock>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -1188,7 +1244,10 @@
                             BorderBrush="{DynamicResource App.Border}" 
                             BorderThickness="1" CornerRadius="6" Padding="15">
                         <StackPanel Spacing="8">
-                            <TextBlock Text="🕒 Recent Colors" FontSize="16" FontWeight="Bold"/>
+                            <TextBlock FontSize="16" FontWeight="Bold">
+                                <Run Text="🕒 "/>
+                                <Run Text="{Binding LocalizedRecentColors}"/>
+                            </TextBlock>
                             <ItemsControl ItemsSource="{Binding RecentColors}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
@@ -1218,7 +1277,7 @@
         <!-- Status Bar -->
         <Border Grid.Row="3" Background="{DynamicResource App.Surface}" 
             BorderBrush="{DynamicResource App.Border}" BorderThickness="0,1,0,0" Padding="10,5">
-            <TextBlock Text="Ready to edit theme" FontSize="11" Opacity="0.7"/>
+            <TextBlock Text="{Binding LocalizedReadyStatus}" FontSize="11" Opacity="0.7"/>
         </Border>
 
     </Grid>

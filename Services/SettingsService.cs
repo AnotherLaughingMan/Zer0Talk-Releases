@@ -347,7 +347,6 @@ public class SettingsService
             AutoLockMinutes = 0,
             LockOnMinimize = false,
             BlockList = new System.Collections.Generic.List<string>(),
-            KnownMajorNodes = new System.Collections.Generic.List<string>(),
             AdapterPriorityIds = new System.Collections.Generic.List<string>(),
             MainWindow = new WindowStateSettings(),
             SettingsWindow = new WindowStateSettings(),
@@ -356,6 +355,9 @@ public class SettingsService
             LogViewerWindow = new WindowStateSettings(),
             RelayFallbackEnabled = true,
             RelayServer = null,
+            SavedRelayServers = new System.Collections.Generic.List<string>(),
+            RelayPresenceTimeoutSeconds = 45,
+            RelayDiscoveryTtlMinutes = 3,
             ShowPublicKeys = false,
             EnableDebugLogAutoTrim = true,
             DebugUiLogMaxLines = 1000,
@@ -365,6 +367,7 @@ public class SettingsService
             ShowInSystemTray = true, // Default to enabled
             MinimizeToTray = false,
             RunOnStartup = false,
+            StartMinimized = false,
         };
         NormalizeHotkeySettings(settings);
         return settings;

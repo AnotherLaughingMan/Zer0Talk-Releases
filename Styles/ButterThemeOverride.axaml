@@ -184,7 +184,7 @@
   </Style>
 
   <!-- Button focus-visible outline without layout shift -->
-  <Style Selector="Button:focus-visible /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="Button:focus-visible /template/ Border">
     <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
   </Style>
 
@@ -200,7 +200,7 @@
   </Style>
   
 
-  <!-- Vector icon (Segoe MDL2 Assets) for theme-adaptive monochrome icons -->
+  <!-- Vector icon (Segoe Fluent Icons) for theme-adaptive monochrome icons -->
   <Style Selector="TextBlock.icon-mdl2">
   <!-- Explicitly apply theme foreground to avoid invisible icons if inheritance breaks -->
   <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
@@ -218,48 +218,48 @@
 
   <!-- Contact card visuals: reduce hover/selection border thickness to 1px and avoid double borders -->
   <!-- Target the Border with class 'contact-card' inside the Contacts list items -->
-  <Style Selector="#ContactsList ListBoxItem /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="#ContactsList ListBoxItem /template/ Border">
     <!-- Remove the ListBoxItem container's border to prevent stacking with the card border -->
     <Setter Property="Background" Value="Transparent"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:pointerover /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="#ContactsList ListBoxItem:pointerover /template/ Border">
     <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:selected /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="#ContactsList ListBoxItem:selected /template/ Border">
   <Setter Property="Background" Value="Transparent"/>
   </Style>
   <!-- Card itself: keep a subtle 1px outline; change only the brush on hover/selection -->
-  <Style Selector="#ContactsList ListBoxItem" x:SetterTargetType="ListBoxItem">
+  <Style Selector="#ContactsList ListBoxItem">
     <Setter Property="FocusAdorner" Value="{x:Null}"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem .contact-card" x:SetterTargetType="Border">
+  <Style Selector="#ContactsList ListBoxItem Border.contact-card">
     <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
     <!-- Ensure visible fill distinct from list background in this theme -->
     <Setter Property="Background" Value="Transparent"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:pointerover .contact-card" x:SetterTargetType="Border">
+  <Style Selector="#ContactsList ListBoxItem:pointerover Border.contact-card">
     <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
     <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:selected .contact-card" x:SetterTargetType="Border">
+  <Style Selector="#ContactsList ListBoxItem:selected Border.contact-card">
     <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
     <Setter Property="Background" Value="{DynamicResource App.ItemSelected}"/>
   </Style>
 
   <!-- Explicitly clear any selected/focus backgrounds for ContactsList to avoid OS accent bleed -->
-  <Style Selector="#ContactsList ListBoxItem:selected" x:SetterTargetType="ListBoxItem">
+  <Style Selector="#ContactsList ListBoxItem:selected">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:focus" x:SetterTargetType="ListBoxItem">
+  <Style Selector="#ContactsList ListBoxItem:focus">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:selected:focus" x:SetterTargetType="ListBoxItem">
+  <Style Selector="#ContactsList ListBoxItem:selected:focus">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:focus-within" x:SetterTargetType="ListBoxItem">
+  <Style Selector="#ContactsList ListBoxItem:focus-within">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
@@ -311,7 +311,7 @@
     <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
   </Style>
-  <Style Selector="TabItem:selected /template/ Border" x:SetterTargetType="Border">
+  <Style Selector="TabItem:selected /template/ Border">
     <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
   </Style>
 
@@ -339,29 +339,29 @@
   <Style Selector="ToggleSwitch">
     <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
   </Style>
-  <Style Selector="ToggleSwitch /template/ #Track" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch /template/ Border#Track">
     <Setter Property="Background" Value="{DynamicResource App.ButtonBackground}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
   </Style>
-  <Style Selector="ToggleSwitch /template/ #Thumb" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch /template/ Border#Thumb">
     <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
   </Style>
 
   <!-- Explicitly clear any selected/focus backgrounds for ContactsList to avoid OS accent bleed -->
-  <Style Selector="#ContactsList ListBoxItem:selected" x:SetterTargetType="ListBoxItem">
+  <Style Selector="#ContactsList ListBoxItem:selected">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:focus" x:SetterTargetType="ListBoxItem">
+  <Style Selector="#ContactsList ListBoxItem:focus">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:selected:focus" x:SetterTargetType="ListBoxItem">
+  <Style Selector="#ContactsList ListBoxItem:selected:focus">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
-  <Style Selector="#ContactsList ListBoxItem:focus-within" x:SetterTargetType="ListBoxItem">
+  <Style Selector="#ContactsList ListBoxItem:focus-within">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
@@ -389,38 +389,38 @@
   
   <!-- ToggleSwitch interaction states (color only) -->
   <!-- Track OFF -->
-  <Style Selector="ToggleSwitch:pointerover /template/ #Track" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch:pointerover /template/ Border#Track">
     <Setter Property="Background" Value="#2A2721"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
   </Style>
-  <Style Selector="ToggleSwitch:pressed /template/ #Track" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch:pressed /template/ Border#Track">
     <Setter Property="Background" Value="#171612"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
   </Style>
   <!-- Track ON -->
-  <Style Selector="ToggleSwitch:pointerover:checked /template/ #Track" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch:pointerover:checked /template/ Border#Track">
     <Setter Property="Background" Value="{DynamicResource App.AccentLight}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
   </Style>
-  <Style Selector="ToggleSwitch:pressed:checked /template/ #Track" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch:pressed:checked /template/ Border#Track">
     <Setter Property="Background" Value="{DynamicResource App.Accent}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
   </Style>
   <!-- Thumb OFF -->
-  <Style Selector="ToggleSwitch:pointerover /template/ #Thumb" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch:pointerover /template/ Border#Thumb">
     <Setter Property="Background" Value="#23211C"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
   </Style>
-  <Style Selector="ToggleSwitch:pressed /template/ #Thumb" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch:pressed /template/ Border#Thumb">
     <Setter Property="Background" Value="#171612"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
   </Style>
   <!-- Thumb ON -->
-  <Style Selector="ToggleSwitch:pointerover:checked /template/ #Thumb" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch:pointerover:checked /template/ Border#Thumb">
     <Setter Property="Background" Value="{DynamicResource App.ForegroundPrimary}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
   </Style>
-  <Style Selector="ToggleSwitch:pressed:checked /template/ #Thumb" x:SetterTargetType="Border">
+  <Style Selector="ToggleSwitch:pressed:checked /template/ Border#Thumb">
     <Setter Property="Background" Value="{DynamicResource App.ForegroundPrimary}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
   </Style>

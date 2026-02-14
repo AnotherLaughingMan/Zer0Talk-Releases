@@ -60,16 +60,16 @@
   <Style Selector="ScrollBar">
     <Setter Property="Background" Value="Transparent"/>
   </Style>
-  <Style Selector="ScrollBar /template/ Thumb" x:SetterTargetType="Thumb">
+  <Style Selector="ScrollBar /template/ Thumb">
     <Setter Property="Background" Value="#555"/>
     <Setter Property="CornerRadius" Value="5"/>
     <Setter Property="MinWidth" Value="10"/>
     <Setter Property="MinHeight" Value="10"/>
   </Style>
-  <Style Selector="ScrollBar:pointerover /template/ Thumb" x:SetterTargetType="Thumb">
+  <Style Selector="ScrollBar:pointerover /template/ Thumb">
     <Setter Property="Background" Value="#6A6A6A"/>
   </Style>
-  <Style Selector="ScrollBar:pressed /template/ Thumb" x:SetterTargetType="Thumb">
+  <Style Selector="ScrollBar:pressed /template/ Thumb">
     <Setter Property="Background" Value="#7A7A7A"/>
   </Style>
 
@@ -117,36 +117,36 @@
     </Setter>
   </Style>
   <!-- Unchecked hover border accent -->
-  <Style Selector="CheckBox:pointerover #Box" x:SetterTargetType="Border">
+  <Style Selector="CheckBox:pointerover /template/ Border#Box">
     <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
   </Style>
   <!-- Unchecked pressed -->
-  <Style Selector="CheckBox:pressed #Box" x:SetterTargetType="Border">
+  <Style Selector="CheckBox:pressed /template/ Border#Box">
     <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
   </Style>
   <!-- Checked visuals -->
-  <Style Selector="CheckBox:checked #Box" x:SetterTargetType="Border">
+  <Style Selector="CheckBox:checked /template/ Border#Box">
     <Setter Property="Background" Value="{DynamicResource App.Accent}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
   </Style>
-  <Style Selector="CheckBox:checked:pointerover #Box" x:SetterTargetType="Border">
+  <Style Selector="CheckBox:checked:pointerover /template/ Border#Box">
     <Setter Property="Background" Value="{DynamicResource App.AccentLight}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
   </Style>
-  <Style Selector="CheckBox:checked #Glyph" x:SetterTargetType="TextBlock">
+  <Style Selector="CheckBox:checked /template/ TextBlock#Glyph">
     <Setter Property="IsVisible" Value="True"/>
   </Style>
   <!-- Indeterminate: show a horizontal bar -->
-  <Style Selector="CheckBox:indeterminate #Glyph" x:SetterTargetType="TextBlock">
+  <Style Selector="CheckBox:indeterminate /template/ TextBlock#Glyph">
     <Setter Property="Text" Value="−"/>
     <Setter Property="IsVisible" Value="True"/>
     <Setter Property="Foreground" Value="{DynamicResource App.Accent}"/>
   </Style>
   <!-- Disabled fades -->
-  <Style Selector="CheckBox:disabled #Box" x:SetterTargetType="Border">
+  <Style Selector="CheckBox:disabled /template/ Border#Box">
     <Setter Property="Opacity" Value="0.45"/>
   </Style>
-  <Style Selector="CheckBox:disabled #Glyph" x:SetterTargetType="TextBlock">
+  <Style Selector="CheckBox:disabled /template/ TextBlock#Glyph">
     <Setter Property="Opacity" Value="0.55"/>
   </Style>
 </Styles>

@@ -387,6 +387,7 @@ namespace Zer0Talk.Utilities
             {
                 if (_controlUrl == null) return null;
                 using var http = new HttpClient();
+                http.Timeout = TimeSpan.FromSeconds(8);
                 var content = new StringContent(body, Encoding.UTF8, "text/xml");
                 content.Headers.Clear();
                 content.Headers.TryAddWithoutValidation("Content-Type", "text/xml; charset=\"utf-8\"");
@@ -398,11 +399,28 @@ namespace Zer0Talk.Utilities
                 var text = await res.Content.ReadAsStringAsync();
                 if (!res.IsSuccessStatusCode)
                 {
-                    // Some IGDs return 500 with SOAP fault for already-exists cases; still return body for diagnostics
-                    return text.Length == 0 ? "" : text;
+                    // SOAP faults arrive as HTTP 500. Check for known benign fault codes:
+                    // 718 = ConflictInMappingEntry (mapping exists and matches or differs)
+                    // 724 = SamePortValuesRequired, 725 = OnlyPermanentLeasesSupported
+                    if ((int)res.StatusCode == 500 && !string.IsNullOrEmpty(text))
+                    {
+                        // If the fault indicates the mapping already exists, treat as success
+                        if (text.Contains("718") || text.Contains("ConflictInMappingEntry", StringComparison.OrdinalIgnoreCase))
+                        {
+                            try { Logger.Log($"UPnP SOAP 718 (ConflictInMappingEntry) for {action}; treating as existing mapping"); } catch { }
+                            return text;
+                        }
+                        try { Logger.Log($"UPnP SOAP fault for {action}: HTTP {(int)res.StatusCode} | {text.Substring(0, Math.Min(300, text.Length))}"); } catch { }
+                    }
+                    else
+                    {
+                        try { Logger.Log($"UPnP SOAP error for {action}: HTTP {(int)res.StatusCode}"); } catch { }
+                    }
+                    return null;
                 }
                 return text.Length == 0 ? "" : text;
             }
+            catch (TaskCanceledException) { try { Logger.Log($"UPnP SOAP timeout for {action}"); } catch { } return null; }
             catch { return null; }
         }
 

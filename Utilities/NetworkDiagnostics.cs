@@ -35,7 +35,25 @@ namespace Zer0Talk.Utilities
         public void IncUdpBeaconSent() => Interlocked.Increment(ref _udpBeaconsSent);
         public void IncUdpBeaconRecv() => Interlocked.Increment(ref _udpBeaconsRecv);
         public void IncSessionsActive() => Interlocked.Increment(ref _sessionsActive);
-        public void DecSessionsActive() => Interlocked.Decrement(ref _sessionsActive);
+        public void DecSessionsActive()
+        {
+            while (true)
+            {
+                var current = Interlocked.Read(ref _sessionsActive);
+                if (current <= 0)
+                {
+                    if (current < 0)
+                    {
+                        Interlocked.Exchange(ref _sessionsActive, 0);
+                    }
+                    return;
+                }
+                if (Interlocked.CompareExchange(ref _sessionsActive, current - 1, current) == current)
+                {
+                    return;
+                }
+            }
+        }
 
         public Snapshot GetSnapshot()
         {
@@ -48,7 +66,7 @@ namespace Zer0Talk.Utilities
                 HandshakeFail = Interlocked.Read(ref _handshakeFail),
                 UdpBeaconsSent = Interlocked.Read(ref _udpBeaconsSent),
                 UdpBeaconsRecv = Interlocked.Read(ref _udpBeaconsRecv),
-                SessionsActive = Interlocked.Read(ref _sessionsActive),
+                SessionsActive = Math.Max(0, Interlocked.Read(ref _sessionsActive)),
                 RecentErrors = errors,
             };
         }

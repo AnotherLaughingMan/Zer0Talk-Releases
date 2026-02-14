@@ -20,6 +20,10 @@ public class MonitoringViewModel : INotifyPropertyChanged
     public string LocalizedTitle => Services.AppServices.Localization.GetString("Monitoring.Title", "Monitoring");
     public string LocalizedNAT => Services.AppServices.Localization.GetString("Monitoring.NAT", "NAT:");
     public string LocalizedRetry => Services.AppServices.Localization.GetString("Monitoring.Retry", "Retry");
+    public string LocalizedViewMode => Services.AppServices.Localization.GetString("Monitoring.ViewMode", "View");
+    public string LocalizedViewSummary => Services.AppServices.Localization.GetString("Monitoring.ViewSummary", "Summary");
+    public string LocalizedViewNetwork => Services.AppServices.Localization.GetString("Monitoring.ViewNetwork", "Network");
+    public string LocalizedViewAdvanced => Services.AppServices.Localization.GetString("Monitoring.ViewAdvanced", "Advanced");
     public string LocalizedRetryTooltip => Services.AppServices.Localization.GetString("Monitoring.RetryTooltip", "Re-run mapping verification & hairpin test");
     public string LocalizedStatusLegend => Services.AppServices.Localization.GetString("Monitoring.StatusLegend", "Status Legend");
     public string LocalizedSearching => Services.AppServices.Localization.GetString("Monitoring.Searching", "Searching");
@@ -27,6 +31,15 @@ public class MonitoringViewModel : INotifyPropertyChanged
     public string LocalizedSuccess => Services.AppServices.Localization.GetString("Monitoring.Success", "Success");
     public string LocalizedTrafficBytesPerSec => Services.AppServices.Localization.GetString("Monitoring.TrafficBytesPerSec", "Traffic (bytes/sec)");
     public string LocalizedRefresh => Services.AppServices.Localization.GetString("Monitoring.Refresh", "Refresh");
+    public string LocalizedGraphStyle => Services.AppServices.Localization.GetString("Monitoring.GraphStyle", "Style");
+    public string LocalizedGraphLine => Services.AppServices.Localization.GetString("Monitoring.GraphLine", "Line");
+    public string LocalizedGraphBar => Services.AppServices.Localization.GetString("Monitoring.GraphBar", "Bar");
+    public string LocalizedGraphShaded => Services.AppServices.Localization.GetString("Monitoring.GraphShaded", "Shaded");
+    public string LocalizedGraphSolid => LocalizedGraphShaded;
+    public string LocalizedLegendSide => Services.AppServices.Localization.GetString("Monitoring.LegendSide", "Legend");
+    public string LocalizedLegendLeft => Services.AppServices.Localization.GetString("Monitoring.LegendLeft", "Left");
+    public string LocalizedLegendRight => Services.AppServices.Localization.GetString("Monitoring.LegendRight", "Right");
+    public string LocalizedRecvRate => Services.AppServices.Localization.GetString("Monitoring.RecvRate", "Received");
     public string LocalizedPorts => Services.AppServices.Localization.GetString("Monitoring.Ports", "Ports:");
     public string LocalizedGateway => Services.AppServices.Localization.GetString("Monitoring.Gateway", "Gateway:");
     public string LocalizedExternalIP => Services.AppServices.Localization.GetString("Monitoring.ExternalIP", "External IP:");
@@ -43,6 +56,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
     public string LocalizedRestartDiscovery => Services.AppServices.Localization.GetString("Monitoring.RestartDiscovery", "Restart Discovery");
     public string LocalizedLastAttempt => Services.AppServices.Localization.GetString("Monitoring.LastAttempt", "Last attempt:");
     public string LocalizedLastSuccess => Services.AppServices.Localization.GetString("Monitoring.LastSuccess", "· Last success:");
+    public string LocalizedPresencePipeline => Services.AppServices.Localization.GetString("Monitoring.PresencePipeline", "Presence pipeline:");
     public string LocalizedDiagnosticsLog => Services.AppServices.Localization.GetString("Monitoring.DiagnosticsLog", "Diagnostics log");
     public string LocalizedShowLog => Services.AppServices.Localization.GetString("Monitoring.ShowLog", "Show log");
     public string LocalizedTextSizeForLog => Services.AppServices.Localization.GetString("Monitoring.TextSizeForLog", "Text Size for Log");
@@ -73,6 +87,10 @@ public class MonitoringViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(LocalizedTitle));
         OnPropertyChanged(nameof(LocalizedNAT));
         OnPropertyChanged(nameof(LocalizedRetry));
+        OnPropertyChanged(nameof(LocalizedViewMode));
+        OnPropertyChanged(nameof(LocalizedViewSummary));
+        OnPropertyChanged(nameof(LocalizedViewNetwork));
+        OnPropertyChanged(nameof(LocalizedViewAdvanced));
         OnPropertyChanged(nameof(LocalizedRetryTooltip));
         OnPropertyChanged(nameof(LocalizedStatusLegend));
         OnPropertyChanged(nameof(LocalizedSearching));
@@ -80,6 +98,14 @@ public class MonitoringViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(LocalizedSuccess));
         OnPropertyChanged(nameof(LocalizedTrafficBytesPerSec));
         OnPropertyChanged(nameof(LocalizedRefresh));
+        OnPropertyChanged(nameof(LocalizedGraphStyle));
+        OnPropertyChanged(nameof(LocalizedGraphLine));
+        OnPropertyChanged(nameof(LocalizedGraphBar));
+        OnPropertyChanged(nameof(LocalizedGraphShaded));
+        OnPropertyChanged(nameof(LocalizedLegendSide));
+        OnPropertyChanged(nameof(LocalizedLegendLeft));
+        OnPropertyChanged(nameof(LocalizedLegendRight));
+        OnPropertyChanged(nameof(LocalizedRecvRate));
         OnPropertyChanged(nameof(LocalizedPorts));
         OnPropertyChanged(nameof(LocalizedGateway));
         OnPropertyChanged(nameof(LocalizedExternalIP));
@@ -96,6 +122,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(LocalizedRestartDiscovery));
         OnPropertyChanged(nameof(LocalizedLastAttempt));
         OnPropertyChanged(nameof(LocalizedLastSuccess));
+        OnPropertyChanged(nameof(LocalizedPresencePipeline));
         OnPropertyChanged(nameof(LocalizedDiagnosticsLog));
         OnPropertyChanged(nameof(LocalizedShowLog));
         OnPropertyChanged(nameof(LocalizedTextSizeForLog));
@@ -113,8 +140,22 @@ public class MonitoringViewModel : INotifyPropertyChanged
 
     // Interval selection and persistence
     private int _intervalIndex;
-    public int IntervalIndex { get => _intervalIndex; set { if (_intervalIndex != value) { _intervalIndex = value; OnPropertyChanged(); OnIntervalChanged?.Invoke(value); } } }
+    public int IntervalIndex
+    {
+        get => _intervalIndex;
+        set
+        {
+            if (_intervalIndex != value)
+            {
+                _intervalIndex = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsRealTimeRefresh));
+                OnIntervalChanged?.Invoke(value);
+            }
+        }
+    }
     public event Action<int>? OnIntervalChanged;
+    public bool IsRealTimeRefresh => IntervalIndex == 0;
     public void SetIntervalFromMilliseconds(int ms)
     {
         IntervalIndex = ms switch
@@ -134,6 +175,71 @@ public class MonitoringViewModel : INotifyPropertyChanged
         };
     }
     public static int IndexToMs(int idx) => idx switch { 0 => 250, 1 => 500, 2 => 1000, 3 => 2000, 4 => 5000, 5 => 10000, 6 => 30000, 7 => 60000, 8 => 120000, 9 => 300000, 10 => 600000, 11 => 1200000, _ => 500 };
+
+    private int _graphStyleIndex;
+    public int GraphStyleIndex
+    {
+        get => _graphStyleIndex;
+        set
+        {
+            var normalized = Math.Clamp(value, 0, 2);
+            if (_graphStyleIndex != normalized)
+            {
+                _graphStyleIndex = normalized;
+                OnPropertyChanged();
+                try
+                {
+                    AppServices.Settings.Settings.MonitoringGraphStyleIndex = _graphStyleIndex;
+                    _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
+                }
+                catch { }
+            }
+        }
+    }
+
+    private int _legendPositionIndex = 1;
+    public int LegendPositionIndex
+    {
+        get => _legendPositionIndex;
+        set
+        {
+            var normalized = Math.Clamp(value, 0, 1);
+            if (_legendPositionIndex != normalized)
+            {
+                _legendPositionIndex = normalized;
+                OnPropertyChanged();
+                try
+                {
+                    AppServices.Settings.Settings.MonitoringLegendPositionIndex = _legendPositionIndex;
+                    _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
+                }
+                catch { }
+            }
+        }
+    }
+
+    // View mode selection: Summary (default), Network, Advanced
+    private int _viewModeIndex = 0;
+    public int ViewModeIndex
+    {
+        get => _viewModeIndex;
+        set
+        {
+            if (_viewModeIndex != value)
+            {
+                _viewModeIndex = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(IsSummaryMode));
+                OnPropertyChanged(nameof(IsNetworkMode));
+                OnPropertyChanged(nameof(IsAdvancedMode));
+                OnPropertyChanged(nameof(IsNetworkOrAdvancedMode));
+            }
+        }
+    }
+    public bool IsSummaryMode => ViewModeIndex == 0;
+    public bool IsNetworkMode => ViewModeIndex == 1;
+    public bool IsAdvancedMode => ViewModeIndex == 2;
+    public bool IsNetworkOrAdvancedMode => ViewModeIndex >= 1;
 
     // NAT + ports
     public string NatStatus => AppServices.Nat.Status;
@@ -175,6 +281,85 @@ public class MonitoringViewModel : INotifyPropertyChanged
             return string.IsNullOrWhiteSpace(s) ? $"(no status){ts}" : s + ts;
         }
     }
+    public string NatPunchTooltip
+    {
+        get
+        {
+            try
+            {
+                var status = (AppServices.Nat.LastPunchStatus ?? string.Empty).Trim();
+                var attemptedAt = AppServices.Nat.LastPunchAttemptUtc;
+                var stamp = attemptedAt is DateTime t ? $" Last attempt: {t.ToLocalTime():HH:mm:ss}." : string.Empty;
+                if (string.IsNullOrWhiteSpace(status) && attemptedAt is null)
+                {
+                    return "No UDP punch attempt yet. Punching only runs when establishing a peer path that needs UDP hole-punching.";
+                }
+
+                if (status.Equals("Success", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "UDP punch succeeded. A return UDP packet was observed, so NAT hole-punch is likely open." + stamp;
+                }
+
+                if (status.Equals("No response", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "Punch timed out waiting for a UDP response. This usually means symmetric NAT, strict firewall, or peer-side punch not coordinated yet." + stamp;
+                }
+
+                if (status.Equals("Error", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "Punch failed with an error. Check UDP binding, local firewall rules, and whether a valid peer public endpoint was available." + stamp;
+                }
+
+                return $"Punch status: {status}.{stamp}";
+            }
+            catch
+            {
+                return "Punch diagnostics unavailable.";
+            }
+        }
+    }
+    public string HairpinTooltip
+    {
+        get
+        {
+            try
+            {
+                var hairpin = (HairpinStatus ?? string.Empty).Trim().ToLowerInvariant();
+                var verify = (NatVerification ?? string.Empty).Trim();
+                var verifyAt = AppServices.Nat.LastVerificationUtc;
+                var stamp = verifyAt is DateTime t ? $" Last verification: {t.ToLocalTime():HH:mm:ss}." : string.Empty;
+
+                if (hairpin == "reachable")
+                {
+                    return "Hairpin is reachable. Your router supports NAT loopback to your own external mapping." + stamp;
+                }
+
+                if (hairpin == "unavailable")
+                {
+                    return "Hairpin is unavailable. Many routers/ISPs do not support NAT loopback; this is common and not necessarily a connection failure." + stamp;
+                }
+
+                if (hairpin == "n/a" || string.IsNullOrWhiteSpace(hairpin))
+                {
+                    if (string.IsNullOrWhiteSpace(verify) || verify.Contains("not available", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "Hairpin not tested yet. Mapping verification has not completed, or required external mapping details are not available." + stamp;
+                    }
+                    if (verify.Contains("not listed", StringComparison.OrdinalIgnoreCase) || verify.Contains("failed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "Hairpin not tested because TCP mapping is missing/invalid. Verify UPnP mapping first, then retry verification." + stamp;
+                    }
+                    return "Hairpin check was skipped for this verification cycle. It requires an external IP and a valid listed TCP mapping." + stamp;
+                }
+
+                return $"Hairpin status: {HairpinStatus}.{stamp}";
+            }
+            catch
+            {
+                return "Hairpin diagnostics unavailable.";
+            }
+        }
+    }
     public string NatVerifyTimeLabel => AppServices.Nat.LastVerificationUtc is DateTime t ? t.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture) : "n/a";
     public string NatMapAttemptLabel => AppServices.Nat.LastMappingAttemptUtc is DateTime t ? t.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture) : "n/a";
 
@@ -184,6 +369,18 @@ public class MonitoringViewModel : INotifyPropertyChanged
     public int DiscoveryBackoff { get { try { return AppServices.Discovery.GetSnapshot().BackoffSeconds; } catch { return 0; } } }
     public string DiscoveryLastAttemptLabel { get { try { var t = AppServices.Discovery.GetSnapshot().LastAttemptUtc; return t is DateTime dt ? dt.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture) : "n/a"; } catch { return "n/a"; } } }
     public string DiscoveryLastSuccessLabel { get { try { var t = AppServices.Discovery.GetSnapshot().LastSuccessUtc; return t is DateTime dt ? dt.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture) : "n/a"; } catch { return "n/a"; } } }
+    public string PresencePipelineSummary
+    {
+        get
+        {
+            try
+            {
+                var s = AppServices.GetPresencePipelineSnapshot();
+                return $"seen={s.Seen} executed={s.Executed} coalesced={s.Coalesced} in-flight={s.InFlight} connect={s.ConnectAttempts} outbox q/sk={s.OutboxQueued}/{s.OutboxSkipped}";
+            }
+            catch { return "n/a"; }
+        }
+    }
     public ICommand RestartDiscoveryCommand => new RelayCommand(_ => { try { AppServices.Discovery.Restart(); AppendLog($"{DateTime.Now:HH:mm:ss} - DISCOVERY restart requested"); } catch { } });
     public ICommand RestoreCheckpointCommand => new RelayCommand(_ => { try { AppServices.Guard.RestoreLastCheckpoint(); AppendLog($"{DateTime.Now:HH:mm:ss} - Restore Checkpoint requested"); } catch { } });
     public ICommand SaveCheckpointCommand => new RelayCommand(_ => { try { AppServices.Guard.SaveCurrentCheckpoint(); AppendLog($"{DateTime.Now:HH:mm:ss} - Save Checkpoint requested"); } catch { } });
@@ -202,6 +399,8 @@ public class MonitoringViewModel : INotifyPropertyChanged
     public string UdpRate { get => _udpRate; set { _udpRate = value; OnPropertyChanged(); } }
     private string _outRate = "Outbound local: 0 B/s";
     public string OutRate { get => _outRate; set { _outRate = value; OnPropertyChanged(); } }
+    private string _recvRate = "Received: 0 B/s";
+    public string RecvRate { get => _recvRate; set { _recvRate = value; OnPropertyChanged(); } }
     public IBrush TcpBrush { get; set; } = Brushes.Gray;
     public IBrush UdpBrush { get; set; } = Brushes.Gray;
     public IBrush OutBrush { get; set; } = Brushes.Gray;
@@ -211,7 +410,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
     public System.Collections.ObjectModel.ObservableCollection<TrafficSample> History { get; } = new();
     public const int MaxHistory = 3600; // ~last hour at 1s; scales with interval
 
-    public record struct TrafficSample(double Tcp, double Udp, double Out);
+    public record struct TrafficSample(double Tcp, double Udp, double Out, double Recv);
 
     // Diagnostics summary (from NetworkDiagnostics)
     private string _diagnosticsSummary = "Sessions: 0  Handshakes: 0/0  Beacons: 0/0";
@@ -299,6 +498,8 @@ public class MonitoringViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(NatService));
         OnPropertyChanged(nameof(NatAvailableServices));
         OnPropertyChanged(nameof(NatPunchSummary));
+        OnPropertyChanged(nameof(NatPunchTooltip));
+        OnPropertyChanged(nameof(HairpinTooltip));
         OnPropertyChanged(nameof(NatVerifyTimeLabel));
         OnPropertyChanged(nameof(NatMapAttemptLabel));
         // Discovery snapshot refresh
@@ -307,6 +508,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(DiscoveryBackoff));
         OnPropertyChanged(nameof(DiscoveryLastAttemptLabel));
         OnPropertyChanged(nameof(DiscoveryLastSuccessLabel));
+        OnPropertyChanged(nameof(PresencePipelineSummary));
         EvaluateNatIndicator();
     }
 
@@ -341,6 +543,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
         TcpRate = $"TCP: {FormatRate(tcpIn + tcpOut)}";
         UdpRate = $"UDP: {FormatRate(udpIn + udpOut)}";
         OutRate = $"Outbound local: {FormatRate(outIn + outOut)}";
+        RecvRate = $"{LocalizedRecvRate}: {FormatRate(tcpIn + udpIn + outIn)}";
         TcpBrush = (tcpIn + tcpOut) > 0 ? Brushes.LimeGreen : Brushes.Gray; OnPropertyChanged(nameof(TcpBrush));
         UdpBrush = (udpIn + udpOut) > 0 ? Brushes.LimeGreen : Brushes.Gray; OnPropertyChanged(nameof(UdpBrush));
         OutBrush = (outIn + outOut) > 0 ? Brushes.LimeGreen : Brushes.Gray; OnPropertyChanged(nameof(OutBrush));
@@ -349,7 +552,8 @@ public class MonitoringViewModel : INotifyPropertyChanged
         var tcpTotal = tcpIn + tcpOut;
         var udpTotal = udpIn + udpOut;
         var outTotal = outIn + outOut;
-        History.Add(new TrafficSample(tcpTotal, udpTotal, outTotal));
+        var recvTotal = tcpIn + udpIn + outIn;
+        History.Add(new TrafficSample(tcpTotal, udpTotal, outTotal, recvTotal));
         if (History.Count > MaxHistory)
         {
             // remove oldest in small batches to avoid per-frame churn when overshooting
@@ -369,6 +573,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
         try
         {
             DiagnosticsSummary = $"Sessions: {s.SessionsActive}  Handshakes: {s.HandshakeOk}/{s.HandshakeFail}  Beacons: {s.UdpBeaconsSent}/{s.UdpBeaconsRecv}";
+            OnPropertyChanged(nameof(PresencePipelineSummary));
         }
         catch { }
     }
@@ -398,6 +603,8 @@ public class MonitoringViewModel : INotifyPropertyChanged
         {
             var s = AppServices.Settings.Settings;
             if (s.MonitoringLogFontSize > 0) LogFontSize = s.MonitoringLogFontSize;
+            GraphStyleIndex = Math.Clamp(s.MonitoringGraphStyleIndex, 0, 2);
+            LegendPositionIndex = Math.Clamp(s.MonitoringLegendPositionIndex, 0, 1);
         }
         catch { }
     }

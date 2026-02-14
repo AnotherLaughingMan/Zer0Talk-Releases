@@ -28,10 +28,44 @@
     <Grid RowDefinitions="Auto,*">
         <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.TitleBarBackground}"
                 PointerPressed="DragBar_PointerPressed">
-            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
                 <TextBlock Grid.Column="0" Text="Monitoring" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
                            Foreground="{DynamicResource App.TitleBarForeground}"/>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding LocalizedViewMode}" VerticalAlignment="Center"/>
+                    <ComboBox Width="120" SelectedIndex="{Binding ViewModeIndex, Mode=TwoWay}">
+                        <ComboBoxItem Content="{Binding LocalizedViewSummary}"/>
+                        <ComboBoxItem Content="{Binding LocalizedViewNetwork}"/>
+                        <ComboBoxItem Content="{Binding LocalizedViewAdvanced}"/>
+                    </ComboBox>
+                    <TextBlock Text="{Binding LocalizedRefresh}" VerticalAlignment="Center"/>
+                    <ComboBox Width="96" SelectedIndex="{Binding IntervalIndex, Mode=TwoWay}">
+                        <ComboBoxItem Content="Real-Time"/>
+                        <ComboBoxItem Content="500ms"/>
+                        <ComboBoxItem Content="1s"/>
+                        <ComboBoxItem Content="2s"/>
+                        <ComboBoxItem Content="5s"/>
+                        <ComboBoxItem Content="10s"/>
+                        <ComboBoxItem Content="30s"/>
+                        <ComboBoxItem Content="1m"/>
+                        <ComboBoxItem Content="2m"/>
+                        <ComboBoxItem Content="5m"/>
+                        <ComboBoxItem Content="10m"/>
+                        <ComboBoxItem Content="20m"/>
+                    </ComboBox>
+                    <TextBlock Text="{Binding LocalizedGraphStyle}" VerticalAlignment="Center"/>
+                    <ComboBox Width="120" SelectedIndex="{Binding GraphStyleIndex, Mode=TwoWay}">
+                        <ComboBoxItem Content="{Binding LocalizedGraphLine}"/>
+                        <ComboBoxItem Content="{Binding LocalizedGraphBar}"/>
+                        <ComboBoxItem Content="{Binding LocalizedGraphShaded}"/>
+                    </ComboBox>
+                    <TextBlock Text="{Binding LocalizedLegendSide}" VerticalAlignment="Center"/>
+                    <ComboBox Width="86" SelectedIndex="{Binding LegendPositionIndex, Mode=TwoWay}">
+                        <ComboBoxItem Content="{Binding LocalizedLegendLeft}"/>
+                        <ComboBoxItem Content="{Binding LocalizedLegendRight}"/>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedRetryTooltip}" Command="{Binding RetryNatVerificationCommand}">
                         <TextBlock Classes="icon-mdl2" Text="&#xE72C;"/>
                     </Button>
@@ -121,7 +155,7 @@
                 </Border>
             </Grid>
 
-            <!-- Controls row: refresh selector and ports -->
+            <!-- Controls row: traffic summary -->
             <Grid Grid.Row="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" Spacing="12">
                     <TextBlock Text="{Binding LocalizedTrafficBytesPerSec}" FontWeight="SemiBold"/>
@@ -137,26 +171,13 @@
                         <Ellipse Width="10" Height="10" Fill="{Binding OutBrush}"/>
                         <TextBlock Text="{Binding OutRate}"/>
                     </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Width="10" Height="10" Fill="#BF7BFF"/>
+                        <TextBlock Text="{Binding RecvRate}"/>
+                    </StackPanel>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding LocalizedRefresh}"/>
-                    <!-- Downsize dropdown a bit to reduce crowding -->
-                    <ComboBox Width="110" SelectedIndex="{Binding IntervalIndex, Mode=TwoWay}">
-                        <ComboBoxItem Content="250ms"/>
-                        <ComboBoxItem Content="500ms"/>
-                        <ComboBoxItem Content="1s"/>
-                        <ComboBoxItem Content="2s"/>
-                        <ComboBoxItem Content="5s"/>
-                        <ComboBoxItem Content="10s"/>
-                        <ComboBoxItem Content="30s"/>
-                        <ComboBoxItem Content="1m"/>
-                        <ComboBoxItem Content="2m"/>
-                        <ComboBoxItem Content="5m"/>
-                        <ComboBoxItem Content="10m"/>
-                        <ComboBoxItem Content="20m"/>
-                    </ComboBox>
-                </StackPanel>
+                <Border Grid.Column="1" Width="1" Background="Transparent" IsHitTestVisible="False"/>
             </Grid>
 
             <!-- Body: ports line, NAT diagnostics, and traffic history chart -->
@@ -170,7 +191,7 @@
                     </StackPanel>
 
                     <!-- NAT diagnostics details: compact two-column grid inside a styled border -->
-                    <Border Grid.Row="1" Padding="8" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}">
+                    <Border Grid.Row="1" Padding="8" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}" IsVisible="{Binding IsNetworkOrAdvancedMode}">
                         <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="4">
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedGateway}"/>
                             <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding NatGateway}" Classes="app-trunc"/>
@@ -191,16 +212,16 @@
                             </StackPanel>
                             <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding LocalizedPunch}"/>
                             <StackPanel Grid.Row="2" Grid.Column="3" Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{Binding NatPunchSummary}"/>
-                                <TextBlock Text="{Binding LocalizedHairpin}"/>
-                                <TextBlock Text="{Binding HairpinStatus}"/>
+                                <TextBlock Text="{Binding NatPunchSummary}" ToolTip.Tip="{Binding NatPunchTooltip}"/>
+                                <TextBlock Text="{Binding LocalizedHairpin}" ToolTip.Tip="{Binding HairpinTooltip}"/>
+                                <TextBlock Text="{Binding HairpinStatus}" ToolTip.Tip="{Binding HairpinTooltip}"/>
                             </StackPanel>
                         </Grid>
                     </Border>
 
                     <!-- Discovery panel: tiny snapshot with restart control -->
-                    <Border Grid.Row="2" Padding="8" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}">
-                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="4" VerticalAlignment="Center">
+                    <Border Grid.Row="2" Padding="8" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}" IsVisible="{Binding IsNetworkOrAdvancedMode}">
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="4" VerticalAlignment="Center">
                             <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding LocalizedDiscovery}" FontWeight="SemiBold"/>
                                 <TextBlock Text="{Binding DiscoveryState}"/>
@@ -218,6 +239,10 @@
                                 <TextBlock Text="{Binding LocalizedLastSuccess}"/>
                                 <TextBlock Text="{Binding DiscoveryLastSuccessLabel}"/>
                             </StackPanel>
+                            <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding IsAdvancedMode}">
+                                <TextBlock Text="{Binding LocalizedPresencePipeline}"/>
+                                <TextBlock Text="{Binding PresencePipelineSummary}" Classes="app-trunc"/>
+                            </StackPanel>
                         </Grid>
                     </Border>
 
@@ -226,7 +251,7 @@
                     <Border Grid.Row="3" Padding="4" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Background="{DynamicResource App.Surface}" ClipToBounds="True">
                         <!-- Chart uses fixed colors inside TrafficHistoryView to avoid theme bleed; only bind history -->
                         <!-- Chart can now expand vertically to fill remaining space -->
-                        <vc:TrafficHistoryView History="{Binding History}"/>
+                        <vc:TrafficHistoryView History="{Binding History}" GraphStyleIndex="{Binding GraphStyleIndex}" LegendSide="{Binding LegendPositionIndex}" EnableRealtimeSmoothing="{Binding IsRealTimeRefresh}"/>
                     </Border>
                 </Grid>
 

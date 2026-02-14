@@ -45,20 +45,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     public System.Windows.Input.ICommand SetStatusDndCommand { get; }
     public System.Windows.Input.ICommand SetStatusOfflineCommand { get; }
     public System.Windows.Input.ICommand StatusDurationCommand { get; }
-    // Scoped refresh: event-driven only for MainWindow (no periodic app-wide loop)
-    private const string NatThrottleKey = "MainWindow.UI.throttle";
     private const double ChatInputDefaultMinHeight = 56d;
     private const double ChatInputDefaultMaxHeight = 200d;
-    private System.Action? _natThrottled;
     // Geometry is now persisted via lightweight LayoutCache on close only (no runtime throttled writes)
     // NOTE: We intentionally removed frequent writes to settings.p2e to avoid I/O overhead.
-    // Remember last non-zero width of the Diagnostics (right) panel within the session
+    // Remember last non-zero width of the Notification Center (right) panel within the session
     private double? _rightPanelLastWidth;
     // [LAYOUT] Remember last non-nav width of the left panel (contacts area) within the session
     private double? _leftPanelLastWidth;
     // [LAYOUT] Capture original MinWidth of the left panel container to restore after expand
     private double? _leftPanelOriginalMinWidth;
-    private Action? _uiPulseHandler; // keep a reference for unsubscribe
 #if DEBUG
     // DEBUG controls and flags
     private ToggleSwitch? _toggleVerified;
@@ -94,6 +90,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     public MainWindow()
     {
         InitializeComponent();
+        try { UpdateMaximizeRestoreButtonVisual(); } catch { }
 #if DEBUG
         // Show/hide Logs button based on logging enabled state (initial load)
         try
@@ -108,20 +105,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 #endif
         try
         {
-            // Pre-layout collapse of diagnostics column to prevent initial flash of an empty right panel.
+            // Pre-layout collapse of notification-center column to prevent initial flash of an empty right panel.
             var settings = AppServices.Settings.Settings;
             if (settings.MainRightWidth is null or <= 0)
             {
                 var grid = this.FindControl<Grid>("BodyGrid");
                 if (grid?.ColumnDefinitions is { Count: >= 6 })
                 {
-                    // Column indices: 0=nav,1=contacts,2=divider,3=chat,4=divider(chat/diag),5=diagnostics
+                    // Column indices: 0=nav,1=contacts,2=divider,3=chat,4=divider(chat/notifications),5=notifications
                     var diagCol = grid.ColumnDefinitions[5];
                     var dividerR = grid.ColumnDefinitions[4];
                     // Capture original MinWidth once
                     if (_rightColumnOriginalMinWidthDefinition is null)
                         _rightColumnOriginalMinWidthDefinition = diagCol.MinWidth;
-                    // Collapse divider + diagnostics column hard before first measure
+                    // Collapse divider + notification-center column hard before first measure
                     dividerR.Width = new GridLength(0);
                     diagCol.MinWidth = 0;
                     diagCol.Width = new GridLength(0);
@@ -307,23 +304,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         RegisterLockHotkey();
         this.AddHandler(InputElement.KeyDownEvent, OnGlobalKeyDown, RoutingStrategies.Tunnel);
 
-        // Diagnostics refresh via NAT/listening/peers events and centralized UI pulse; add a local keep-alive as fallback.
-        _natThrottled = AppServices.Updates.GetUiThrottled(NatThrottleKey, 250, () => CollectAndRender());
-        AppServices.Events.NatChanged += () => _natThrottled?.Invoke();
-        AppServices.Events.NetworkListeningChanged += (_, __) => _natThrottled?.Invoke();
-        AppServices.Events.PeersChanged += () => _natThrottled?.Invoke();
-        _uiPulseHandler = () => _natThrottled?.Invoke();
-        AppServices.Events.UiPulse += _uiPulseHandler;
-        // Render once after open to populate snapshot
-        this.Opened += (_, __) => CollectAndRender();
     // After open, stick chat to bottom initially using one-shot follow
     this.Opened += (_, __) =>
     {
         // Let one-shot decide based on actual layout; don't preset baseline height.
         Dispatcher.UIThread.Post(ScrollChatToBottomOneShot);
     };
-        // Keep the diagnostics panel and indicator fresh even if no events fire (e.g., NAT blink, port labels)
-        this.Opened += (_, __) => { try { AppServices.Updates.RegisterUiInterval("MainWindow.UI.blink", 500, () => CollectAndRender()); } catch { } };
 
         // Manual verification: subscribe to inbound request/cancel and toast a small popup to act
         try
@@ -479,6 +465,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch { }
 #endif
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        try
+        {
+            if (change.Property == WindowStateProperty)
+                UpdateMaximizeRestoreButtonVisual();
+        }
+        catch { }
+    }
+
+    private void UpdateMaximizeRestoreButtonVisual()
+    {
+        try
+        {
+            var maximizeIcon = this.FindControl<TextBlock>("MaximizeRestoreIcon");
+            var maximizeButton = this.FindControl<Button>("MaximizeRestoreButton");
+            if (maximizeIcon == null || maximizeButton == null) return;
+
+            bool isMaximized = WindowState == WindowState.Maximized;
+            maximizeIcon.Text = isMaximized ? "\uE923" : "\uE922";
+
+            var tip = isMaximized
+                ? AppServices.Localization.GetString("MainWindow.Restore", "Restore")
+                : AppServices.Localization.GetString("MainWindow.Maximize", "Maximize");
+            ToolTip.SetTip(maximizeButton, tip);
+        }
+        catch { }
     }
 
     private void InitializeComponent()
@@ -2251,6 +2267,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         ShowSettingsOverlay();
     }
 
+    private void SettingsMenu_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        try
+        {
+            if (sender is Button b && b.ContextMenu != null)
+            {
+                b.ContextMenu.PlacementTarget = b;
+                b.ContextMenu.Open(b);
+                e.Handled = true;
+            }
+        }
+        catch { }
+    }
+
+    private void SettingsMenu_AllSettings_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        ShowSettingsOverlay();
+    }
+
+    private void SettingsMenu_Monitoring_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        Monitoring_Click(sender, e);
+    }
+
+    private void SettingsMenu_DiscoveredPeers_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        Network_Click(sender, e);
+    }
+
+    private void SettingsMenu_ThemeEditor_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        ThemeEditor_Click(sender, e);
+    }
+
     private void ThemeEditor_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         try
@@ -2288,6 +2338,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         Zer0Talk.Services.WindowManager.ShowSingleton<MonitoringWindow>();
     }
 
+    private void DiscoveredPeers_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        Zer0Talk.Services.WindowManager.ShowSingleton<DiscoveredPeersWindow>();
+    }
+
     private void Logs_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         Zer0Talk.Services.WindowManager.ShowSingleton<LogViewerWindow>();
@@ -2310,7 +2365,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            Zer0Talk.Services.WindowManager.ShowSingleton<NetworkWindow>()?.Activate();
+            Zer0Talk.Services.WindowManager.ShowSingleton<DiscoveredPeersWindow>()?.Activate();
         }
         catch (Exception ex)
         {
@@ -2743,7 +2798,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     }
 
     // Open full profile on double-tap for simulated contacts only
-    private void ContactCard_DoubleTapped(object? sender, RoutedEventArgs e)
+    private void ContactCard_DoubleTapped(object? sender, TappedEventArgs e)
     {
         try
         {
@@ -3480,7 +3535,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     var dismissBtn = new Button { Padding = new Thickness(6, 2) };
     dismissBtn.Classes.Add("icon-button");
     ToolTip.SetTip(dismissBtn, "Dismiss");
-    var dismissIcon = new TextBlock { Text = "\uE711", FontFamily = FontFamily.Parse("Segoe MDL2 Assets") };
+    var dismissIcon = new TextBlock { Text = "\uE711", FontFamily = FontFamily.Parse("Segoe Fluent Icons") };
     dismissBtn.Content = dismissIcon;
     dismissBtn.Click += InviteToastDismiss_Click;
 
@@ -3724,20 +3779,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
-    private void CollectAndRender()
-    {
-        try
-        {
-            // Minimal snapshot refresh for diagnostics panel and status labels.
-            var txt = this.FindControl<TextBlock>("DiagNatStatus");
-            if (txt != null)
-            {
-                try { txt.Text = AppServices.Network?.ToString() ?? string.Empty; } catch { }
-            }
-        }
-        catch { }
-    }
-
     // Apply saved widths to side panels (0 width = hidden)
     private void ApplyInitialPanelVisibility()
     {
@@ -3750,7 +3791,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 var rightRoot = this.FindControl<Border>("RightPanelRoot");
                 var s2 = AppServices.Settings.Settings;
                         var left = s2.MainLeftWidth ?? 280.0; // contacts default
-                        // Default diagnostics panel closed unless user previously opened (treat null or <=0 as collapsed)
+                        // Default notification center closed unless user previously opened (treat null or <=0 as collapsed)
                         var rightStored = s2.MainRightWidth;
                         var right = (rightStored is null || rightStored <= 0) ? 0.0 : rightStored.Value;
                 var leftWidth = left > 0 ? left : 0.0;
@@ -3798,6 +3839,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 {
                     rightRoot.IsVisible = (right > 0);
                     rightRoot.MinWidth = (right > 0) ? 240 : 0;
+                }
+                if (right > 0.1)
+                {
+                    try { EnsureRightPanelHostsInitialized(); } catch { }
+                    try { AttachRightPanelEventHandlers(); } catch { }
+                    try { UpdateRightPanelHeaderAndControls(); } catch { }
+                }
+                else
+                {
+                    try { DetachRightPanelEventHandlers(); } catch { }
                 }
                 grid.InvalidateMeasure();
                 grid.InvalidateArrange();
@@ -4671,6 +4722,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { return string.Empty; }
     }
 
+    private static string GetFluentNotificationGlyph(Models.NotificationType? type, bool isMessage, bool isSecurityEvent = false)
+    {
+        if (isSecurityEvent) return "\uEA18";
+        if (isMessage) return "\uE8BD";
+        return type switch
+        {
+            Models.NotificationType.Error => "\uE783",
+            Models.NotificationType.Warning => "\uE7BA",
+            Models.NotificationType.Success => "\uE73E",
+            Models.NotificationType.Information => "\uE946",
+            _ => "\uE946"
+        };
+    }
+
     // Ensure the right-panel content hosts exist and are initialized.
     // This creates lightweight placeholders if the XAML host elements are missing (defensive init).
     private void EnsureRightPanelHostsInitialized()
@@ -4728,6 +4793,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     // Event handler fields for right panel live updates
     private Action? _rightPanelPendingChangedHandler;
     private Action? _rightPanelNoticesChangedHandler;
+    private Action? _rightPanelSecurityEventsChangedHandler;
     // UI handlers for header buttons so we can detach them safely
     private EventHandler<RoutedEventArgs>? _rejectAllInvitesHandler;
     private EventHandler<RoutedEventArgs>? _markAllMessagesHandler;
@@ -4748,7 +4814,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     {
                         Dispatcher.UIThread.Post(() =>
                         {
-                            try { RenderInvitesPanel(); if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites(); } catch { }
+                            try
+                            {
+                                if (_rightPanelView == RightPanelView.Invites)
+                                {
+                                    RenderInvitesPanel();
+                                }
+                                if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites();
+                            }
+                            catch { }
                         });
                     }
                     catch { }
@@ -4763,12 +4837,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     {
                         Dispatcher.UIThread.Post(() =>
                         {
-                            try { RenderMessagesPanel(); RenderAlertsPanel(); if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites(); } catch { }
+                            try
+                            {
+                                if (_rightPanelView == RightPanelView.Messages)
+                                {
+                                    RenderMessagesPanel();
+                                }
+                                else if (_rightPanelView == RightPanelView.Alerts)
+                                {
+                                    RenderAlertsPanel();
+                                }
+                                if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites();
+                            }
+                            catch { }
                         });
                     }
                     catch { }
                 };
                 try { AppServices.Notifications.NoticesChanged += _rightPanelNoticesChangedHandler; } catch { }
+            }
+            if (_rightPanelSecurityEventsChangedHandler == null)
+            {
+                _rightPanelSecurityEventsChangedHandler = () =>
+                {
+                    try
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            try
+                            {
+                                if (_rightPanelView == RightPanelView.Alerts)
+                                {
+                                    RenderAlertsPanel();
+                                }
+                                if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites();
+                            }
+                            catch { }
+                        });
+                    }
+                    catch { }
+                };
+                try { AppServices.Notifications.SecurityEventsChanged += _rightPanelSecurityEventsChangedHandler; } catch { }
             }
             if (!_rightPanelButtonsWired)
             {
@@ -4879,6 +4988,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 try { AppServices.Notifications.NoticesChanged -= _rightPanelNoticesChangedHandler; } catch { }
                 _rightPanelNoticesChangedHandler = null;
+            }
+        }
+        catch { }
+        try
+        {
+            if (_rightPanelSecurityEventsChangedHandler != null)
+            {
+                try { AppServices.Notifications.SecurityEventsChanged -= _rightPanelSecurityEventsChangedHandler; } catch { }
+                _rightPanelSecurityEventsChangedHandler = null;
             }
         }
         catch { }
@@ -5006,31 +5124,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            // Remove all persistent general notifications (alerts without origin, excluding invites)
-            var notices = AppServices.Notifications.Notices.ToList();
-            var alertsToRemove = notices.Where(n => !n.IsMessage && n.IsPersistent && string.IsNullOrWhiteSpace(n.OriginUid) && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase)).Select(n => n.Id).ToList();
-            
-            if (alertsToRemove.Count > 0)
+            try { AppServices.Notifications.ClearPersistentGeneralAlerts(); } catch { }
+            try { AppServices.Notifications.ClearSecurityEvents(); } catch { }
+            try { RenderAlertsPanel(); } catch { }
+            if (DataContext is MainWindowViewModel vm)
             {
-                var remainingNotices = notices.Where(n => !alertsToRemove.Contains(n.Id)).ToList();
-                var noticesField = typeof(NotificationService).GetField("_notices", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (noticesField != null)
-                {
-                    var noticesList = noticesField.GetValue(AppServices.Notifications) as System.Collections.IList;
-                    if (noticesList != null)
-                    {
-                        noticesList.Clear();
-                        foreach (var notice in remainingNotices)
-                        {
-                            noticesList.Add(notice);
-                        }
-                    }
-                }
-                try { RenderAlertsPanel(); } catch { }
-                if (DataContext is MainWindowViewModel vm)
-                {
-                    try { vm.RefreshHasPendingInvites(); } catch { }
-                }
+                try { vm.RefreshHasPendingInvites(); } catch { }
             }
         }
         catch { }
@@ -5041,6 +5140,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
+            var rightRoot = this.FindControl<Border>("RightPanelRoot");
+            if (rightRoot?.IsVisible != true) return;
             // Always run UI mutations on UI thread
             Dispatcher.UIThread.Post(() =>
             {
@@ -5121,6 +5222,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
+            var rightRoot = this.FindControl<Border>("RightPanelRoot");
+            if (rightRoot?.IsVisible != true) return;
             var noticesSnapshot = AppServices.Notifications.Notices?
                 .Where(n => n.IsMessage)
                 .ToList() ?? new List<NotificationService.NotificationItem>();
@@ -5193,13 +5296,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             : TrimUidPrefix(notice.OriginUid ?? string.Empty);
         if (string.IsNullOrWhiteSpace(displayTitle))
         {
-            displayTitle = "Message";
+            displayTitle = Services.AppServices.Localization.GetString("MainWindow.MessageFallback", "Message");
         }
-        contentStack.Children.Add(new TextBlock
+        var titleRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), ColumnSpacing = 8 };
+        titleRow.Children.Add(new TextBlock
+        {
+            Text = GetFluentNotificationGlyph(Models.NotificationType.Information, isMessage: true),
+            FontFamily = new FontFamily("Segoe Fluent Icons"),
+            FontSize = 14,
+            Foreground = accentBrush,
+            VerticalAlignment = VerticalAlignment.Top
+        });
+
+        var titleText = new TextBlock
         {
             Text = displayTitle,
             FontWeight = notice.IsUnread ? FontWeight.Bold : FontWeight.SemiBold
-        });
+        };
+        Grid.SetColumn(titleText, 1);
+        titleRow.Children.Add(titleText);
+        contentStack.Children.Add(titleRow);
 
         var bodyText = notice.FullBody ?? notice.Body;
         if (!string.IsNullOrWhiteSpace(bodyText))
@@ -5211,16 +5327,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             });
         }
 
+        var incomingText = Services.AppServices.Localization.GetString("MainWindow.Incoming", "Incoming");
+        var outgoingText = Services.AppServices.Localization.GetString("MainWindow.Outgoing", "Outgoing");
+        var unreadText = Services.AppServices.Localization.GetString("MainWindow.Unread", "Unread");
+        var readText = Services.AppServices.Localization.GetString("MainWindow.Read", "Read");
         var metaPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         metaPanel.Children.Add(new TextBlock
         {
-            Text = notice.IsIncoming ? "Incoming" : "Outgoing",
+            Text = notice.IsIncoming ? incomingText : outgoingText,
             FontSize = 11,
             Opacity = 0.65
         });
         metaPanel.Children.Add(new TextBlock
         {
-            Text = notice.IsUnread ? "Unread" : "Read",
+            Text = notice.IsUnread ? unreadText : readText,
             FontSize = 11,
             Opacity = notice.IsUnread ? 0.8 : 0.6
         });
@@ -5245,8 +5365,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
+            var rightRoot = this.FindControl<Border>("RightPanelRoot");
+            if (rightRoot?.IsVisible != true) return;
+            var securitySnapshot = AppServices.Notifications.SecurityEvents?
+                .ToList() ?? new List<NotificationService.SecurityEventItem>();
             var noticesSnapshot = AppServices.Notifications.Notices?
-                .Where(n => !n.IsMessage && n.IsPersistent && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase))
+                .Where(n => !n.IsMessage && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase))
                 .ToList() ?? new List<NotificationService.NotificationItem>();
             Dispatcher.UIThread.Post(() =>
             {
@@ -5255,12 +5379,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     var alertsStack = this.FindControl<StackPanel>("AlertsStack");
                     if (alertsStack == null) return;
                     alertsStack.Children.Clear();
+                    var securityEvents = securitySnapshot.OrderByDescending(n => n.Utc).ToList();
                     var alerts = noticesSnapshot.OrderByDescending(n => n.Utc).ToList();
+                    foreach (var sec in securityEvents)
+                    {
+                        alertsStack.Children.Add(BuildSecurityEventEntry(sec));
+                    }
                     foreach (var alert in alerts)
                     {
                         alertsStack.Children.Add(BuildAlertEntry(alert));
                     }
-                    if (alerts.Count == 0)
+                    if (alerts.Count == 0 && securityEvents.Count == 0)
                     {
                         var vm = DataContext as MainWindowViewModel;
                         var emptyText = vm?.LocalizedNoAlerts ?? "No alerts.";
@@ -5278,22 +5407,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         var surfaceBrush = (IBrush?)Application.Current?.FindResource("App.Surface") ?? Brushes.Transparent;
         var foregroundBrush = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary") ?? Brushes.White;
         
-        // Determine border color based on alert title (matching toast notification styling)
+        // Determine border color based on alert type/title (matching toast notification styling)
         IBrush borderBrush;
         IBrush accentColor;
+        Models.NotificationType? alertType = alert.Type;
         
         var title = alert.Title ?? string.Empty;
-        if (title.Contains("Error", StringComparison.OrdinalIgnoreCase))
+        if (alertType == Models.NotificationType.Error || title.Contains("Error", StringComparison.OrdinalIgnoreCase))
         {
+            alertType = Models.NotificationType.Error;
             borderBrush = new SolidColorBrush(Color.FromArgb(255, 211, 47, 47)); // Red
             accentColor = borderBrush;
         }
-        else if (title.Contains("Warning", StringComparison.OrdinalIgnoreCase))
+        else if (alertType == Models.NotificationType.Warning || title.Contains("Warning", StringComparison.OrdinalIgnoreCase))
         {
+            alertType = Models.NotificationType.Warning;
             borderBrush = new SolidColorBrush(Color.FromArgb(255, 255, 152, 0)); // Orange
             accentColor = borderBrush;
         }
-        else if (title.Contains("Information", StringComparison.OrdinalIgnoreCase))
+        else if (alertType == Models.NotificationType.Information || title.Contains("Information", StringComparison.OrdinalIgnoreCase))
+        {
+            alertType = Models.NotificationType.Information;
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green
+            accentColor = borderBrush;
+        }
+        else if (alertType == Models.NotificationType.Success)
         {
             borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green
             accentColor = borderBrush;
@@ -5316,12 +5454,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         var mainGrid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
             RowDefinitions = new RowDefinitions("Auto,Auto,Auto")
         };
 
+        var iconBlock = new TextBlock
+        {
+            Text = GetFluentNotificationGlyph(alertType, isMessage: false),
+            FontFamily = new FontFamily("Segoe Fluent Icons"),
+            FontSize = 15,
+            Foreground = accentColor,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 0, 8, 0)
+        };
+        Grid.SetRow(iconBlock, 0);
+        Grid.SetColumn(iconBlock, 0);
+
         // Title
-        var displayTitle = !string.IsNullOrWhiteSpace(alert.Title) ? alert.Title : "Alert";
+        var alertFallback = Services.AppServices.Localization.GetString("MainWindow.AlertFallback", "Alert");
+        var displayTitle = !string.IsNullOrWhiteSpace(alert.Title) ? alert.Title : alertFallback;
         var titleBlock = new TextBlock
         {
             Text = displayTitle,
@@ -5330,7 +5481,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             Margin = new Thickness(0, 0, 8, 0)
         };
         Grid.SetRow(titleBlock, 0);
-        Grid.SetColumn(titleBlock, 0);
+        Grid.SetColumn(titleBlock, 1);
 
         // Close button
         var closeButton = new Button
@@ -5350,18 +5501,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             try
             {
-                // Remove this alert from the notification service
-                var notices = AppServices.Notifications.Notices.ToList();
-                notices.RemoveAll(n => n.Id == alert.Id);
-                typeof(NotificationService).GetField("_notices", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?.SetValue(AppServices.Notifications, notices);
+                AppServices.Notifications.RemoveNotice(alert.Id);
                 RenderAlertsPanel();
                 if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites();
             }
             catch { }
         };
         Grid.SetRow(closeButton, 0);
-        Grid.SetColumn(closeButton, 1);
+        Grid.SetColumn(closeButton, 2);
 
         // Body
         var bodyText = alert.FullBody ?? alert.Body;
@@ -5376,7 +5523,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             };
             Grid.SetRow(bodyBlock, 1);
             Grid.SetColumn(bodyBlock, 0);
-            Grid.SetColumnSpan(bodyBlock, 2);
+            Grid.SetColumnSpan(bodyBlock, 3);
             mainGrid.Children.Add(bodyBlock);
         }
 
@@ -5390,13 +5537,153 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         };
         Grid.SetRow(timestampBlock, 2);
         Grid.SetColumn(timestampBlock, 0);
-        Grid.SetColumnSpan(timestampBlock, 2);
+        Grid.SetColumnSpan(timestampBlock, 3);
 
+        mainGrid.Children.Add(iconBlock);
         mainGrid.Children.Add(titleBlock);
         mainGrid.Children.Add(closeButton);
         mainGrid.Children.Add(timestampBlock);
 
         contentBorder.Child = mainGrid;
+        return contentBorder;
+    }
+
+    private Control BuildSecurityEventEntry(NotificationService.SecurityEventItem securityEvent)
+    {
+        var surfaceBrush = (IBrush?)Application.Current?.FindResource("App.Surface") ?? Brushes.Transparent;
+        var foregroundBrush = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary") ?? Brushes.White;
+        var borderBrush = new SolidColorBrush(Color.FromArgb(255, 211, 47, 47));
+
+        var contentBorder = new Border
+        {
+            Padding = new Thickness(10),
+            Background = surfaceBrush,
+            BorderBrush = borderBrush,
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(6),
+            Margin = new Thickness(0, 0, 0, 6)
+        };
+
+        var root = new StackPanel { Spacing = 6 };
+
+        var topRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 8 };
+        var securityEventLabel = Services.AppServices.Localization.GetString("MainWindow.SecurityEvent", "Security Event");
+        var openChatLabel = Services.AppServices.Localization.GetString("MainWindow.OpenChat", "Open Chat");
+        var uidPrefix = Services.AppServices.Localization.GetString("MainWindow.UidPrefix", "UID:");
+        topRow.Children.Add(new TextBlock
+        {
+            Text = GetFluentNotificationGlyph(Models.NotificationType.Warning, isMessage: false, isSecurityEvent: true),
+            FontFamily = new FontFamily("Segoe Fluent Icons"),
+            FontSize = 15,
+            Foreground = borderBrush,
+            VerticalAlignment = VerticalAlignment.Top
+        });
+
+        var securityTitle = new TextBlock
+        {
+            Text = securityEventLabel,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = borderBrush
+        };
+        Grid.SetColumn(securityTitle, 1);
+        topRow.Children.Add(securityTitle);
+
+        var closeButton = new Button
+        {
+            Content = "✕",
+            Width = 24,
+            Height = 24,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Padding = new Thickness(0),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            Foreground = foregroundBrush,
+            FontSize = 14
+        };
+        closeButton.Click += (_, __) =>
+        {
+            try
+            {
+                AppServices.Notifications.RemoveSecurityEvent(securityEvent.Id);
+                RenderAlertsPanel();
+                if (DataContext is MainWindowViewModel vm) vm.RefreshHasPendingInvites();
+            }
+            catch { }
+        };
+        Grid.SetColumn(closeButton, 2);
+        topRow.Children.Add(closeButton);
+        root.Children.Add(topRow);
+
+        var peerUid = TrimUidPrefix(securityEvent.PeerUid ?? string.Empty);
+        var accountLabel = string.IsNullOrWhiteSpace(securityEvent.AccountName) ? peerUid : securityEvent.AccountName;
+
+        root.Children.Add(new TextBlock
+        {
+            Text = accountLabel,
+            FontWeight = FontWeight.Bold,
+            Foreground = foregroundBrush
+        });
+
+        if (!string.IsNullOrWhiteSpace(peerUid))
+        {
+            root.Children.Add(new TextBlock
+            {
+                Text = $"{uidPrefix} {peerUid}",
+                FontSize = 11,
+                Opacity = 0.7,
+                Foreground = foregroundBrush
+            });
+        }
+
+        root.Children.Add(new TextBlock
+        {
+            Text = securityEvent.Summary,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = foregroundBrush
+        });
+
+        if (!string.IsNullOrWhiteSpace(securityEvent.Details))
+        {
+            root.Children.Add(new TextBlock
+            {
+                Text = securityEvent.Details,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = foregroundBrush,
+                Opacity = 0.9
+            });
+        }
+
+        root.Children.Add(new TextBlock
+        {
+            Text = securityEvent.Utc.ToLocalTime().ToString("MMM d, yyyy h:mm tt", System.Globalization.CultureInfo.CurrentCulture),
+            FontSize = 11,
+            Opacity = 0.6,
+            Foreground = foregroundBrush
+        });
+
+        if (!string.IsNullOrWhiteSpace(peerUid))
+        {
+            var openChatButton = new Button
+            {
+                Content = openChatLabel,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Padding = new Thickness(10, 4),
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            openChatButton.Click += (_, __) =>
+            {
+                try
+                {
+                    var fullUid = peerUid.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) ? peerUid : $"usr-{peerUid}";
+                    AppServices.Events.RaiseOpenConversationRequested(fullUid);
+                }
+                catch { }
+            };
+            root.Children.Add(openChatButton);
+        }
+
+        contentBorder.Child = root;
         return contentBorder;
     }
 
@@ -5708,11 +5995,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            _uiPulseHandler = null;
-        }
-        catch { }
         try
         {
             _chatScrollAnimator?.Dispose();

@@ -140,6 +140,9 @@
                                                     </Border>
                                                     <Button Content="Choose…" Command="{Binding ChooseAvatarCommand}"/>
                                                     <Button Content="Clear" Command="{Binding ClearAvatarCommand}"/>
+                                                    <Button Command="{Binding AssignRandomBundledAvatarCommand}" ToolTip.Tip="{Binding LocalizedRandomAvatarTooltip}" Width="32" Height="32" MinWidth="32" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                                                        <PathIcon Width="14" Height="14" Data="M12,4V1L8,5L12,9V6C14.76,6 17,8.24 17,11C17,11.71 16.85,12.39 16.58,13L18.04,14.46C18.64,13.42 19,12.24 19,11C19,7.13 15.87,4 12,4M7.42,9L5.96,7.54C5.36,8.58 5,9.76 5,11C5,14.87 8.13,18 12,18V21L16,17L12,13V16C9.24,16 7,13.76 7,11C7,10.29 7.15,9.61 7.42,9Z"/>
+                                                    </Button>
                                                     <ToggleSwitch Content="Share Avatar with peers"
                                                                   IsChecked="{Binding ShareAvatar, Mode=TwoWay}"
                                                                   VerticalAlignment="Center" Margin="8,0,0,0"

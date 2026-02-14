@@ -215,6 +215,12 @@ internal sealed class Program
                     Zer0Talk.Utilities.RuntimeFlags.SafeMode = true;
                     StartupLog("Startup.SafeMode.Enabled");
                 }
+                else if (string.Equals(a, "--dev-ui", StringComparison.OrdinalIgnoreCase)
+                      || string.Equals(a, "--show-debug-ui", StringComparison.OrdinalIgnoreCase))
+                {
+                    Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi = true;
+                    StartupLog("Startup.DebugUi.Enabled");
+                }
                 else if (string.Equals(a, "--profile", StringComparison.OrdinalIgnoreCase))
                 {
                     var val = (i + 1) < argv.Length ? argv[i + 1] : null;

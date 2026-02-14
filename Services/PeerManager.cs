@@ -74,42 +74,11 @@ namespace Zer0Talk.Services
                 }
             }
 
-            // [MAJOR] Identify configured Major Nodes by endpoint match (host:port string equality on Address/Port).
-            // This is best-effort and local-only; no network calls or persistence.
-            var known = _settings.Settings.KnownMajorNodes ?? new List<string>();
+            // Phase 3: dedicated major-node bootstrap is retired.
+            // Keep peers untagged for major-node endpoint role.
             foreach (var peer in map.Values)
             {
                 peer.IsMajorNode = false;
-                try
-                {
-                    foreach (var entry in known)
-                    {
-                        var parts = entry.Split(':');
-                        if (parts.Length != 2) continue;
-                        var host = parts[0].Trim();
-                        if (!int.TryParse(parts[1], out var kport)) continue;
-                        if (kport == peer.Port && string.Equals(peer.Address, host, StringComparison.OrdinalIgnoreCase))
-                        {
-                            peer.IsMajorNode = true; break;
-                        }
-                        // Best-effort IP match when Address is IP and KnownMajorNodes host resolves to same IP
-                        if (kport == peer.Port && System.Net.IPAddress.TryParse(peer.Address, out var ip))
-                        {
-                            try
-                            {
-                                var addrs = System.Net.Dns.GetHostAddresses(host);
-                                foreach (var a in addrs)
-                                {
-                                    if (a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && a.Equals(ip))
-                                    { peer.IsMajorNode = true; break; }
-                                }
-                                if (peer.IsMajorNode) break;
-                            }
-                            catch { }
-                        }
-                    }
-                }
-                catch { }
             }
             Peers = map.Values.ToList();
             Changed?.Invoke();
@@ -448,13 +417,29 @@ namespace Zer0Talk.Services
         {
             uid = NormalizeUid(uid);
             var list = _settings.Settings.BlockList ??= new();
-            if (list.Remove(uid))
+            var removedAny = false;
+
+            // Remove all UID variants (legacy prefixed, mixed case, etc.).
+            for (var i = list.Count - 1; i >= 0; i--)
+            {
+                var existing = list[i];
+                if (string.Equals(NormalizeUid(existing), uid, StringComparison.OrdinalIgnoreCase))
+                {
+                    list.RemoveAt(i);
+                    removedAny = true;
+                }
+            }
+
+            if (removedAny)
             {
                 // [TIER-1-BLOCKING] Also remove from enhanced blocklists
-                var peer = Peers.FirstOrDefault(p => string.Equals(NormalizeUid(p.UID), uid, StringComparison.OrdinalIgnoreCase));
-                if (peer != null)
+                var relatedPeers = Peers
+                    .Where(p => string.Equals(NormalizeUid(p.UID), uid, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                foreach (var peer in relatedPeers)
                 {
-                    // Remove public key fingerprint
+                    // Remove public key fingerprints from any known keys.
                     if (peer.PublicKey != null && peer.PublicKey.Length > 0)
                     {
                         try
@@ -463,6 +448,18 @@ namespace Zer0Talk.Services
                             var fingerprint = Convert.ToBase64String(hash);
                             _settings.Settings.BlockedPublicKeyFingerprints?.Remove(fingerprint);
                             Utilities.Logger.Log($"[UNBLOCK-PUBKEY] Removed public key fingerprint from blocklist for {uid}");
+                        }
+                        catch { }
+                    }
+
+                    if (peer.CachedPublicKey != null && peer.CachedPublicKey.Length > 0)
+                    {
+                        try
+                        {
+                            var hash = System.Security.Cryptography.SHA256.HashData(peer.CachedPublicKey);
+                            var fingerprint = Convert.ToBase64String(hash);
+                            _settings.Settings.BlockedPublicKeyFingerprints?.Remove(fingerprint);
+                            Utilities.Logger.Log($"[UNBLOCK-PUBKEY] Removed cached public key fingerprint from blocklist for {uid}");
                         }
                         catch { }
                     }
@@ -476,10 +473,43 @@ namespace Zer0Talk.Services
                         }
                     }
                 }
+
+                // Also remove fingerprint derived from contact last-known key, if present.
+                try
+                {
+                    var contact = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(NormalizeUid(c.UID), uid, StringComparison.OrdinalIgnoreCase));
+                    if (contact != null)
+                    {
+                        RemoveFingerprintForHex(contact.LastKnownPublicKeyHex, uid);
+                        RemoveFingerprintForHex(contact.ExpectedPublicKeyHex, uid);
+                    }
+                }
+                catch { }
                 
                 _settings.Save(AppServices.Passphrase);
+                try { AppServices.Discovery.Restart(); } catch { }
+                try { AppServices.Network.RequestAutoConnectSweep(); } catch { }
                 Changed?.Invoke();
             }
+        }
+
+        private void RemoveFingerprintForHex(string? keyHex, string uid)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(keyHex)) return;
+                var norm = keyHex.Trim().Replace("-", string.Empty).Replace(":", string.Empty).Replace(" ", string.Empty);
+                var key = Convert.FromHexString(norm);
+                if (key.Length == 0) return;
+
+                var hash = System.Security.Cryptography.SHA256.HashData(key);
+                var fingerprint = Convert.ToBase64String(hash);
+                if (_settings.Settings.BlockedPublicKeyFingerprints?.Remove(fingerprint) == true)
+                {
+                    Utilities.Logger.Log($"[UNBLOCK-PUBKEY] Removed contact-derived public key fingerprint from blocklist for {uid}");
+                }
+            }
+            catch { }
         }
 
         public void ClearAllBlocks()

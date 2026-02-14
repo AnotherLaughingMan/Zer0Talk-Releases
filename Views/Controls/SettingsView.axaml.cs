@@ -22,9 +22,8 @@ namespace Zer0Talk.Views.Controls
             EnableDebugPanel();
 #endif
             this.AttachedToVisualTree += (_, __) => WireMenu();
-            this.AttachedToVisualTree += (_, __) => WireDiscoveredPeersList();
             // Ensure we re-wire when the DataContext changes so bindings/events react to the current VM
-            this.DataContextChanged += (_, __) => { WireMenu(); WireDiscoveredPeersList(); };
+            this.DataContextChanged += (_, __) => { WireMenu(); };
 #if true
             this.AttachedToVisualTree += (_, __) => WireLegacyThemeCombo();
 #endif
@@ -34,64 +33,9 @@ namespace Zer0Talk.Views.Controls
 #endif
         }
 
-        private void WireDiscoveredPeersList()
+        private void OpenDiscoveredPeersWindow_Click(object? sender, RoutedEventArgs e)
         {
-            var listBox = this.FindControl<ListBox>("DiscoveredPeersList");
-            if (listBox == null) return;
-
-            // Avoid duplicate handlers if re-wired
-            listBox.SelectionChanged -= DiscoveredPeersList_SelectionChanged;
-            listBox.SelectionChanged += DiscoveredPeersList_SelectionChanged;
-
-            // Sync initial selection to the VM if needed
-            try
-            {
-                if (DataContext is Zer0Talk.ViewModels.SettingsViewModel vm && listBox.SelectedItems != null)
-                {
-                    var selected = new System.Collections.Generic.List<Zer0Talk.Models.Peer>();
-                    foreach (var item in listBox.SelectedItems)
-                        if (item is Zer0Talk.Models.Peer peer) selected.Add(peer);
-
-                    var netVm = typeof(Zer0Talk.ViewModels.SettingsViewModel)
-                        .GetField("NetworkVm", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                        ?.GetValue(vm);
-
-                    if (netVm != null)
-                    {
-                        var selectedPeersProp = netVm.GetType().GetProperty("SelectedPeers");
-                        selectedPeersProp?.SetValue(netVm, selected);
-                    }
-                }
-            }
-            catch { }
-        }
-
-        private void DiscoveredPeersList_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        {
-            try
-            {
-                var listBox = sender as ListBox;
-                if (listBox == null) return;
-                if (!(DataContext is Zer0Talk.ViewModels.SettingsViewModel vm)) return;
-
-                var selected = new System.Collections.Generic.List<Zer0Talk.Models.Peer>();
-                if (listBox.SelectedItems != null)
-                {
-                    foreach (var item in listBox.SelectedItems)
-                        if (item is Zer0Talk.Models.Peer peer) selected.Add(peer);
-                }
-
-                var netVm = typeof(Zer0Talk.ViewModels.SettingsViewModel)
-                    .GetField("NetworkVm", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                    ?.GetValue(vm);
-
-                if (netVm != null)
-                {
-                    var selectedPeersProp = netVm.GetType().GetProperty("SelectedPeers");
-                    selectedPeersProp?.SetValue(netVm, selected);
-                }
-            }
-            catch { }
+            try { Zer0Talk.Services.WindowManager.ShowSingleton<Zer0Talk.Views.DiscoveredPeersWindow>(); } catch { }
         }
 
         private void WireLegacyThemeCombo()

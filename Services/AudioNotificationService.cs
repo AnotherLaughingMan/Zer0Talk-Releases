@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using NAudio.Wave;
 using NAudio.Vorbis;
@@ -62,16 +64,32 @@ namespace Zer0Talk.Services
         };
 
         private readonly string _soundsDirectory;
+        private readonly string _optimizedSoundsDirectory;
         private bool _isEnabled = true;
         private float _mainVolume = 1.0f;
         private float _notificationVolume = 0.8f;
         private float _chatVolume = 0.7f;
-        private IWavePlayer? _currentPlayer;
         private readonly object _playerLock = new();
+        private readonly List<(IWavePlayer Player, AudioFileReader Reader)> _activePlayers = new();
+        private const int MaxConcurrentPlayers = 8;
         
         // Cached audio readers for immediate playback
         private readonly Dictionary<string, AudioFileReader> _cachedAudioFiles = new();
         private readonly object _cacheLock = new();
+
+        // Runtime-optimized (decoded WAV) sound mappings for lower playback startup latency
+        private readonly Dictionary<string, string> _optimizedBySourceFileName = new(StringComparer.OrdinalIgnoreCase);
+        private int _audioWarmupAttempted;
+
+        private static readonly string[] RuntimeOptimizedSourceFiles =
+        {
+            "multi-pop-2-188167.mp3",
+            "multi-pop-1-188165.mp3",
+            "melodious-notification-sound.mp3",
+            "ui-10-smooth-warnnotify-sound-effect-365842.mp3",
+            "smooth-notify-alert-toast-warn-274736.mp3",
+            "smooth-completed-notify-starting-alert-274739.mp3"
+        };
 
         static AudioNotificationService()
         {
@@ -91,17 +109,22 @@ namespace Zer0Talk.Services
             // Determine sounds directory path
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
             _soundsDirectory = Path.Combine(baseDir, "Assets", "Sounds");
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            _optimizedSoundsDirectory = Path.Combine(localAppData, "Zer0Talk", "AudioCache");
             
-            SafeAudioLog($"Initialized with sounds directory: {_soundsDirectory}");
-            SafeAudioLog($"Directory exists: {Directory.Exists(_soundsDirectory)}");
+            SafeAudioLogVerbose($"Initialized with sounds directory: {_soundsDirectory}");
+            SafeAudioLogVerbose($"Directory exists: {Directory.Exists(_soundsDirectory)}");
             
             if (Directory.Exists(_soundsDirectory))
             {
+                _ = Task.Run(() => WarmUpAudioOutputDevice());
+                PrepareRuntimeOptimizedSounds();
+
                 var files = Directory.GetFiles(_soundsDirectory, "*.*", SearchOption.AllDirectories);
-                SafeAudioLog($"Found {files.Length} sound files");
+                SafeAudioLogVerbose($"Found {files.Length} sound files");
                 foreach (var file in files)
                 {
-                    SafeAudioLog($"Available sound file: {Path.GetFileName(file)}");
+                    SafeAudioLogVerbose($"Available sound file: {Path.GetFileName(file)}");
                 }
                 
                 // Preload frequently used sound files for instant playback
@@ -144,23 +167,122 @@ namespace Zer0Talk.Services
 
                 foreach (var soundFileName in toastSounds)
                 {
-                    var soundFile = Path.Combine(_soundsDirectory, soundFileName);
+                    var soundFile = ResolveSoundPath(soundFileName);
                     if (File.Exists(soundFile))
                     {
                         PreloadAudioFile(soundFile);
-                        SafeAudioLog($"Preloaded toast sound: {soundFileName}");
+                        SafeAudioLogVerbose($"Preloaded toast sound: {soundFileName}");
                     }
                     else
                     {
-                        SafeAudioLog($"Toast sound file not found: {soundFileName}");
+                        SafeAudioLogVerbose($"Toast sound file not found: {soundFileName}");
                     }
                 }
                 
-                SafeAudioLog($"Preloaded {_cachedAudioFiles.Count} sound files for instant playback");
+                SafeAudioLogVerbose($"Preloaded {_cachedAudioFiles.Count} sound files for instant playback");
             }
             catch (Exception ex)
             {
                 SafeAudioLog($"Error preloading sounds: {ex.Message}");
+            }
+        }
+
+        private void PrepareRuntimeOptimizedSounds()
+        {
+            try
+            {
+                Directory.CreateDirectory(_optimizedSoundsDirectory);
+
+                foreach (var sourceFileName in RuntimeOptimizedSourceFiles)
+                {
+                    try
+                    {
+                        var sourcePath = Path.Combine(_soundsDirectory, sourceFileName);
+                        if (!File.Exists(sourcePath))
+                        {
+                            continue;
+                        }
+
+                        var optimizedFileName = Path.GetFileNameWithoutExtension(sourceFileName) + ".wav";
+                        var optimizedPath = Path.Combine(_optimizedSoundsDirectory, optimizedFileName);
+
+                        var shouldRebuild = !File.Exists(optimizedPath)
+                            || File.GetLastWriteTimeUtc(optimizedPath) < File.GetLastWriteTimeUtc(sourcePath);
+
+                        if (shouldRebuild)
+                        {
+                            using var reader = new AudioFileReader(sourcePath);
+                            WaveFileWriter.CreateWaveFile16(optimizedPath, reader);
+                            SafeAudioLogVerbose($"Built optimized WAV cache: {sourceFileName} -> {optimizedFileName}");
+                        }
+
+                        _optimizedBySourceFileName[sourceFileName] = optimizedPath;
+                    }
+                    catch (Exception ex)
+                    {
+                        SafeAudioLog($"Failed to optimize {sourceFileName}: {ex.Message}");
+                    }
+                }
+
+                SafeAudioLogVerbose($"Runtime optimized sound cache entries: {_optimizedBySourceFileName.Count}");
+            }
+            catch (Exception ex)
+            {
+                SafeAudioLog($"Runtime optimized sound cache unavailable: {ex.Message}");
+            }
+        }
+
+        private string ResolveSoundPath(string candidateFileName)
+        {
+            try
+            {
+                var ext = Path.GetExtension(candidateFileName);
+                if (!string.Equals(ext, ".wav", StringComparison.OrdinalIgnoreCase))
+                {
+                    var wavCandidate = Path.GetFileNameWithoutExtension(candidateFileName) + ".wav";
+                    var wavPath = Path.Combine(_soundsDirectory, wavCandidate);
+                    if (File.Exists(wavPath))
+                    {
+                        return wavPath;
+                    }
+                }
+            }
+            catch { }
+
+            if (_optimizedBySourceFileName.TryGetValue(candidateFileName, out var optimizedPath) && File.Exists(optimizedPath))
+            {
+                return optimizedPath;
+            }
+
+            return Path.Combine(_soundsDirectory, candidateFileName);
+        }
+
+        private void WarmUpAudioOutputDevice()
+        {
+            if (Interlocked.Exchange(ref _audioWarmupAttempted, 1) == 1)
+            {
+                return;
+            }
+
+            try
+            {
+                var format = WaveFormat.CreateIeeeFloatWaveFormat(44100, 1);
+                var buffer = new BufferedWaveProvider(format)
+                {
+                    BufferLength = format.AverageBytesPerSecond / 2,
+                    DiscardOnBufferOverflow = true
+                };
+
+                using var warmupPlayer = new WaveOutEvent();
+                warmupPlayer.Init(buffer);
+                warmupPlayer.Play();
+                Thread.Sleep(25);
+                warmupPlayer.Stop();
+                SafeAudioLogVerbose("Audio output warm-up complete");
+            }
+            catch (Exception ex)
+            {
+                SafeAudioLog($"Audio output warm-up failed: {ex.Message}");
             }
         }
         
@@ -268,14 +390,15 @@ namespace Zer0Talk.Services
         /// <summary>
         /// Play a notification sound asynchronously with appropriate volume channel
         /// </summary>
-        public async Task PlaySoundAsync(SoundType soundType)
+        public async Task PlaySoundAsync(SoundType soundType, DateTime? requestedAtUtc = null, string? source = null)
         {
+            var startTimestamp = Stopwatch.GetTimestamp();
             var effectiveVolume = GetEffectiveVolume(soundType);
-            SafeAudioLog($"PlaySoundAsync called: soundType={soundType}, _isEnabled={_isEnabled}, effectiveVolume={effectiveVolume}, _mainVolume={_mainVolume}, _chatVolume={_chatVolume}");
+            SafeAudioLogVerbose($"PlaySoundAsync called: soundType={soundType}, source={source ?? "unknown"}, _isEnabled={_isEnabled}, effectiveVolume={effectiveVolume}, _mainVolume={_mainVolume}, _chatVolume={_chatVolume}");
             
             if (!_isEnabled || effectiveVolume <= 0.0f)
             {
-                SafeAudioLog($"Sound disabled or volume zero - skipping {soundType} (isEnabled={_isEnabled}, effectiveVolume={effectiveVolume})");
+                SafeAudioLogVerbose($"Sound disabled or volume zero - skipping {soundType} (isEnabled={_isEnabled}, effectiveVolume={effectiveVolume})");
                 return;
             }
 
@@ -291,8 +414,8 @@ namespace Zer0Talk.Services
                     return;
                 }
 
-                SafeAudioLog($"Playing {soundType}: {Path.GetFileName(soundFile)} at {effectiveVolume:F2} volume");
-                await PlayAudioFileAsync(soundFile, effectiveVolume);
+                SafeAudioLogVerbose($"Playing {soundType}: {Path.GetFileName(soundFile)} at {effectiveVolume:F2} volume");
+                await PlayAudioFileAsync(soundFile, effectiveVolume, startTimestamp, requestedAtUtc, source);
             }
             catch (Exception ex)
             {
@@ -303,22 +426,23 @@ namespace Zer0Talk.Services
         /// <summary>
         /// Play a custom sound file using main volume
         /// </summary>
-        public async Task PlayCustomSoundAsync(string fileName)
+        public async Task PlayCustomSoundAsync(string fileName, DateTime? requestedAtUtc = null, string? source = null)
         {
+            var startTimestamp = Stopwatch.GetTimestamp();
             if (!_isEnabled || _mainVolume <= 0.0f)
                 return;
 
             try
             {
-                var soundFile = Path.Combine(_soundsDirectory, fileName);
+                var soundFile = ResolveSoundPath(fileName);
                 if (!File.Exists(soundFile))
                 {
                     SafeAudioLog($"Custom sound file not found: {fileName}");
                     return;
                 }
 
-                SafeAudioLog($"Playing custom sound: {fileName}");
-                await PlayAudioFileAsync(soundFile, _mainVolume);
+                SafeAudioLogVerbose($"Playing custom sound: {fileName}");
+                await PlayAudioFileAsync(soundFile, _mainVolume, startTimestamp, requestedAtUtc, source);
             }
             catch (Exception ex)
             {
@@ -335,9 +459,14 @@ namespace Zer0Talk.Services
             {
                 try
                 {
-                    _currentPlayer?.Stop();
-                    _currentPlayer?.Dispose();
-                    _currentPlayer = null;
+                    var players = _activePlayers.ToArray();
+                    _activePlayers.Clear();
+                    foreach (var entry in players)
+                    {
+                        try { entry.Player.Stop(); } catch { }
+                        try { entry.Player.Dispose(); } catch { }
+                        try { entry.Reader.Dispose(); } catch { }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -376,7 +505,7 @@ namespace Zer0Talk.Services
 
             foreach (var candidate in candidates)
             {
-                var fullPath = Path.Combine(_soundsDirectory, candidate);
+                var fullPath = ResolveSoundPath(candidate);
                 if (File.Exists(fullPath))
                 {
                     return fullPath;
@@ -386,122 +515,115 @@ namespace Zer0Talk.Services
             return null;
         }
 
-        private async Task PlayAudioFileAsync(string filePath, float volume = 1.0f)
+        private async Task PlayAudioFileAsync(string filePath, float volume = 1.0f, long? startTimestamp = null, DateTime? requestedAtUtc = null, string? source = null)
         {
             await Task.Run(() =>
             {
-                lock (_playerLock)
+                try
                 {
-                    try
+                    AudioFileReader? audioFile = null;
+
+                    // Create new audio file reader per playback so concurrent sounds can overlap safely
+                    var extension = Path.GetExtension(filePath).ToLowerInvariant();
+
+                    switch (extension)
                     {
-                        // Stop any currently playing sound
-                        _currentPlayer?.Stop();
-                        _currentPlayer?.Dispose();
-
-                        AudioFileReader? audioFile = null;
-                        var key = filePath.ToLowerInvariant();
-                        
-                        // Try to use cached audio file first for instant playback
-                        lock (_cacheLock)
-                        {
-                            if (_cachedAudioFiles.TryGetValue(key, out var cachedFile))
+                        case ".mp3":
+                        case ".wav":
+                            audioFile = new AudioFileReader(filePath);
+                            break;
+                        case ".ogg":
+                            try
                             {
-                                // Reset position to start for reuse
-                                cachedFile.Position = 0;
-                                cachedFile.Volume = volume;
-                                audioFile = cachedFile;
-                                SafeAudioLog($"Using cached audio for {Path.GetFileName(filePath)}");
+                                var vorbisReader = new VorbisWaveReader(filePath);
+                                vorbisReader.Dispose();
+                                audioFile = new AudioFileReader(filePath);
                             }
-                        }
-                        
-                        // If not cached, create new audio file reader
-                        if (audioFile == null)
-                        {
-                            var extension = Path.GetExtension(filePath).ToLowerInvariant();
-
-                            switch (extension)
+                            catch (Exception ex)
                             {
-                                case ".mp3":
-                                case ".wav":
-                                    audioFile = new AudioFileReader(filePath);
-                                    break;
-                                case ".ogg":
-                                    // For OGG files, try VorbisWaveReader first, then fallback to AudioFileReader
-                                    try
-                                    {
-                                        var vorbisReader = new VorbisWaveReader(filePath);
-                                        // Wrap VorbisWaveReader to make it compatible with AudioFileReader
-                                        audioFile = new AudioFileReader(filePath);
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        SafeAudioLog($"VorbisWaveReader failed for {filePath}, trying AudioFileReader: {ex.Message}");
-                                        try
-                                        {
-                                            // Fallback to AudioFileReader which might handle some OGG files
-                                            audioFile = new AudioFileReader(filePath);
-                                        }
-                                        catch
-                                        {
-                                            SafeAudioLog($"AudioFileReader also failed for OGG file: {filePath}");
-                                            return;
-                                        }
-                                    }
-                                    break;
-                                default:
-                                    SafeAudioLog($"Unsupported audio format: {extension}");
-                                    return;
-                            }
-
-                            if (audioFile == null)
-                            {
-                                SafeAudioLog($"Failed to create audio reader for: {filePath}");
-                                return;
-                            }
-
-                            // Set volume for non-cached files
-                            audioFile.Volume = volume;
-                            SafeAudioLog($"Created new audio reader for {Path.GetFileName(filePath)}");
-                        }
-
-                        // Create output device
-                        _currentPlayer = new WaveOutEvent();
-                        _currentPlayer.Init(audioFile);
-
-                        // Handle playback completion
-                        var isCached = false;
-                        lock (_cacheLock)
-                        {
-                            isCached = _cachedAudioFiles.ContainsKey(key);
-                        }
-                        
-                        _currentPlayer.PlaybackStopped += (sender, args) =>
-                        {
-                            lock (_playerLock)
-                            {
+                                SafeAudioLog($"VorbisWaveReader failed for {filePath}, trying AudioFileReader: {ex.Message}");
                                 try
                                 {
-                                    // Only dispose non-cached audio files
-                                    if (!isCached)
-                                    {
-                                        audioFile?.Dispose();
-                                    }
-                                    _currentPlayer?.Dispose();
-                                    _currentPlayer = null;
+                                    audioFile = new AudioFileReader(filePath);
                                 }
-                                catch { }
+                                catch
+                                {
+                                    SafeAudioLog($"AudioFileReader also failed for OGG file: {filePath}");
+                                    return;
+                                }
                             }
-                        };
-
-                        // Start playback
-                        _currentPlayer.Play();
-
-                        SafeAudioLog($"Started playback of {Path.GetFileName(filePath)}");
+                            break;
+                        default:
+                            SafeAudioLog($"Unsupported audio format: {extension}");
+                            return;
                     }
-                    catch (Exception ex)
+
+                    if (audioFile == null)
                     {
-                        SafeAudioLog($"Playback error for {filePath}: {ex.Message}");
+                        SafeAudioLog($"Failed to create audio reader for: {filePath}");
+                        return;
                     }
+
+                    audioFile.Volume = volume;
+                    SafeAudioLogVerbose($"Created new audio reader for {Path.GetFileName(filePath)}");
+
+                    var player = new WaveOutEvent
+                    {
+                        DesiredLatency = 100
+                    };
+                    player.Init(audioFile);
+
+                    lock (_playerLock)
+                    {
+                        while (_activePlayers.Count >= MaxConcurrentPlayers)
+                        {
+                            var oldest = _activePlayers[0];
+                            _activePlayers.RemoveAt(0);
+                            try { oldest.Player.Stop(); } catch { }
+                            try { oldest.Player.Dispose(); } catch { }
+                            try { oldest.Reader.Dispose(); } catch { }
+                        }
+                        _activePlayers.Add((player, audioFile));
+                    }
+
+                    player.PlaybackStopped += (_, __) =>
+                    {
+                        lock (_playerLock)
+                        {
+                            for (int i = _activePlayers.Count - 1; i >= 0; i--)
+                            {
+                                if (ReferenceEquals(_activePlayers[i].Player, player))
+                                {
+                                    _activePlayers.RemoveAt(i);
+                                    break;
+                                }
+                            }
+                        }
+                        try { player.Dispose(); } catch { }
+                        try { audioFile.Dispose(); } catch { }
+                    };
+
+                    player.Play();
+
+                    if (startTimestamp.HasValue)
+                    {
+                        var pipelineMs = Stopwatch.GetElapsedTime(startTimestamp.Value).TotalMilliseconds;
+                        if (requestedAtUtc.HasValue)
+                        {
+                            var endToEndMs = (DateTime.UtcNow - requestedAtUtc.Value).TotalMilliseconds;
+                            SafeAudioLogVerbose($"Latency: file={Path.GetFileName(filePath)}, source={source ?? "unknown"}, pipelineMs={pipelineMs:F1}, endToEndMs={endToEndMs:F1}, cached=false");
+                        }
+                        else
+                        {
+                            SafeAudioLogVerbose($"Latency: file={Path.GetFileName(filePath)}, source={source ?? "unknown"}, pipelineMs={pipelineMs:F1}, cached=false");
+                        }
+                    }
+
+                    SafeAudioLogVerbose($"Started playback of {Path.GetFileName(filePath)}");
+                }
+                catch (Exception ex)
+                {
+                    SafeAudioLog($"Playback error for {filePath}: {ex.Message}");
                 }
             });
         }
@@ -524,6 +646,16 @@ namespace Zer0Talk.Services
                 }
                 _cachedAudioFiles.Clear();
             }
+
+            lock (_playerLock)
+            {
+                foreach (var entry in _activePlayers)
+                {
+                    try { entry.Player.Dispose(); } catch { }
+                    try { entry.Reader.Dispose(); } catch { }
+                }
+                _activePlayers.Clear();
+            }
             
             try
             {
@@ -544,6 +676,21 @@ namespace Zer0Talk.Services
                     System.IO.File.AppendAllText(Zer0Talk.Utilities.LoggingPaths.Audio, line + Environment.NewLine);
             }
             catch { }
+        }
+
+        private static void SafeAudioLogVerbose(string message)
+        {
+            if (!IsVerboseAudioLoggingEnabled()) return;
+            SafeAudioLog(message);
+        }
+
+        private static bool IsVerboseAudioLoggingEnabled()
+        {
+#if DEBUG
+            return true;
+#else
+            return false;
+#endif
         }
 
         ~AudioNotificationService()

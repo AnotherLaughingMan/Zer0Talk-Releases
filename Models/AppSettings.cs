@@ -51,7 +51,6 @@ public class AppSettings
     public System.Collections.Generic.List<string> BlockedIpAddresses { get; set; } = new(); // IP addresses (v4/v6)
     public System.Collections.Generic.List<string> BlockedIpRanges { get; set; } = new(); // CIDR ranges (e.g., 192.168.1.0/24)
     public System.Collections.Generic.HashSet<string> CustomBadActorIps { get; set; } = new(); // User-added bad actor IPs
-    public System.Collections.Generic.List<string> KnownMajorNodes { get; set; } = new(); // "host:port"
     // Ordered list of preferred adapter IDs (NetworkInterface.Id)
     public System.Collections.Generic.List<string> AdapterPriorityIds { get; set; } = new();
     // Remembered passphrase preference and protected blob (DPAPI). The blob is also mirrored to a sidecar file for auto-unlock at startup.
@@ -78,6 +77,11 @@ public class AppSettings
     // Monitoring: persisted diagnostics log font size for accessibility (default small size)
     public double MonitoringLogFontSize { get; set; } = 11;
 
+    // Monitoring: graph render style (0=Line, 1=Bar, 2=Solid Lines)
+    public int MonitoringGraphStyleIndex { get; set; } = 0;
+    // Monitoring: legend side (0=Left, 1=Right)
+    public int MonitoringLegendPositionIndex { get; set; } = 1;
+
     // Main window layout: persisted widths for resizable columns (in device-independent pixels).
     // Left = navigation + peers; Right = diagnostics. Center remains star-sized.
     public double? MainLeftWidth { get; set; }
@@ -88,6 +92,9 @@ public class AppSettings
     // Format: "host:port" (e.g., "relay.example.com:443"). Leave null/empty to disable.
     public bool RelayFallbackEnabled { get; set; } = true;
     public string? RelayServer { get; set; }
+    public System.Collections.Generic.List<string> SavedRelayServers { get; set; } = new();
+    public int RelayPresenceTimeoutSeconds { get; set; } = 45;
+    public int RelayDiscoveryTtlMinutes { get; set; } = 3;
 
     // Performance settings
     // CPU: CCD core affinity selection (0 = Auto, 1 = CCD 0, 2 = CCD 1)
@@ -148,6 +155,7 @@ public class AppSettings
     public bool MinimizeToTray { get; set; } // When enabled, close button minimizes to tray instead of closing
     public bool RunOnStartup { get; set; } // When enabled, app starts with Windows
     public bool ShowInSystemTray { get; set; } // When enabled, app icon appears in system tray
+    public bool StartMinimized { get; set; } // When enabled, app starts hidden in system tray
 
     // Audio settings (volume ranges from 0.0 to 1.0)
     public double MainVolume { get; set; } = 1.0; // Overall volume control for all sounds

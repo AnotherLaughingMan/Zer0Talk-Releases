@@ -1,0 +1,146 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Zer0Talk.ViewModels"
+        x:Class="Zer0Talk.Views.DiscoveredPeersWindow"
+        x:Name="DiscoveredPeersWin"
+        Title="Discovered Peers"
+        Width="960" Height="560"
+        MinWidth="820" MinHeight="460"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="36"
+        x:DataType="vm:NetworkViewModel"
+        Background="{DynamicResource App.Background}">
+    <Window.DataContext>
+        <vm:NetworkViewModel />
+    </Window.DataContext>
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.TitleBarBackground}"
+                PointerPressed="DragBar_PointerPressed">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
+                <TextBlock Grid.Column="0" Text="Discovered Peers" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Foreground="{DynamicResource App.TitleBarForeground}"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button Classes="icon-button" ToolTip.Tip="Refresh" Command="{Binding RefreshPeersCommand}">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE72C;"/>
+                    </Button>
+                    <Button Classes="icon-button" ToolTip.Tip="Close" Click="Close_Click">
+                        <TextBlock Classes="icon-mdl2" Text="&#xE8BB;"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="1" Padding="12" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}">
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,4" ColumnSpacing="6">
+                    <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="2">
+                        <TextBlock Text="Discovered Peers" FontWeight="SemiBold"/>
+                        <TextBlock Text="Peer list updates on network events. Use Refresh any time, or enable Auto for periodic sync." FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Block Selected" Command="{Binding BlockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
+                    <Button Grid.Column="2" Content="Unblock Selected" Command="{Binding UnblockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
+                    <Button Grid.Column="3" Content="Remove Test Selected" Command="{Binding RemoveSelectedTestPeersCommand}" Padding="10,4" FontSize="12" ToolTip.Tip="Removes only simulated/test peers; real peers cannot be removed."/>
+                    <CheckBox Grid.Column="4" Content="Auto" IsChecked="{Binding AutoRefreshPeers}" VerticalAlignment="Center" Margin="10,0,0,0" ToolTip.Tip="Periodically refreshes the peer list."/>
+                </Grid>
+
+                <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="{DynamicResource App.SecondaryBackground}" BorderBrush="{DynamicResource App.Border}" BorderThickness="0,0,0,1" Padding="6,4">
+                            <Grid ColumnDefinitions="32,36,180,*,50,68">
+                                <TextBlock Grid.Column="0" Text="☑" FontWeight="SemiBold" FontSize="11" Opacity="0.7" Margin="3,0,0,0"/>
+                                <TextBlock Grid.Column="1" Text="🌍" FontWeight="SemiBold" FontSize="11" Opacity="0.7" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Column="2" Text="UID" FontWeight="SemiBold" FontSize="11" Opacity="0.8" Margin="3,0,0,0"/>
+                                <TextBlock Grid.Column="3" Text="Public Key" FontWeight="SemiBold" FontSize="11" Opacity="0.8" Margin="3,0,0,0"/>
+                                <TextBlock Grid.Column="4" Text="Node" FontWeight="SemiBold" FontSize="11" Opacity="0.8" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Column="5" Text="State" FontWeight="SemiBold" FontSize="11" Opacity="0.8" HorizontalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ListBox x:Name="DiscoveredPeersList"
+                                     ItemsSource="{Binding DiscoveredPeers}"
+                                     SelectionMode="Multiple"
+                                     BorderThickness="0"
+                                     Background="Transparent"
+                                     SelectionChanged="DiscoveredPeersList_SelectionChanged">
+                                <ListBox.Styles>
+                                    <Style Selector="ListBoxItem:nth-child(even)">
+                                        <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:nth-child(odd)">
+                                        <Setter Property="Background" Value="{DynamicResource App.SecondaryBackground}"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:selected">
+                                        <Setter Property="Background" Value="{DynamicResource App.ItemSelected}"/>
+                                    </Style>
+                                    <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                                        <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+                                    </Style>
+                                </ListBox.Styles>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="32,36,180,*,50,68" Margin="6,3" HorizontalAlignment="Stretch">
+                                            <CheckBox Grid.Column="0" IsChecked="{Binding $parent[ListBoxItem].IsSelected}" VerticalAlignment="Center" MinWidth="0" Padding="0" Margin="3,0,0,0"/>
+
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding CountryCode, FallbackValue='⚪'}"
+                                                       FontSize="18"
+                                                       VerticalAlignment="Center"
+                                                       HorizontalAlignment="Center"
+                                                       ToolTip.Tip="Region hint from IP (decorative)"/>
+
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="3,0,0,0">
+                                                <TextBlock Text="{Binding DisplayUID}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip.Tip="{Binding DisplayUID}"
+                                                           FontSize="11"
+                                                           VerticalAlignment="Center"
+                                                           MaxWidth="150"/>
+                                                <TextBlock Classes="icon-mdl2" Text="&#xE73E;" Foreground="{DynamicResource App.Success}" FontSize="12"
+                                                           IsVisible="{Binding PublicKeyVerified}" ToolTip.Tip="Identity verified"/>
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="3"
+                                                       Text="{Binding PublicKeyDisplay}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding UID}"
+                                                       FontSize="10"
+                                                       VerticalAlignment="Center"
+                                                       Margin="3,0,0,0"
+                                                       Foreground="{DynamicResource App.ForegroundSecondary}"/>
+
+                                            <Border Grid.Column="5" HorizontalAlignment="Center" VerticalAlignment="Center" CornerRadius="8" Padding="6,2"
+                                                    Background="{DynamicResource App.SecondaryBackground}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
+                                                <Grid>
+                                                    <TextBlock Classes="icon-mdl2"
+                                                               Text="&#xF140;"
+                                                               Foreground="#D32F2F"
+                                                               FontSize="14"
+                                                               IsVisible="{Binding IsBlocked}"
+                                                               ToolTip.Tip="Blocked"/>
+                                                    <TextBlock Classes="icon-mdl2"
+                                                               Text="&#xE73E;"
+                                                               Foreground="{DynamicResource App.Success}"
+                                                               FontSize="14"
+                                                               IsVisible="{Binding !IsBlocked}"
+                                                               ToolTip.Tip="Not Blocked"/>
+                                                </Grid>
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

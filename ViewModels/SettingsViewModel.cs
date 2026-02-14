@@ -136,6 +136,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(ShowInSystemTray),
         nameof(MinimizeToTray),
         nameof(RunOnStartup),
+        nameof(StartMinimized),
         nameof(LockHotkeyDisplay),
         nameof(ClearInputHotkeyDisplay),
         nameof(CcdAffinityIndex),
@@ -154,7 +155,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(EnableLogging),
         nameof(MainVolume),
         nameof(NotificationVolume),
-        nameof(ChatVolume)
+        nameof(ChatVolume),
+        nameof(Port),
+        nameof(MajorNode),
+        nameof(EnableGeoBlocking),
+        nameof(RelayFallbackEnabled),
+        nameof(RelayServer),
+        nameof(RelayPresenceTimeoutSeconds),
+        nameof(RelayDiscoveryTtlMinutes)
     };
 
     private bool _saveToastVisible;
@@ -218,6 +226,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _baseDebugLogMaxMegabytes;
     private bool _enableLogging;
     private bool _baseEnableLogging;
+    private int _basePort;
+    private bool _baseMajorNode;
+    private bool _baseEnableGeoBlocking;
+    private bool _baseRelayFallbackEnabled;
+    private string _baseRelayServer = string.Empty;
+    private int _baseRelayPresenceTimeoutSeconds;
+    private int _baseRelayDiscoveryTtlMinutes;
+    private string _baseSavedRelayServersSig = string.Empty;
     private string _logMaintenanceStatus = "Log maintenance hasn't run yet.";
     private DateTime? _lastLogMaintenanceUtc;
 
@@ -274,6 +290,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _disposed = true;
         try { AppServices.LogMaintenance.MaintenanceCompleted -= OnLogMaintenanceCompleted; } catch { }
         try { Services.AppServices.Localization.LanguageChanged -= OnLanguageChanged; } catch { }
+        try { NetworkVm.PropertyChanged -= OnNetworkVmPropertyChanged; } catch { }
+        try { NetworkVm.SavedRelayServers.CollectionChanged -= OnSavedRelayServersChanged; } catch { }
         DismissSaveToast();
         GC.SuppressFinalize(this);
     }
@@ -308,6 +326,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private bool _baseShowInSystemTray;
     private bool _baseMinimizeToTray;
     private bool _baseRunOnStartup;
+    private bool _baseStartMinimized;
     private bool _suppressThemeBinding = true;
 
     public SettingsViewModel()
@@ -426,6 +445,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             ShowInSystemTray = settings.ShowInSystemTray;
             MinimizeToTray = settings.MinimizeToTray;
             RunOnStartup = settings.RunOnStartup;
+            StartMinimized = settings.StartMinimized;
 
             // Verify Windows startup registry matches saved setting
             try
@@ -532,6 +552,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         CopyUidCommand = new RelayCommand(async _ => await CopyUidAsync(), _ => !string.IsNullOrWhiteSpace(UID));
         ChooseAvatarCommand = new RelayCommand(async _ => await ChooseAvatarAsync(), _ => true);
         ClearAvatarCommand = new RelayCommand(_ => { _avatarBytes = null; RefreshAvatarPreview(); }, _ => _avatarBytes != null && _avatarBytes.Length > 0);
+        AssignRandomBundledAvatarCommand = new RelayCommand(_ => AssignRandomBundledAvatar(), _ => true);
         DeleteAccountCommand = new RelayCommand(_ => DeleteAccount(), _ => !string.IsNullOrWhiteSpace(DeleteConfirmText) && string.Equals(DeleteConfirmText.Trim(), GeneratedDeleteCode, StringComparison.Ordinal));
         ResetLayoutCommand = new RelayCommand(_ => ResetLayout(), _ => true);
         RunLogMaintenanceCommand = new RelayCommand(async _ => await RunLogMaintenanceAsync(), _ => true);
@@ -596,8 +617,66 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             try { RefreshThemeInspector(); } catch { }
         }
 
+        try { AttachNetworkDirtyTracking(); } catch { }
+
         CaptureBaseline();
         _suppressDirtyCheck = false;
+        UpdateUnsavedChangesState();
+    }
+
+    private void AttachNetworkDirtyTracking()
+    {
+        var vm = NetworkVm;
+        vm.PropertyChanged -= OnNetworkVmPropertyChanged;
+        vm.PropertyChanged += OnNetworkVmPropertyChanged;
+
+        TryRewireNetworkCollection(vm.SavedRelayServers, OnSavedRelayServersChanged);
+    }
+
+    private void TryRewireNetworkCollection(System.Collections.Specialized.INotifyCollectionChanged collection, System.Collections.Specialized.NotifyCollectionChangedEventHandler handler)
+    {
+        try { collection.CollectionChanged -= handler; } catch { }
+        try { collection.CollectionChanged += handler; } catch { }
+    }
+
+    private void OnSavedRelayServersChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (_suppressDirtyCheck) return;
+        UpdateUnsavedChangesState();
+    }
+
+    private void OnNetworkVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        var name = e.PropertyName;
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        if (name is nameof(NetworkViewModel.SavedRelayServers))
+        {
+            var vm = NetworkVm;
+            TryRewireNetworkCollection(vm.SavedRelayServers, OnSavedRelayServersChanged);
+            OnPropertyChanged(nameof(SavedRelayServers));
+            return;
+        }
+
+        if (name is nameof(NetworkViewModel.Port)
+            or nameof(NetworkViewModel.MajorNode)
+            or nameof(NetworkViewModel.EnableGeoBlocking)
+            or nameof(NetworkViewModel.RelayFallbackEnabled)
+            or nameof(NetworkViewModel.RelayServer)
+            or nameof(NetworkViewModel.RelayPresenceTimeoutSeconds)
+            or nameof(NetworkViewModel.RelayDiscoveryTtlMinutes)
+            or nameof(NetworkViewModel.NewRelayServer)
+            or nameof(NetworkViewModel.SelectedRelayServer)
+            or nameof(NetworkViewModel.IpBlockingStats)
+            or nameof(NetworkViewModel.InfoMessage)
+            or nameof(NetworkViewModel.ErrorMessage))
+        {
+            OnPropertyChanged(name);
+            if (name == nameof(NetworkViewModel.InfoMessage)) OnPropertyChanged(nameof(NetworkInfoMessage));
+            if (name == nameof(NetworkViewModel.ErrorMessage)) OnPropertyChanged(nameof(NetworkErrorMessage));
+        }
+
+        if (_suppressDirtyCheck) return;
         UpdateUnsavedChangesState();
     }
 
@@ -635,6 +714,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             ShowInSystemTray = s.ShowInSystemTray;
             MinimizeToTray = s.MinimizeToTray;
             RunOnStartup = s.RunOnStartup;
+            StartMinimized = s.StartMinimized;
             EnableDebugLogAutoTrim = s.EnableDebugLogAutoTrim;
             DebugUiLogMaxLines = ClampRange(s.DebugUiLogMaxLines <= 0 ? 1000 : s.DebugUiLogMaxLines, 100, 20000);
             DebugLogRetentionDays = s.DebugLogRetentionDays < 0 ? 0 : (s.DebugLogRetentionDays > 30 ? 30 : s.DebugLogRetentionDays);
@@ -664,6 +744,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 RefreshAvatarPreview();
             }
             catch { }
+
+            try { NetworkVm.ResetFromSettings(); } catch { }
 
             CaptureBaseline();
             try { LogSettingsEvent($"Discarded changes (ThemeId back to {_baseThemeId}, index {_baseThemeIndex})"); }
@@ -1655,12 +1737,16 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedDangerZone => Services.AppServices.Localization.GetString("Settings.DangerZone", "Danger Zone");
     public string LocalizedLogOut => Services.AppServices.Localization.GetString("Settings.LogOut", "Log Out");
     public string LocalizedLanguage => Services.AppServices.Localization.GetString("Settings.Language", "Language");
+    public string LocalizedLanguageHelp => Services.AppServices.Localization.GetString("Settings.LanguageHelp", "Change the application language");
     public string LocalizedTheme => Services.AppServices.Localization.GetString("Settings.Theme", "Theme");
+    public string LocalizedThemeHelp => Services.AppServices.Localization.GetString("Settings.ThemeHelp", "Select the overall application theme");
     public string LocalizedFont => Services.AppServices.Localization.GetString("Settings.Font", "Font");
+    public string LocalizedFontHelp => Services.AppServices.Localization.GetString("Settings.FontHelp", "Override the UI font family (leave blank for default)");
     public string LocalizedPrivacy => Services.AppServices.Localization.GetString("Settings.Privacy", "Privacy");
     
     // General panel strings
     public string LocalizedDefaultPresence => Services.AppServices.Localization.GetString("Settings.DefaultPresence", "Default Presence");
+    public string LocalizedDefaultPresenceHelp => Services.AppServices.Localization.GetString("Settings.DefaultPresenceHelp", "Sets your default status when the app is running");
     public string LocalizedStatus => Services.AppServices.Localization.GetString("Settings.Status", "Status");
     public string LocalizedOnline => Services.AppServices.Localization.GetString("Settings.Online", "Online");
     public string LocalizedAway => Services.AppServices.Localization.GetString("Settings.Away", "Away");
@@ -1678,14 +1764,18 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedNotificationBellFlashHelp => Services.AppServices.Localization.GetString("Settings.NotificationBellFlashHelp", "Flash the bell icon for 10 seconds when notifications arrive");
     public string LocalizedAutoLock => Services.AppServices.Localization.GetString("Settings.AutoLock", "Auto-Lock");
     public string LocalizedEnableAutoLock => Services.AppServices.Localization.GetString("Settings.EnableAutoLock", "Enable Auto-Lock");
+    public string LocalizedAutoLockHelp => Services.AppServices.Localization.GetString("Settings.AutoLockHelp", "Automatically lock the app after inactivity");
     public string LocalizedMinutes => Services.AppServices.Localization.GetString("Settings.Minutes", "Minutes");
+    public string LocalizedAutoLockMinutesHelp => Services.AppServices.Localization.GetString("Settings.AutoLockMinutesHelp", "Number of idle minutes before locking");
     public string LocalizedLockOnMinimize => Services.AppServices.Localization.GetString("Settings.LockOnMinimize", "Lock on minimize");
+    public string LocalizedLockOnMinimizeHelp => Services.AppServices.Localization.GetString("Settings.LockOnMinimizeHelp", "Lock immediately when the window is minimized");
     public string LocalizedLockBlurRadius => Services.AppServices.Localization.GetString("Settings.LockBlurRadius", "Lock Blur Radius");
     public string LocalizedLockBlurHelp => Services.AppServices.Localization.GetString("Settings.LockBlurHelp", "Controls blur strength while locked. 0 = no blur, 10 = maximum.");
     public string LocalizedBlockScreenCapture => Services.AppServices.Localization.GetString("Settings.BlockScreenCapture", "Block screen capture");
     public string LocalizedScreenCaptureWarning => Services.AppServices.Localization.GetString("Settings.ScreenCaptureWarning", "Windows-only; older/legacy capture tools may not honor this.");
     public string LocalizedKeyVisibility => Services.AppServices.Localization.GetString("Settings.KeyVisibility", "Key Visibility");
     public string LocalizedShowPublicKeys => Services.AppServices.Localization.GetString("Settings.ShowPublicKeys", "Show public keys on profiles");
+    public string LocalizedShowPublicKeysHelp => Services.AppServices.Localization.GetString("Settings.ShowPublicKeysHelp", "Display public keys in profile views");
     public string LocalizedAudio => Services.AppServices.Localization.GetString("Settings.Audio", "Audio");
     public string LocalizedAudioHelp => Services.AppServices.Localization.GetString("Settings.AudioHelp", "Configure volume levels for different types of sounds. Main Volume acts as a master control, while individual channels allow fine-tuning of specific sound categories.");
     public string LocalizedMainVolume => Services.AppServices.Localization.GetString("Settings.MainVolume", "Main Volume");
@@ -1697,6 +1787,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedShowSystemTrayIconHelp => Services.AppServices.Localization.GetString("Settings.ShowSystemTrayIconHelp", "Display Zer0Talk icon in the Windows system tray for quick access");
     public string LocalizedMinimizeToTray => Services.AppServices.Localization.GetString("Settings.MinimizeToTray", "Minimize to tray on close");
     public string LocalizedMinimizeToTrayHelp => Services.AppServices.Localization.GetString("Settings.MinimizeToTrayHelp", "Close button will minimize to system tray instead of exiting the application");
+    public string LocalizedStartMinimized => Services.AppServices.Localization.GetString("Settings.StartMinimized", "Start minimized to tray");
+    public string LocalizedStartMinimizedHelp => Services.AppServices.Localization.GetString("Settings.StartMinimizedHelp", "Launch Zer0Talk in the system tray instead of showing the main window");
     public string LocalizedRunOnStartup => Services.AppServices.Localization.GetString("Settings.RunOnStartup", "Run on Windows startup");
     public string LocalizedRunOnStartupHelp => Services.AppServices.Localization.GetString("Settings.RunOnStartupHelp", "Automatically start Zer0Talk when Windows starts (minimized to tray)");
     public string LocalizedFamily => Services.AppServices.Localization.GetString("Settings.Family", "Family:");
@@ -1711,8 +1803,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedAvatar => Services.AppServices.Localization.GetString("Settings.Avatar", "Avatar");
     public string LocalizedChoose => Services.AppServices.Localization.GetString("Settings.Choose", "Choose...");
     public string LocalizedClear => Services.AppServices.Localization.GetString("Settings.Clear", "Clear");
+    public string LocalizedRandomAvatar => Services.AppServices.Localization.GetString("Settings.RandomAvatar", "Random Avatar");
+    public string LocalizedRandomAvatarTooltip => Services.AppServices.Localization.GetString("Settings.RandomAvatarTooltip", "Assign a random bundled avatar");
     public string LocalizedShareAvatar => Services.AppServices.Localization.GetString("Settings.ShareAvatar", "Share Avatar with peers");
     public string LocalizedBio => Services.AppServices.Localization.GetString("Settings.Bio", "Bio");
+    public string LocalizedBioHelp => Services.AppServices.Localization.GetString("Settings.BioHelp", "Add a short profile bio shown to your contacts");
     
     // Hotkeys panel strings
     public string LocalizedCustomizeKeyboardShortcuts => Services.AppServices.Localization.GetString("Settings.CustomizeKeyboardShortcuts", "Customize keyboard shortcuts");
@@ -1753,16 +1848,24 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedCCDOffinity => Services.AppServices.Localization.GetString("Settings.CCDOffinity", "CCD Affinity:");
     public string LocalizedNotRecommended => Services.AppServices.Localization.GetString("Settings.NotRecommended", "Not Recommended");
     public string LocalizedEnforceRAMLimit => Services.AppServices.Localization.GetString("Settings.EnforceRAMLimit", "Enforce RAM Limit");
+    public string LocalizedEnforceRAMLimitHelp => Services.AppServices.Localization.GetString("Settings.EnforceRAMLimitHelp", "Limit memory usage for the app");
     public string LocalizedRAMLimit => Services.AppServices.Localization.GetString("Settings.RAMLimit", "RAM Limit:");
+    public string LocalizedRamLimitHelp => Services.AppServices.Localization.GetString("Settings.RamLimitHelp", "Maximum RAM usage in MB (0 = unlimited)");
     public string LocalizedMBUnlimited => Services.AppServices.Localization.GetString("Settings.MBUnlimited", "MB (0 = unlimited)");
     public string LocalizedEnableGPUAcceleration => Services.AppServices.Localization.GetString("Settings.EnableGPUAcceleration", "Enable GPU Acceleration");
+    public string LocalizedEnableGpuAccelerationHelp => Services.AppServices.Localization.GetString("Settings.EnableGpuAccelerationHelp", "Use hardware acceleration for rendering when available");
     public string LocalizedEnforceVRAMLimit => Services.AppServices.Localization.GetString("Settings.EnforceVRAMLimit", "Enforce VRAM Limit");
+    public string LocalizedEnforceVramLimitHelp => Services.AppServices.Localization.GetString("Settings.EnforceVramLimitHelp", "Limit GPU memory usage for the app");
     public string LocalizedVRAMLimit => Services.AppServices.Localization.GetString("Settings.VRAMLimit", "VRAM Limit:");
+    public string LocalizedVramLimitHelp => Services.AppServices.Localization.GetString("Settings.VramLimitHelp", "Maximum VRAM usage in MB (0 = unlimited)");
     public string LocalizedFPSThrottle => Services.AppServices.Localization.GetString("Settings.FPSThrottle", "FPS Throttle:");
+    public string LocalizedFpsThrottleHelp => Services.AppServices.Localization.GetString("Settings.FpsThrottleHelp", "Limit UI rendering frames per second (0 = unlimited)");
     public string LocalizedFPSUnlimited => Services.AppServices.Localization.GetString("Settings.FPSUnlimited", "fps (0 = unlimited)");
     public string LocalizedRefreshRateThrottle => Services.AppServices.Localization.GetString("Settings.RefreshRateThrottle", "Refresh Rate Throttle:");
+    public string LocalizedRefreshRateThrottleHelp => Services.AppServices.Localization.GetString("Settings.RefreshRateThrottleHelp", "Limit display refresh rate used by the app (0 = unlimited)");
     public string LocalizedHzUnlimited => Services.AppServices.Localization.GetString("Settings.HzUnlimited", "hz (0 = unlimited)");
     public string LocalizedBackgroundFramerate => Services.AppServices.Localization.GetString("Settings.BackgroundFramerate", "Background Framerate:");
+    public string LocalizedBackgroundFramerateHelp => Services.AppServices.Localization.GetString("Settings.BackgroundFramerateHelp", "Limit UI framerate when the app is unfocused");
     public string LocalizedFPS => Services.AppServices.Localization.GetString("Settings.FPS", "fps");
     
     // Accessibility panel strings
@@ -1770,7 +1873,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedAccessibilityOSMessage => Services.AppServices.Localization.GetString("Settings.AccessibilityOSMessage", "Most accessibility features are controlled by your operating system:");
     public string LocalizedKeyboardNavigation => Services.AppServices.Localization.GetString("Settings.KeyboardNavigation", "Keyboard Navigation");
     public string LocalizedShowKeyboardFocusIndicators => Services.AppServices.Localization.GetString("Settings.ShowKeyboardFocusIndicators", "Show keyboard focus indicators");
+    public string LocalizedShowKeyboardFocusHelp => Services.AppServices.Localization.GetString("Settings.ShowKeyboardFocusHelp", "Highlight the currently focused control");
     public string LocalizedEnhancedKeyboardNavigation => Services.AppServices.Localization.GetString("Settings.EnhancedKeyboardNavigation", "Enhanced keyboard navigation");
+    public string LocalizedEnhancedKeyboardNavigationHelp => Services.AppServices.Localization.GetString("Settings.EnhancedKeyboardNavigationHelp", "Enable additional keyboard navigation behaviors");
     public string LocalizedNavigationKeys => Services.AppServices.Localization.GetString("Settings.NavigationKeys", "Navigation Keys:");
     public string LocalizedNavigationHelp => Services.AppServices.Localization.GetString("Settings.NavigationHelp", "All windows and panels support full keyboard navigation. Focus indicators will highlight the active control.");
     public string LocalizedFontRendering => Services.AppServices.Localization.GetString("Settings.FontRendering", "Font Rendering");
@@ -1785,9 +1890,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedPerformanceWarningText => Services.AppServices.Localization.GetString("Settings.PerformanceWarningText", "Logging causes significant performance degradation. Only enable when actively tracking down problems or debugging issues. Disable immediately after troubleshooting is complete.");
     public string LocalizedLogMaintenance => Services.AppServices.Localization.GetString("Settings.LogMaintenance", "Log Maintenance");
     public string LocalizedAutoTrimUILog => Services.AppServices.Localization.GetString("Settings.AutoTrimUILog", "Auto-trim UI log");
+    public string LocalizedAutoTrimUILogHelp => Services.AppServices.Localization.GetString("Settings.AutoTrimUILogHelp", "Automatically trim the UI log to the limits below");
     public string LocalizedMaxEntries => Services.AppServices.Localization.GetString("Settings.MaxEntries", "Max entries to keep");
+    public string LocalizedDebugUiLogMaxLinesHelp => Services.AppServices.Localization.GetString("Settings.DebugUiLogMaxLinesHelp", "Maximum number of UI log entries to keep");
     public string LocalizedRetentionDays => Services.AppServices.Localization.GetString("Settings.RetentionDays", "Retention window (days)");
+    public string LocalizedDebugLogRetentionDaysHelp => Services.AppServices.Localization.GetString("Settings.DebugLogRetentionDaysHelp", "How many days to retain debug logs");
     public string LocalizedSizeCap => Services.AppServices.Localization.GetString("Settings.SizeCap", "Size cap");
+    public string LocalizedDebugLogSizeHelp => Services.AppServices.Localization.GetString("Settings.DebugLogSizeHelp", "Maximum total size of debug logs before trimming");
     public string LocalizedLastMaintenance => Services.AppServices.Localization.GetString("Settings.LastMaintenance", "Last maintenance");
     public string LocalizedRunMaintenanceNow => Services.AppServices.Localization.GetString("Settings.RunMaintenanceNow", "Run Maintenance Now");
     public string LocalizedClearErrorLog => Services.AppServices.Localization.GetString("Settings.PurgeAllLogs", "Purge All Logs");
@@ -1801,6 +1910,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedPortDescription => Services.AppServices.Localization.GetString("Settings.PortDescription", "The port number Zer0Talk uses for P2P connections. Default is 26264. Changing this requires restarting the application.");
     public string LocalizedDedicatedPeerNode => Services.AppServices.Localization.GetString("Settings.DedicatedPeerNode", "Dedicated Peer Node");
     public string LocalizedEnableDedicatedPeerNode => Services.AppServices.Localization.GetString("Settings.EnableDedicatedPeerNode", "Enable as dedicated peer node (requires port forwarding)");
+    public string LocalizedDedicatedPeerNodeHelp => Services.AppServices.Localization.GetString("Settings.DedicatedPeerNodeHelp", "Make this device act as a dedicated peer node");
     public string LocalizedDedicatedPeerNodeInfo => Services.AppServices.Localization.GetString("Settings.DedicatedPeerNodeInfo", "Dedicated Peer Node:");
     public string LocalizedEnablesUPnP => Services.AppServices.Localization.GetString("Settings.EnablesUPnP", "• Enables UPnP port mapping for WAN reachability (requires router support)");
     public string LocalizedMakesNodeAccessible => Services.AppServices.Localization.GetString("Settings.MakesNodeAccessible", "• Makes your node accessible from outside your local network");
@@ -1811,15 +1921,24 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedRelayDescription2 => Services.AppServices.Localization.GetString("Settings.RelayDescription2", "All messages remain end-to-end encrypted - the relay only forwards encrypted traffic.");
     public string LocalizedRelayFallback => Services.AppServices.Localization.GetString("Settings.RelayFallback", "Relay Fallback");
     public string LocalizedEnableRelayFallback => Services.AppServices.Localization.GetString("Settings.EnableRelayFallback", "Enable relay fallback for blocked connections");
+    public string LocalizedRelayFallbackHelp => Services.AppServices.Localization.GetString("Settings.RelayFallbackHelp", "Use a relay server when direct P2P connections fail");
     public string LocalizedRelayServer => Services.AppServices.Localization.GetString("Settings.RelayServer", "Relay Server");
+    public string LocalizedRelayServerHelp => Services.AppServices.Localization.GetString("Settings.RelayServerHelp", "Relay endpoint (host:port, [IPv6]:port, or 16-character LAN token). Leave blank to disable.");
+    public string LocalizedRelayPresenceTimeout => Services.AppServices.Localization.GetString("Settings.RelayPresenceTimeout", "Presence Timeout (seconds)");
+    public string LocalizedRelayDiscoveryTtl => Services.AppServices.Localization.GetString("Settings.RelayDiscoveryTtl", "Discovery TTL (minutes)");
+    public string LocalizedSavedRelays => Services.AppServices.Localization.GetString("Settings.SavedRelays", "Saved Relay Endpoints");
+    public string LocalizedSavedRelaysHelp => Services.AppServices.Localization.GetString("Settings.SavedRelaysHelp", "Add relay endpoints (host:port or [IPv6]:port) or 16-character LAN relay tokens for quick reuse");
     public string LocalizedRequirements => Services.AppServices.Localization.GetString("Settings.Requirements", "Requirements:");
     public string LocalizedRequiresDedicatedRelay => Services.AppServices.Localization.GetString("Settings.RequiresDedicatedRelay", "• Requires a dedicated relay server with public IP or DNS name");
     public string LocalizedServerMustBeConfigured => Services.AppServices.Localization.GetString("Settings.ServerMustBeConfigured", "• Server must be configured to accept Zer0Talk relay protocol connections");
-    public string LocalizedRelayFormat => Services.AppServices.Localization.GetString("Settings.RelayFormat", "• Format: hostname:port or IP:port (e.g., relay.example.com:443)");
+    public string LocalizedRelayFormat => Services.AppServices.Localization.GetString("Settings.RelayFormat", "• Format: hostname:port, [IPv6]:port, or 16-character LAN relay token");
     public string LocalizedLeaveBlankToDisable => Services.AppServices.Localization.GetString("Settings.LeaveBlankToDisable", "• Leave blank to disable relay fallback and rely on direct/NAT traversal only");
     public string LocalizedKnownDedicatedPeerNodes => Services.AppServices.Localization.GetString("Settings.KnownDedicatedPeerNodes", "Known Dedicated Peer Nodes");
+    public string LocalizedKnownDedicatedPeerNodesHelp => Services.AppServices.Localization.GetString("Settings.KnownDedicatedPeerNodesHelp", "Add a host:port peer node to prefer for discovery");
     public string LocalizedAdd => Services.AppServices.Localization.GetString("Settings.Add", "Add");
     public string LocalizedRemove => Services.AppServices.Localization.GetString("Settings.Remove", "Remove");
+    public string LocalizedAddBadActorIpHelp => Services.AppServices.Localization.GetString("Settings.AddBadActorIpHelp", "Add a single IP address to block");
+    public string LocalizedAddIpRangeHelp => Services.AppServices.Localization.GetString("Settings.AddIpRangeHelp", "Add a CIDR IP range to block");
     public string LocalizedDiscoveredPeers => Services.AppServices.Localization.GetString("Settings.DiscoveredPeers", "Discovered Peers");
     public string LocalizedLocationsEstimated => Services.AppServices.Localization.GetString("Settings.LocationsEstimated", "(locations are estimated and not even remotely accurate)");
     public string LocalizedBlockSelected => Services.AppServices.Localization.GetString("Settings.BlockSelected", "Block Selected");
@@ -2299,12 +2418,16 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedDangerZone));
             OnPropertyChanged(nameof(LocalizedLogOut));
             OnPropertyChanged(nameof(LocalizedLanguage));
+            OnPropertyChanged(nameof(LocalizedLanguageHelp));
             OnPropertyChanged(nameof(LocalizedTheme));
+            OnPropertyChanged(nameof(LocalizedThemeHelp));
             OnPropertyChanged(nameof(LocalizedFont));
+            OnPropertyChanged(nameof(LocalizedFontHelp));
             OnPropertyChanged(nameof(LocalizedPrivacy));
             
             // General panel
             OnPropertyChanged(nameof(LocalizedDefaultPresence));
+            OnPropertyChanged(nameof(LocalizedDefaultPresenceHelp));
             OnPropertyChanged(nameof(LocalizedStatus));
             OnPropertyChanged(nameof(LocalizedOnline));
             OnPropertyChanged(nameof(LocalizedAway));
@@ -2322,14 +2445,18 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedNotificationBellFlashHelp));
             OnPropertyChanged(nameof(LocalizedAutoLock));
             OnPropertyChanged(nameof(LocalizedEnableAutoLock));
+            OnPropertyChanged(nameof(LocalizedAutoLockHelp));
             OnPropertyChanged(nameof(LocalizedMinutes));
+            OnPropertyChanged(nameof(LocalizedAutoLockMinutesHelp));
             OnPropertyChanged(nameof(LocalizedLockOnMinimize));
+            OnPropertyChanged(nameof(LocalizedLockOnMinimizeHelp));
             OnPropertyChanged(nameof(LocalizedLockBlurRadius));
             OnPropertyChanged(nameof(LocalizedLockBlurHelp));
             OnPropertyChanged(nameof(LocalizedBlockScreenCapture));
             OnPropertyChanged(nameof(LocalizedScreenCaptureWarning));
             OnPropertyChanged(nameof(LocalizedKeyVisibility));
             OnPropertyChanged(nameof(LocalizedShowPublicKeys));
+            OnPropertyChanged(nameof(LocalizedShowPublicKeysHelp));
             OnPropertyChanged(nameof(LocalizedAudio));
             OnPropertyChanged(nameof(LocalizedAudioHelp));
             OnPropertyChanged(nameof(LocalizedMainVolume));
@@ -2341,6 +2468,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedShowSystemTrayIconHelp));
             OnPropertyChanged(nameof(LocalizedMinimizeToTray));
             OnPropertyChanged(nameof(LocalizedMinimizeToTrayHelp));
+            OnPropertyChanged(nameof(LocalizedStartMinimized));
+            OnPropertyChanged(nameof(LocalizedStartMinimizedHelp));
             OnPropertyChanged(nameof(LocalizedRunOnStartup));
             OnPropertyChanged(nameof(LocalizedRunOnStartupHelp));
             OnPropertyChanged(nameof(LocalizedFamily));
@@ -2355,8 +2484,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedAvatar));
             OnPropertyChanged(nameof(LocalizedChoose));
             OnPropertyChanged(nameof(LocalizedClear));
+            OnPropertyChanged(nameof(LocalizedRandomAvatar));
+            OnPropertyChanged(nameof(LocalizedRandomAvatarTooltip));
             OnPropertyChanged(nameof(LocalizedShareAvatar));
             OnPropertyChanged(nameof(LocalizedBio));
+            OnPropertyChanged(nameof(LocalizedBioHelp));
             
             // Hotkeys panel
             OnPropertyChanged(nameof(LocalizedCustomizeKeyboardShortcuts));
@@ -2397,16 +2529,24 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedCCDOffinity));
             OnPropertyChanged(nameof(LocalizedNotRecommended));
             OnPropertyChanged(nameof(LocalizedEnforceRAMLimit));
+            OnPropertyChanged(nameof(LocalizedEnforceRAMLimitHelp));
             OnPropertyChanged(nameof(LocalizedRAMLimit));
+            OnPropertyChanged(nameof(LocalizedRamLimitHelp));
             OnPropertyChanged(nameof(LocalizedMBUnlimited));
             OnPropertyChanged(nameof(LocalizedEnableGPUAcceleration));
+            OnPropertyChanged(nameof(LocalizedEnableGpuAccelerationHelp));
             OnPropertyChanged(nameof(LocalizedEnforceVRAMLimit));
+            OnPropertyChanged(nameof(LocalizedEnforceVramLimitHelp));
             OnPropertyChanged(nameof(LocalizedVRAMLimit));
+            OnPropertyChanged(nameof(LocalizedVramLimitHelp));
             OnPropertyChanged(nameof(LocalizedFPSThrottle));
+            OnPropertyChanged(nameof(LocalizedFpsThrottleHelp));
             OnPropertyChanged(nameof(LocalizedFPSUnlimited));
             OnPropertyChanged(nameof(LocalizedRefreshRateThrottle));
+            OnPropertyChanged(nameof(LocalizedRefreshRateThrottleHelp));
             OnPropertyChanged(nameof(LocalizedHzUnlimited));
             OnPropertyChanged(nameof(LocalizedBackgroundFramerate));
+            OnPropertyChanged(nameof(LocalizedBackgroundFramerateHelp));
             OnPropertyChanged(nameof(LocalizedFPS));
             
             // Accessibility panel
@@ -2414,7 +2554,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedAccessibilityOSMessage));
             OnPropertyChanged(nameof(LocalizedKeyboardNavigation));
             OnPropertyChanged(nameof(LocalizedShowKeyboardFocusIndicators));
+            OnPropertyChanged(nameof(LocalizedShowKeyboardFocusHelp));
             OnPropertyChanged(nameof(LocalizedEnhancedKeyboardNavigation));
+            OnPropertyChanged(nameof(LocalizedEnhancedKeyboardNavigationHelp));
             OnPropertyChanged(nameof(LocalizedNavigationKeys));
             OnPropertyChanged(nameof(LocalizedNavigationHelp));
             OnPropertyChanged(nameof(LocalizedFontRendering));
@@ -2429,15 +2571,29 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedPerformanceWarningText));
             OnPropertyChanged(nameof(LocalizedLogMaintenance));
             OnPropertyChanged(nameof(LocalizedAutoTrimUILog));
+            OnPropertyChanged(nameof(LocalizedAutoTrimUILogHelp));
             OnPropertyChanged(nameof(LocalizedMaxEntries));
+            OnPropertyChanged(nameof(LocalizedDebugUiLogMaxLinesHelp));
             OnPropertyChanged(nameof(LocalizedRetentionDays));
+            OnPropertyChanged(nameof(LocalizedDebugLogRetentionDaysHelp));
             OnPropertyChanged(nameof(LocalizedSizeCap));
+            OnPropertyChanged(nameof(LocalizedDebugLogSizeHelp));
             OnPropertyChanged(nameof(LocalizedLastMaintenance));
             OnPropertyChanged(nameof(LocalizedRunMaintenanceNow));
             OnPropertyChanged(nameof(LocalizedClearErrorLog));
             OnPropertyChanged(nameof(LocalizedClearErrorLogTooltip));
             OnPropertyChanged(nameof(LocalizedConnectionSettings));
             OnPropertyChanged(nameof(LocalizedRelaySettings));
+            OnPropertyChanged(nameof(LocalizedDedicatedPeerNodeHelp));
+            OnPropertyChanged(nameof(LocalizedRelayFallbackHelp));
+            OnPropertyChanged(nameof(LocalizedRelayServerHelp));
+            OnPropertyChanged(nameof(LocalizedRelayPresenceTimeout));
+            OnPropertyChanged(nameof(LocalizedRelayDiscoveryTtl));
+            OnPropertyChanged(nameof(LocalizedSavedRelays));
+            OnPropertyChanged(nameof(LocalizedSavedRelaysHelp));
+            OnPropertyChanged(nameof(LocalizedKnownDedicatedPeerNodesHelp));
+            OnPropertyChanged(nameof(LocalizedAddBadActorIpHelp));
+            OnPropertyChanged(nameof(LocalizedAddIpRangeHelp));
             
             // Network panel extended
             OnPropertyChanged(nameof(LocalizedPort));
@@ -2675,6 +2831,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand CopyUidCommand { get; }
     public ICommand ChooseAvatarCommand { get; }
     public ICommand ClearAvatarCommand { get; }
+    public ICommand AssignRandomBundledAvatarCommand { get; }
     public ICommand DeleteAccountCommand { get; }
     public ICommand PurgeAllMessagesCommand { get; }
     public ICommand ResetLayoutCommand { get; }
@@ -2797,6 +2954,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.ShowInSystemTray = ShowInSystemTray;
             s.MinimizeToTray = MinimizeToTray;
             s.RunOnStartup = RunOnStartup;
+            s.StartMinimized = StartMinimized;
+            s.Port = Port;
+            s.MajorNode = MajorNode;
+            s.EnableGeoBlocking = EnableGeoBlocking;
+            s.RelayFallbackEnabled = RelayFallbackEnabled;
+            s.RelayServer = string.IsNullOrWhiteSpace(RelayServer) ? null : RelayServer.Trim();
+            s.RelayPresenceTimeoutSeconds = RelayPresenceTimeoutSeconds;
+            s.RelayDiscoveryTtlMinutes = RelayDiscoveryTtlMinutes;
+            s.SavedRelayServers = SavedRelayServers.ToList();
             // Persist accessibility settings
             s.ShowKeyboardFocus = ShowKeyboardFocus;
             s.EnhancedKeyboardNavigation = EnhancedKeyboardNavigation;
@@ -3017,6 +3183,24 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    private void AssignRandomBundledAvatar()
+    {
+        try
+        {
+            var avatar = BundledAvatarService.TryGetRandomAvatarBytes();
+            if (avatar == null || avatar.Length == 0)
+            {
+                _ = ShowToastAsync("No bundled avatars were found.");
+                return;
+            }
+
+            _avatarBytes = avatar;
+            RefreshAvatarPreview();
+            _ = ShowToastAsync("Random avatar selected.");
+        }
+        catch { }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? name = null)
     {
@@ -3063,6 +3247,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseShowInSystemTray != _showInSystemTray) return true;
             if (_baseMinimizeToTray != _minimizeToTray) return true;
             if (_baseRunOnStartup != _runOnStartup) return true;
+            if (_baseStartMinimized != _startMinimized) return true;
             if (_baseCcdAffinityIndex != _ccdAffinityIndex) return true;
             if (_baseDisableGpuAcceleration != _disableGpuAcceleration) return true;
             if (_baseFpsThrottle != _fpsThrottle) return true;
@@ -3080,11 +3265,31 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseDebugLogRetentionDays != _debugLogRetentionDays) return true;
             if (_baseDebugLogMaxMegabytes != _debugLogMaxMegabytes) return true;
             if (_baseEnableLogging != _enableLogging) return true;
+            if (_basePort != Port) return true;
+            if (_baseMajorNode != MajorNode) return true;
+            if (_baseEnableGeoBlocking != EnableGeoBlocking) return true;
+            if (_baseRelayFallbackEnabled != RelayFallbackEnabled) return true;
+            if (!string.Equals(_baseRelayServer, RelayServer ?? string.Empty, StringComparison.Ordinal)) return true;
+            if (_baseRelayPresenceTimeoutSeconds != RelayPresenceTimeoutSeconds) return true;
+            if (_baseRelayDiscoveryTtlMinutes != RelayDiscoveryTtlMinutes) return true;
+            if (!string.Equals(_baseSavedRelayServersSig, BuildSequenceSignature(SavedRelayServers), StringComparison.Ordinal)) return true;
             return false;
         }
         catch
         {
             return true;
+        }
+    }
+
+    private static string BuildSequenceSignature(System.Collections.Generic.IEnumerable<string> values)
+    {
+        try
+        {
+            return string.Join("\n", values.Select(v => (v ?? string.Empty).Trim()));
+        }
+        catch
+        {
+            return string.Empty;
         }
     }
 
@@ -3155,11 +3360,20 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseShowInSystemTray = _showInSystemTray;
             _baseMinimizeToTray = _minimizeToTray;
             _baseRunOnStartup = _runOnStartup;
+            _baseStartMinimized = _startMinimized;
             _baseEnableDebugLogAutoTrim = _enableDebugLogAutoTrim;
             _baseDebugUiLogMaxLines = _debugUiLogMaxLines;
             _baseDebugLogRetentionDays = _debugLogRetentionDays;
             _baseDebugLogMaxMegabytes = _debugLogMaxMegabytes;
             _baseEnableLogging = _enableLogging;
+            _basePort = Port;
+            _baseMajorNode = MajorNode;
+            _baseEnableGeoBlocking = EnableGeoBlocking;
+            _baseRelayFallbackEnabled = RelayFallbackEnabled;
+            _baseRelayServer = RelayServer ?? string.Empty;
+            _baseRelayPresenceTimeoutSeconds = RelayPresenceTimeoutSeconds;
+            _baseRelayDiscoveryTtlMinutes = RelayDiscoveryTtlMinutes;
+            _baseSavedRelayServersSig = BuildSequenceSignature(SavedRelayServers);
             HasUnsavedChanges = false;
         }
         catch { }
@@ -3200,6 +3414,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private bool _showInSystemTray;
     private bool _minimizeToTray;
     private bool _runOnStartup;
+    private bool _startMinimized;
 
     public bool ShowInSystemTray
     {
@@ -3215,6 +3430,21 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     {
         get => _runOnStartup;
         set { if (_runOnStartup != value) { _runOnStartup = value; OnPropertyChanged(); } }
+    }
+    public bool StartMinimized
+    {
+        get => _startMinimized;
+        set
+        {
+            if (_startMinimized == value) return;
+            _startMinimized = value;
+            if (_startMinimized && !_showInSystemTray)
+            {
+                _showInSystemTray = true;
+                OnPropertyChanged(nameof(ShowInSystemTray));
+            }
+            OnPropertyChanged();
+        }
     }
 
     // Accessibility - OS-controlled settings removed (High Contrast, Reduce Motion, Cursor Blink/Width)
@@ -4122,13 +4352,17 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public bool MajorNode { get => NetworkVm.MajorNode; set => NetworkVm.MajorNode = value; }
     public bool EnableGeoBlocking { get => NetworkVm.EnableGeoBlocking; set => NetworkVm.EnableGeoBlocking = value; }
     public string GeoBlockingStatus => NetworkVm.GeoBlockingStatus;
-    public bool RelayFallbackEnabled { get; set; } // TODO: Implement in NetworkViewModel
-    public string RelayServer { get; set; } = string.Empty; // TODO: Implement in NetworkViewModel
-    public string NewMajorNode { get => NetworkVm.NewMajorNode; set => NetworkVm.NewMajorNode = value; }
+    public bool RelayFallbackEnabled { get => NetworkVm.RelayFallbackEnabled; set => NetworkVm.RelayFallbackEnabled = value; }
+    public string RelayServer { get => NetworkVm.RelayServer; set => NetworkVm.RelayServer = value; }
+    public int RelayPresenceTimeoutSeconds { get => NetworkVm.RelayPresenceTimeoutSeconds; set => NetworkVm.RelayPresenceTimeoutSeconds = value; }
+    public int RelayDiscoveryTtlMinutes { get => NetworkVm.RelayDiscoveryTtlMinutes; set => NetworkVm.RelayDiscoveryTtlMinutes = value; }
+    public string NewRelayServer { get => NetworkVm.NewRelayServer; set => NetworkVm.NewRelayServer = value; }
+    public string NetworkInfoMessage => NetworkVm.InfoMessage;
+    public string NetworkErrorMessage => NetworkVm.ErrorMessage;
     public string NewBlockedPeer { get; set; } = string.Empty; // TODO: Implement in NetworkViewModel
 
     // Network collections exposed from NetworkViewModel
-    public System.Collections.ObjectModel.ObservableCollection<string> KnownMajorNodes => NetworkVm.KnownMajorNodes;
+    public System.Collections.ObjectModel.ObservableCollection<string> SavedRelayServers => NetworkVm.SavedRelayServers;
     public System.Collections.ObjectModel.ObservableCollection<string> BlockedPeers => NetworkVm.BlockedPeers;
     public System.Collections.ObjectModel.ObservableCollection<Peer> DiscoveredPeers => NetworkVm.DiscoveredPeers;
     public System.Collections.ObjectModel.ObservableCollection<NetworkViewModel.AdapterItem> NetworkAdapters => NetworkVm.Adapters;
@@ -4159,6 +4393,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         get => NetworkVm.SelectedBlockedPeer;
         set => NetworkVm.SelectedBlockedPeer = value;
     }
+    public string? SelectedRelayServer
+    {
+        get => NetworkVm.SelectedRelayServer;
+        set => NetworkVm.SelectedRelayServer = value;
+    }
     public NetworkViewModel.AdapterItem? SelectedNetworkAdapter 
     { 
         get => NetworkVm.SelectedAdapter; 
@@ -4166,14 +4405,16 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     }
 
     // Network commands exposed from NetworkViewModel
-    public ICommand AddMajorNodeCommand => NetworkVm.AddMajorNodeCommand;
-    public ICommand RemoveMajorNodeCommand => NetworkVm.RemoveMajorNodeCommand;
+    public ICommand AddRelayServerCommand => NetworkVm.AddRelayServerCommand;
+    public ICommand RemoveRelayServerCommand => NetworkVm.RemoveRelayServerCommand;
+    public ICommand UseRelayServerCommand => NetworkVm.UseRelayServerCommand;
     public ICommand BlockPeerCommand => NetworkVm.BlockPeerCommand;
     public ICommand UnblockPeerCommand => NetworkVm.UnblockPeerCommand;
     public ICommand BlockSelectedPeersCommand => NetworkVm.BlockSelectedPeersCommand;
     public ICommand UnblockSelectedPeersCommand => NetworkVm.UnblockSelectedPeersCommand;
     public ICommand ClearAllBlocksCommand => NetworkVm.ClearAllBlocksCommand;
     public ICommand RefreshPeersCommand => NetworkVm.RefreshPeersCommand;
+    public ICommand RunFirewallTroubleshooterCommand => NetworkVm.RunFirewallTroubleshooterCommand;
     public ICommand MoveAdapterUpCommand => NetworkVm.MoveAdapterUpCommand;
     public ICommand MoveAdapterDownCommand => NetworkVm.MoveAdapterDownCommand;
     public ICommand SaveAdapterOrderCommand => NetworkVm.SaveAdaptersCommand;
@@ -5759,6 +6000,10 @@ public class NetworkViewModel : INotifyPropertyChanged
         Port = s.Port;
         PortText = s.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
         MajorNode = s.MajorNode;
+        RelayFallbackEnabled = s.RelayFallbackEnabled;
+        RelayServer = s.RelayServer?.Trim() ?? string.Empty;
+        RelayPresenceTimeoutSeconds = Math.Clamp(s.RelayPresenceTimeoutSeconds <= 0 ? 45 : s.RelayPresenceTimeoutSeconds, 10, 300);
+        RelayDiscoveryTtlMinutes = Math.Clamp(s.RelayDiscoveryTtlMinutes <= 0 ? 3 : s.RelayDiscoveryTtlMinutes, 1, 60);
         EnableGeoBlocking = s.EnableGeoBlocking;
     RetryNatVerificationCommand = new RelayCommand(async _ => { try { await AppServices.Nat.RetryVerificationAsync(); } catch { } });
         SaveCommand = new RelayCommand(async _ => await SaveAsync(showToast: true, close: false), _ => Port >= 1 && Port <= 65535);
@@ -5768,6 +6013,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         UnblockPeerCommand = new RelayCommand(p => { if (p is string uid) ConfirmUnblock(uid); });
         BlockSelectedPeersCommand = new RelayCommand(_ => BlockSelectedPeers());
         UnblockSelectedPeersCommand = new RelayCommand(_ => UnblockSelectedPeers());
+        RemoveSelectedTestPeersCommand = new RelayCommand(_ => RemoveSelectedTestPeers());
         TrustPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.SetTrusted(uid, true); RefreshLists(); } });
         UntrustPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.SetTrusted(uid, false); RefreshLists(); } });
         ClearAllBlocksCommand = new RelayCommand(_ => ConfirmClearAll());
@@ -5776,8 +6022,10 @@ public class NetworkViewModel : INotifyPropertyChanged
             try { AppServices.Discovery.Restart(); } catch { }
             RefreshLists(); 
         });
-        AddMajorNodeCommand = new RelayCommand(_ => AddMajorNode(), _ => !string.IsNullOrWhiteSpace(NewMajorNode));
-        RemoveMajorNodeCommand = new RelayCommand(n => { if (n is string s) RemoveMajorNode(s); });
+        RunFirewallTroubleshooterCommand = new RelayCommand(async _ => await RunFirewallTroubleshooterAsync(), _ => true);
+        AddRelayServerCommand = new RelayCommand(_ => AddRelayServer(), _ => IsValidRelayEntry(NewRelayServer));
+        RemoveRelayServerCommand = new RelayCommand(entry => { if (entry is string relay) RemoveRelayServer(relay); });
+        UseRelayServerCommand = new RelayCommand(entry => { if (entry is string relay) RelayServer = relay; });
         
         // IP Blocking Commands
         AddBadActorIpCommand = new RelayCommand(_ => AddBadActorIp(), _ => !string.IsNullOrWhiteSpace(NewBadActorIp));
@@ -5791,6 +6039,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         
         RefreshLists();
         RefreshIpLists();
+        RefreshRelayServers();
 
         LoadAdapters();
         MoveAdapterUpCommand = new RelayCommand(_ => MoveAdapter(-1), _ => SelectedAdapter != null);
@@ -5880,6 +6129,109 @@ public class NetworkViewModel : INotifyPropertyChanged
         }
     }
 
+    private bool _relayFallbackEnabled;
+    public bool RelayFallbackEnabled
+    {
+        get => _relayFallbackEnabled;
+        set
+        {
+            if (_relayFallbackEnabled != value)
+            {
+                _relayFallbackEnabled = value;
+                OnPropertyChanged();
+                try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
+            }
+        }
+    }
+
+    private string _relayServer = string.Empty;
+    public string RelayServer
+    {
+        get => _relayServer;
+        set
+        {
+            var next = value?.Trim() ?? string.Empty;
+            if (!string.Equals(_relayServer, next, StringComparison.Ordinal))
+            {
+                _relayServer = next;
+                OnPropertyChanged();
+                try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
+            }
+        }
+    }
+
+    private int _relayPresenceTimeoutSeconds = 45;
+    public int RelayPresenceTimeoutSeconds
+    {
+        get => _relayPresenceTimeoutSeconds;
+        set
+        {
+            var next = Math.Clamp(value, 10, 300);
+            if (_relayPresenceTimeoutSeconds != next)
+            {
+                _relayPresenceTimeoutSeconds = next;
+                OnPropertyChanged();
+                try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
+            }
+        }
+    }
+
+    private int _relayDiscoveryTtlMinutes = 3;
+    public int RelayDiscoveryTtlMinutes
+    {
+        get => _relayDiscoveryTtlMinutes;
+        set
+        {
+            var next = Math.Clamp(value, 1, 60);
+            if (_relayDiscoveryTtlMinutes != next)
+            {
+                _relayDiscoveryTtlMinutes = next;
+                OnPropertyChanged();
+                try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
+            }
+        }
+    }
+
+    private System.Collections.ObjectModel.ObservableCollection<string> _savedRelayServers = new();
+    public System.Collections.ObjectModel.ObservableCollection<string> SavedRelayServers
+    {
+        get => _savedRelayServers;
+        private set
+        {
+            _savedRelayServers = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private string _newRelayServer = string.Empty;
+    public string NewRelayServer
+    {
+        get => _newRelayServer;
+        set
+        {
+            if (!string.Equals(_newRelayServer, value, StringComparison.Ordinal))
+            {
+                _newRelayServer = value ?? string.Empty;
+                OnPropertyChanged();
+                (AddRelayServerCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    private string? _selectedRelayServer;
+    public string? SelectedRelayServer
+    {
+        get => _selectedRelayServer;
+        set
+        {
+            if (!string.Equals(_selectedRelayServer, value, StringComparison.Ordinal))
+            {
+                _selectedRelayServer = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     // [SECURITY] Geo-blocking settings
     private bool _enableGeoBlocking;
     public bool EnableGeoBlocking
@@ -5910,10 +6262,15 @@ public class NetworkViewModel : INotifyPropertyChanged
     public ICommand UnblockPeerCommand { get; }
     public ICommand BlockSelectedPeersCommand { get; }
     public ICommand UnblockSelectedPeersCommand { get; }
+    public ICommand RemoveSelectedTestPeersCommand { get; }
     public ICommand TrustPeerCommand { get; }
     public ICommand UntrustPeerCommand { get; }
     public ICommand ClearAllBlocksCommand { get; }
     public ICommand RefreshPeersCommand { get; }
+    public ICommand RunFirewallTroubleshooterCommand { get; }
+    public ICommand AddRelayServerCommand { get; }
+    public ICommand RemoveRelayServerCommand { get; }
+    public ICommand UseRelayServerCommand { get; }
     public ICommand MoveAdapterUpCommand { get; }
     public ICommand MoveAdapterDownCommand { get; }
     public ICommand SaveAdaptersCommand { get; }
@@ -5976,18 +6333,24 @@ public class NetworkViewModel : INotifyPropertyChanged
         }
     }
 
-    private System.Collections.ObjectModel.ObservableCollection<string> _knownMajorNodes = new();
-    public System.Collections.ObjectModel.ObservableCollection<string> KnownMajorNodes { get => _knownMajorNodes; private set { _knownMajorNodes = value; OnPropertyChanged(); } }
-    public string? SelectedMajorNode { get; set; }
-    private string _newMajorNode = string.Empty;
-    public string NewMajorNode { get => _newMajorNode; set { _newMajorNode = value; OnPropertyChanged(); (AddMajorNodeCommand as RelayCommand)?.RaiseCanExecuteChanged(); } }
-    public ICommand AddMajorNodeCommand { get; }
-    public ICommand RemoveMajorNodeCommand { get; }
-
     private int _intervalIndex;
     public int IntervalIndex { get => _intervalIndex; set { _intervalIndex = value; OnPropertyChanged(); OnIntervalChanged?.Invoke(value); } }
     public event Action<int>? OnIntervalChanged;
     public void OnPortsChanged() { }
+
+    private bool _autoRefreshPeers;
+    public bool AutoRefreshPeers
+    {
+        get => _autoRefreshPeers;
+        set
+        {
+            if (_autoRefreshPeers != value)
+            {
+                _autoRefreshPeers = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     private string _tcpRate = "TCP: 0 B/s";
     public string TcpRate { get => _tcpRate; set { _tcpRate = value; OnPropertyChanged(); } }
@@ -6083,12 +6446,30 @@ public class NetworkViewModel : INotifyPropertyChanged
         try
         {
             var s = _settings.Settings;
+            var relayServer = RelayServer?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(relayServer) && !IsValidRelayEntry(relayServer))
+            {
+                ErrorMessage = "Invalid relay server. Use host:port, [IPv6]:port, or a 16-character relay token.";
+                return;
+            }
+
             s.Port = Port;
             s.MajorNode = MajorNode;
+            s.RelayFallbackEnabled = RelayFallbackEnabled;
+            s.RelayServer = string.IsNullOrWhiteSpace(relayServer) ? null : relayServer;
+            s.RelayPresenceTimeoutSeconds = RelayPresenceTimeoutSeconds;
+            s.RelayDiscoveryTtlMinutes = RelayDiscoveryTtlMinutes;
+            s.SavedRelayServers = SavedRelayServers
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim())
+                .Where(IsValidRelayEntry)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
             s.EnableGeoBlocking = EnableGeoBlocking;
             _settings.Save(AppServices.Passphrase);
             // Networking lifecycle is handled by app-level service; notify via centralized event
             AppServices.Events.RaiseNetworkConfigChanged();
+            ErrorMessage = string.Empty;
             if (s.MajorNode)
             {
                 InfoMessage = "If prompted, allow Zer0Talk through Windows Firewall for inbound connections.";
@@ -6121,6 +6502,77 @@ public class NetworkViewModel : INotifyPropertyChanged
         catch { }
     }
 
+    private async System.Threading.Tasks.Task RunFirewallTroubleshooterAsync()
+    {
+        try
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                InfoMessage = "Firewall troubleshooter is available on Windows only.";
+                return;
+            }
+
+            var exePath = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(exePath))
+            {
+                try { exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName; } catch { }
+            }
+
+            if (string.IsNullOrWhiteSpace(exePath))
+            {
+                ErrorMessage = "Unable to determine executable path for firewall repair.";
+                return;
+            }
+
+            var escapedExe = exePath.Replace("'", "''", StringComparison.Ordinal);
+            var script =
+                "$ErrorActionPreference='SilentlyContinue';" +
+                "$exe='" + escapedExe + "';" +
+                "Get-NetFirewallRule -DisplayName 'Zer0Talk*' | Remove-NetFirewallRule -Confirm:$false;" +
+                "Get-NetFirewallRule | Where-Object { $app = $_ | Get-NetFirewallApplicationFilter; $app -and $app.Program -and [string]::Equals($app.Program, $exe, [System.StringComparison]::OrdinalIgnoreCase) } | Remove-NetFirewallRule -Confirm:$false;" +
+                "New-NetFirewallRule -DisplayName 'Zer0Talk Inbound' -Direction Inbound -Program $exe -Action Allow -Profile Any | Out-Null;" +
+                "New-NetFirewallRule -DisplayName 'Zer0Talk Outbound' -Direction Outbound -Program $exe -Action Allow -Profile Any | Out-Null;";
+
+            var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script));
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell",
+                Arguments = $"-NoLogo -NoProfile -ExecutionPolicy Bypass -EncodedCommand {encoded}",
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+            };
+
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc == null)
+            {
+                ErrorMessage = "Failed to start firewall troubleshooter.";
+                return;
+            }
+
+            await System.Threading.Tasks.Task.Run(() => proc.WaitForExit());
+            if (proc.ExitCode == 0)
+            {
+                ErrorMessage = string.Empty;
+                InfoMessage = "Firewall rules refreshed. Zer0Talk networking is re-initializing.";
+                try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
+            }
+            else
+            {
+                ErrorMessage = "Firewall troubleshooter failed. Try running Zer0Talk as Administrator.";
+            }
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            InfoMessage = "Firewall troubleshooter canceled.";
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"Firewall troubleshooter failed: {ex.Message}");
+            ErrorMessage = "Firewall troubleshooter failed. Check permissions and try again.";
+        }
+    }
+
     private void DiscardNetworkChanges()
     {
         try
@@ -6129,11 +6581,18 @@ public class NetworkViewModel : INotifyPropertyChanged
             Port = s.Port;
             PortText = s.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
             MajorNode = s.MajorNode;
+            RelayFallbackEnabled = s.RelayFallbackEnabled;
+            RelayServer = s.RelayServer?.Trim() ?? string.Empty;
+            RelayPresenceTimeoutSeconds = Math.Clamp(s.RelayPresenceTimeoutSeconds <= 0 ? 45 : s.RelayPresenceTimeoutSeconds, 10, 300);
+            RelayDiscoveryTtlMinutes = Math.Clamp(s.RelayDiscoveryTtlMinutes <= 0 ? 3 : s.RelayDiscoveryTtlMinutes, 1, 60);
+            RefreshRelayServers();
             // Apply reverted values immediately so runtime matches persisted state
             ApplyNetworkChangeLiveIfNeeded();
         }
         catch { }
     }
+
+    public void ResetFromSettings() => DiscardNetworkChanges();
 
     public string ErrorMessage { get => _errorMessage; set { _errorMessage = value; OnPropertyChanged(); } }
     public string InfoMessage { get => _infoMessage; set { _infoMessage = value; OnPropertyChanged(); } }
@@ -6365,21 +6824,41 @@ public class NetworkViewModel : INotifyPropertyChanged
     {
         try { Zer0Talk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Found {_peerManager.Peers.Count} peers"); } catch { }
         var allPeers = _peerManager.Peers.ToList();
-        
-        // Filter out simulated contacts from discovered peers - they shouldn't appear in the network discovery list
-        var peers = allPeers.Where(p => !IsSimulatedContact(p.UID)).ToList();
-        try { Zer0Talk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Filtered to {peers.Count} non-simulated peers (removed {allPeers.Count - peers.Count} simulated contacts)"); } catch { }
-        
-        var blocked = (_settings.Settings.BlockList ?? new System.Collections.Generic.List<string>()).ToList();
         var now = System.DateTime.UtcNow;
+
+        var contacts = Zer0Talk.Services.AppServices.Contacts.Contacts.ToList();
+        var simulatedContactUids = new System.Collections.Generic.HashSet<string>(
+            contacts.Where(c => c.IsSimulated).Select(c => NormalizeUid(c.UID)),
+            StringComparer.OrdinalIgnoreCase);
+        var realContactUids = new System.Collections.Generic.HashSet<string>(
+            contacts.Where(c => !c.IsSimulated).Select(c => NormalizeUid(c.UID)),
+            StringComparer.OrdinalIgnoreCase);
+
+        // Hide test/simulated/no-UID entries and stale non-contact peers.
+        var blocked = (_settings.Settings.BlockList ?? new System.Collections.Generic.List<string>())
+            .Select(NormalizeUid)
+            .Where(uid => !string.IsNullOrWhiteSpace(uid))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var blockedSet = new System.Collections.Generic.HashSet<string>(blocked, StringComparer.OrdinalIgnoreCase);
+
+        var peers = allPeers.Where(p => ShouldDisplayDiscoveredPeer(p, now, realContactUids, simulatedContactUids)).ToList();
+        peers = peers
+            .OrderByDescending(p => blockedSet.Contains(NormalizeUid(p.UID)))
+            .ThenByDescending(IsPeerOnline)
+            .ThenBy(p => NormalizeUid(p.UID), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        try { Zer0Talk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Filtered to {peers.Count} visible peers (from {allPeers.Count})"); } catch { }
         
         // Set IsBlocked property on each peer and assign country codes from IP address with caching
         foreach (var peer in peers)
         {
-            peer.IsBlocked = blocked.Contains(peer.UID);
+            var normalizedUid = NormalizeUid(peer.UID);
+            var isRealContact = realContactUids.Contains(normalizedUid);
+            peer.IsBlocked = blockedSet.Contains(NormalizeUid(peer.UID));
             
-            // Update LastSeenOnline if peer has public key (connected)
-            if (peer.PublicKey != null && peer.PublicKey.Length > 0)
+            // Update LastSeenOnline if peer appears online.
+            if (IsPeerOnline(peer))
             {
                 peer.LastSeenOnline = now;
             }
@@ -6397,6 +6876,10 @@ public class NetworkViewModel : INotifyPropertyChanged
                     peer.CountryCode = GetCountryCodeFromIp(peer.Address);
                     peer.CountryCodeCachedAt = now;
                 }
+                else if (isRealContact && !string.IsNullOrWhiteSpace(peer.CountryCode) && peer.CountryCode != "⚪")
+                {
+                    // Preserve last known contact region hint while offline/unblocked.
+                }
                 else
                 {
                     // Peer not connected yet or cache expired, show placeholder
@@ -6406,10 +6889,14 @@ public class NetworkViewModel : INotifyPropertyChanged
             }
         }
         
-        DiscoveredPeers = new System.Collections.ObjectModel.ObservableCollection<Peer>(peers);
+        SyncDiscoveredPeers(peers);
         BlockedPeers = new System.Collections.ObjectModel.ObservableCollection<string>(blocked);
-        KnownMajorNodes = new System.Collections.ObjectModel.ObservableCollection<string>((_settings.Settings.KnownMajorNodes ?? new System.Collections.Generic.List<string>()).ToList());
         try { Zer0Talk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Updated UI with {peers.Count} discovered peers"); } catch { }
+    }
+
+    public void RefreshPeersRealtime()
+    {
+        try { Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshLists()); } catch { }
     }
     
     // Check if a peer UID corresponds to a simulated contact (should not appear in discovered peers)
@@ -6417,11 +6904,136 @@ public class NetworkViewModel : INotifyPropertyChanged
     {
         try
         {
+            var normalized = NormalizeUid(uid);
             var contacts = Zer0Talk.Services.AppServices.Contacts.Contacts;
-            var contact = contacts.FirstOrDefault(c => string.Equals(c.UID, uid, StringComparison.OrdinalIgnoreCase));
+            var contact = contacts.FirstOrDefault(c => string.Equals(NormalizeUid(c.UID), normalized, StringComparison.OrdinalIgnoreCase));
             return contact?.IsSimulated == true;
         }
         catch { return false; }
+    }
+
+    private static string NormalizeUid(string? uid)
+    {
+        var value = (uid ?? string.Empty).Trim();
+        if (value.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) && value.Length > 4)
+        {
+            return value.Substring(4);
+        }
+        return value;
+    }
+
+    private static bool IsUidLikelyTest(string uid)
+    {
+        if (string.IsNullOrWhiteSpace(uid)) return true;
+        var normalized = NormalizeUid(uid);
+        return normalized.StartsWith("test", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("sim", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("debug", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("dummy", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPeerOnline(Peer peer)
+    {
+        var status = peer.Status?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (string.Equals(status, "Offline", StringComparison.OrdinalIgnoreCase)) return false;
+            return true;
+        }
+
+        return peer.PublicKey != null && peer.PublicKey.Length > 0;
+    }
+
+    private static bool ShouldDisplayDiscoveredPeer(
+        Peer peer,
+        System.DateTime now,
+        System.Collections.Generic.HashSet<string> realContactUids,
+        System.Collections.Generic.HashSet<string> simulatedContactUids)
+    {
+        if (peer == null) return false;
+
+        var uid = NormalizeUid(peer.UID);
+        if (string.IsNullOrWhiteSpace(uid)) return false;
+        if (simulatedContactUids.Contains(uid)) return false;
+        if (IsUidLikelyTest(uid)) return false;
+
+        if (realContactUids.Contains(uid)) return true;
+
+        var status = peer.Status?.Trim() ?? string.Empty;
+        if (string.Equals(status, "Offline", StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (IsPeerOnline(peer)) return true;
+
+        if (peer.LastSeenOnline.HasValue)
+        {
+            return (now - peer.LastSeenOnline.Value).TotalSeconds <= 8;
+        }
+
+        return false;
+    }
+
+    private void SyncDiscoveredPeers(System.Collections.Generic.IReadOnlyList<Peer> targetPeers)
+    {
+        var targetByUid = new System.Collections.Generic.Dictionary<string, Peer>(StringComparer.OrdinalIgnoreCase);
+        foreach (var peer in targetPeers)
+        {
+            var uid = NormalizeUid(peer.UID);
+            if (string.IsNullOrWhiteSpace(uid)) continue;
+            targetByUid[uid] = peer;
+        }
+
+        for (var i = DiscoveredPeers.Count - 1; i >= 0; i--)
+        {
+            var existing = DiscoveredPeers[i];
+            var uid = NormalizeUid(existing.UID);
+            if (!targetByUid.ContainsKey(uid))
+            {
+                DiscoveredPeers.RemoveAt(i);
+            }
+        }
+
+        for (var i = 0; i < targetPeers.Count; i++)
+        {
+            var target = targetPeers[i];
+            if (i < DiscoveredPeers.Count)
+            {
+                var currentUid = NormalizeUid(DiscoveredPeers[i].UID);
+                var targetUid = NormalizeUid(target.UID);
+                if (!string.Equals(currentUid, targetUid, StringComparison.OrdinalIgnoreCase))
+                {
+                    var existingIndex = IndexOfPeerByUid(targetUid);
+                    if (existingIndex >= 0)
+                    {
+                        DiscoveredPeers.Move(existingIndex, i);
+                    }
+                    else
+                    {
+                        DiscoveredPeers.Insert(i, target);
+                    }
+                }
+            }
+            else
+            {
+                DiscoveredPeers.Add(target);
+            }
+        }
+
+        while (DiscoveredPeers.Count > targetPeers.Count)
+        {
+            DiscoveredPeers.RemoveAt(DiscoveredPeers.Count - 1);
+        }
+    }
+
+    private int IndexOfPeerByUid(string uid)
+    {
+        for (var i = 0; i < DiscoveredPeers.Count; i++)
+        {
+            if (string.Equals(NormalizeUid(DiscoveredPeers[i].UID), uid, StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private static string GetCountryCodeFromIp(string ipAddress)
@@ -6538,6 +7150,51 @@ public class NetworkViewModel : INotifyPropertyChanged
         SelectedPeers.Clear();
         
         // Ensure UI update happens on UI thread
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            try { AppServices.Discovery.Restart(); } catch { }
+            RefreshLists();
+        });
+    }
+
+    private void RemoveSelectedTestPeers()
+    {
+        if (SelectedPeers == null || SelectedPeers.Count == 0) return;
+
+        var selected = SelectedPeers.ToList();
+        var removedAny = false;
+
+        foreach (var peer in selected)
+        {
+            if (peer == null) continue;
+
+            var uid = NormalizeUid(peer.UID);
+            var removable = IsSimulatedContact(uid) || IsUidLikelyTest(uid) || string.IsNullOrWhiteSpace(uid);
+            if (!removable) continue;
+
+            Peer? target = null;
+            if (!string.IsNullOrWhiteSpace(uid))
+            {
+                target = _peerManager.Peers.FirstOrDefault(p => string.Equals(NormalizeUid(p.UID), uid, StringComparison.OrdinalIgnoreCase));
+            }
+
+            target ??= _peerManager.Peers.FirstOrDefault(p => object.ReferenceEquals(p, peer));
+
+            if (target != null)
+            {
+                _peerManager.Peers.Remove(target);
+                removedAny = true;
+            }
+        }
+
+        SelectedPeers.Clear();
+
+        if (removedAny)
+        {
+            try { Zer0Talk.Services.AppServices.PeersStore.Save(_peerManager.Peers, Zer0Talk.Services.AppServices.Passphrase); } catch { }
+            try { _peerManager.IncludeContacts(); } catch { }
+        }
+
         Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshLists());
     }
 
@@ -6550,36 +7207,144 @@ public class NetworkViewModel : INotifyPropertyChanged
         return int.TryParse(parts[1], out port) && port >= 1 && port <= 65535 && !string.IsNullOrWhiteSpace(host);
     }
 
-    private void AddMajorNode()
+    private void RefreshRelayServers()
     {
-        if (!TryParseHostPort(NewMajorNode, out var host, out var port))
+        try
         {
-            InfoMessage = "Enter a node as host:port (e.g., example.com:26264)";
-            return;
+            SavedRelayServers = new System.Collections.ObjectModel.ObservableCollection<string>(
+                (_settings.Settings.SavedRelayServers ?? new System.Collections.Generic.List<string>())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList());
         }
-        var entry = $"{host}:{port}";
-        var list = _settings.Settings.KnownMajorNodes ??= new System.Collections.Generic.List<string>();
-        if (!list.Contains(entry))
+        catch
         {
-            list.Add(entry);
-            _settings.Save(AppServices.Passphrase);
-            KnownMajorNodes.Add(entry);
-            NewMajorNode = string.Empty;
-            // Optionally restart crawler for immediacy
-            if (!Zer0Talk.Utilities.RuntimeFlags.SafeMode) AppServices.Crawler.Start();
+            SavedRelayServers = new System.Collections.ObjectModel.ObservableCollection<string>();
         }
     }
 
-    private void RemoveMajorNode(string node)
+    private static bool IsValidRelayEntry(string input)
     {
-        var list = _settings.Settings.KnownMajorNodes ??= new System.Collections.Generic.List<string>();
-        if (list.Remove(node))
+        if (string.IsNullOrWhiteSpace(input)) return false;
+        var value = input.Trim();
+        if (value.IndexOfAny(new[] { ' ', '\t', '\r', '\n', '|' }) >= 0) return false;
+        if (IsValidRelayToken(value)) return true;
+        return TryParseRelayEndpoint(value, out _);
+    }
+
+    private static bool IsValidRelayToken(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length != 16) return false;
+        for (var i = 0; i < value.Length; i++)
         {
-            _settings.Save(AppServices.Passphrase);
-            KnownMajorNodes.Remove(node);
-            if (!Zer0Talk.Utilities.RuntimeFlags.SafeMode) AppServices.Crawler.Start();
+            if (char.IsWhiteSpace(value[i]) || value[i] == '|' || value[i] == ':') return false;
+        }
+        return true;
+    }
+
+    private static bool TryParseRelayEndpoint(string input, out string normalized)
+    {
+        normalized = string.Empty;
+        if (string.IsNullOrWhiteSpace(input)) return false;
+
+        var value = input.Trim();
+        string host;
+        int port = 443;
+
+        if (value.StartsWith("[", StringComparison.Ordinal))
+        {
+            var end = value.IndexOf(']');
+            if (end <= 1) return false;
+            host = value.Substring(1, end - 1);
+            if (end + 1 < value.Length)
+            {
+                if (value[end + 1] != ':') return false;
+                if (!int.TryParse(value.Substring(end + 2), out port)) return false;
+            }
+        }
+        else
+        {
+            var firstColon = value.IndexOf(':');
+            var lastColon = value.LastIndexOf(':');
+            if (firstColon >= 0 && firstColon != lastColon)
+            {
+                return false;
+            }
+
+            if (lastColon > 0 && lastColon < value.Length - 1)
+            {
+                host = value.Substring(0, lastColon);
+                if (!int.TryParse(value.Substring(lastColon + 1), out port)) return false;
+            }
+            else
+            {
+                host = value;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(host)) return false;
+        if (port < 1 || port > 65535) return false;
+
+        if (!System.Net.IPAddress.TryParse(host, out _))
+        {
+            var hostType = Uri.CheckHostName(host);
+            if (hostType != UriHostNameType.Dns) return false;
+        }
+
+        normalized = host.Contains(':', StringComparison.Ordinal)
+            ? $"[{host}]:{port}"
+            : $"{host}:{port}";
+        return true;
+    }
+
+    private void AddRelayServer()
+    {
+        var entry = NewRelayServer?.Trim() ?? string.Empty;
+        if (!IsValidRelayEntry(entry))
+        {
+            InfoMessage = "Relay entry must be host:port, [IPv6]:port, or a 16-character relay token.";
+            return;
+        }
+
+        if (!IsValidRelayToken(entry) && TryParseRelayEndpoint(entry, out var normalized))
+        {
+            entry = normalized;
+        }
+
+        var list = _settings.Settings.SavedRelayServers ??= new System.Collections.Generic.List<string>();
+        if (list.Any(existing => string.Equals(existing, entry, StringComparison.OrdinalIgnoreCase)))
+        {
+            NewRelayServer = string.Empty;
+            return;
+        }
+
+        list.Add(entry);
+        SavedRelayServers.Add(entry);
+        NewRelayServer = string.Empty;
+    }
+
+    private void RemoveRelayServer(string relay)
+    {
+        var entry = relay?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(entry)) return;
+
+        var list = _settings.Settings.SavedRelayServers ??= new System.Collections.Generic.List<string>();
+        list.RemoveAll(existing => string.Equals(existing, entry, StringComparison.OrdinalIgnoreCase));
+
+        var existingVm = SavedRelayServers.FirstOrDefault(existing => string.Equals(existing, entry, StringComparison.OrdinalIgnoreCase));
+        if (existingVm != null)
+        {
+            SavedRelayServers.Remove(existingVm);
+        }
+
+        if (string.Equals(SelectedRelayServer, entry, StringComparison.OrdinalIgnoreCase))
+        {
+            SelectedRelayServer = null;
         }
     }
+
+
 
     private async void ConfirmUnblock(string uid)
     {
@@ -6591,6 +7356,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         if (ok)
         {
             _peerManager.Unblock(uid);
+            try { AppServices.Discovery.Restart(); } catch { }
             RefreshLists();
         }
     }

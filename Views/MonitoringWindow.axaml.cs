@@ -19,7 +19,9 @@ public partial class MonitoringWindow : Window, IDisposable
 {
     // Scoped refresh: MonitoringWindow owns its interval; event-loop on a dedicated thread with cancellation.
     private int _intervalMs;
-    private System.Collections.Generic.Dictionary<int, (long In, long Out)> _lastTotals = new();
+    private System.Collections.Generic.Dictionary<int, (long In, long Out, DateTime AtUtc)> _lastTotals = new();
+    private System.Collections.Generic.Dictionary<int, (double In, double Out)> _smoothedRates = new();
+    private bool _skipNextRateSample = true;
     private System.Threading.CancellationTokenSource? _cts;
     // Flag to stop UI updates during teardown to avoid contention and crashes
     private volatile bool _isClosing;
@@ -55,6 +57,8 @@ public partial class MonitoringWindow : Window, IDisposable
                 if (_intervalMs <= 0) _intervalMs = 500;
                 // Reset deltas so next tick computes clean rates at the new cadence
                 _lastTotals.Clear();
+                _smoothedRates.Clear();
+                _skipNextRateSample = true;
                 // Restart background loop with new interval
                 RestartLoop();
                 // Persist selection
@@ -222,6 +226,7 @@ public partial class MonitoringWindow : Window, IDisposable
             {
                 if (c is Button || c.FindAncestorOfType<Button>() != null) return;
                 if (c is TextBox || c.FindAncestorOfType<TextBox>() != null) return;
+                if (c is ComboBox || c.FindAncestorOfType<ComboBox>() != null) return;
             }
             BeginMoveDrag(e);
         }
@@ -276,19 +281,62 @@ public partial class MonitoringWindow : Window, IDisposable
                     snapshot[k] = (0, 0);
                 }
             }
+            var sampleAtUtc = DateTime.UtcNow;
             var rates = new System.Collections.Generic.Dictionary<int, (double In, double Out)>();
             foreach (var kv in snapshot)
             {
                 var port = kv.Key; var tot = kv.Value;
-                if (!_lastTotals.TryGetValue(port, out var prev)) prev = (0, 0);
+                if (!_lastTotals.TryGetValue(port, out var prev))
+                {
+                    _lastTotals[port] = (tot.TotalIn, tot.TotalOut, sampleAtUtc);
+                    if (!_skipNextRateSample)
+                    {
+                        rates[port] = (0, 0);
+                    }
+                    continue;
+                }
                 var din = (double)Math.Max(0, tot.TotalIn - prev.In);
                 var dout = (double)Math.Max(0, tot.TotalOut - prev.Out);
-                var denom = _intervalMs <= 0 ? 500.0 : _intervalMs;
-                var scale = 1000.0 / denom;
-                rates[port] = (din * scale, dout * scale);
-                _lastTotals[port] = (tot.TotalIn, tot.TotalOut);
+                var elapsedSeconds = (sampleAtUtc - prev.AtUtc).TotalSeconds;
+                if (elapsedSeconds <= 0) elapsedSeconds = (_intervalMs <= 0 ? 500.0 : _intervalMs) / 1000.0;
+                if (elapsedSeconds < 0.05) elapsedSeconds = 0.05;
+                rates[port] = (din / elapsedSeconds, dout / elapsedSeconds);
+                _lastTotals[port] = (tot.TotalIn, tot.TotalOut, sampleAtUtc);
             }
-            vm.UpdateRates(rates);
+            if (_skipNextRateSample)
+            {
+                _skipNextRateSample = false;
+                rates.Clear();
+            }
+            var isRealtime = _intervalMs <= 250;
+            if (isRealtime)
+            {
+                const double alphaRise = 0.58;
+                const double alphaFall = 0.26;
+                foreach (var kv in rates)
+                {
+                    if (_smoothedRates.TryGetValue(kv.Key, out var prior))
+                    {
+                        var inAlpha = kv.Value.In >= prior.In ? alphaRise : alphaFall;
+                        var outAlpha = kv.Value.Out >= prior.Out ? alphaRise : alphaFall;
+                        _smoothedRates[kv.Key] = (
+                            prior.In + ((kv.Value.In - prior.In) * inAlpha),
+                            prior.Out + ((kv.Value.Out - prior.Out) * outAlpha));
+                    }
+                    else
+                    {
+                        _smoothedRates[kv.Key] = kv.Value;
+                    }
+                }
+                var stale = _smoothedRates.Keys.Except(rates.Keys).ToList();
+                foreach (var key in stale) _smoothedRates.Remove(key);
+                vm.UpdateRates(new System.Collections.Generic.Dictionary<int, (double In, double Out)>(_smoothedRates));
+            }
+            else
+            {
+                if (_smoothedRates.Count > 0) _smoothedRates.Clear();
+                vm.UpdateRates(rates);
+            }
             // Append a lightweight diagnostics line for visibility in the log. Keeps text small and theme-matched in XAML.
             try
             {
@@ -371,7 +419,8 @@ public partial class MonitoringWindow : Window, IDisposable
         try { _cts?.Cancel(); } catch { }
         _cts = new System.Threading.CancellationTokenSource();
         var token = _cts.Token;
-        var interval = Math.Max(250, _intervalMs == 0 ? 500 : _intervalMs);
+        var configured = _intervalMs == 0 ? 500 : _intervalMs;
+        var interval = configured <= 250 ? 50 : Math.Max(250, configured);
         // Dedicated thread loop (Task.Run on ThreadPool; posts UI updates via Dispatcher)
         _ = System.Threading.Tasks.Task.Run(async () =>
         {

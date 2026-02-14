@@ -24,7 +24,6 @@ public static class AppServices
     public static AccountManager Accounts { get; } = new();
     public static ContactManager Contacts { get; } = new();
     public static PeerManager Peers { get; } = new(Settings);
-    public static PeerCrawler Crawler { get; } = new(Network, Settings, Identity);
     public static PeersStore PeersStore { get; } = new();
     public static ContactRequestsService ContactRequests { get; } = new(Identity, Network, Settings, Contacts, Dialogs);
     public static UpdateManager Updates { get; } = new();
@@ -32,7 +31,7 @@ public static class AppServices
     public static ThemeService Theme { get; } = new();
     public static ThemeEngine ThemeEngine { get; } = new(Theme);
     public static RegressionGuard Guard { get; } = new(Settings, Network, Nat);
-    public static DiscoveryService Discovery { get; } = new(Settings, Network, Nat, Crawler);
+    public static DiscoveryService Discovery { get; } = new(Settings, Network, Nat);
     public static RetentionService Retention { get; } = new();
     public static PresenceRefreshService PresenceRefresh { get; } = new();
     public static LinkPreviewService LinkPreview { get; } = new();
@@ -45,7 +44,136 @@ public static class AppServices
     public static LocalizationService Localization { get; } = new();
     // Centralized UI pulse key; interval can be adjusted via Settings if desired
     private const string UiPulseKey = "App.UI.Pulse";
+    private static readonly object PresenceWorkGate = new();
+    private static readonly System.Collections.Generic.HashSet<string> PresenceWorkInFlight = new(System.StringComparer.OrdinalIgnoreCase);
+    private static readonly System.Collections.Generic.Dictionary<string, System.DateTime> PresenceLastProcessedUtc = new(System.StringComparer.OrdinalIgnoreCase);
+    private static readonly System.Collections.Generic.Dictionary<string, System.DateTime> PresenceConnectLastAttemptUtc = new(System.StringComparer.OrdinalIgnoreCase);
+    private static readonly System.Collections.Generic.Dictionary<string, System.DateTime> OutboxDrainLastAttemptUtc = new(System.StringComparer.OrdinalIgnoreCase);
+    private static readonly System.Threading.SemaphoreSlim PresenceConnectLimiter = new(3, 3);
+    private static readonly System.Threading.SemaphoreSlim OutboxDrainLimiter = new(2, 2);
+    private static readonly System.TimeSpan PresenceEventDebounce = System.TimeSpan.FromSeconds(2);
+    private static readonly System.TimeSpan PresenceConnectDebounce = System.TimeSpan.FromSeconds(5);
+    private static readonly System.TimeSpan OutboxDrainDebounce = System.TimeSpan.FromSeconds(3);
+    private static long _presenceEventsSeen;
+    private static long _presenceEventsExecuted;
+    private static long _presenceEventsCoalesced;
+    private static long _presenceConnectAttempts;
+    private static long _presenceOutboxQueued;
+    private static long _presenceOutboxSkipped;
     // Email verification removed in keypair-based identity model
+
+    public readonly record struct PresencePipelineSnapshot(
+        long Seen,
+        long Executed,
+        long Coalesced,
+        long ConnectAttempts,
+        long OutboxQueued,
+        long OutboxSkipped,
+        int InFlight);
+
+    public static PresencePipelineSnapshot GetPresencePipelineSnapshot()
+    {
+        int inFlight;
+        lock (PresenceWorkGate) { inFlight = PresenceWorkInFlight.Count; }
+        return new PresencePipelineSnapshot(
+            Seen: System.Threading.Interlocked.Read(ref _presenceEventsSeen),
+            Executed: System.Threading.Interlocked.Read(ref _presenceEventsExecuted),
+            Coalesced: System.Threading.Interlocked.Read(ref _presenceEventsCoalesced),
+            ConnectAttempts: System.Threading.Interlocked.Read(ref _presenceConnectAttempts),
+            OutboxQueued: System.Threading.Interlocked.Read(ref _presenceOutboxQueued),
+            OutboxSkipped: System.Threading.Interlocked.Read(ref _presenceOutboxSkipped),
+            InFlight: inFlight);
+    }
+
+    private static string NormalizePeerUid(string uid)
+    {
+        if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
+        return uid.StartsWith("usr-", System.StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+    }
+
+    private static bool TryBeginPresenceWork(string uid)
+    {
+        var now = System.DateTime.UtcNow;
+        lock (PresenceWorkGate)
+        {
+            if (PresenceWorkInFlight.Contains(uid))
+            {
+                System.Threading.Interlocked.Increment(ref _presenceEventsCoalesced);
+                return false;
+            }
+            if (PresenceLastProcessedUtc.TryGetValue(uid, out var lastUtc) && (now - lastUtc) < PresenceEventDebounce)
+            {
+                System.Threading.Interlocked.Increment(ref _presenceEventsCoalesced);
+                return false;
+            }
+            PresenceLastProcessedUtc[uid] = now;
+            PresenceWorkInFlight.Add(uid);
+            System.Threading.Interlocked.Increment(ref _presenceEventsExecuted);
+            return true;
+        }
+    }
+
+    private static void EndPresenceWork(string uid)
+    {
+        lock (PresenceWorkGate)
+        {
+            PresenceWorkInFlight.Remove(uid);
+        }
+    }
+
+    private static bool ShouldAttemptPeerConnect(string uid)
+    {
+        var now = System.DateTime.UtcNow;
+        lock (PresenceWorkGate)
+        {
+            if (PresenceConnectLastAttemptUtc.TryGetValue(uid, out var lastUtc) && (now - lastUtc) < PresenceConnectDebounce)
+            {
+                return false;
+            }
+            PresenceConnectLastAttemptUtc[uid] = now;
+            return true;
+        }
+    }
+
+    private static bool ShouldAttemptOutboxDrain(string uid)
+    {
+        var now = System.DateTime.UtcNow;
+        lock (PresenceWorkGate)
+        {
+            if (OutboxDrainLastAttemptUtc.TryGetValue(uid, out var lastUtc) && (now - lastUtc) < OutboxDrainDebounce)
+            {
+                return false;
+            }
+            OutboxDrainLastAttemptUtc[uid] = now;
+            return true;
+        }
+    }
+
+    private static void QueuePeerOutboxDrain(string uid)
+    {
+        var normalizedUid = NormalizePeerUid(uid);
+        if (string.IsNullOrWhiteSpace(normalizedUid)) return;
+        if (!ShouldAttemptOutboxDrain(normalizedUid))
+        {
+            System.Threading.Interlocked.Increment(ref _presenceOutboxSkipped);
+            return;
+        }
+        System.Threading.Interlocked.Increment(ref _presenceOutboxQueued);
+
+        System.Threading.Tasks.Task.Run(async () =>
+        {
+            await OutboxDrainLimiter.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                await Outbox.DrainAsync(normalizedUid, Passphrase, System.Threading.CancellationToken.None).ConfigureAwait(false);
+            }
+            catch { }
+            finally
+            {
+                try { OutboxDrainLimiter.Release(); } catch { }
+            }
+        });
+    }
 
     // Convenience helper for viewmodels to cancel queued messages by id
     public static void OutboxCancelIfQueued(string peerUid, System.Guid messageId, string passphrase)
@@ -163,6 +291,8 @@ public static class AppServices
             {
                 try { Retention.CleanupOrphanMessageFiles(); } catch { }
                 try { Retention.CleanupOrphanOutboxFiles(); } catch { }
+                try { PresenceRefresh.RequestUnlockSweep(); } catch { }
+                try { Network.RequestAutoConnectSweep(); } catch { }
             };
         }
         catch { }
@@ -174,6 +304,11 @@ public static class AppServices
             Network.PresenceReceived += (uid, status) =>
             {
                 if (string.IsNullOrWhiteSpace(uid)) return;
+                var normalizedUid = NormalizePeerUid(uid);
+                if (string.IsNullOrWhiteSpace(normalizedUid)) return;
+                System.Threading.Interlocked.Increment(ref _presenceEventsSeen);
+                if (!TryBeginPresenceWork(normalizedUid)) return;
+
                 System.Threading.Tasks.Task.Run(async () =>
                 {
                     try
@@ -190,21 +325,35 @@ public static class AppServices
                         };
                         try { Contacts.SetPresence(uid, s, System.TimeSpan.FromSeconds(60), Models.PresenceSource.Verified); } catch { }
                         // If not connected and peer appears reachable (not Invisible/Offline), try to connect
-                        if (!Network.HasEncryptedSession(uid)
+                        if (!Network.HasEncryptedSession(normalizedUid)
                             && !string.Equals(status, "Invisible", System.StringComparison.OrdinalIgnoreCase)
-                            && !string.Equals(status, "Offline", System.StringComparison.OrdinalIgnoreCase))
+                            && !string.Equals(status, "Offline", System.StringComparison.OrdinalIgnoreCase)
+                            && ShouldAttemptPeerConnect(normalizedUid))
                         {
-                            var peer = Peers.Peers.FirstOrDefault(p => string.Equals(p.UID, uid, System.StringComparison.OrdinalIgnoreCase));
+                            var peer = Peers.Peers.FirstOrDefault(p => string.Equals(p.UID, normalizedUid, System.StringComparison.OrdinalIgnoreCase) || string.Equals(p.UID, $"usr-{normalizedUid}", System.StringComparison.OrdinalIgnoreCase));
                             if (peer != null && !string.IsNullOrWhiteSpace(peer.Address) && peer.Port > 0)
                             {
-                                await Network.ConnectWithRelayFallbackAsync(uid, peer.Address!, peer.Port, System.Threading.CancellationToken.None);
+                                System.Threading.Interlocked.Increment(ref _presenceConnectAttempts);
+                                await PresenceConnectLimiter.WaitAsync().ConfigureAwait(false);
+                                try
+                                {
+                                    await Network.ConnectWithRelayFallbackAsync(normalizedUid, peer.Address!, peer.Port, System.Threading.CancellationToken.None).ConfigureAwait(false);
+                                }
+                                finally
+                                {
+                                    try { PresenceConnectLimiter.Release(); } catch { }
+                                }
                             }
                         }
                         // Retry any queued offline contact requests for this peer
-                        try { ContactRequests.OnPeerOnline(uid); } catch { }
-                        await Outbox.DrainAsync(uid, Passphrase, System.Threading.CancellationToken.None);
+                        try { ContactRequests.OnPeerOnline(normalizedUid); } catch { }
+                        QueuePeerOutboxDrain(normalizedUid);
                     }
                     catch { }
+                    finally
+                    {
+                        EndPresenceWork(normalizedUid);
+                    }
                 });
             };
         }
@@ -222,7 +371,7 @@ public static class AppServices
             if (ok && !string.IsNullOrWhiteSpace(who))
             {
                 try { Contacts.SetPresence(who, Models.PresenceStatus.Online, System.TimeSpan.FromMinutes(5), Models.PresenceSource.Session); } catch { }
-                System.Threading.Tasks.Task.Run(() => Outbox.DrainAsync(who, Passphrase, System.Threading.CancellationToken.None));
+                QueuePeerOutboxDrain(who);
             }
         }; } catch { }
 
@@ -231,11 +380,22 @@ public static class AppServices
         try
         {
             var interval = 500; // ms; could be bound to Settings if needed
+            var autoConnSweepTickCounter = 0;
             Updates.RegisterUiInterval(UiPulseKey, interval, () =>
             {
                 try { Events.RaiseUiPulse(); } catch { }
-                // Early app pulses can opportunistically trigger connection attempts when data arrives
-                try { Network.RequestAutoConnectSweep(); } catch { }
+                // Opportunistically trigger auto-connect sweeps at a lower cadence than the UI pulse.
+                // Pulse is 500ms; sweep every 10 ticks (~5s) to reduce network/task churn.
+                try
+                {
+                    autoConnSweepTickCounter++;
+                    if (autoConnSweepTickCounter >= 10)
+                    {
+                        autoConnSweepTickCounter = 0;
+                        Network.RequestAutoConnectSweep();
+                    }
+                }
+                catch { }
             });
         }
         catch { }
@@ -315,7 +475,6 @@ public static class AppServices
     {
         try { Updates.Shutdown(); } catch { }
         try { Discovery.Stop(); } catch { }
-        try { Crawler.Stop(); } catch { }
         try { Guard?.GetType(); /* no explicit stop; timers cleared via Updates */ } catch { }
         try { Network.Stop(); } catch { }
         try { Nat?.UnmapAsync(); } catch { }

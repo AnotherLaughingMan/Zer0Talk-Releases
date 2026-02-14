@@ -173,9 +173,8 @@ public class LoadingManager
             {
                 try
                 {
-                    // Set up WAN/network event handlers
-                    AppServices.Crawler.DiscoveredChanged += peers => AppServices.Peers.SetDiscovered(peers);
-                    SafeLog("Init.WAN.Events.Ready", null);
+                    // Discovery wiring is handled centrally in AppServices/NetworkService.
+                    SafeLog("Init.Network.Events.Ready", null);
                 }
                 catch (Exception ex)
                 {
@@ -193,19 +192,11 @@ public class LoadingManager
                 {
                     if (!Zer0Talk.Utilities.RuntimeFlags.SafeMode)
                     {
-                        if (System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable())
-                        {
-                            AppServices.Crawler.Start();
-                            SafeLog("Init.Network.Crawler.Started", null);
-                        }
-                        else
-                        {
-                            SafeLog("Init.Network.Crawler.Skipped.NoInternet", null);
-                        }
+                        SafeLog("Init.Network.Discovery.ManagedByServices", null);
                     }
                     else
                     {
-                        SafeLog("Init.Network.Crawler.Skipped.SafeMode", null);
+                        SafeLog("Init.Network.Discovery.Skipped.SafeMode", null);
                     }
                 }
                 catch (Exception ex)

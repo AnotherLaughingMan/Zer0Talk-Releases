@@ -9,6 +9,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -38,7 +39,7 @@ namespace Zer0Talk.Services
     // Track peer's ephemeral ECDH public key (DER SPKI) per transport to verify identity binding
     private readonly ConcurrentDictionary<Utilities.AeadTransport, byte[]> _handshakePeerKeys = new();
     // Tracks expected peer UID for outbound connections until handshake completes (keyed by remote endpoint string)
-    private readonly ConcurrentDictionary<string, string> _pendingOutboundExpectations = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, PendingOutboundExpectation> _pendingOutboundExpectations = new(StringComparer.OrdinalIgnoreCase);
     // Track remote endpoint string for a given transport so we can attribute identity binding/rotation correctly.
     private readonly ConcurrentDictionary<Utilities.AeadTransport, string> _transportEndpoints = new();
         private readonly NetworkDiagnostics _diag = new();
@@ -48,18 +49,55 @@ namespace Zer0Talk.Services
     // Presence liveness tracking
     private readonly ConcurrentDictionary<string, DateTime> _presenceLastSeenUtc = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTime> _presenceLastSentUtc = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DiscoveredRelay> _discoveredRelays = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, RelayHealthEntry> _relayHealth = new(StringComparer.OrdinalIgnoreCase);
+    private DateTime _lastOutsideLanDirectSuccessUtc = DateTime.MinValue;
+    private static readonly TimeSpan OutsideLanDirectEvidenceTtl = TimeSpan.FromMinutes(20);
     private System.Threading.Timer? _presenceTimeoutTimer;
-    private static readonly TimeSpan PresenceTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan PresenceSweepInterval = TimeSpan.FromSeconds(5);
+
+    private static TimeSpan GetPresenceTimeout()
+    {
+        try
+        {
+            var seconds = AppServices.Settings?.Settings?.RelayPresenceTimeoutSeconds ?? 45;
+            return TimeSpan.FromSeconds(Math.Clamp(seconds, 10, 300));
+        }
+        catch
+        {
+            return TimeSpan.FromSeconds(45);
+        }
+    }
+
+    private static TimeSpan GetRelayDiscoveryTtl()
+    {
+        try
+        {
+            var minutes = AppServices.Settings?.Settings?.RelayDiscoveryTtlMinutes ?? 3;
+            return TimeSpan.FromMinutes(Math.Clamp(minutes, 1, 60));
+        }
+        catch
+        {
+            return TimeSpan.FromMinutes(3);
+        }
+    }
 
     // [AUTO-CONNECT] Throttled sweep to proactively establish sessions without user action
     private readonly ConcurrentDictionary<string, DateTime> _autoConnLastAttempt = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan AutoConnectBackoff = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan AutoConnectSweepMinInterval = TimeSpan.FromSeconds(3);
     private volatile int _autoConnSweepRunning;
+    private DateTime _lastAutoConnSweepUtc = DateTime.MinValue;
 
     // [VERSION-CONTROL] Version tracking and mismatch detection
     private readonly ConcurrentDictionary<string, string> _peerVersions = new(StringComparer.OrdinalIgnoreCase);
     public event Action<string, string, string>? VersionMismatchDetected; // (peerUid, ourVersion, theirVersion)
+
+    private sealed class PendingOutboundExpectation
+    {
+        public required string ExpectedUid { get; init; }
+        public DateTime CreatedUtc { get; init; }
+    }
 
     // Avatar receive throttling (avoid network/disk churn)
     private readonly ConcurrentDictionary<string, DateTime> _avatarLastAcceptedUtc = new(StringComparer.OrdinalIgnoreCase);
@@ -74,6 +112,8 @@ namespace Zer0Talk.Services
     private const int MaxDisplayNameBytes = 128; // reasonable UI cap for display names
     private const int MaxPresenceToken = 8; // 'on','idle','dnd','inv'
     private const int MaxBioBytes = 512; // max UTF-8 bytes for bio payload
+    private const byte SecurityAlertFrameType = 0xE0;
+    private const byte SecurityReasonKeyMismatch = 0x01;
 
     // [RATE-LIMITING] Connection attempt tracking per IP address
     private class ConnectionAttemptTracker
@@ -144,6 +184,23 @@ namespace Zer0Talk.Services
     public event Action<string, Guid>? ChatMessageDeleteAcked; // (peerUid, messageId)
     // Raised when presence is received from a peer (uid, status)
     public event Action<string, string>? PresenceReceived;
+
+        private sealed class DiscoveredRelay
+        {
+            public string Token { get; init; } = string.Empty;
+            public string Host { get; init; } = string.Empty;
+            public int Port { get; init; }
+            public DateTime LastSeenUtc { get; set; }
+        }
+
+        private sealed class RelayHealthEntry
+        {
+            public int SuccessCount { get; set; }
+            public int FailureCount { get; set; }
+            public double EwmaLatencyMs { get; set; } = 1500;
+            public DateTime LastSuccessUtc { get; set; } = DateTime.MinValue;
+            public DateTime LastFailureUtc { get; set; } = DateTime.MinValue;
+        }
 
         public NetworkService(IdentityService identity, NatTraversalService nat)
         {
@@ -415,8 +472,9 @@ namespace Zer0Talk.Services
             {
                 if (IPAddress.TryParse(hostOrIp, out var ip))
                 {
-                    // [B] Choose a sensible local UDP bind port for punching: prefer mapped UDP, then the discovery UDP port, else ephemeral (0).
-                    int localUdp = _nat.MappedUdpPort ?? (UdpBoundPort ?? 0);
+                    // [B] Choose a sensible local UDP bind port for punching: prefer mapped UDP, then listening port, else ephemeral (0).
+                    // Avoid using discovery UDP port here because it is typically already bound by LAN discovery.
+                    int localUdp = _nat.MappedUdpPort ?? (ListeningPort ?? 0);
                     var ok = await _nat.TryUdpHolePunchAsync(new IPEndPoint(ip, port), localUdp, ct);
                     if (ok)
                     {
@@ -453,7 +511,7 @@ namespace Zer0Talk.Services
                     try
                     {
                         var ep = client.Client.RemoteEndPoint?.ToString();
-                        if (!string.IsNullOrEmpty(ep)) _pendingOutboundExpectations[ep] = expectedKey;
+                        RegisterPendingOutboundExpectation(ep, expectedKey);
                     }
                     catch { }
                     // Wait for handshake to register expected session or detect mismatch
@@ -463,6 +521,7 @@ namespace Zer0Talk.Services
                     {
                         if (_sessions.ContainsKey(expectedKey))
                         {
+                            MarkOutsideLanDirectSuccess(hostOrIp);
                             SafeNetLog($"connect direct/nat success | peer={peerUid} | endpoint={hostOrIp}:{port}");
                             return true;
                         }
@@ -498,37 +557,61 @@ namespace Zer0Talk.Services
                     try
                     {
                         var ep2 = client2.Client.RemoteEndPoint?.ToString();
-                        if (!string.IsNullOrEmpty(ep2)) _pendingOutboundExpectations[ep2] = Trim(peerUid);
+                        RegisterPendingOutboundExpectation(ep2, Trim(peerUid));
                     }
                     catch { }
                     var okSession = await WaitForEncryptedSessionAsync(Trim(peerUid), TimeSpan.FromSeconds(4), ct);
-                    if (okSession) { SafeNetLog($"connect direct retry success | peer={peerUid}"); return true; }
+                    if (okSession)
+                    {
+                        MarkOutsideLanDirectSuccess(hostOrIp);
+                        SafeNetLog($"connect direct retry success | peer={peerUid}");
+                        return true;
+                    }
                 }
             }
             catch { }
 
             // If disabled or no server configured, stop here
             var s = AppServices.Settings.Settings;
+            if (!ShouldAttemptRelayFallback())
+            {
+                SafeNetLog($"connect relay skipped | peer={peerUid} | reason=outside-lan-direct-available");
+                return false;
+            }
             if (!s.RelayFallbackEnabled || string.IsNullOrWhiteSpace(s.RelayServer))
             {
                 SafeNetLog($"connect relay skipped | peer={peerUid} | reason={(s.RelayFallbackEnabled ? "no-server" : "disabled")}");
                 return false;
             }
 
-            // Parse relay server as host:port
-            string relayHost = s.RelayServer!; int relayPort = 0;
-            var idx = relayHost.LastIndexOf(':');
-            if (idx > 0 && idx < relayHost.Length - 1)
+            var relayCandidates = BuildRelayCandidates(s);
+            if (relayCandidates.Count == 0)
             {
-                var span = relayHost.AsSpan();
-                if (int.TryParse(span[(idx + 1)..], out var rp)) { relayPort = rp; relayHost = span[..idx].ToString(); }
+                SafeNetLog($"connect relay skipped | peer={peerUid} | reason=invalid-endpoint");
+                Logger.Log($"Relay server endpoint invalid: '{s.RelayServer}'");
+                return false;
             }
-            if (relayPort <= 0) relayPort = 443; // sensible default
 
+            foreach (var relay in relayCandidates)
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var ok = await TryConnectViaRelayEndpointAsync(peerUid, relay.Host, relay.Port, relay.Display, ct);
+                sw.Stop();
+                RecordRelayAttemptResult(relay.Host, relay.Port, ok, sw.Elapsed.TotalMilliseconds);
+                if (ok) return true;
+            }
+
+            return false;
+        }
+
+        private async Task<bool> TryConnectViaRelayEndpointAsync(string peerUid, string relayHost, int relayPort, string relayDisplay, CancellationToken ct)
+        {
             try
             {
-                var relayClient = await _nat.TryRelayAsync(relayHost, relayPort, Trim(peerUid), ct);
-                if (relayClient == null) { SafeNetLog($"connect relay fail | peer={peerUid} | server={s.RelayServer}"); return false; }
+                var localUid = Trim(_identity.UID);
+                var sessionKey = BuildRelaySessionKey(localUid, Trim(peerUid));
+                var relayClient = await _nat.TryRelayAsync(relayHost, relayPort, localUid, Trim(peerUid), sessionKey, ct);
+                if (relayClient == null) { SafeNetLog($"connect relay fail | peer={peerUid} | server={relayDisplay}"); return false; }
                 var relayStream = relayClient.GetStream();
 
                 using var dh = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
@@ -580,7 +663,6 @@ namespace Zer0Talk.Services
                 var prk = Hkdf.DeriveKey(secret, salt: Array.Empty<byte>(), info: info, length: 32 + 32 + 16 + 16);
                 CryptographicOperations.ZeroMemory(secret);
                 var txKey = new byte[32]; var rxKey = new byte[32]; var txBase = new byte[16]; var rxBase = new byte[16];
-                // Over relay, we are the initiator
                 Buffer.BlockCopy(prk, 0, txKey, 0, 32); Buffer.BlockCopy(prk, 32, rxKey, 0, 32);
                 Buffer.BlockCopy(prk, 64, txBase, 0, 16); Buffer.BlockCopy(prk, 80, rxBase, 0, 16);
                 var transport = new Utilities.AeadTransport(relayStream, txKey, rxKey, txBase, rxBase);
@@ -598,12 +680,10 @@ namespace Zer0Talk.Services
                 try { _diag.IncHandshakeOk(); _diag.IncSessionsActive(); } catch { }
                 try { HandshakeCompleted?.Invoke(true, Trim(peerUid), null); } catch { }
                 try { Zer0Talk.Services.AppServices.Contacts.SetLastKnownEncrypted(Trim(peerUid), true, Zer0Talk.Services.AppServices.Passphrase); } catch { }
-                SafeNetLog($"connect relay success | peer={peerUid} | server={s.RelayServer}");
+                SafeNetLog($"connect relay success | peer={peerUid} | server={relayDisplay}");
 
-                // Announce our identity to bind session to our Ed25519 key
                 _ = SendIdentityAnnounceAsync(transport, pub, ct);
 
-                // Kick off reader loop similar to HandleClient but minimal to avoid code duplication
                 _ = Task.Run(async () =>
                 {
                     try
@@ -613,14 +693,12 @@ namespace Zer0Talk.Services
                             var data = await transport.ReadAsync(ct);
                             if (data.Length > 0)
                             {
-                                // Reuse existing inbound frame handling by writing a small dispatcher
                                 await HandleInboundFrameAsync(Trim(peerUid), transport, data, ct);
                             }
                         }
                     }
                     catch (Exception ex)
                     {
-                        // Transient relay errors are common; don't block peers here.
                         Logger.Log($"Relay session error: {ex.Message}");
                         try { SafeNetLog($"relay session error | peer={Trim(peerUid)} | {ex.GetType().Name}:{ex.Message}"); } catch { }
                     }
@@ -634,7 +712,6 @@ namespace Zer0Talk.Services
                     }
                 }, ct);
 
-                // Send our presence, avatar, and bio like in HandleClient
                 try { _ = SendPresenceAsync(Trim(peerUid), AppServices.Settings.Settings.Status, ct); } catch { }
                 try
                 {
@@ -664,6 +741,16 @@ namespace Zer0Talk.Services
             if (AppServices.Settings.Settings.BlockList?.Contains(normalizedUid) == true)
             {
                 Logger.Log($"Frame from blocked peer rejected: {normalizedUid}");
+                return Task.CompletedTask;
+            }
+
+            if (TryParseSecurityAlert(data, out var secReason, out var secMsg))
+            {
+                var details = string.IsNullOrWhiteSpace(secMsg)
+                    ? "Remote reported a key mismatch. Conversation was stopped."
+                    : secMsg;
+                NotifyKeyMismatch(peerUid, details);
+                EnforceKeyMismatchAndTerminate(peerUid, transport, details, notifyRemote: false);
                 return Task.CompletedTask;
             }
             
@@ -708,6 +795,13 @@ namespace Zer0Talk.Services
                     var claimedUid = IdentityService.ComputeUidFromPublicKey(pub);
                     var normClaimed = Trim(claimedUid);
                     var normSession = Trim(peerUid);
+
+                    if (TryGetExpectedKeyMismatch(normClaimed, pub, out var expectedHex, out var observedHex))
+                    {
+                        var details = $"Expected key {expectedHex}, observed {observedHex}.";
+                        EnforceKeyMismatchAndTerminate(normClaimed, transport, details, "Key mismatch detected. Conversation cannot continue.");
+                        return Task.CompletedTask;
+                    }
                     
                     // Store peer version and check compatibility
                     if (!string.IsNullOrEmpty(peerVersion))
@@ -720,24 +814,13 @@ namespace Zer0Talk.Services
                             Logger.Log($"Version mismatch detected: peer {normClaimed} version {peerVersion}, our version {AppInfo.Version}");
                             VersionMismatchDetected?.Invoke(normClaimed, AppInfo.Version, peerVersion);
                         }
-                        else
-                        {
-                            Logger.Log($"Peer {normClaimed} version {peerVersion} is compatible with our version {AppInfo.Version}");
-                        }
                     }
                     
                     if (!string.Equals(normClaimed, normSession, StringComparison.OrdinalIgnoreCase))
                     {
-                        try
-                        {
-                            // Re-key session dictionary from ephemeral UID to claimed stable UID
-                            _sessions[normClaimed] = transport;
-                            var removed = _sessions.TryRemove(normSession, out _);
-                            SafeNetLog($"identity bound | rekey {normSession} -> {normClaimed} | total={_sessions.Count}");
-                            try { if (removed) Logger.Log($"[sess] rekey | from={normSession} -> to={normClaimed} | ts={DateTime.UtcNow:o}"); } catch { }
-                            Logger.Log($"Identity bound: session rekey {normSession} -> {normClaimed}");
-                        }
-                        catch { }
+                        var details = $"Identity announce UID mismatch: session {normSession}, claimed {normClaimed}.";
+                        EnforceKeyMismatchAndTerminate(normSession, transport, details, "Identity/key mismatch detected. Conversation cannot continue.");
+                        return Task.CompletedTask;
                     }
                     try { AppServices.Peers.SetObservedPublicKey(normClaimed, pub); } catch { }
                 }
@@ -805,7 +888,8 @@ namespace Zer0Talk.Services
                 if (!string.Equals(Trim(claimedUid), Trim(peerUid), StringComparison.OrdinalIgnoreCase))
                 {
                     Logger.Log($"Spoofed message rejected: claimed {claimedUid} != session {peerUid}");
-                    try { AppServices.Crawler.BlockForMisbehavior(Trim(claimedUid)); } catch { }
+                    try { AppServices.Peers.Block(Trim(claimedUid)); } catch { }
+                    EnforceKeyMismatchAndTerminate(peerUid, transport, $"Message signer UID mismatch: claimed {Trim(claimedUid)} != session {Trim(peerUid)}.", "Message key mismatch detected. Conversation cannot continue.");
                     return Task.CompletedTask;
                 }
                 if (!IdentityService.Verify(payloadToSign, sig, pub))
@@ -838,7 +922,7 @@ namespace Zer0Talk.Services
                 BinaryPrimitives.WriteUInt16BigEndian(payloadToSign.AsSpan(16, 2), (ushort)txtBytes.Length);
                 Buffer.BlockCopy(txtBytes, 0, payloadToSign, 18, txtBytes.Length);
                 var claimed = IdentityService.ComputeUidFromPublicKey(pub);
-                if (!string.Equals(Trim(claimed), Trim(peerUid), StringComparison.OrdinalIgnoreCase)) { Logger.Log("Edit spoof rejected: UID mismatch"); return Task.CompletedTask; }
+                if (!string.Equals(Trim(claimed), Trim(peerUid), StringComparison.OrdinalIgnoreCase)) { Logger.Log("Edit spoof rejected: UID mismatch"); EnforceKeyMismatchAndTerminate(peerUid, transport, $"Edit signer UID mismatch: claimed {Trim(claimed)} != session {Trim(peerUid)}.", "Edit key mismatch detected. Conversation cannot continue."); return Task.CompletedTask; }
                 if (!IdentityService.Verify(payloadToSign, sig, pub)) { Logger.Log("Edit bad signature"); return Task.CompletedTask; }
                 var txt = Encoding.UTF8.GetString(txtBytes);
                 try { AppServices.MessagesUpdateFromRemote(Trim(peerUid), msgId, txt); } catch { }
@@ -857,7 +941,7 @@ namespace Zer0Talk.Services
                 int sigLen = data[idx++]; if (sigLen != 64 || data.Length < idx + sigLen) return Task.CompletedTask;
                 var sig = new byte[64]; Buffer.BlockCopy(data, idx, sig, 0, 64);
                 var claimed = IdentityService.ComputeUidFromPublicKey(pub);
-                if (!string.Equals(Trim(claimed), Trim(peerUid), StringComparison.OrdinalIgnoreCase)) { Logger.Log("Delete spoof rejected: UID mismatch"); return Task.CompletedTask; }
+                if (!string.Equals(Trim(claimed), Trim(peerUid), StringComparison.OrdinalIgnoreCase)) { Logger.Log("Delete spoof rejected: UID mismatch"); EnforceKeyMismatchAndTerminate(peerUid, transport, $"Delete signer UID mismatch: claimed {Trim(claimed)} != session {Trim(peerUid)}.", "Delete key mismatch detected. Conversation cannot continue."); return Task.CompletedTask; }
                 if (!IdentityService.Verify(guidBytes, sig, pub)) { Logger.Log("Delete bad signature"); return Task.CompletedTask; }
                 var msgId = new Guid(guidBytes);
                 try { AppServices.MessagesDeleteFromRemote(Trim(peerUid), msgId); } catch { }
@@ -1130,6 +1214,7 @@ namespace Zer0Talk.Services
             try
             {
                 var text = Encoding.UTF8.GetString(bytes);
+                if (TryHandleRelayBeacon(text, remote)) return;
                 var parts = text.Split('|');
                 if (parts.Length < 3) return;
                 var uid = parts[0];
@@ -1186,31 +1271,98 @@ namespace Zer0Talk.Services
             catch { }
         }
 
+        private bool TryHandleRelayBeacon(string text, IPEndPoint remote)
+        {
+            try
+            {
+                if (!text.StartsWith("RLY|", StringComparison.Ordinal)) return false;
+                var parts = text.Split('|');
+                if (parts.Length < 3) return true;
+                var token = parts[1].Trim();
+                if (string.IsNullOrWhiteSpace(token)) return true;
+                if (!int.TryParse(parts[2], out var relayPort) || relayPort < 1 || relayPort > 65535) return true;
+
+                var endpointKey = $"{remote.Address}:{relayPort}";
+                _discoveredRelays[endpointKey] = new DiscoveredRelay
+                {
+                    Token = token,
+                    Host = remote.Address.ToString(),
+                    Port = relayPort,
+                    LastSeenUtc = DateTime.UtcNow
+                };
+                PruneDiscoveredRelays();
+                Logger.Log($"Relay beacon parsed from {remote.Address}: token={token} port={relayPort}");
+                try { AppServices.Discovery.NoteExternalTrigger("relay-beacon-rx", $"token={token} host={remote.Address}:{relayPort}"); } catch { }
+                return true;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        private void PruneDiscoveredRelays()
+        {
+            try
+            {
+                var cutoff = DateTime.UtcNow - GetRelayDiscoveryTtl();
+                foreach (var kv in _discoveredRelays.ToArray())
+                {
+                    if (kv.Value.LastSeenUtc < cutoff)
+                    {
+                        _discoveredRelays.TryRemove(kv.Key, out _);
+                    }
+                }
+            }
+            catch { }
+        }
+
         // [AUTO-CONNECT] Attempt to connect to known peers with endpoints to establish sessions for identity/verification
         public void RequestAutoConnectSweep()
         {
+            var now = DateTime.UtcNow;
+            if ((now - _lastAutoConnSweepUtc) < AutoConnectSweepMinInterval) return;
+            _lastAutoConnSweepUtc = now;
             if (System.Threading.Interlocked.Exchange(ref _autoConnSweepRunning, 1) == 1) return;
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    var snapshot = AppServices.Peers.Peers.ToList();
+                    var uidSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    try
+                    {
+                        foreach (var c in AppServices.Contacts.Contacts)
+                        {
+                            if (c == null) continue;
+                            var cu = Trim(c.UID ?? string.Empty);
+                            if (!string.IsNullOrWhiteSpace(cu)) uidSet.Add(cu);
+                        }
+                    }
+                    catch { }
+                    try
+                    {
+                        foreach (var p in AppServices.Peers.Peers)
+                        {
+                            if (p == null) continue;
+                            var pu = Trim(p.UID ?? string.Empty);
+                            if (!string.IsNullOrWhiteSpace(pu)) uidSet.Add(pu);
+                        }
+                    }
+                    catch { }
+
+                    var snapshot = uidSet.ToList();
                     var now = DateTime.UtcNow;
-                    foreach (var p in snapshot)
+                    foreach (var uid in snapshot)
                     {
                         try
                         {
-                            if (p is null) continue;
-                            var uid = p.UID;
                             if (string.IsNullOrWhiteSpace(uid)) continue;
-                            uid = uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
                             if (HasEncryptedSession(uid)) continue;
-                            if (string.IsNullOrWhiteSpace(p.Address) || p.Port <= 0) continue;
                             if (_autoConnLastAttempt.TryGetValue(uid, out var last) && (now - last) < AutoConnectBackoff) continue;
                             _autoConnLastAttempt[uid] = now;
-                            try { 
-                                Logger.Log($"[AutoConnect] Attempting connection to {uid} at {p.Address}:{p.Port}");
-                                var connected = await ConnectWithRelayFallbackAsync(uid, p.Address!, p.Port, CancellationToken.None); 
+                            try {
+                                Logger.Log($"[AutoConnect] Attempting connection to {uid}");
+                                var connected = await ConnectPeerBestEffortAsync(uid, CancellationToken.None);
                                 Logger.Log($"[AutoConnect] Connection to {uid} result: {connected}");
                             } catch (Exception ex) { 
                                 Logger.Log($"[AutoConnect] Connection to {uid} failed: {ex.Message}");
@@ -1224,6 +1376,60 @@ namespace Zer0Talk.Services
                     System.Threading.Interlocked.Exchange(ref _autoConnSweepRunning, 0);
                 }
             });
+        }
+
+        private async Task<bool> ConnectPeerBestEffortAsync(string peerUid, CancellationToken ct)
+        {
+            try
+            {
+                var uid = Trim(peerUid);
+                if (string.IsNullOrWhiteSpace(uid)) return false;
+                if (HasEncryptedSession(uid))
+                {
+                    try { SafeNetLog($"autoconn skip has-session | peer={uid}"); } catch { }
+                    return true;
+                }
+
+                var peer = AppServices.Peers.Peers.FirstOrDefault(p => string.Equals(Trim(p.UID), uid, StringComparison.OrdinalIgnoreCase));
+                if (peer != null && !string.IsNullOrWhiteSpace(peer.Address) && peer.Port > 0)
+                {
+                    try { SafeNetLog($"autoconn path=direct+relay-fallback | peer={uid} | endpoint={peer.Address}:{peer.Port}"); } catch { }
+                    var ok = await ConnectWithRelayFallbackAsync(uid, peer.Address!, peer.Port, ct);
+                    try { SafeNetLog($"autoconn result | peer={uid} | mode=direct+relay-fallback | ok={ok}"); } catch { }
+                    return ok;
+                }
+
+                var s = AppServices.Settings.Settings;
+                try { SafeNetLog($"autoconn path=relay-only | peer={uid} | reason=no-peer-endpoint"); } catch { }
+                if (!ShouldAttemptRelayFallback())
+                {
+                    try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=outside-lan-direct-available"); } catch { }
+                    return false;
+                }
+                if (!s.RelayFallbackEnabled || string.IsNullOrWhiteSpace(s.RelayServer))
+                {
+                    try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason={(s.RelayFallbackEnabled ? "no-server" : "disabled")}"); } catch { }
+                    return false;
+                }
+                var relayCandidates = BuildRelayCandidates(s);
+                if (relayCandidates.Count == 0)
+                {
+                    try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=invalid-endpoint"); } catch { }
+                    return false;
+                }
+                foreach (var relay in relayCandidates)
+                {
+                    try { SafeNetLog($"autoconn relay-only try | peer={uid} | server={relay.Display}"); } catch { }
+                    if (await TryConnectViaRelayEndpointAsync(uid, relay.Host, relay.Port, relay.Display, ct))
+                    {
+                        try { SafeNetLog($"autoconn result | peer={uid} | mode=relay-only | ok=true | server={relay.Display}"); } catch { }
+                        return true;
+                    }
+                }
+                try { SafeNetLog($"autoconn result | peer={uid} | mode=relay-only | ok=false"); } catch { }
+            }
+            catch { }
+            return false;
         }
 
         private static int TryBindEphemeral(IPAddress bindIp, out TcpListener? listener)
@@ -1461,6 +1667,15 @@ namespace Zer0Talk.Services
                         var data = await transport.ReadAsync(ct);
                         if (data.Length > 0)
                         {
+                            if (TryParseSecurityAlert(data, out var secReason2, out var secMsg2))
+                            {
+                                var details = string.IsNullOrWhiteSpace(secMsg2)
+                                    ? "Remote reported a key mismatch. Conversation was stopped."
+                                    : secMsg2;
+                                NotifyKeyMismatch(boundUid ?? "unknown", details);
+                                break;
+                            }
+
                             if (data[0] == 0xA2 && data.Length >= 5)
                             {
                                 var len = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(data.AsSpan(1, 4));
@@ -1501,18 +1716,25 @@ namespace Zer0Talk.Services
                                     if (!IdentityService.Verify(peerSpki2, sig2, pub2)) continue;
                                     var claimed2 = IdentityService.ComputeUidFromPublicKey(pub2);
                                     var normClaimed2 = Trim(claimed2);
+
+                                    if (TryGetExpectedKeyMismatch(normClaimed2, pub2, out var expectedHex2, out var observedHex2))
+                                    {
+                                        var details = $"Expected key {expectedHex2}, observed {observedHex2}.";
+                                        EnforceKeyMismatchAndTerminate(normClaimed2, transport, details, "Key mismatch detected. Conversation cannot continue.", client: client);
+                                        break;
+                                    }
+
                                     // If we initiated, verify expected UID now (not during ECDH stage)
                                     try
                                     {
-                                        if (_transportEndpoints.TryGetValue(transport, out var epStr) && !string.IsNullOrEmpty(epStr))
+                                        if (isInitiator && _transportEndpoints.TryGetValue(transport, out var epStr) && !string.IsNullOrEmpty(epStr))
                                         {
-                                            if (_pendingOutboundExpectations.TryRemove(epStr, out var expectedUid) &&
-                                                !string.Equals(Trim(expectedUid), normClaimed2, StringComparison.OrdinalIgnoreCase))
+                                            if (_pendingOutboundExpectations.TryRemove(epStr, out var expectation) &&
+                                                !string.Equals(Trim(expectation.ExpectedUid), normClaimed2, StringComparison.OrdinalIgnoreCase))
                                             {
-                                                SafeNetLog($"handshake direct uid-mismatch | expected={expectedUid} | got={normClaimed2}");
-                                                Logger.Log($"Direct handshake UID mismatch after identity announce: expected={expectedUid} got={normClaimed2}");
-                                                try { AppServices.Events.RaiseFirewallPrompt($"Peer identity mismatch: expected {expectedUid}, got {normClaimed2}. Aborting connection."); } catch { }
-                                                try { client.Close(); } catch { }
+                                                SafeNetLog($"handshake direct uid-mismatch | expected={expectation.ExpectedUid} | got={normClaimed2}");
+                                                Logger.Log($"Direct handshake UID mismatch after identity announce: expected={expectation.ExpectedUid} got={normClaimed2}");
+                                                EnforceKeyMismatchAndTerminate(normClaimed2, transport, $"Expected UID {Trim(expectation.ExpectedUid)}, observed {normClaimed2}.", "Identity/key mismatch detected. Conversation cannot continue.", client: client);
                                                 break;
                                             }
                                         }
@@ -1639,8 +1861,9 @@ namespace Zer0Talk.Services
                                 if (!string.Equals(Trim(claimedUid), boundUid, StringComparison.OrdinalIgnoreCase))
                                 {
                                     Logger.Log($"Spoofed message rejected: claimed {claimedUid} != session {boundUid}");
-                                    try { AppServices.Crawler.BlockForMisbehavior(Trim(claimedUid)); } catch { }
-                                    continue;
+                                    try { AppServices.Peers.Block(Trim(claimedUid)); } catch { }
+                                    EnforceKeyMismatchAndTerminate(boundUid, transport, $"Message signer UID mismatch: claimed {Trim(claimedUid)} != session {boundUid}.", "Message key mismatch detected. Conversation cannot continue.", client: client);
+                                    break;
                                 }
                                 var payloadToSign = new byte[16 + 2 + txtb.Length];
                                 Buffer.BlockCopy(gid, 0, payloadToSign, 0, 16);
@@ -1670,7 +1893,7 @@ namespace Zer0Talk.Services
                                 var sig = new byte[64]; Buffer.BlockCopy(data, idx2, sig, 0, 64);
                                 if (string.IsNullOrEmpty(boundUid)) continue;
                                 var claimed = IdentityService.ComputeUidFromPublicKey(pub);
-                                if (!string.Equals(Trim(claimed), boundUid, StringComparison.OrdinalIgnoreCase)) { Logger.Log("Edit spoof rejected: UID mismatch"); continue; }
+                                if (!string.Equals(Trim(claimed), boundUid, StringComparison.OrdinalIgnoreCase)) { Logger.Log("Edit spoof rejected: UID mismatch"); EnforceKeyMismatchAndTerminate(boundUid, transport, $"Edit signer UID mismatch: claimed {Trim(claimed)} != session {boundUid}.", "Edit key mismatch detected. Conversation cannot continue.", client: client); break; }
                                 var payloadToSign = new byte[16 + 2 + txtb.Length];
                                 Buffer.BlockCopy(gid, 0, payloadToSign, 0, 16);
                                 BinaryPrimitives.WriteUInt16BigEndian(payloadToSign.AsSpan(16, 2), (ushort)txtb.Length);
@@ -1693,7 +1916,7 @@ namespace Zer0Talk.Services
                                 var sig = new byte[64]; Buffer.BlockCopy(data, idx2, sig, 0, 64);
                                 if (string.IsNullOrEmpty(boundUid)) continue;
                                 var claimed = IdentityService.ComputeUidFromPublicKey(pub);
-                                if (!string.Equals(Trim(claimed), boundUid, StringComparison.OrdinalIgnoreCase)) { Logger.Log("Delete spoof rejected: UID mismatch"); continue; }
+                                if (!string.Equals(Trim(claimed), boundUid, StringComparison.OrdinalIgnoreCase)) { Logger.Log("Delete spoof rejected: UID mismatch"); EnforceKeyMismatchAndTerminate(boundUid, transport, $"Delete signer UID mismatch: claimed {Trim(claimed)} != session {boundUid}.", "Delete key mismatch detected. Conversation cannot continue.", client: client); break; }
                                 if (!IdentityService.Verify(gid, sig, pub)) { Logger.Log("Delete bad signature"); continue; }
                                 var mid = new Guid(gid);
                                 try { AppServices.MessagesDeleteFromRemote(boundUid, mid); } catch { }
@@ -1845,6 +2068,133 @@ namespace Zer0Talk.Services
             return buf;
         }
 
+        private static byte[] BuildSecurityAlertFrame(byte reasonCode, string message)
+        {
+            var text = string.IsNullOrWhiteSpace(message) ? "Security key mismatch detected." : message.Trim();
+            var body = Encoding.UTF8.GetBytes(text);
+            var len = Math.Min(body.Length, 240);
+            var frame = new byte[1 + 1 + 1 + len];
+            frame[0] = SecurityAlertFrameType;
+            frame[1] = reasonCode;
+            frame[2] = (byte)len;
+            if (len > 0) Buffer.BlockCopy(body, 0, frame, 3, len);
+            return frame;
+        }
+
+        private static bool TryParseSecurityAlert(byte[] data, out byte reasonCode, out string message)
+        {
+            reasonCode = 0;
+            message = string.Empty;
+            try
+            {
+                if (data == null || data.Length < 3) return false;
+                if (data[0] != SecurityAlertFrameType) return false;
+                reasonCode = data[1];
+                var len = data[2];
+                if (data.Length < 3 + len) return false;
+                message = len > 0 ? Encoding.UTF8.GetString(data, 3, len) : string.Empty;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string NormalizeHexForCompare(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+            return value.Trim().ToLowerInvariant().Replace("-", string.Empty).Replace(":", string.Empty).Replace(" ", string.Empty);
+        }
+
+        private static bool TryGetExpectedKeyMismatch(string uid, byte[] observedPublicKey, out string expectedHex, out string observedHex)
+        {
+            expectedHex = string.Empty;
+            observedHex = string.Empty;
+            try
+            {
+                var normalizedUid = Trim(uid);
+                var contact = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(Trim(c.UID), normalizedUid, StringComparison.OrdinalIgnoreCase));
+                if (contact == null) return false;
+
+                expectedHex = NormalizeHexForCompare(contact.ExpectedPublicKeyHex);
+                if (string.IsNullOrWhiteSpace(expectedHex)) return false;
+
+                observedHex = Convert.ToHexStringLower(observedPublicKey ?? Array.Empty<byte>());
+                if (string.IsNullOrWhiteSpace(observedHex)) return true;
+                return !string.Equals(expectedHex, observedHex, StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void NotifyKeyMismatch(string peerUid, string details)
+        {
+            try
+            {
+                var normalizedUid = Trim(peerUid);
+                var accountName = ResolvePeerAccountName(normalizedUid);
+                var msg = $"Key mismatch with {accountName} ({normalizedUid}). Conversation blocked. {details}";
+                var securitySummary = AppServices.Localization.GetString("Notifications.KeyMismatchBlocked", "Key mismatch detected. Conversation blocked.");
+                Logger.Log(msg);
+                try { AppServices.Events.RaiseFirewallPrompt(msg); } catch { }
+                try { AppServices.Notifications.PostSecurityEvent(normalizedUid, accountName, securitySummary, details); } catch { }
+                try { SafeNetLog($"security key-mismatch | peer={normalizedUid} | {details}"); } catch { }
+            }
+            catch { }
+        }
+
+        private static string ResolvePeerAccountName(string peerUid)
+        {
+            try
+            {
+                var normalizedUid = Trim(peerUid);
+                if (string.IsNullOrWhiteSpace(normalizedUid)) return "Unknown";
+                var contact = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(Trim(c.UID), normalizedUid, StringComparison.OrdinalIgnoreCase));
+                if (contact != null && !string.IsNullOrWhiteSpace(contact.DisplayName))
+                {
+                    return contact.DisplayName.Trim();
+                }
+                return normalizedUid;
+            }
+            catch
+            {
+                return string.IsNullOrWhiteSpace(peerUid) ? "Unknown" : Trim(peerUid);
+            }
+        }
+
+        private void EnforceKeyMismatchAndTerminate(string peerUid, Utilities.AeadTransport transport, string localDetails, string? remoteDetails = null, TcpClient? client = null, bool notifyRemote = true)
+        {
+            var normalizedUid = Trim(peerUid);
+            NotifyKeyMismatch(normalizedUid, localDetails);
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    if (notifyRemote)
+                    {
+                        var remoteMsg = string.IsNullOrWhiteSpace(remoteDetails)
+                            ? "Key mismatch detected. Conversation cannot continue."
+                            : remoteDetails!;
+                        var alert = BuildSecurityAlertFrame(SecurityReasonKeyMismatch, remoteMsg);
+                        try { await transport.WriteAsync(alert, CancellationToken.None); } catch { }
+                    }
+
+                    try { _sessions.TryRemove(normalizedUid, out _); } catch { }
+                    try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
+                    try { _transportEndpoints.TryRemove(transport, out _); } catch { }
+                    try { transport.Dispose(); } catch { }
+                    try { client?.Close(); } catch { }
+                    try { AppServices.Contacts.SetLastKnownEncrypted(normalizedUid, false, AppServices.Passphrase); } catch { }
+                    try { AppServices.Peers.SetPeerStatus(normalizedUid, "Offline"); } catch { }
+                }
+                catch { }
+            });
+        }
+
         private bool ShouldAcceptAvatar(string uid, int len, byte[] data)
         {
             try
@@ -1899,16 +2249,294 @@ namespace Zer0Talk.Services
             await ns.FlushAsync(ct);
         }
 
+        private static string BuildRelaySessionKey(string uid1, string uid2)
+        {
+            if (string.Compare(uid1, uid2, StringComparison.OrdinalIgnoreCase) <= 0)
+            {
+                return $"{uid1}:{uid2}";
+            }
+            return $"{uid2}:{uid1}";
+        }
+
+        private void RegisterPendingOutboundExpectation(string? endpoint, string expectedUid)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(endpoint)) return;
+                if (string.IsNullOrWhiteSpace(expectedUid)) return;
+
+                var ep = endpoint.Trim();
+                var uid = Trim(expectedUid);
+                if (string.IsNullOrWhiteSpace(ep) || string.IsNullOrWhiteSpace(uid)) return;
+
+                var expectation = new PendingOutboundExpectation
+                {
+                    ExpectedUid = uid,
+                    CreatedUtc = DateTime.UtcNow
+                };
+
+                _pendingOutboundExpectations[ep] = expectation;
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+                        if (_pendingOutboundExpectations.TryGetValue(ep, out var current) && object.ReferenceEquals(current, expectation))
+                        {
+                            _pendingOutboundExpectations.TryRemove(ep, out _);
+                        }
+                    }
+                    catch { }
+                });
+            }
+            catch { }
+        }
+
+        private static bool TryParseRelayEndpoint(string input, out string host, out int port)
+        {
+            host = string.Empty;
+            port = 443;
+            if (string.IsNullOrWhiteSpace(input)) return false;
+
+            var text = input.Trim();
+            if (text.StartsWith("[", StringComparison.Ordinal))
+            {
+                var end = text.IndexOf(']');
+                if (end <= 1) return false;
+                host = text.Substring(1, end - 1);
+                if (end + 1 < text.Length)
+                {
+                    if (text[end + 1] != ':') return false;
+                    if (!int.TryParse(text.Substring(end + 2), out port)) return false;
+                }
+            }
+            else
+            {
+                var idx = text.LastIndexOf(':');
+                if (idx > 0 && idx < text.Length - 1)
+                {
+                    host = text.Substring(0, idx);
+                    if (!int.TryParse(text.Substring(idx + 1), out port)) return false;
+                }
+                else
+                {
+                    host = text;
+                }
+            }
+
+            if (port <= 0 || port > 65535) return false;
+
+            if (System.Net.IPAddress.TryParse(host, out _)) return true;
+            var hostType = Uri.CheckHostName(host);
+            return hostType == UriHostNameType.Dns;
+        }
+
+        private bool TryResolveRelayEndpoint(string input, out string host, out int port)
+        {
+            if (TryParseRelayEndpoint(input, out host, out port)) return true;
+
+            host = string.Empty;
+            port = 0;
+            if (string.IsNullOrWhiteSpace(input)) return false;
+
+            var token = input.Trim();
+            var now = DateTime.UtcNow;
+            var relayTtl = GetRelayDiscoveryTtl();
+            var matches = _discoveredRelays.Values
+                .Where(r => string.Equals(r.Token, token, StringComparison.Ordinal) && (now - r.LastSeenUtc) <= relayTtl)
+                .OrderBy(r => RelayDistanceScore(r.Host))
+                .ThenByDescending(r => r.LastSeenUtc)
+                .ToList();
+
+            if (matches.Count == 0)
+            {
+                return false;
+            }
+
+            host = matches[0].Host;
+            port = matches[0].Port;
+            Logger.Log($"Resolved relay token '{token}' to {host}:{port}");
+            return true;
+        }
+
+        private int RelayDistanceScore(string host)
+        {
+            try
+            {
+                if (!IPAddress.TryParse(host, out var relayIp)) return 50;
+                if (PreferredBindAddress != null && PreferredBindAddress.AddressFamily == AddressFamily.InterNetwork && relayIp.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    var localBytes = PreferredBindAddress.GetAddressBytes();
+                    var relayBytes = relayIp.GetAddressBytes();
+                    if (localBytes[0] == relayBytes[0] && localBytes[1] == relayBytes[1] && localBytes[2] == relayBytes[2]) return 0;
+                    if (IsPrivateV4(relayBytes)) return 1;
+                    return 2;
+                }
+            }
+            catch { }
+
+            return 10;
+        }
+
+        private static string BuildRelayHealthKey(string host, int port)
+            => $"{host}:{port}";
+
+        private double GetRelayHealthScore(string host, int port)
+        {
+            try
+            {
+                var key = BuildRelayHealthKey(host, port);
+                if (!_relayHealth.TryGetValue(key, out var h)) return 0;
+
+                lock (h)
+                {
+                    var score = 0.0;
+                    score += h.SuccessCount * 2.0;
+                    score -= h.FailureCount * 1.25;
+                    if (h.LastSuccessUtc > DateTime.UtcNow.AddMinutes(-10)) score += 3.0;
+                    if (h.LastFailureUtc > DateTime.UtcNow.AddMinutes(-2)) score -= 2.0;
+
+                    // Lower latency should increase score.
+                    var latencyPenalty = Math.Clamp((h.EwmaLatencyMs - 500.0) / 300.0, -2.0, 4.0);
+                    score -= latencyPenalty;
+                    return score;
+                }
+            }
+            catch { return 0; }
+        }
+
+        private void RecordRelayAttemptResult(string host, int port, bool success, double elapsedMs)
+        {
+            try
+            {
+                var key = BuildRelayHealthKey(host, port);
+                var entry = _relayHealth.GetOrAdd(key, _ => new RelayHealthEntry());
+                lock (entry)
+                {
+                    if (success)
+                    {
+                        entry.SuccessCount++;
+                        entry.LastSuccessUtc = DateTime.UtcNow;
+                        entry.EwmaLatencyMs = (entry.EwmaLatencyMs * 0.75) + (Math.Max(1.0, elapsedMs) * 0.25);
+                    }
+                    else
+                    {
+                        entry.FailureCount++;
+                        entry.LastFailureUtc = DateTime.UtcNow;
+                        // Penalize failures by nudging latency up a bit.
+                        entry.EwmaLatencyMs = Math.Min(10000, entry.EwmaLatencyMs + 250);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private List<(string Host, int Port, string Display)> BuildRelayCandidates(AppSettings s)
+        {
+            var candidates = new List<(string Host, int Port, string Display)>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddCandidate(string? endpoint)
+            {
+                if (string.IsNullOrWhiteSpace(endpoint)) return;
+                if (!TryResolveRelayEndpoint(endpoint, out var host, out var port)) return;
+                var key = BuildRelayHealthKey(host, port);
+                if (!seen.Add(key)) return;
+                candidates.Add((host, port, endpoint.Trim()));
+            }
+
+            AddCandidate(s.RelayServer);
+            foreach (var relay in s.SavedRelayServers ?? new List<string>())
+            {
+                AddCandidate(relay);
+            }
+
+            if (candidates.Count > 1)
+            {
+                candidates = candidates
+                    .OrderByDescending(c => GetRelayHealthScore(c.Host, c.Port))
+                    .ThenBy(c => RelayDistanceScore(c.Host))
+                    .ToList();
+            }
+
+            return candidates;
+        }
+
+        private static bool IsPrivateV4(byte[] octets)
+        {
+            if (octets.Length != 4) return false;
+            if (octets[0] == 10) return true;
+            if (octets[0] == 172 && octets[1] >= 16 && octets[1] <= 31) return true;
+            if (octets[0] == 192 && octets[1] == 168) return true;
+            return false;
+        }
+
+        private bool ShouldAttemptRelayFallback()
+        {
+            try
+            {
+                var last = _lastOutsideLanDirectSuccessUtc;
+                if (last == DateTime.MinValue) return true;
+                return (DateTime.UtcNow - last) > OutsideLanDirectEvidenceTtl;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        private void MarkOutsideLanDirectSuccess(string? hostOrIp)
+        {
+            try
+            {
+                if (IsOutsideLanHost(hostOrIp))
+                {
+                    _lastOutsideLanDirectSuccessUtc = DateTime.UtcNow;
+                }
+            }
+            catch { }
+        }
+
+        private static bool IsOutsideLanHost(string? hostOrIp)
+        {
+            if (string.IsNullOrWhiteSpace(hostOrIp)) return false;
+            var host = hostOrIp.Trim();
+
+            if (IPAddress.TryParse(host, out var ip))
+            {
+                if (IPAddress.IsLoopback(ip)) return false;
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    var octets = ip.GetAddressBytes();
+                    if (IsPrivateV4(octets)) return false;
+                    if (octets[0] == 169 && octets[1] == 254) return false; // link-local
+                    return true;
+                }
+
+                // IPv6: treat unique-local/link-local/loopback as local, others as outside-LAN.
+                if (ip.IsIPv6LinkLocal || ip.IsIPv6SiteLocal || ip.IsIPv6Multicast) return false;
+                var bytes = ip.GetAddressBytes();
+                if (bytes.Length == 16 && (bytes[0] & 0xFE) == 0xFC) return false; // fc00::/7
+                return true;
+            }
+
+            // Hostname/domain with no explicit local marker is treated as outside-LAN.
+            if (host.EndsWith(".local", StringComparison.OrdinalIgnoreCase)) return false;
+            return true;
+        }
+
         // Periodic presence liveness sweep: mark peers Offline when not seen recently (no beacon/presence)
         private void SweepPresenceTimeouts()
         {
             var now = DateTime.UtcNow;
+            var presenceTimeout = GetPresenceTimeout();
             try
             {
                 foreach (var kv in _presenceLastSeenUtc.ToArray())
                 {
                     var uid = kv.Key; var last = kv.Value;
-                    if (now - last > PresenceTimeout)
+                    if (now - last > presenceTimeout)
                     {
                         try { AppServices.Peers.SetPeerStatus(uid, "Offline"); } catch { }
                     }
@@ -2153,16 +2781,12 @@ namespace Zer0Talk.Services
                 {
                     try
                     {
-                        var peer = AppServices.Peers.Peers.FirstOrDefault(p => string.Equals(Trim(p.UID), key, StringComparison.OrdinalIgnoreCase));
-                        if (peer != null && !string.IsNullOrWhiteSpace(peer.Address) && peer.Port > 0)
+                        connectStarted = true;
+                        connectTask = Task.Run(async () =>
                         {
-                            connectStarted = true;
-                            connectTask = Task.Run(async () =>
-                            {
-                                try { await ConnectWithRelayFallbackAsync(key, peer.Address!, peer.Port, ct); }
-                                catch { }
-                            }, ct);
-                        }
+                            try { await ConnectPeerBestEffortAsync(key, ct); }
+                            catch { }
+                        }, ct);
                     }
                     catch { }
                 }

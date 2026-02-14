@@ -164,6 +164,7 @@ A Dedicated Peer Node improves the P2P Network stability by being an always-on p
 - No connection: Ensure at least one node or peer is online, and check firewall/router settings.
 - Messages not delivering: Check peer availability and logs in the app's diagnostics panel.
 - Audio not playing: Confirm sound files exist in `Assets/Sounds` and system volume settings. Additionally, sounds might lag on first play because they haven't been cached by the App yet, so you may hear delays in the audio at first.
+- Install or launch blocked by Windows: open the dedicated guide at `docs/install-run-troubleshooting.md` and follow the SmartScreen steps.
 
 ---
 

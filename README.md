@@ -65,6 +65,9 @@ Zer0Talk is a privacy-focused, decentralized messaging application that puts you
 4. Follow the installation wizard
 5. Default installation location: `C:\Apps\ZTalk`
 
+If Windows shows "Windows protected your PC" (SmartScreen), see:
+- `docs/install-run-troubleshooting.md`
+
 ### Manual Installation
 1. Download the standalone zip package
 2. Extract to your preferred location
@@ -75,6 +78,7 @@ Zer0Talk is a privacy-focused, decentralized messaging application that puts you
 For step-by-step instructions (adding contacts, deleting contacts, setting up a dedicated node, backups, and troubleshooting), see the full User Guide:
 
 - `docs/user-guide.md`
+- `docs/install-run-troubleshooting.md` (install/startup issues on Windows)
 
 ## 📄🖥️ System Requirements
 

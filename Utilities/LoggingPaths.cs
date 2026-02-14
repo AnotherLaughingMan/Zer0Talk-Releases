@@ -1,5 +1,5 @@
 // Centralized logging path management and enable/disable policy.
-// Debug builds: logging enabled by default and all logs go to <exe>/logs.
+// Debug builds: logging enabled by default and all logs go to %APPDATA%/Zer0Talk/Logs.
 // Release builds: logging disabled unless explicitly enabled via env var ZER0TALK_ENABLE_LOGS=1
 // or presence of an enable-logs.flag file next to the executable.
 using System;
@@ -9,6 +9,28 @@ namespace Zer0Talk.Utilities
 {
     internal static class LoggingPaths
     {
+        private static readonly string[] LegacyTxtLogNames =
+        {
+            "error.txt",
+            "startup.txt",
+            "app.txt",
+            "debug.txt",
+            "network.txt",
+            "network_heartbeat.txt",
+            "performance.txt",
+            "ui.txt",
+            "interaction.txt",
+            "maintenance.txt",
+            "audio.txt",
+            "crypto.txt",
+            "enc_chat.txt",
+            "theme.txt",
+            "theme_engine.txt",
+            "monitoring.txt",
+            "retention.txt",
+            "account_creation.txt"
+        };
+
 #if DEBUG
         private const bool DefaultEnabled = true;
 #else
@@ -41,6 +63,9 @@ namespace Zer0Talk.Utilities
             if (_init) return;
             _init = true;
             var baseDir = AppContext.BaseDirectory;
+            string currentDir;
+            try { currentDir = Environment.CurrentDirectory; } catch { currentDir = baseDir; }
+
             _enabled = DefaultEnabled;
             try
             {
@@ -51,11 +76,91 @@ namespace Zer0Talk.Utilities
                 if (File.Exists(flag)) _enabled = true;
             }
             catch { }
-            _logsDir = Path.Combine(baseDir, "logs");
+
+            var appDataRoot = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            _logsDir = Path.Combine(appDataRoot, "Zer0Talk", "Logs");
+            try { Directory.CreateDirectory(_logsDir); } catch { }
+
+            try
+            {
+                MigrateLegacyLogs(baseDir, currentDir, _logsDir);
+            }
+            catch { }
+
             if (_enabled)
             {
                 try { Directory.CreateDirectory(_logsDir); } catch { }
             }
+        }
+
+        private static void MigrateLegacyLogs(string baseDir, string currentDir, string targetDir)
+        {
+            if (string.IsNullOrWhiteSpace(targetDir) || !Directory.Exists(targetDir)) return;
+
+            MoveLogFilesFromDirectory(baseDir, targetDir);
+
+            if (!string.Equals(currentDir, baseDir, StringComparison.OrdinalIgnoreCase))
+            {
+                MoveLogFilesFromDirectory(currentDir, targetDir);
+            }
+
+            var baseLegacyLogsDir = Path.Combine(baseDir, "logs");
+            MoveLogFilesFromDirectory(baseLegacyLogsDir, targetDir);
+
+            if (!string.Equals(currentDir, baseDir, StringComparison.OrdinalIgnoreCase))
+            {
+                var currentLegacyLogsDir = Path.Combine(currentDir, "logs");
+                MoveLogFilesFromDirectory(currentLegacyLogsDir, targetDir);
+            }
+        }
+
+        private static void MoveLogFilesFromDirectory(string sourceDir, string targetDir)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir)) return;
+                if (string.Equals(Path.GetFullPath(sourceDir), Path.GetFullPath(targetDir), StringComparison.OrdinalIgnoreCase)) return;
+
+                foreach (var sourcePath in Directory.GetFiles(sourceDir, "*.log", SearchOption.TopDirectoryOnly))
+                {
+                    try
+                    {
+                        var fileName = Path.GetFileName(sourcePath);
+                        var targetPath = Path.Combine(targetDir, fileName);
+
+                        if (File.Exists(targetPath))
+                        {
+                            var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                            var name = Path.GetFileNameWithoutExtension(fileName);
+                            targetPath = Path.Combine(targetDir, $"{name}-{stamp}.log");
+                        }
+
+                        File.Move(sourcePath, targetPath);
+                    }
+                    catch { }
+                }
+
+                foreach (var legacyName in LegacyTxtLogNames)
+                {
+                    try
+                    {
+                        var sourcePath = Path.Combine(sourceDir, legacyName);
+                        if (!File.Exists(sourcePath)) continue;
+
+                        var targetPath = Path.Combine(targetDir, legacyName);
+                        if (File.Exists(targetPath))
+                        {
+                            var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                            var name = Path.GetFileNameWithoutExtension(legacyName);
+                            targetPath = Path.Combine(targetDir, $"{name}-{stamp}.txt");
+                        }
+
+                        File.Move(sourcePath, targetPath);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
         }
         
         // Called by SettingsService after settings are loaded to sync logging state with user preference

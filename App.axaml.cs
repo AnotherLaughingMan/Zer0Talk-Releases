@@ -378,6 +378,27 @@ public partial class App : Application
             var mw = new MainWindow();
             desktop.MainWindow = mw;
             mw.Show();
+
+            try
+            {
+                var settings = AppServices.Settings.Settings;
+                if (settings.StartMinimized)
+                {
+                    if (settings.ShowInSystemTray)
+                    {
+                        mw.Hide();
+                        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
+                        {
+                            lifetime.ShutdownMode = Avalonia.Controls.ShutdownMode.OnExplicitShutdown;
+                        }
+                    }
+                    else
+                    {
+                        mw.WindowState = Avalonia.Controls.WindowState.Minimized;
+                    }
+                }
+            }
+            catch { }
             
             // Set up window cleanup
             mw.Closed += (_, __) =>

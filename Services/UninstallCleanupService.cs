@@ -29,7 +29,12 @@ namespace Zer0Talk.Services
         /// <returns>True if all operations succeeded</returns>
         public static bool PerformUninstallCleanup(List<string> results)
         {
-            results?.Clear();
+            if (results == null)
+            {
+                throw new ArgumentNullException(nameof(results));
+            }
+
+            results.Clear();
             bool success = true;
             
             try

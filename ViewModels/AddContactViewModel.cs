@@ -20,12 +20,8 @@ namespace Zer0Talk.ViewModels
         private string _expectedPublicKeyHex = string.Empty;
         // [TEST] If true, add contact locally without peer verification/lookup.
         private bool _isSimulated;
-    // Exposed for XAML to hide simulated contact checkbox in Release builds.
-#if DEBUG
-    public bool ShowSimulatedOption => true;
-#else
-    public bool ShowSimulatedOption => false;
-#endif
+    // Exposed for XAML to hide simulated contact checkbox unless explicitly enabled by launch flag.
+    public bool ShowSimulatedOption => Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi;
 
         public string UID { get => _uid; set { _uid = value; OnPropertyChanged(); (SendCommand as RelayCommand)?.RaiseCanExecuteChanged(); } }
         public string Host { get => _host; set { _host = value; OnPropertyChanged(); } }
