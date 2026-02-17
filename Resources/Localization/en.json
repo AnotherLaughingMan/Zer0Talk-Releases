@@ -289,7 +289,11 @@
     "SavedRelaysHelp": "Add host:port endpoints or 16-character relay tokens for quick reuse",
     "KnownDedicatedPeerNodesHelp": "Add a host:port peer node to prefer for discovery",
     "AddBadActorIpHelp": "Add a single IP address to block",
-    "AddIpRangeHelp": "Add a CIDR IP range to block"
+    "AddIpRangeHelp": "Add a CIDR IP range to block",
+    "StreamerMode": "Streamer Mode",
+    "StreamerModeHelp": "Hides sensitive information like UIDs, public keys, and IP addresses. Toggle with hotkey while streaming.",
+    "StreamerModeHotkey": "Streamer Mode",
+    "StreamerModeHotkeyHelp": "Toggle streamer mode to hide sensitive information"
   },
   "Notifications": {
     "NewMessage": "New Message",
@@ -403,7 +407,10 @@
     "Presence": "Presence",
     "CopyPublicKey": "Copy Public Key",
     "CloseEsc": "Close (Esc)",
-    "Invisible": "Invisible"
+    "Invisible": "Invisible",
+    "StatusBar.ConnectedPeers": "Connected Peers",
+    "StatusBar.StreamerMode": "Streamer Mode",
+    "StatusBar.StreamerModeActive": "STREAMER MODE"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk Theme Editor",

@@ -441,7 +441,8 @@ namespace Zer0Talk.Services
                 try { client.NoDelay = true; } catch { }
                 try { client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true); } catch { }
                 var ns = client.GetStream();
-            var hello = System.Text.Encoding.UTF8.GetBytes($"RELAY {sessionKey}\n");
+                var relayRole = GetRelayRole(sourceUid, targetUid);
+                var hello = System.Text.Encoding.UTF8.GetBytes($"RELAY {sessionKey} {relayRole}\n");
                 await ns.WriteAsync(hello.AsMemory(0, hello.Length), ct);
                 await ns.FlushAsync(ct);
                 Status = "Using relay";
@@ -453,6 +454,24 @@ namespace Zer0Talk.Services
                 Logger.Log($"Relay connect failed: {ex.Message}");
                 return null;
             }
+        }
+
+        private static string GetRelayRole(string sourceUid, string targetUid)
+        {
+            var source = NormalizeUid(sourceUid);
+            var target = NormalizeUid(targetUid);
+            if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(target)) return "I";
+            return string.Compare(source, target, StringComparison.OrdinalIgnoreCase) < 0 ? "I" : "R";
+        }
+
+        private static string NormalizeUid(string uid)
+        {
+            var value = (uid ?? string.Empty).Trim();
+            if (value.StartsWith("usr-", StringComparison.Ordinal) && value.Length > 4)
+            {
+                return value.Substring(4);
+            }
+            return value;
         }
 
         private static IPAddress? GetLocalIPv4()

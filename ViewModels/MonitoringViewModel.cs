@@ -416,6 +416,55 @@ public class MonitoringViewModel : INotifyPropertyChanged
     private string _diagnosticsSummary = "Sessions: 0  Handshakes: 0/0  Beacons: 0/0";
     public string DiagnosticsSummary { get => _diagnosticsSummary; set { _diagnosticsSummary = value; OnPropertyChanged(); } }
 
+    // Phase 4: Connection telemetry summary
+    private string _connectionStatsSummary = "Direct: 0/0  NAT: 0/0  Relay: 0/0  Mismatch: 0";
+    public string ConnectionStatsSummary { get => _connectionStatsSummary; set { _connectionStatsSummary = value; OnPropertyChanged(); } }
+
+    // Phase 4: Relay health summary
+    private string _relayHealthSummary = "No relays configured";
+    public string RelayHealthSummary { get => _relayHealthSummary; set { _relayHealthSummary = value; OnPropertyChanged(); } }
+
+    public void RefreshConnectionStats()
+    {
+        try
+        {
+            var snap = AppServices.Network.GetDiagnosticsSnapshot();
+            var directTotal = snap.DirectSuccess + snap.DirectFail;
+            var natTotal = snap.NatSuccess + snap.NatFail;
+            var relayTotal = snap.RelaySuccess + snap.RelayFail;
+
+            var directPct = directTotal > 0 ? $" ({snap.DirectSuccess * 100 / directTotal}%)" : "";
+            var natPct = natTotal > 0 ? $" ({snap.NatSuccess * 100 / natTotal}%)" : "";
+            var relayPct = relayTotal > 0 ? $" ({snap.RelaySuccess * 100 / relayTotal}%)" : "";
+
+            ConnectionStatsSummary = $"Direct: {snap.DirectSuccess}/{directTotal}{directPct}  NAT: {snap.NatSuccess}/{natTotal}{natPct}  Relay: {snap.RelaySuccess}/{relayTotal}{relayPct}  Mismatch: {snap.UidMismatch}";
+        }
+        catch { }
+
+        try
+        {
+            var relays = AppServices.Network.GetRelayHealthSnapshots();
+            if (relays.Count == 0)
+            {
+                RelayHealthSummary = "No relays configured";
+            }
+            else
+            {
+                var parts = new System.Collections.Generic.List<string>(relays.Count);
+                foreach (var r in relays)
+                {
+                    var total = r.SuccessCount + r.FailureCount;
+                    var status = total == 0 ? "untested"
+                        : r.LastSuccessUtc > r.LastFailureUtc ? $"ok ({r.LatencyMs:F0}ms)"
+                        : "failing";
+                    parts.Add($"{r.Endpoint}: {status} [{r.SuccessCount}/{total}]");
+                }
+                RelayHealthSummary = string.Join("  |  ", parts);
+            }
+        }
+        catch { RelayHealthSummary = "n/a"; }
+    }
+
     // Log (rolling buffer): keep a compact history to bound memory while avoiding UI churn
     public const int MaxLogEntries = 800; // between 500-1000 is acceptable; 800 is a balanced default
     private readonly System.Collections.Generic.LinkedList<string> _log = new();
@@ -574,6 +623,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
         {
             DiagnosticsSummary = $"Sessions: {s.SessionsActive}  Handshakes: {s.HandshakeOk}/{s.HandshakeFail}  Beacons: {s.UdpBeaconsSent}/{s.UdpBeaconsRecv}";
             OnPropertyChanged(nameof(PresencePipelineSummary));
+            RefreshConnectionStats();
         }
         catch { }
     }

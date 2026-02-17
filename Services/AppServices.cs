@@ -20,6 +20,7 @@ public static class AppServices
     public static IdentityService Identity { get; } = new();
     public static NatTraversalService Nat { get; } = new();
     public static NetworkService Network { get; } = new(Identity, Nat);
+    public static WanDirectoryService WanDirectory { get; } = new(Settings, Identity, Network, Nat);
     public static DialogService Dialogs { get; } = new();
     public static AccountManager Accounts { get; } = new();
     public static ContactManager Contacts { get; } = new();

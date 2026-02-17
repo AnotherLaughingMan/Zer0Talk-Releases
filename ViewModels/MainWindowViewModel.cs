@@ -71,6 +71,36 @@ namespace Zer0Talk.ViewModels
     private long _uiTick;
     public long UiTick { get => _uiTick; private set { _uiTick = value; OnPropertyChanged(); } }
 
+    // --- Status Bar ---
+    private int _connectedPeerCount;
+    public int ConnectedPeerCount
+    {
+        get => _connectedPeerCount;
+        set { if (_connectedPeerCount != value) { _connectedPeerCount = value; OnPropertyChanged(); OnPropertyChanged(nameof(ConnectedPeerCountDisplay)); } }
+    }
+    public string ConnectedPeerCountDisplay => _connectedPeerCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private bool _isStreamerMode;
+    public bool IsStreamerMode
+    {
+        get => _isStreamerMode;
+        set
+        {
+            if (_isStreamerMode != value)
+            {
+                _isStreamerMode = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(StreamerModeBadgeVisible));
+                OnPropertyChanged(nameof(SelectedContactIdentity));
+            }
+        }
+    }
+    public bool StreamerModeBadgeVisible => _isStreamerMode;
+
+    public string LocalizedConnectedPeers => Services.AppServices.Localization.GetString("StatusBar.ConnectedPeers", "Connected Peers");
+    public string LocalizedStreamerMode => Services.AppServices.Localization.GetString("StatusBar.StreamerMode", "Streamer Mode");
+    public string LocalizedStreamerModeActive => Services.AppServices.Localization.GetString("StatusBar.StreamerModeActive", "STREAMER");
+
         // Debounce for Contacts.Changed to avoid UI churn on presence flaps
         private CancellationTokenSource? _contactsRefreshCts;
         private DateTime _lastContactsRefreshScheduledAtUtc = DateTime.MinValue;
@@ -250,6 +280,7 @@ namespace Zer0Talk.ViewModels
         }
 
         private Contact? _selectedContact;
+        private System.ComponentModel.PropertyChangedEventHandler? _selectedContactPresenceHandler;
         public Contact? SelectedContact
         {
             get => _selectedContact;
@@ -257,6 +288,11 @@ namespace Zer0Talk.ViewModels
             {
                 if (_selectedContact != value)
                 {
+                    // Unsubscribe from previous contact's presence changes
+                    if (_selectedContact != null && _selectedContactPresenceHandler != null)
+                    {
+                        _selectedContact.PropertyChanged -= _selectedContactPresenceHandler;
+                    }
                     _selectedContact = value;
                     OnPropertyChanged();
                     // Reset per-contact inline banners when switching selection
@@ -273,9 +309,21 @@ namespace Zer0Talk.ViewModels
                         EditableDisplayName = _selectedContact.DisplayName ?? string.Empty;
                         (SaveSimulatedProfileCommand as RelayCommand)?.RaiseCanExecuteChanged();
                         (BurnConversationCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                        // Show proactive presence banner
+                        UpdatePresenceBanner(_selectedContact);
+                        // Subscribe to presence changes on this contact
+                        _selectedContactPresenceHandler = (s, e) =>
+                        {
+                            if (e.PropertyName == nameof(Contact.Presence))
+                            {
+                                Avalonia.Threading.Dispatcher.UIThread.Post(() => UpdatePresenceBanner(_selectedContact));
+                            }
+                        };
+                        _selectedContact.PropertyChanged += _selectedContactPresenceHandler;
                     }
                     else
                     {
+                        _selectedContactPresenceHandler = null;
                         (BurnConversationCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     }
                 }
@@ -435,6 +483,19 @@ namespace Zer0Talk.ViewModels
                 _teardownActions.Add(() => AppServices.Localization.LanguageChanged -= languageChangedHandler);
             }
             catch { }
+
+            // Status bar: subscribe to active session count changes
+            try
+            {
+                ConnectedPeerCount = AppServices.Network.ActiveSessionCount;
+                Action<int> sessionCountHandler = count => { Avalonia.Threading.Dispatcher.UIThread.Post(() => ConnectedPeerCount = count); };
+                AppServices.Network.SessionCountChanged += sessionCountHandler;
+                _teardownActions.Add(() => AppServices.Network.SessionCountChanged -= sessionCountHandler);
+            }
+            catch { }
+
+            // Load streamer mode from settings
+            try { IsStreamerMode = AppServices.Settings.Settings.StreamerMode; } catch { }
 
             SendCommand = new RelayCommand(_ => SendMessage(), _ => CanSend());
             AddContactCommand = new RelayCommand(_ => AddContact(), _ => CanAddContact());
@@ -1758,6 +1819,24 @@ namespace Zer0Talk.ViewModels
         private void QueueOutgoingMessage(string recipientUid, Message message, string banner)
         {
             try { AppServices.Outbox.Enqueue(recipientUid, message, AppServices.Passphrase); } catch { }
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var normalized = TrimUidPrefix(recipientUid);
+                    if (string.IsNullOrWhiteSpace(normalized)) return;
+                    for (var i = 0; i < 4; i++)
+                    {
+                        if (AppServices.Network.HasEncryptedSession(normalized))
+                        {
+                            await AppServices.Outbox.DrainAsync(normalized, AppServices.Passphrase, CancellationToken.None);
+                            return;
+                        }
+                        await Task.Delay(300).ConfigureAwait(false);
+                    }
+                }
+                catch { }
+            });
             Avalonia.Threading.Dispatcher.UIThread.Post(() => ShowOfflineBanner(banner));
             // Don't create notifications for outgoing messages - users don't need to be notified about their own messages
             // var display = ResolveContactDisplayName(recipientUid);
@@ -2002,6 +2081,31 @@ namespace Zer0Talk.ViewModels
             }
             catch { }
         }
+        /// <summary>
+        /// Shows a proactive banner when the selected contact is not fully online.
+        /// Invisible contacts show the same "offline" message (privacy: don't reveal invisible status).
+        /// </summary>
+        private void UpdatePresenceBanner(Contact? contact)
+        {
+            if (contact == null || contact.IsSimulated) { HideOfflineBanner(); return; }
+            switch (contact.Presence)
+            {
+                case PresenceStatus.Offline:
+                case PresenceStatus.Invisible: // Don't reveal invisible — treat as offline
+                    ShowOfflineBanner("Contact is offline. Messages will be sent when they come online.");
+                    break;
+                case PresenceStatus.Idle:
+                    ShowOfflineBanner("Contact is away. Messages will be delivered when they return.");
+                    break;
+                case PresenceStatus.DoNotDisturb:
+                    ShowOfflineBanner("Contact is in Do Not Disturb. Messages will be delivered.");
+                    break;
+                case PresenceStatus.Online:
+                default:
+                    HideOfflineBanner();
+                    break;
+            }
+        }
         private void HideOfflineBanner()
         {
             try { OfflineBannerVisible = false; } catch { }
@@ -2224,6 +2328,9 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedDoNotDisturb));
             OnPropertyChanged(nameof(LocalizedInvisible));
             OnPropertyChanged(nameof(LocalizedOffline));
+            OnPropertyChanged(nameof(LocalizedConnectedPeers));
+            OnPropertyChanged(nameof(LocalizedStreamerMode));
+            OnPropertyChanged(nameof(LocalizedStreamerModeActive));
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

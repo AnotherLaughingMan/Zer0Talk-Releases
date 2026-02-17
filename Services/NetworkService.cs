@@ -51,7 +51,7 @@ namespace Zer0Talk.Services
     private readonly ConcurrentDictionary<string, DateTime> _presenceLastSentUtc = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DiscoveredRelay> _discoveredRelays = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, RelayHealthEntry> _relayHealth = new(StringComparer.OrdinalIgnoreCase);
-    private DateTime _lastOutsideLanDirectSuccessUtc = DateTime.MinValue;
+    private readonly ConcurrentDictionary<string, DateTime> _outsideLanDirectSuccessByHost = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan OutsideLanDirectEvidenceTtl = TimeSpan.FromMinutes(20);
     private System.Threading.Timer? _presenceTimeoutTimer;
     private static readonly TimeSpan PresenceSweepInterval = TimeSpan.FromSeconds(5);
@@ -84,7 +84,7 @@ namespace Zer0Talk.Services
 
     // [AUTO-CONNECT] Throttled sweep to proactively establish sessions without user action
     private readonly ConcurrentDictionary<string, DateTime> _autoConnLastAttempt = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly TimeSpan AutoConnectBackoff = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan AutoConnectBackoff = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan AutoConnectSweepMinInterval = TimeSpan.FromSeconds(3);
     private volatile int _autoConnSweepRunning;
     private DateTime _lastAutoConnSweepUtc = DateTime.MinValue;
@@ -103,10 +103,10 @@ namespace Zer0Talk.Services
     private readonly ConcurrentDictionary<string, DateTime> _avatarLastAcceptedUtc = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _avatarLastSignature = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentQueue<DateTime> _avatarGlobalAccepts = new();
-    private static readonly TimeSpan AvatarMinIntervalPerPeer = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan AvatarMinIntervalPerPeer = TimeSpan.FromSeconds(10);
     private static readonly int AvatarMaxBytes = 256 * 1024; // 256 KB
     private static readonly TimeSpan AvatarGlobalWindow = TimeSpan.FromSeconds(10);
-    private static readonly int AvatarGlobalMaxPerWindow = 5; // max avatars accepted across all peers per window
+    private static readonly int AvatarGlobalMaxPerWindow = 15; // max avatars accepted across all peers per window
     // Inbound payload caps (defensive limits)
     private const int MaxChatBytes = 16 * 1024; // 16 KB per message
     private const int MaxDisplayNameBytes = 128; // reasonable UI cap for display names
@@ -237,7 +237,9 @@ namespace Zer0Talk.Services
         }
 
     // Delay outbound/handshake attempts slightly after readiness (firewall UX) to reduce early failures.
-    private static readonly TimeSpan OutboundConnectDelay = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan OutboundConnectDelay = TimeSpan.FromMilliseconds(750);
+    // Bound readiness gating for outbound dialing so NAT mapping lag does not stall first-message sends.
+    private static readonly TimeSpan MaxOutboundReadyWait = TimeSpan.FromSeconds(2);
     private DateTime _readyMarkedUtc;
 
         private bool _majorNodeActive;
@@ -383,6 +385,14 @@ namespace Zer0Talk.Services
             _rateLimitCleanupTimer = new System.Threading.Timer(_ => { try { CleanupRateLimitTracking(); } catch { } }, null, TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10));
         }
 
+        public void ForceRestart()
+        {
+            var s = AppServices.Settings.Settings;
+            Logger.Log("NetworkService.ForceRestart: stopping and restarting listener");
+            Stop();
+            StartIfMajorNode(s.Port, s.MajorNode);
+        }
+
         public void Stop()
         {
             // Best-effort: announce going invisible before tearing down sessions (force-send 'inv')
@@ -434,7 +444,12 @@ namespace Zer0Talk.Services
         {
             try
             {
-                await WaitForPortReadyAsync(ct);
+                if (!_portReady && IsListening)
+                {
+                    using var readyCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    readyCts.CancelAfter(MaxOutboundReadyWait);
+                    try { await WaitForPortReadyAsync(readyCts.Token); } catch { }
+                }
                 // Enforce outbound delay to allow firewall prompt acceptance
                 if (_readyMarkedUtc != DateTime.MinValue)
                 {
@@ -478,7 +493,12 @@ namespace Zer0Talk.Services
                     var ok = await _nat.TryUdpHolePunchAsync(new IPEndPoint(ip, port), localUdp, ct);
                     if (ok)
                     {
+                        try { _diag.IncNatSuccess(); } catch { }
                         return await ConnectAsync(hostOrIp, port, ct);
+                    }
+                    else
+                    {
+                        try { _diag.IncNatFail(); } catch { }
                     }
                 }
             }
@@ -522,16 +542,20 @@ namespace Zer0Talk.Services
                         if (_sessions.ContainsKey(expectedKey))
                         {
                             MarkOutsideLanDirectSuccess(hostOrIp);
+                            try { _diag.IncDirectSuccess(); } catch { }
                             SafeNetLog($"connect direct/nat success | peer={peerUid} | endpoint={hostOrIp}:{port}");
                             return true;
                         }
-                        // Look for any new keys not in beforeKeys; if present and not expected -> mismatch
-                        var newKeys = _sessions.Keys.Where(k => !beforeKeys.Contains(k)).ToList();
-                        if (newKeys.Count > 0 && !newKeys.Contains(expectedKey, StringComparer.OrdinalIgnoreCase))
+                        // Only flag UID mismatch if the specific endpoint we connected to completed
+                        // a handshake with a different UID. Ignore unrelated concurrent sessions.
+                        var ep2 = client.Client.RemoteEndPoint?.ToString();
+                        if (ep2 != null && _endpointLastUid.TryGetValue(ep2, out var epUid)
+                            && !string.Equals(Trim(epUid), expectedKey, StringComparison.OrdinalIgnoreCase))
                         {
-                            SafeNetLog($"connect direct uid-mismatch | peer={peerUid} | got={string.Join(',', newKeys)}");
-                            Logger.Log($"Direct/NAT handshake UID mismatch: expected={peerUid} got={string.Join(',', newKeys)}");
-                            try { AppServices.Events.RaiseFirewallPrompt($"Peer identity mismatch: expected {expectedKey}, got {string.Join(',', newKeys)} from {hostOrIp}:{port}. Your contact may be stale."); } catch { }
+                            SafeNetLog($"connect direct uid-mismatch | peer={peerUid} | got={epUid}");
+                            Logger.Log($"Direct/NAT handshake UID mismatch: expected={peerUid} got={epUid} from {hostOrIp}:{port}");
+                            try { _diag.IncUidMismatch(); } catch { }
+                            try { AppServices.Events.RaiseFirewallPrompt($"Peer identity mismatch: expected {expectedKey}, got {epUid} from {hostOrIp}:{port}. Your contact may be stale."); } catch { }
                             reportedMismatch = true;
                             break;
                         }
@@ -539,13 +563,18 @@ namespace Zer0Talk.Services
                     }
                     if (!reportedMismatch)
                     {
+                        try { _diag.IncDirectFail(); } catch { }
                         SafeNetLog($"connect direct timeout-wait-session | peer={peerUid}");
                         Logger.Log($"Direct connect: timeout waiting for session {expectedKey}");
+                    }
+                    else
+                    {
+                        try { _diag.IncDirectFail(); } catch { }
                     }
                     return false;
                 }
             }
-            catch { }
+            catch { try { _diag.IncDirectFail(); } catch { } }
 
             // Quick second attempt in case auto-mapping succeeded moments later
             try
@@ -573,7 +602,7 @@ namespace Zer0Talk.Services
 
             // If disabled or no server configured, stop here
             var s = AppServices.Settings.Settings;
-            if (!ShouldAttemptRelayFallback())
+            if (!ShouldAttemptRelayFallback(hostOrIp))
             {
                 SafeNetLog($"connect relay skipped | peer={peerUid} | reason=outside-lan-direct-available");
                 return false;
@@ -592,13 +621,55 @@ namespace Zer0Talk.Services
                 return false;
             }
 
-            foreach (var relay in relayCandidates)
+            // Ensure we're registered before relay coordination (needed for OFFER auth).
+            try { await AppServices.WanDirectory.TryRegisterSelfAsync(ct); } catch { }
+
+            // Best-effort rendezvous wakeup for the remote peer so both sides join the same relay session key.
+            var offerDelivered = false;
+            try
             {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                var ok = await TryConnectViaRelayEndpointAsync(peerUid, relay.Host, relay.Port, relay.Display, ct);
-                sw.Stop();
-                RecordRelayAttemptResult(relay.Host, relay.Port, ok, sw.Elapsed.TotalMilliseconds);
-                if (ok) return true;
+                var localUid = Trim(_identity.UID);
+                var sessionKey = BuildRelaySessionKey(localUid, Trim(peerUid));
+                offerDelivered = await AppServices.WanDirectory.TryOfferRendezvousAsync(Trim(peerUid), localUid, sessionKey, ct);
+                SafeNetLog($"connect relay offer | peer={peerUid} | delivered={offerDelivered}");
+            }
+            catch { }
+
+            // Give the remote peer time to poll the invite before we start queuing on the relay.
+            if (offerDelivered)
+            {
+                try { await Task.Delay(2000, ct); } catch { }
+            }
+
+            // Retry relay attempts with wider spacing to allow remote poll interval to pick up the invite.
+            const int relayRounds = 3;
+            for (var round = 0; round < relayRounds; round++)
+            {
+                // Re-send OFFER each round in case the previous invite expired or was pruned.
+                if (round > 0)
+                {
+                    try
+                    {
+                        var localUid2 = Trim(_identity.UID);
+                        var sessionKey2 = BuildRelaySessionKey(localUid2, Trim(peerUid));
+                        await AppServices.WanDirectory.TryOfferRendezvousAsync(Trim(peerUid), localUid2, sessionKey2, ct);
+                    }
+                    catch { }
+                }
+
+                foreach (var relay in relayCandidates)
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    var ok = await TryConnectViaRelayEndpointAsync(peerUid, relay.Host, relay.Port, relay.Display, ct);
+                    sw.Stop();
+                    RecordRelayAttemptResult(relay.Host, relay.Port, ok, sw.Elapsed.TotalMilliseconds);
+                    if (ok) return true;
+                }
+
+                if (round < relayRounds - 1)
+                {
+                    try { await Task.Delay(3000, ct); } catch { }
+                }
             }
 
             return false;
@@ -606,14 +677,121 @@ namespace Zer0Talk.Services
 
         private async Task<bool> TryConnectViaRelayEndpointAsync(string peerUid, string relayHost, int relayPort, string relayDisplay, CancellationToken ct)
         {
+            var localUid = Trim(_identity.UID);
+            var sessionKey = BuildRelaySessionKey(localUid, Trim(peerUid));
+            return await TryConnectViaRelaySessionAsync(peerUid, sessionKey, relayHost, relayPort, relayDisplay, ct);
+        }
+
+        private static bool IsRelayInitiator(string localUid, string peerUid)
+        {
+            var local = Trim(localUid);
+            var peer = Trim(peerUid);
+            if (string.IsNullOrWhiteSpace(local) || string.IsNullOrWhiteSpace(peer))
+            {
+                return true;
+            }
+            return string.Compare(local, peer, StringComparison.OrdinalIgnoreCase) < 0;
+        }
+
+        public async Task<bool> TryConnectViaRelayInviteAsync(string sourceUid, string sessionKey, CancellationToken ct)
+        {
+            try
+            {
+                var normalizedSource = Trim(sourceUid);
+                if (string.IsNullOrWhiteSpace(normalizedSource) || string.IsNullOrWhiteSpace(sessionKey)) return false;
+                if (AppServices.Settings.Settings.BlockList?.Contains(normalizedSource) == true) return false;
+
+                var s = AppServices.Settings.Settings;
+                if (!s.RelayFallbackEnabled || string.IsNullOrWhiteSpace(s.RelayServer)) return false;
+
+                var relayCandidates = BuildRelayCandidates(s);
+                if (relayCandidates.Count == 0) return false;
+
+                foreach (var relay in relayCandidates)
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    var ok = await TryConnectViaRelaySessionAsync(normalizedSource, sessionKey, relay.Host, relay.Port, relay.Display, ct);
+                    sw.Stop();
+                    RecordRelayAttemptResult(relay.Host, relay.Port, ok, sw.Elapsed.TotalMilliseconds);
+                    if (ok) return true;
+                }
+            }
+            catch { }
+
+            return false;
+        }
+
+        private async Task<bool> TryConnectViaRelaySessionAsync(string peerUid, string sessionKey, string relayHost, int relayPort, string relayDisplay, CancellationToken ct)
+        {
             try
             {
                 var localUid = Trim(_identity.UID);
-                var sessionKey = BuildRelaySessionKey(localUid, Trim(peerUid));
                 var relayClient = await _nat.TryRelayAsync(relayHost, relayPort, localUid, Trim(peerUid), sessionKey, ct);
                 if (relayClient == null) { SafeNetLog($"connect relay fail | peer={peerUid} | server={relayDisplay}"); return false; }
                 var relayStream = relayClient.GetStream();
 
+                // Wait for relay acknowledgment (QUEUED or PAIRED)
+                string? response = null;
+                using var ackCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                ackCts.CancelAfter(TimeSpan.FromSeconds(5));
+                try
+                {
+                    response = await ReadLineAsync(relayStream, TimeSpan.FromSeconds(5), ackCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    Logger.Log("Relay acknowledgment timeout");
+                    try { _diag.IncRelayFail(); } catch { }
+                    SafeNetLog($"connect relay ack-timeout | peer={peerUid}");
+                    try { relayClient.Close(); } catch { }
+                    return false;
+                }
+
+                if (string.IsNullOrEmpty(response))
+                {
+                    Logger.Log("Relay acknowledgment missing");
+                    try { _diag.IncRelayFail(); } catch { }
+                    SafeNetLog($"connect relay ack-missing | peer={peerUid}");
+                    try { relayClient.Close(); } catch { }
+                    return false;
+                }
+
+                if (response.StartsWith("QUEUED", StringComparison.OrdinalIgnoreCase))
+                {
+                    Logger.Log($"Relay session queued, waiting for peer to connect...");
+                    SafeNetLog($"connect relay queued | peer={peerUid}");
+                    
+                    // Wait for PAIRED message (peer needs to connect)
+                    // 45s timeout to span at least one full remote discovery-loop cycle (~30-50s)
+                    using var pairCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    pairCts.CancelAfter(TimeSpan.FromSeconds(45));
+                    try
+                    {
+                        response = await ReadLineAsync(relayStream, TimeSpan.FromSeconds(45), pairCts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Logger.Log("Relay pairing timeout - peer did not connect");
+                        try { _diag.IncRelayFail(); } catch { }
+                        SafeNetLog($"connect relay pair-timeout | peer={peerUid}");
+                        try { relayClient.Close(); } catch { }
+                        return false;
+                    }
+                }
+
+                if (string.IsNullOrEmpty(response) || !response.StartsWith("PAIRED", StringComparison.OrdinalIgnoreCase))
+                {
+                    Logger.Log($"Relay pairing failed: {response ?? "null"}");
+                    try { _diag.IncRelayFail(); } catch { }
+                    SafeNetLog($"connect relay pair-fail | peer={peerUid} | response={response}");
+                    try { relayClient.Close(); } catch { }
+                    return false;
+                }
+
+                Logger.Log("Relay confirmed pairing, starting ECDH handshake...");
+                SafeNetLog($"connect relay paired | peer={peerUid}");
+
+                // NOW we can start ECDH handshake - both clients are ready!
                 using var dh = ECDiffieHellman.Create(ECCurve.NamedCurves.nistP256);
                 var pub = dh.PublicKey.ExportSubjectPublicKeyInfo();
                 await WriteFrame(relayStream, pub, ct);
@@ -663,8 +841,23 @@ namespace Zer0Talk.Services
                 var prk = Hkdf.DeriveKey(secret, salt: Array.Empty<byte>(), info: info, length: 32 + 32 + 16 + 16);
                 CryptographicOperations.ZeroMemory(secret);
                 var txKey = new byte[32]; var rxKey = new byte[32]; var txBase = new byte[16]; var rxBase = new byte[16];
-                Buffer.BlockCopy(prk, 0, txKey, 0, 32); Buffer.BlockCopy(prk, 32, rxKey, 0, 32);
-                Buffer.BlockCopy(prk, 64, txBase, 0, 16); Buffer.BlockCopy(prk, 80, rxBase, 0, 16);
+                var relayInitiator = true;
+                var ourPub = dh.PublicKey.ExportSubjectPublicKeyInfo();
+                var comparison = CompareBytes(ourPub, peerPub);
+                if (comparison > 0)
+                {
+                    relayInitiator = false;
+                }
+                if (relayInitiator)
+                {
+                    Buffer.BlockCopy(prk, 0, txKey, 0, 32); Buffer.BlockCopy(prk, 32, rxKey, 0, 32);
+                    Buffer.BlockCopy(prk, 64, txBase, 0, 16); Buffer.BlockCopy(prk, 80, rxBase, 0, 16);
+                }
+                else
+                {
+                    Buffer.BlockCopy(prk, 0, rxKey, 0, 32); Buffer.BlockCopy(prk, 32, txKey, 0, 32);
+                    Buffer.BlockCopy(prk, 64, rxBase, 0, 16); Buffer.BlockCopy(prk, 80, txBase, 0, 16);
+                }
                 var transport = new Utilities.AeadTransport(relayStream, txKey, rxKey, txBase, rxBase);
                 try { _handshakePeerKeys[transport] = peerPub; } catch { }
 
@@ -676,24 +869,31 @@ namespace Zer0Talk.Services
                     SafeNetLog($"session add relay | key={normUid} | total={_sessions.Count}");
                 }
                 catch { }
+                RaiseSessionCountChanged();
                 try { AppServices.Peers.SetObservedPublicKey(Trim(peerUid), peerPub); } catch { }
                 try { _diag.IncHandshakeOk(); _diag.IncSessionsActive(); } catch { }
                 try { HandshakeCompleted?.Invoke(true, Trim(peerUid), null); } catch { }
                 try { Zer0Talk.Services.AppServices.Contacts.SetLastKnownEncrypted(Trim(peerUid), true, Zer0Talk.Services.AppServices.Passphrase); } catch { }
+                try { _diag.IncRelaySuccess(); } catch { }
                 SafeNetLog($"connect relay success | peer={peerUid} | server={relayDisplay}");
 
-                _ = SendIdentityAnnounceAsync(transport, pub, ct);
+                // Create a session-lifetime cancellation token independent of connection timeout
+                var sessionCts = new CancellationTokenSource();
+                var sessionCt = sessionCts.Token;
 
+                _ = SendIdentityAnnounceAsync(transport, pub, sessionCt);
+
+                // Start relay session read loop
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        while (!ct.IsCancellationRequested)
+                        while (!sessionCt.IsCancellationRequested)
                         {
-                            var data = await transport.ReadAsync(ct);
+                            var data = await transport.ReadAsync(sessionCt);
                             if (data.Length > 0)
                             {
-                                await HandleInboundFrameAsync(Trim(peerUid), transport, data, ct);
+                                await HandleInboundFrameAsync(Trim(peerUid), transport, data, sessionCt);
                             }
                         }
                     }
@@ -706,23 +906,51 @@ namespace Zer0Talk.Services
                     {
                         var removed = _sessions.TryRemove(Trim(peerUid), out _);
                         try { if (removed) Logger.Log($"[sess] remove | mode=relay | peer={Trim(peerUid)} | reason=reader-exit | ts={DateTime.UtcNow:o}"); } catch { }
+                        if (removed) RaiseSessionCountChanged();
                         try { _diag.DecSessionsActive(); } catch { }
                         try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
+                        try { sessionCts.Dispose(); } catch { }
                         try { relayClient.Close(); } catch { }
                     }
-                }, ct);
+                }, CancellationToken.None);
 
-                try { _ = SendPresenceAsync(Trim(peerUid), AppServices.Settings.Settings.Status, ct); } catch { }
+                // Start keepalive task to detect dead connections early
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var keepalivePayload = Array.Empty<byte>();
+                        while (!sessionCt.IsCancellationRequested)
+                        {
+                            try { await Task.Delay(30000, sessionCt); } catch { break; }
+                            if (sessionCt.IsCancellationRequested) break;
+                            
+                            try
+                            {
+                                await transport.WriteAsync(keepalivePayload, sessionCt);
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Log($"Relay keepalive failed for {Trim(peerUid)}: {ex.Message}");
+                                try { sessionCts.Cancel(); } catch { }
+                                break;
+                            }
+                        }
+                    }
+                    catch { }
+                }, CancellationToken.None);
+
+                try { _ = SendPresenceAsync(Trim(peerUid), AppServices.Settings.Settings.Status, sessionCt); } catch { }
                 try
                 {
                     if (_identity.ShareAvatar && _identity.AvatarBytes != null && _identity.AvatarBytes.Length > 0)
                     {
                         var payload = BuildAvatarFrame(_identity.AvatarBytes);
-                        await transport.WriteAsync(payload, ct);
+                        await transport.WriteAsync(payload, sessionCt);
                     }
                 }
                 catch (Exception ex) { Logger.Log($"Relay avatar send error: {ex.Message}"); }
-                try { var bioFrame = BuildBioFrame(_identity.Bio); await transport.WriteAsync(bioFrame, ct); } catch { }
+                try { var bioFrame = BuildBioFrame(_identity.Bio); await transport.WriteAsync(bioFrame, sessionCt); } catch { }
 
                 return true;
             }
@@ -1378,14 +1606,45 @@ namespace Zer0Talk.Services
             });
         }
 
+        // Establish an encrypted session to a peer using UID-based best-effort strategy
+        // (known endpoint -> WAN lookup -> relay-only rendezvous path).
+        public async Task<bool> ConnectPeerByUidAsync(string peerUid, CancellationToken ct)
+        {
+            return await ConnectPeerBestEffortAsync(peerUid, ct).ConfigureAwait(false);
+        }
+
+        // Establish an encrypted session using optional endpoint hints first, then UID fallback strategy.
+        public async Task<bool> ConnectPeerWithHintsAsync(string peerUid, string? host, int? port, CancellationToken ct)
+        {
+            var uid = Trim(peerUid);
+            if (string.IsNullOrWhiteSpace(uid)) return false;
+            if (HasEncryptedSession(uid)) return true;
+
+            if (!string.IsNullOrWhiteSpace(host) && port is > 0 and <= 65535)
+            {
+                var okHinted = await ConnectWithRelayFallbackAsync(uid, host!, port.Value, ct).ConfigureAwait(false);
+                if (okHinted) return true;
+            }
+
+            return await ConnectPeerBestEffortAsync(uid, ct).ConfigureAwait(false);
+        }
+
         private async Task<bool> ConnectPeerBestEffortAsync(string peerUid, CancellationToken ct)
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var mode = "none";
+            var outcome = "fail";
+            var uidForLog = Trim(peerUid);
+            try { SafeNetLog($"connect attempt begin | peer={uidForLog}"); } catch { }
             try
             {
                 var uid = Trim(peerUid);
+                uidForLog = uid;
                 if (string.IsNullOrWhiteSpace(uid)) return false;
                 if (HasEncryptedSession(uid))
                 {
+                    mode = "existing-session";
+                    outcome = "ok";
                     try { SafeNetLog($"autoconn skip has-session | peer={uid}"); } catch { }
                     return true;
                 }
@@ -1393,27 +1652,63 @@ namespace Zer0Talk.Services
                 var peer = AppServices.Peers.Peers.FirstOrDefault(p => string.Equals(Trim(p.UID), uid, StringComparison.OrdinalIgnoreCase));
                 if (peer != null && !string.IsNullOrWhiteSpace(peer.Address) && peer.Port > 0)
                 {
+                    mode = "direct+relay-fallback";
                     try { SafeNetLog($"autoconn path=direct+relay-fallback | peer={uid} | endpoint={peer.Address}:{peer.Port}"); } catch { }
                     var ok = await ConnectWithRelayFallbackAsync(uid, peer.Address!, peer.Port, ct);
+                    outcome = ok ? "ok" : "fail";
                     try { SafeNetLog($"autoconn result | peer={uid} | mode=direct+relay-fallback | ok={ok}"); } catch { }
                     return ok;
                 }
 
-                var s = AppServices.Settings.Settings;
-                try { SafeNetLog($"autoconn path=relay-only | peer={uid} | reason=no-peer-endpoint"); } catch { }
-                if (!ShouldAttemptRelayFallback())
+                // WAN bootstrap: resolve UID via directory when no endpoint is known locally.
+                try
                 {
+                    mode = "wan-lookup+relay-fallback";
+                    using var lookupCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    lookupCts.CancelAfter(TimeSpan.FromSeconds(5));
+                    var lookup = await AppServices.WanDirectory.LookupPeerAsync(uid, lookupCts.Token).ConfigureAwait(false);
+                    if (lookup != null && !string.IsNullOrWhiteSpace(lookup.Host) && lookup.Port > 0)
+                    {
+                        try { SafeNetLog($"autoconn wan-lookup hit | peer={uid} | endpoint={lookup.Host}:{lookup.Port} | src={lookup.Source}"); } catch { }
+
+                        try
+                        {
+                            var merged = new List<Models.Peer>(AppServices.Peers.Peers)
+                            {
+                                new Models.Peer { UID = uid, Address = lookup.Host, Port = lookup.Port, Status = "Discovered" }
+                            };
+                            AppServices.Peers.SetDiscovered(merged);
+                        }
+                        catch { }
+
+                        var ok = await ConnectWithRelayFallbackAsync(uid, lookup.Host, lookup.Port, ct).ConfigureAwait(false);
+                        outcome = ok ? "ok" : "fail";
+                        try { SafeNetLog($"autoconn result | peer={uid} | mode=wan-lookup+relay-fallback | ok={ok}"); } catch { }
+                        return ok;
+                    }
+                    try { SafeNetLog($"autoconn wan-lookup miss | peer={uid}"); } catch { }
+                }
+                catch { }
+
+                var s = AppServices.Settings.Settings;
+                mode = "relay-only";
+                try { SafeNetLog($"autoconn path=relay-only | peer={uid} | reason=no-peer-endpoint"); } catch { }
+                if (!ShouldAttemptRelayFallback(peer?.Address))
+                {
+                    outcome = "skipped-outside-lan-direct-available";
                     try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=outside-lan-direct-available"); } catch { }
                     return false;
                 }
                 if (!s.RelayFallbackEnabled || string.IsNullOrWhiteSpace(s.RelayServer))
                 {
+                    outcome = s.RelayFallbackEnabled ? "skipped-no-relay-server" : "skipped-relay-disabled";
                     try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason={(s.RelayFallbackEnabled ? "no-server" : "disabled")}"); } catch { }
                     return false;
                 }
                 var relayCandidates = BuildRelayCandidates(s);
                 if (relayCandidates.Count == 0)
                 {
+                    outcome = "skipped-invalid-relay-endpoint";
                     try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=invalid-endpoint"); } catch { }
                     return false;
                 }
@@ -1422,13 +1717,22 @@ namespace Zer0Talk.Services
                     try { SafeNetLog($"autoconn relay-only try | peer={uid} | server={relay.Display}"); } catch { }
                     if (await TryConnectViaRelayEndpointAsync(uid, relay.Host, relay.Port, relay.Display, ct))
                     {
+                        outcome = "ok";
                         try { SafeNetLog($"autoconn result | peer={uid} | mode=relay-only | ok=true | server={relay.Display}"); } catch { }
                         return true;
                     }
                 }
+                outcome = "fail";
                 try { SafeNetLog($"autoconn result | peer={uid} | mode=relay-only | ok=false"); } catch { }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                outcome = $"ex:{ex.GetType().Name}";
+            }
+            finally
+            {
+                try { SafeNetLog($"connect attempt done | peer={uidForLog} | mode={mode} | outcome={outcome} | ms={sw.ElapsedMilliseconds}"); } catch { }
+            }
             return false;
         }
 
@@ -1786,6 +2090,7 @@ namespace Zer0Talk.Services
                                             SafeNetLog($"session add direct | key={normClaimed2} | total={_sessions.Count}");
                                         }
                                         catch { }
+                                        RaiseSessionCountChanged();
                                         // Endpoint-based rotation detection now based on stable identity
                                         try
                                         {
@@ -2025,6 +2330,7 @@ namespace Zer0Talk.Services
                     {
                         var removed = _sessions.TryRemove(boundUid, out _);
                         try { if (removed) Logger.Log($"[sess] remove | mode=direct | peer={boundUid} | reason=reader-exit | ts={DateTime.UtcNow:o}"); } catch { }
+                        if (removed) RaiseSessionCountChanged();
                     }
                     try { if (!string.IsNullOrEmpty(boundUid)) Zer0Talk.Services.AppServices.Contacts.SetLastKnownEncrypted(boundUid, false, Zer0Talk.Services.AppServices.Passphrase); } catch { }
                     try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
@@ -2036,13 +2342,48 @@ namespace Zer0Talk.Services
                     try { client.Close(); client.Dispose(); } catch { }
                 }
             }, ct);
+
+            // [PHASE-3-KEEPALIVE] Send heartbeat frames every 30s to detect dead connections early
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var keepalivePayload = Array.Empty<byte>();
+                    while (!ct.IsCancellationRequested)
+                    {
+                        await Task.Delay(30_000, ct);
+                        if (ct.IsCancellationRequested) break;
+
+                        try
+                        {
+                            await transport.WriteAsync(keepalivePayload, ct);
+                        }
+                        catch
+                        {
+                            // Write failed - connection is dead, cancel main session
+                            Logger.Log($"Direct keepalive write failed to {boundUid ?? "unknown"}, canceling session");
+                            try { client.Close(); } catch { }
+                            break;
+                        }
+                    }
+                }
+                catch (OperationCanceledException) { }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Direct keepalive task error: {ex.Message}");
+                }
+            }, CancellationToken.None);
         }
 
         private static void SavePeerAvatarToCache(string uid, byte[] bytes)
         {
             try
             {
-                AvatarCache.Save(uid, bytes);
+                // Always normalize UID to match what the UI/contacts use
+                var normalized = uid;
+                if (!string.IsNullOrWhiteSpace(normalized) && normalized.StartsWith("usr-", StringComparison.Ordinal) && normalized.Length > 4)
+                    normalized = normalized.Substring(4);
+                AvatarCache.Save(normalized, bytes);
             }
             catch { }
         }
@@ -2183,7 +2524,9 @@ namespace Zer0Talk.Services
                         try { await transport.WriteAsync(alert, CancellationToken.None); } catch { }
                     }
 
-                    try { _sessions.TryRemove(normalizedUid, out _); } catch { }
+                    var removed2 = false;
+                    try { removed2 = _sessions.TryRemove(normalizedUid, out _); } catch { }
+                    if (removed2) RaiseSessionCountChanged();
                     try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
                     try { _transportEndpoints.TryRemove(transport, out _); } catch { }
                     try { transport.Dispose(); } catch { }
@@ -2382,6 +2725,49 @@ namespace Zer0Talk.Services
         private static string BuildRelayHealthKey(string host, int port)
             => $"{host}:{port}";
 
+        /// <summary>Returns a snapshot of relay candidate health for monitoring.</summary>
+        public IReadOnlyList<RelayHealthSnapshot> GetRelayHealthSnapshots()
+        {
+            try
+            {
+                var s = AppServices.Settings?.Settings;
+                if (s == null) return Array.Empty<RelayHealthSnapshot>();
+                var candidates = BuildRelayCandidates(s);
+                var result = new List<RelayHealthSnapshot>(candidates.Count);
+                foreach (var c in candidates)
+                {
+                    var key = BuildRelayHealthKey(c.Host, c.Port);
+                    var h = _relayHealth.GetOrAdd(key, _ => new RelayHealthEntry());
+                    lock (h)
+                    {
+                        result.Add(new RelayHealthSnapshot
+                        {
+                            Endpoint = c.Display,
+                            SuccessCount = h.SuccessCount,
+                            FailureCount = h.FailureCount,
+                            LatencyMs = h.EwmaLatencyMs,
+                            LastSuccessUtc = h.LastSuccessUtc,
+                            LastFailureUtc = h.LastFailureUtc,
+                            Score = GetRelayHealthScore(c.Host, c.Port),
+                        });
+                    }
+                }
+                return result;
+            }
+            catch { return Array.Empty<RelayHealthSnapshot>(); }
+        }
+
+        public sealed class RelayHealthSnapshot
+        {
+            public string Endpoint { get; init; } = "";
+            public int SuccessCount { get; init; }
+            public int FailureCount { get; init; }
+            public double LatencyMs { get; init; }
+            public DateTime LastSuccessUtc { get; init; }
+            public DateTime LastFailureUtc { get; init; }
+            public double Score { get; init; }
+        }
+
         private double GetRelayHealthScore(string host, int port)
         {
             try
@@ -2472,13 +2858,24 @@ namespace Zer0Talk.Services
             return false;
         }
 
-        private bool ShouldAttemptRelayFallback()
+        private bool ShouldAttemptRelayFallback(string? hostOrIp)
         {
             try
             {
-                var last = _lastOutsideLanDirectSuccessUtc;
-                if (last == DateTime.MinValue) return true;
-                return (DateTime.UtcNow - last) > OutsideLanDirectEvidenceTtl;
+                if (!IsOutsideLanHost(hostOrIp)) return true;
+                var hostKey = hostOrIp?.Trim();
+                if (string.IsNullOrWhiteSpace(hostKey)) return true;
+
+                if (!_outsideLanDirectSuccessByHost.TryGetValue(hostKey, out var last)) return true;
+
+                var stale = (DateTime.UtcNow - last) > OutsideLanDirectEvidenceTtl;
+                if (stale)
+                {
+                    _outsideLanDirectSuccessByHost.TryRemove(hostKey, out _);
+                    return true;
+                }
+
+                return false;
             }
             catch
             {
@@ -2492,7 +2889,11 @@ namespace Zer0Talk.Services
             {
                 if (IsOutsideLanHost(hostOrIp))
                 {
-                    _lastOutsideLanDirectSuccessUtc = DateTime.UtcNow;
+                    var hostKey = hostOrIp?.Trim();
+                    if (!string.IsNullOrWhiteSpace(hostKey))
+                    {
+                        _outsideLanDirectSuccessByHost[hostKey] = DateTime.UtcNow;
+                    }
                 }
             }
             catch { }
@@ -2823,6 +3224,17 @@ namespace Zer0Talk.Services
             return true;
         }
 
+        /// <summary>Number of active encrypted sessions (connected peers).</summary>
+        public int ActiveSessionCount => _sessions.Count;
+
+        /// <summary>Raised when the active session count changes (session added or removed).</summary>
+        public event Action<int>? SessionCountChanged;
+
+        private void RaiseSessionCountChanged()
+        {
+            try { SessionCountChanged?.Invoke(_sessions.Count); } catch { }
+        }
+
         // Public helper: check if an encrypted session exists (post-handshake)
         public bool HasEncryptedSession(string peerUid)
         {
@@ -3057,6 +3469,31 @@ namespace Zer0Talk.Services
         }
 
         private static string Trim(string uid) => uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+
+        private static async Task<string?> ReadLineAsync(NetworkStream stream, TimeSpan timeout, CancellationToken ct)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeout);
+            var buffer = new byte[1];
+            var builder = new StringBuilder();
+            try
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    var read = await stream.ReadAsync(buffer.AsMemory(0, 1), cts.Token);
+                    if (read <= 0) return null;
+                    var ch = (char)buffer[0];
+                    if (ch == '\n') break;
+                    if (ch != '\r') builder.Append(ch);
+                    if (builder.Length > 512) return null; // Prevent abuse
+                }
+            }
+            catch
+            {
+                return null;
+            }
+            return builder.ToString();
+        }
 
         // [TIER-1-BLOCKING] Helper methods for enhanced blocking mechanisms
 

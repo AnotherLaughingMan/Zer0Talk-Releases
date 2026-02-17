@@ -59,6 +59,9 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Language Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left" BorderBrush="{DynamicResource App.Accent}" BorderThickness="2">
             <StackPanel Spacing="12">
@@ -152,6 +155,9 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Auto-Lock -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
@@ -167,6 +173,9 @@
               </Grid>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- Lock Blur Radius -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
@@ -190,6 +199,9 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Privacy -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
@@ -199,8 +211,21 @@
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding BlockScreenCapture}" ToolTip.Tip="{Binding LocalizedScreenCaptureWarning}"/>
               </Grid>
               <TextBlock Text="{Binding LocalizedScreenCaptureWarning}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+
+              <!-- Streamer Mode -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding StreamerMode}" ToolTip.Tip="{Binding LocalizedStreamerModeHelp}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding LocalizedStreamerModeLabel}" FontWeight="Medium"/>
+                  <TextBlock Text="{Binding LocalizedStreamerModeHelp}" 
+                             FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- Key Visibility -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
@@ -212,6 +237,9 @@
               </Grid>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- Audio Settings -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
@@ -297,6 +325,9 @@
                          Margin="0,4,0,0"/>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- System Tray -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
@@ -398,6 +429,9 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Clear Input Hotkey -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
@@ -430,6 +464,48 @@
                 <Button Grid.Row="1" Grid.Column="1" 
                         Content="Reset to Default (Ctrl+Shift+Q)" 
                         Command="{Binding ResetClearInputHotkeyCommand}"
+                        HorizontalAlignment="Left"
+                  Padding="10,6"
+                  ToolTip.Tip="{Binding LocalizedResetToDefault}"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
+          <!-- Streamer Mode Hotkey -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="{Binding LocalizedStreamerModeHotkey}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding LocalizedStreamerModeHotkeyHelp}" 
+                         Opacity="0.7" FontSize="12"/>
+              <Grid ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="8">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedHotkey}" VerticalAlignment="Center"/>
+                <Border Grid.Row="0" Grid.Column="1" 
+                        x:Name="StreamerModeHotkeyBox"
+                        BorderBrush="{DynamicResource App.Border}" 
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Background="{DynamicResource App.Background}"
+                        Padding="12,8"
+                  Cursor="Hand"
+                  ToolTip.Tip="{Binding LocalizedStreamerModeHotkeyHelp}">
+                  <Grid>
+                    <TextBlock Text="{Binding StreamerModeHotkeyDisplay}" 
+                               FontFamily="Consolas"
+                               FontWeight="Medium"
+                               VerticalAlignment="Center"
+                               IsVisible="{Binding !IsCapturingStreamerModeHotkey}"/>
+                    <TextBlock Text="{Binding LocalizedPressKeys}" 
+                               Opacity="0.5"
+                               IsVisible="{Binding IsCapturingStreamerModeHotkey}"
+                               VerticalAlignment="Center"/>
+                  </Grid>
+                </Border>
+                <Button Grid.Row="1" Grid.Column="1" 
+                        Content="Reset to Default (Ctrl+F7)" 
+                        Command="{Binding ResetStreamerModeHotkeyCommand}"
                         HorizontalAlignment="Left"
                   Padding="10,6"
                   ToolTip.Tip="{Binding LocalizedResetToDefault}"/>
@@ -593,6 +669,9 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- GPU Section (moved after CPU) -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
@@ -614,6 +693,9 @@
               </StackPanel>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- Framerate Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
@@ -672,6 +754,8 @@
           </Border>
 
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="720" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- Keyboard Navigation Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
@@ -712,6 +796,9 @@
               <TextBlock Text="{Binding LocalizedNavigationHelp}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="720" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- Font Rendering Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
@@ -824,6 +911,9 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Framework Information -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
@@ -837,6 +927,9 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Links and Resources -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
@@ -847,6 +940,9 @@
               </Grid>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- Acknowledgments -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
@@ -868,24 +964,24 @@
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedConnectionSettings}" FontWeight="SemiBold"/>
-              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820">
-                <Run Text="{Binding LocalizedPortLabel}"/>
-                <Run Text="{Binding LocalizedPortDescription}"/>
-              </TextBlock>
-              <Grid ColumnDefinitions="160,*" RowDefinitions="Auto" RowSpacing="8" ColumnSpacing="12">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedPort}" VerticalAlignment="Center"/>
+              <TextBlock Text="This is the local port Zer0Talk listens on for incoming chat connections. Most users can keep the default." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820"/>
+              <Grid ColumnDefinitions="Auto,Auto,*" RowDefinitions="Auto" RowSpacing="8" ColumnSpacing="8">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Local chat port" VerticalAlignment="Center" Margin="0,0,4,0"/>
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Port}" Width="120" HorizontalAlignment="Left" Watermark="26264"
-                         ToolTip.Tip="{Binding LocalizedPortDescription}"/>
+                         ToolTip.Tip="Change only if this port is blocked or already used by another app."/>
               </Grid>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- Network Troubleshooter -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="10">
               <TextBlock Text="Network Troubleshooter" FontWeight="SemiBold"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820"
-                         Text="Use this to clear old Zer0Talk firewall rules and re-create allow rules automatically for this app on Windows."/>
+                         Text="If connections suddenly stop working on Windows, run this once to refresh firewall permissions for Zer0Talk."/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Content="Run Firewall Troubleshooter" Command="{Binding RunFirewallTroubleshooterCommand}"/>
                 <TextBlock Text="Admin permission required" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource App.SecondaryText}"/>
@@ -895,51 +991,45 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Relay Settings -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedRelaySettings}" FontWeight="SemiBold"/>
-              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820">
-                <Run Text="{Binding LocalizedRelayDescription1}"/>
-                <LineBreak/>
-                <Run Text="{Binding LocalizedRelayDescription2}"/>
-              </TextBlock>
-              <Grid ColumnDefinitions="220,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedRelayFallback}" VerticalAlignment="Center"/>
+              <TextBlock Text="Relay Connection" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="Relays help when direct peer-to-peer connections fail. Most users only need to enable relay fallback and enter one relay address." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820"/>
+              <Grid ColumnDefinitions="230,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Use relay fallback" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding RelayFallbackEnabled}" Content="{Binding LocalizedEnableRelayFallback}"
                               ToolTip.Tip="{Binding LocalizedRelayFallbackHelp}"/>
                 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedRelayServer}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Primary relay address" VerticalAlignment="Center"/>
                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RelayServer}" Watermark="relay.example.com:443, [IPv6]:443, or token" Width="320" HorizontalAlignment="Left"
                          ToolTip.Tip="{Binding LocalizedRelayServerHelp}"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding LocalizedRelayPresenceTimeout}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Online status timeout (seconds)" VerticalAlignment="Center"/>
                 <NumericUpDown Grid.Row="2" Grid.Column="1" Value="{Binding RelayPresenceTimeoutSeconds}" Minimum="10" Maximum="300" Width="120" ShowButtonSpinner="False" HorizontalAlignment="Left"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding LocalizedRelayDiscoveryTtl}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Discovery cache time (minutes)" VerticalAlignment="Center"/>
                 <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding RelayDiscoveryTtlMinutes}" Minimum="1" Maximum="60" Width="120" ShowButtonSpinner="False" HorizontalAlignment="Left"/>
               </Grid>
-              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820" Margin="0,4,0,0">
-                <Run Text="{Binding LocalizedRequirements}"/>
-                <LineBreak/>
-                <Run Text="{Binding LocalizedRequiresDedicatedRelay}"/>
-                <LineBreak/>
-                <Run Text="{Binding LocalizedServerMustBeConfigured}"/>
-                <LineBreak/>
-                <Run Text="{Binding LocalizedRelayFormat}"/>
-                <LineBreak/>
-                <Run Text="{Binding LocalizedLeaveBlankToDisable}"/>
-              </TextBlock>
+              <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,4,0,0">
+                <TextBlock Text="Most users: turn relay fallback on, set one relay address, and leave the timeout values at default." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820"/>
+              </Border>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- Saved Relay Endpoints -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedSavedRelays}" FontWeight="SemiBold"/>
-              <TextBlock Text="{Binding LocalizedSavedRelaysHelp}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="820"/>
+              <TextBlock Text="Saved Relay Endpoints (Optional)" FontWeight="SemiBold"/>
+              <TextBlock Text="Save extra relay addresses so you can switch quickly if your main relay is down. If you only use one relay, you can ignore this section." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="820"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBox Text="{Binding NewRelayServer}" Watermark="relay.example.com:443, [IPv6]:443, or 16-char token" Width="360"/>
+                <TextBox Text="{Binding NewRelayServer}" Watermark="relay.example.com:443 or [IPv6]:443" Width="360"/>
                 <Button Content="{Binding LocalizedAdd}" Command="{Binding AddRelayServerCommand}"/>
                 <Button Content="Use" Command="{Binding UseRelayServerCommand}" CommandParameter="{Binding SelectedRelayServer}"/>
               </StackPanel>
@@ -959,11 +1049,47 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
+          <!-- WAN Seed Bootstrap -->
+          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+            <StackPanel Spacing="12">
+              <TextBlock Text="WAN Seed Bootstrap (Advanced / Optional)" FontWeight="SemiBold"/>
+              <TextBlock Text="Seed nodes help first-time WAN discovery when no relay address is known yet. Most users should leave this empty unless support asks you to configure it." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="820"/>
+              <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <TextBlock Text="Always use seed nodes" VerticalAlignment="Center" Width="220"/>
+                <ToggleSwitch IsChecked="{Binding ForceSeedBootstrap}" Content="On"/>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBox Text="{Binding NewWanSeedNode}" Watermark="seed.example.com:443 or [IPv6]:443" Width="360"/>
+                <Button Content="{Binding LocalizedAdd}" Command="{Binding AddWanSeedNodeCommand}"/>
+                <Button Content="Use" Command="{Binding UseWanSeedNodeCommand}" CommandParameter="{Binding SelectedWanSeedNode}"/>
+              </StackPanel>
+              <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" MinHeight="100" MaxHeight="180">
+                <ListBox ItemsSource="{Binding WanSeedNodes}" SelectedItem="{Binding SelectedWanSeedNode}" BorderThickness="0" Background="Transparent">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <Grid ColumnDefinitions="*,Auto,Auto" Margin="8,4">
+                        <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Margin="8,0,0,0" Content="Use" Command="{Binding $parent[UserControl].DataContext.UseWanSeedNodeCommand}" CommandParameter="{Binding}"/>
+                        <Button Grid.Column="2" Margin="8,0,0,0" Content="{Binding $parent[UserControl].DataContext.LocalizedRemove}" Command="{Binding $parent[UserControl].DataContext.RemoveWanSeedNodeCommand}" CommandParameter="{Binding}"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Discovered Peers moved to dedicated operational window (left rail) -->
           <Border CornerRadius="8" Padding="16" Width="920" HorizontalAlignment="Left">
             <StackPanel Spacing="8">
               <TextBlock Text="{Binding LocalizedDiscoveredPeers}" FontWeight="SemiBold"/>
-              <TextBlock Text="Peer discovery is now managed in a dedicated live window to avoid manual-save friction in Settings." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="860"/>
+              <TextBlock Text="Use this window to see peers currently visible on your network and refresh the list when needed." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="860"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Content="Open Discovered Peers" Click="OpenDiscoveredPeersWindow_Click"/>
                 <Button Command="{Binding RefreshPeersCommand}" Padding="8,4" ToolTip.Tip="Refresh Peer List" FontFamily="Segoe Fluent Icons" FontSize="14" Content="&#xE72C;"/>
@@ -971,12 +1097,15 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Network Adapters -->
-          <Border CornerRadius="8" Padding="16" Width="700" HorizontalAlignment="Left">
+          <Border CornerRadius="8" Padding="16" Width="560" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
               <TextBlock Text="Network Adapters" FontWeight="SemiBold"/>
-              <TextBlock Text="Adapters at the top have priority for outbound connections" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Text="Optional: change this only if you need Zer0Talk to prefer a different network adapter." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="520"/>
+              <Grid ColumnDefinitions="360,Auto" ColumnSpacing="8">
                 <Border Grid.Column="0" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Height="200">
                   <ScrollViewer>
                     <ListBox x:Name="AdaptersList" ItemsSource="{Binding NetworkAdapters}" SelectedItem="{Binding SelectedNetworkAdapter}" BorderThickness="0">
@@ -1004,15 +1133,18 @@
                     </ListBox>
                   </ScrollViewer>
                 </Border>
-                <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Top">
+                <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Top" Margin="0,0,0,0">
                   <Button Content="▲" Command="{Binding MoveAdapterUpCommand}" Width="32" Height="32" ToolTip.Tip="Move Up"/>
                   <Button Content="▼" Command="{Binding MoveAdapterDownCommand}" Width="32" Height="32" ToolTip.Tip="Move Down"/>
-                  <Separator Margin="0,8"/>
+                  <Separator Margin="0,6"/>
                   <Button Content="Save" Command="{Binding SaveAdapterOrderCommand}" Width="64" ToolTip.Tip="Save adapter priority order"/>
                 </StackPanel>
               </Grid>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- IP Blocking Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
@@ -1137,6 +1269,9 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Delete Account Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
@@ -1162,6 +1297,9 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+
           <!-- Purge Messages Section -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
@@ -1185,6 +1323,9 @@
               <Button Content="{Binding LocalizedPurgeAllMessages}" Command="{Binding PurgeAllMessagesCommand}" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium" Background="#B00020" Foreground="White"/>
             </StackPanel>
           </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- Data Export -->
           <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">

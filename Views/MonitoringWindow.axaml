@@ -134,6 +134,11 @@
                     </StackPanel>
                     <!-- [TRUNC-OPTIN] Summary can be lengthy; opt-in ellipsis + tooltip. -->
                     <TextBlock Classes="app-trunc" Text="{Binding DiagnosticsSummary}" FontSize="11" Opacity="0.85" TextTrimming="CharacterEllipsis"/>
+                    <!-- Phase 4: Connection telemetry stats -->
+                    <TextBlock Classes="app-trunc" Text="{Binding ConnectionStatsSummary}" FontSize="11" Opacity="0.85" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="Connection success rates: Direct/NAT/Relay attempts and UID mismatch count"/>
+                    <TextBlock Classes="app-trunc" Text="{Binding RelayHealthSummary}" FontSize="10" Opacity="0.7" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="Relay server health: endpoint status, latency, and success rate"/>
                 </StackPanel>
         <!-- Status Legend: fixed, theme-independent styling for consistency across all themes -->
         <!-- Layout tweak: slightly reduced padding to save vertical space without changing style -->

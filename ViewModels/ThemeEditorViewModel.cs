@@ -3580,6 +3580,11 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
                 "App.OnSuccess" => "Text on Success",
                 "SystemControlHighlightListLowBrush" => "ListBox Item Hover (Fluent)",
                 "SystemControlHighlightListAccentLowBrush" => "ListBox Item Selected (Fluent)",
+                "StatusBar.Background" => "Status Bar Background",
+                "StatusBar.Foreground" => "Status Bar Text",
+                "StatusBar.ForegroundSecondary" => "Status Bar Secondary Text",
+                "StatusBar.StreamerBadge" => "Status Bar Streamer Badge",
+                "StatusBar.StreamerBadgeForeground" => "Status Bar Streamer Badge Text",
                 _ => resourceKey.Replace("App.", "").Replace("SystemControl", "System ").Replace("Highlight", "").Replace("Brush", "").Replace(".", " ").Trim() // Fallback: clean up naming
             };
         }

@@ -5,10 +5,10 @@
     <AssemblyName>Zer0Talk</AssemblyName>
     <Nullable>enable</Nullable>
     <!-- Version Information -->
-    <Version>0.0.3.00</Version>
-    <AssemblyVersion>0.0.3.00</AssemblyVersion>
-    <FileVersion>0.0.3.00</FileVersion>
-    <InformationalVersion>0.0.3.00-Alpha</InformationalVersion>
+    <Version>$(Zer0TalkVersion)</Version>
+    <AssemblyVersion>$(Zer0TalkVersion)</AssemblyVersion>
+    <FileVersion>$(Zer0TalkVersion)</FileVersion>
+    <InformationalVersion>$(Zer0TalkVersion)-$(Zer0TalkPrereleaseTag)</InformationalVersion>
     <!-- Enable automatic assembly attribute generation -->
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
@@ -76,19 +76,10 @@
   <ItemGroup>
   <Compile Remove="scripts/**/*.cs" />
   <Compile Remove="Scripts/**/*.cs" />
-  <Compile Remove="Uninstaller/**/*.cs" />
-  <Compile Remove="Installer/**/*.cs" />
-  <Compile Remove="SimpleInstaller/**/*.cs" />
   <Compile Remove="InstallMe.Lite/**/*.cs" />
   <Compile Remove="Zer0Talk.RelayServer/**/*.cs" />
   <None Remove="scripts/**/*.csproj" />
   <None Remove="Scripts/**/*.csproj" />
-  <None Remove="Uninstaller/**/*.csproj" />
-  <None Remove="Uninstaller/**/*.cs" />
-  <None Remove="Installer/**/*.csproj" />
-  <None Remove="Installer/**/*.cs" />
-  <None Remove="SimpleInstaller/**/*.csproj" />
-  <None Remove="SimpleInstaller/**/*.cs" />
   <None Remove="Zer0Talk.RelayServer/**" />
     <AvaloniaResource Remove="Styles/ThemeSovereignty.axaml" />
     <AvaloniaResource Remove="Styles/ThemeSovereignty_OLD.axaml" />

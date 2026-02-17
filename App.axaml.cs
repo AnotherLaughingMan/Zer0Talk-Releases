@@ -77,6 +77,7 @@ public partial class App : Application
                         try { TryWriteErrorTxt("Init.Network.Start.Suppressed.SafeMode", null); } catch { }
                         return;
                     }
+                    try { await WindowsFirewallRuleManager.EnsureRulesForCurrentBuildAsync(s.Port); } catch { }
                     Zer0Talk.Services.AppServices.Network.StartIfMajorNode(s.Port, s.MajorNode);
                     try { TryWriteErrorTxt("Init.Network.Start.Done", null); } catch { }
                 }
@@ -434,6 +435,10 @@ public partial class App : Application
                 {
                     if (Zer0Talk.Utilities.RuntimeFlags.SafeMode) return;
                     var ns = AppServices.Settings.Settings;
+                    _ = System.Threading.Tasks.Task.Run(async () =>
+                    {
+                        try { await WindowsFirewallRuleManager.EnsureRulesForCurrentBuildAsync(ns.Port); } catch { }
+                    });
                     AppServices.Network.StartIfMajorNode(ns.Port, ns.MajorNode);
                 }
                 catch (Exception ex) { Logger.Log($"Apply network config failed: {ex.Message}"); }

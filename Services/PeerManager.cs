@@ -91,26 +91,27 @@ namespace Zer0Talk.Services
                 {
                     var status = peer.Status;
                     if (string.IsNullOrWhiteSpace(status)) continue;
-                    PresenceStatus s = status switch
+                    PresenceStatus? s = status switch
                     {
                         "Online" => PresenceStatus.Online,
                         "Idle" => PresenceStatus.Idle,
                         "Do Not Disturb" => PresenceStatus.DoNotDisturb,
                         "Invisible" => PresenceStatus.Invisible,
                         "Offline" => PresenceStatus.Offline,
-                        _ => PresenceStatus.Online
+                        _ => null
                     };
+                    if (!s.HasValue) continue;
                     // Always update contact presence (ContactManager ignores no-ops); log only on change
                     PresenceStatus? prev = null;
                     try { prev = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(c.UID, peer.UID, StringComparison.OrdinalIgnoreCase))?.Presence; } catch { }
-                    AppServices.Contacts.SetPresence(peer.UID, s, System.TimeSpan.FromSeconds(20), Models.PresenceSource.Discovery);
-                    if (prev != s)
+                    AppServices.Contacts.SetPresence(peer.UID, s.Value, System.TimeSpan.FromSeconds(20), Models.PresenceSource.Discovery);
+                    if (prev != s.Value)
                     {
                         try
                         {
                             if (Utilities.LoggingPaths.Enabled)
                             {
-                                var line = $"{DateTime.Now:O} [Presence] {peer.UID} -> {s} src=Discovery";
+                                var line = $"{DateTime.Now:O} [Presence] {peer.UID} -> {s.Value} src=Discovery";
                                 System.IO.File.AppendAllText(Utilities.LoggingPaths.UI, line + Environment.NewLine);
                             }
                         }

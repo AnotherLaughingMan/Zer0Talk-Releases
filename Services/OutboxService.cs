@@ -91,6 +91,8 @@ namespace Zer0Talk.Services
                 if (list.Count == 0) return;
                 // Sort oldest first
                 list = list.OrderBy(x => x.CreatedUtc).ToList();
+                var failedAttemptCount = 0;
+                var hasFailedItem = false;
                 foreach (var item in list)
                 {
                     if (ct.IsCancellationRequested) break;
@@ -147,11 +149,31 @@ namespace Zer0Talk.Services
                     }
                     else
                     {
+                        _store.Save(peerUid, list, passphrase);
+                        failedAttemptCount = item.AttemptCount;
+                        hasFailedItem = true;
                         // Leave in queue; stop early to avoid hammering
                         break;
                     }
                     // Short pacing to avoid burst
                     try { await Task.Delay(50, ct); } catch { }
+                }
+
+                if (hasFailedItem && AppServices.Network.HasEncryptedSession(peerUid))
+                {
+                    var attempts = Math.Max(1, failedAttemptCount);
+                    if (attempts <= 3)
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await Task.Delay(TimeSpan.FromMilliseconds(850), CancellationToken.None).ConfigureAwait(false);
+                                await DrainAsync(peerUid, passphrase, CancellationToken.None).ConfigureAwait(false);
+                            }
+                            catch { }
+                        });
+                    }
                 }
             }
             catch { }

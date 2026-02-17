@@ -13,12 +13,8 @@ obj/
 [Bb]uildOutput/
 _trash/
 
-# Installer and Uninstaller (not tracked in repo)
-Uninstaller/
-Zer0Talk.Installer/
+# InstallMe.Lite installer (not tracked in repo)
 InstallMe.Lite/
-*.msi
-*.wixpdb
 
 # Scripts folder - development/build scripts not needed in repo
 scripts/
@@ -139,8 +135,6 @@ $RECYCLE.BIN/
 *.psc1
 powershell_history.txt
 *.ps1
-# But allow specific installer build scripts
-!Zer0Talk.Installer/build-installer.ps1
 
 # Miscellaneous
 *.iws
@@ -169,7 +163,6 @@ temp_pending_invites.txt
 
 # Documentation and test files (development only)
 markdown-test.md
-INSTALLER-SETUP.md
 BUGS_FIXED.md
 Audit.md
 AUDIO_INTEGRATION_GUIDE.md

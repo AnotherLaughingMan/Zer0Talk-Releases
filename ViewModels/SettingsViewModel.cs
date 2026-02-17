@@ -131,6 +131,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(LockBlurRadius),
         nameof(BlockScreenCapture),
         nameof(ShowPublicKeys),
+        nameof(StreamerMode),
         nameof(ShowKeyboardFocus),
         nameof(EnhancedKeyboardNavigation),
         nameof(ShowInSystemTray),
@@ -162,7 +163,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(RelayFallbackEnabled),
         nameof(RelayServer),
         nameof(RelayPresenceTimeoutSeconds),
-        nameof(RelayDiscoveryTtlMinutes)
+        nameof(RelayDiscoveryTtlMinutes),
+        nameof(ForceSeedBootstrap)
     };
 
     private bool _saveToastVisible;
@@ -234,6 +236,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _baseRelayPresenceTimeoutSeconds;
     private int _baseRelayDiscoveryTtlMinutes;
     private string _baseSavedRelayServersSig = string.Empty;
+    private bool _baseForceSeedBootstrap;
+    private string _baseWanSeedNodesSig = string.Empty;
     private string _logMaintenanceStatus = "Log maintenance hasn't run yet.";
     private DateTime? _lastLogMaintenanceUtc;
 
@@ -317,6 +321,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _baseLockBlurRadius;
     private bool _baseBlockScreenCapture;
     private bool _baseShowPublicKeys;
+    private bool _baseStreamerMode;
     private Avalonia.Input.Key _baseLockHotkeyKey;
     private Avalonia.Input.KeyModifiers _baseLockHotkeyModifiers;
     // Accessibility properties removed - these are OS-level settings that the app cannot control
@@ -487,6 +492,19 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 _clearInputHotkeyModifiers = Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift;
             }
 
+            try
+            {
+                _streamerModeHotkeyKey = (Avalonia.Input.Key)settings.StreamerModeHotkeyKey;
+                _streamerModeHotkeyModifiers = (Avalonia.Input.KeyModifiers)settings.StreamerModeHotkeyModifiers;
+            }
+            catch
+            {
+                _streamerModeHotkeyKey = Avalonia.Input.Key.F7;
+                _streamerModeHotkeyModifiers = Avalonia.Input.KeyModifiers.Control;
+            }
+
+            StreamerMode = settings.StreamerMode;
+
             CcdAffinityIndex = ClampRange(settings.CcdAffinityIndex, 0, 3);
             DisableGpuAcceleration = settings.DisableGpuAcceleration;
             FpsThrottle = Math.Max(0, settings.FpsThrottle);
@@ -631,6 +649,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         vm.PropertyChanged += OnNetworkVmPropertyChanged;
 
         TryRewireNetworkCollection(vm.SavedRelayServers, OnSavedRelayServersChanged);
+        TryRewireNetworkCollection(vm.WanSeedNodes, OnWanSeedNodesChanged);
     }
 
     private void TryRewireNetworkCollection(System.Collections.Specialized.INotifyCollectionChanged collection, System.Collections.Specialized.NotifyCollectionChangedEventHandler handler)
@@ -640,6 +659,12 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     }
 
     private void OnSavedRelayServersChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (_suppressDirtyCheck) return;
+        UpdateUnsavedChangesState();
+    }
+
+    private void OnWanSeedNodesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         if (_suppressDirtyCheck) return;
         UpdateUnsavedChangesState();
@@ -658,6 +683,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
+        if (name is nameof(NetworkViewModel.WanSeedNodes))
+        {
+            var vm = NetworkVm;
+            TryRewireNetworkCollection(vm.WanSeedNodes, OnWanSeedNodesChanged);
+            OnPropertyChanged(nameof(WanSeedNodes));
+            return;
+        }
+
         if (name is nameof(NetworkViewModel.Port)
             or nameof(NetworkViewModel.MajorNode)
             or nameof(NetworkViewModel.EnableGeoBlocking)
@@ -665,8 +698,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             or nameof(NetworkViewModel.RelayServer)
             or nameof(NetworkViewModel.RelayPresenceTimeoutSeconds)
             or nameof(NetworkViewModel.RelayDiscoveryTtlMinutes)
+            or nameof(NetworkViewModel.ForceSeedBootstrap)
             or nameof(NetworkViewModel.NewRelayServer)
             or nameof(NetworkViewModel.SelectedRelayServer)
+            or nameof(NetworkViewModel.NewWanSeedNode)
+            or nameof(NetworkViewModel.SelectedWanSeedNode)
             or nameof(NetworkViewModel.IpBlockingStats)
             or nameof(NetworkViewModel.InfoMessage)
             or nameof(NetworkViewModel.ErrorMessage))
@@ -711,6 +747,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             LockOnMinimize = s.LockOnMinimize;
             ShowPublicKeys = s.ShowPublicKeys;
             BlockScreenCapture = s.BlockScreenCapture;
+            StreamerMode = s.StreamerMode;
             ShowInSystemTray = s.ShowInSystemTray;
             MinimizeToTray = s.MinimizeToTray;
             RunOnStartup = s.RunOnStartup;
@@ -1776,6 +1813,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedKeyVisibility => Services.AppServices.Localization.GetString("Settings.KeyVisibility", "Key Visibility");
     public string LocalizedShowPublicKeys => Services.AppServices.Localization.GetString("Settings.ShowPublicKeys", "Show public keys on profiles");
     public string LocalizedShowPublicKeysHelp => Services.AppServices.Localization.GetString("Settings.ShowPublicKeysHelp", "Display public keys in profile views");
+    public string LocalizedStreamerModeLabel => Services.AppServices.Localization.GetString("Settings.StreamerMode", "Streamer Mode");
+    public string LocalizedStreamerModeHelp => Services.AppServices.Localization.GetString("Settings.StreamerModeHelp", "Hides sensitive information (UIDs, IPs, peer names) in the UI for safe streaming");
     public string LocalizedAudio => Services.AppServices.Localization.GetString("Settings.Audio", "Audio");
     public string LocalizedAudioHelp => Services.AppServices.Localization.GetString("Settings.AudioHelp", "Configure volume levels for different types of sounds. Main Volume acts as a master control, while individual channels allow fine-tuning of specific sound categories.");
     public string LocalizedMainVolume => Services.AppServices.Localization.GetString("Settings.MainVolume", "Main Volume");
@@ -1819,6 +1858,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedResetToDefault => Services.AppServices.Localization.GetString("Settings.ResetToDefault", "Reset to Default");
     public string LocalizedClearMessageInput => Services.AppServices.Localization.GetString("Settings.ClearMessageInput", "Clear Message Input");
     public string LocalizedClearMessageInputHelp => Services.AppServices.Localization.GetString("Settings.ClearMessageInputHelp", "Instantly clear all text in the message input box");
+    public string LocalizedStreamerModeHotkey => Services.AppServices.Localization.GetString("Settings.StreamerModeHotkey", "Toggle Streamer Mode");
+    public string LocalizedStreamerModeHotkeyHelp => Services.AppServices.Localization.GetString("Settings.StreamerModeHotkeyHelp", "Quickly toggle streamer mode to hide sensitive information");
     public string LocalizedHotkeyTips => Services.AppServices.Localization.GetString("Settings.HotkeyTips", "💡 Tips");
     public string LocalizedHotkeyTipsText => Services.AppServices.Localization.GetString("Settings.HotkeyTipsText", "Avoid system hotkeys like Alt+F4, Ctrl+C, Win+L, etc. Common safe combinations use Ctrl, Ctrl+Shift, or Ctrl+Alt with function keys or letters.");
     
@@ -2457,6 +2498,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedKeyVisibility));
             OnPropertyChanged(nameof(LocalizedShowPublicKeys));
             OnPropertyChanged(nameof(LocalizedShowPublicKeysHelp));
+            OnPropertyChanged(nameof(LocalizedStreamerModeLabel));
+            OnPropertyChanged(nameof(LocalizedStreamerModeHelp));
             OnPropertyChanged(nameof(LocalizedAudio));
             OnPropertyChanged(nameof(LocalizedAudioHelp));
             OnPropertyChanged(nameof(LocalizedMainVolume));
@@ -2500,6 +2543,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedResetToDefault));
             OnPropertyChanged(nameof(LocalizedClearMessageInput));
             OnPropertyChanged(nameof(LocalizedClearMessageInputHelp));
+            OnPropertyChanged(nameof(LocalizedStreamerModeHotkey));
+            OnPropertyChanged(nameof(LocalizedStreamerModeHotkeyHelp));
             OnPropertyChanged(nameof(LocalizedHotkeyTips));
             OnPropertyChanged(nameof(LocalizedHotkeyTipsText));
             
@@ -2950,6 +2995,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.LockOnMinimize = LockOnMinimize;
             s.LockBlurRadius = ClampRange(LockBlurRadius, 0, 10);
             s.ShowPublicKeys = ShowPublicKeys;
+            s.StreamerMode = StreamerMode;
             // Persist system tray settings
             s.ShowInSystemTray = ShowInSystemTray;
             s.MinimizeToTray = MinimizeToTray;
@@ -2963,6 +3009,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.RelayPresenceTimeoutSeconds = RelayPresenceTimeoutSeconds;
             s.RelayDiscoveryTtlMinutes = RelayDiscoveryTtlMinutes;
             s.SavedRelayServers = SavedRelayServers.ToList();
+            s.ForceSeedBootstrap = ForceSeedBootstrap;
+            s.WanSeedNodes = WanSeedNodes.ToList();
             // Persist accessibility settings
             s.ShowKeyboardFocus = ShowKeyboardFocus;
             s.EnhancedKeyboardNavigation = EnhancedKeyboardNavigation;
@@ -2971,6 +3019,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.LockHotkeyModifiers = (int)_lockHotkeyModifiers;
             s.ClearInputHotkeyKey = (int)_clearInputHotkeyKey;
             s.ClearInputHotkeyModifiers = (int)_clearInputHotkeyModifiers;
+            s.StreamerModeHotkeyKey = (int)_streamerModeHotkeyKey;
+            s.StreamerModeHotkeyModifiers = (int)_streamerModeHotkeyModifiers;
             s.EnableDebugLogAutoTrim = EnableDebugLogAutoTrim;
             s.DebugUiLogMaxLines = DebugUiLogMaxLines;
             s.DebugLogRetentionDays = DebugLogRetentionDays;
@@ -3083,6 +3133,18 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             {
                 HotkeyManager.Instance.UpdateKeyBinding("app.lock", _lockHotkeyKey, _lockHotkeyModifiers);
                 HotkeyManager.Instance.UpdateKeyBinding("app.clearInput", _clearInputHotkeyKey, _clearInputHotkeyModifiers);
+                HotkeyManager.Instance.UpdateKeyBinding("app.streamerMode", _streamerModeHotkeyKey, _streamerModeHotkeyModifiers);
+            }
+            catch { }
+
+            // Apply streamer mode to MainWindowViewModel
+            try
+            {
+                if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime life
+                    && life.MainWindow?.DataContext is MainWindowViewModel mwvm)
+                {
+                    mwvm.IsStreamerMode = StreamerMode;
+                }
             }
             catch { }
 
@@ -3241,6 +3303,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseLockBlurRadius != _lockBlurRadius) return true;
             if (_baseBlockScreenCapture != _blockScreenCapture) return true;
             if (_baseShowPublicKeys != _showPublicKeys) return true;
+            if (_baseStreamerMode != _streamerMode) return true;
             if (_baseLockHotkeyKey != _lockHotkeyKey || _baseLockHotkeyModifiers != _lockHotkeyModifiers) return true;
             if (_baseShowKeyboardFocus != _showKeyboardFocus) return true;
             if (_baseEnhancedKeyboardNavigation != _enhancedKeyboardNavigation) return true;
@@ -3273,6 +3336,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseRelayPresenceTimeoutSeconds != RelayPresenceTimeoutSeconds) return true;
             if (_baseRelayDiscoveryTtlMinutes != RelayDiscoveryTtlMinutes) return true;
             if (!string.Equals(_baseSavedRelayServersSig, BuildSequenceSignature(SavedRelayServers), StringComparison.Ordinal)) return true;
+            if (_baseForceSeedBootstrap != ForceSeedBootstrap) return true;
+            if (!string.Equals(_baseWanSeedNodesSig, BuildSequenceSignature(WanSeedNodes), StringComparison.Ordinal)) return true;
             return false;
         }
         catch
@@ -3353,6 +3418,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseLockBlurRadius = _lockBlurRadius;
             _baseBlockScreenCapture = _blockScreenCapture;
             _baseShowPublicKeys = _showPublicKeys;
+            _baseStreamerMode = _streamerMode;
             _baseLockHotkeyKey = _lockHotkeyKey;
             _baseLockHotkeyModifiers = _lockHotkeyModifiers;
             _baseShowKeyboardFocus = _showKeyboardFocus;
@@ -3374,6 +3440,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseRelayPresenceTimeoutSeconds = RelayPresenceTimeoutSeconds;
             _baseRelayDiscoveryTtlMinutes = RelayDiscoveryTtlMinutes;
             _baseSavedRelayServersSig = BuildSequenceSignature(SavedRelayServers);
+            _baseForceSeedBootstrap = ForceSeedBootstrap;
+            _baseWanSeedNodesSig = BuildSequenceSignature(WanSeedNodes);
             HasUnsavedChanges = false;
         }
         catch { }
@@ -3399,6 +3467,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Privacy
     private bool _blockScreenCapture;
     private bool _showPublicKeys;
+    private bool _streamerMode;
     public bool BlockScreenCapture
     {
         get => _blockScreenCapture;
@@ -3408,6 +3477,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     {
         get => _showPublicKeys;
         set { if (_showPublicKeys != value) { _showPublicKeys = value; OnPropertyChanged(); } }
+    }
+    public bool StreamerMode
+    {
+        get => _streamerMode;
+        set { if (_streamerMode != value) { _streamerMode = value; OnPropertyChanged(); } }
     }
 
     // System Tray settings
@@ -3495,6 +3569,24 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_isCapturingClearInputHotkey != value)
             {
                 _isCapturingClearInputHotkey = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private Avalonia.Input.Key _streamerModeHotkeyKey = Avalonia.Input.Key.F7;
+    private Avalonia.Input.KeyModifiers _streamerModeHotkeyModifiers = Avalonia.Input.KeyModifiers.Control;
+    private bool _isCapturingStreamerModeHotkey;
+
+    public string StreamerModeHotkeyDisplay => HotkeyManager.FormatKeyBinding(_streamerModeHotkeyKey, _streamerModeHotkeyModifiers);
+    public bool IsCapturingStreamerModeHotkey
+    {
+        get => _isCapturingStreamerModeHotkey;
+        set
+        {
+            if (_isCapturingStreamerModeHotkey != value)
+            {
+                _isCapturingStreamerModeHotkey = value;
                 OnPropertyChanged();
             }
         }
@@ -3707,6 +3799,79 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _clearInputHotkeyKey = Avalonia.Input.Key.Q;
         _clearInputHotkeyModifiers = Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift;
         OnPropertyChanged(nameof(ClearInputHotkeyDisplay));
+    }, _ => true);
+
+    public void StartCapturingStreamerModeHotkey()
+    {
+        IsCapturingStreamerModeHotkey = true;
+        try
+        {
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime life)
+            {
+                var mainWindow = life.MainWindow;
+                if (mainWindow != null)
+                {
+                    mainWindow.KeyDown -= OnCaptureStreamerModeKeyDown;
+                    mainWindow.KeyDown += OnCaptureStreamerModeKeyDown;
+                }
+            }
+        }
+        catch { IsCapturingStreamerModeHotkey = false; }
+    }
+
+    private void OnCaptureStreamerModeKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        try
+        {
+            if (!IsCapturingStreamerModeHotkey) return;
+
+            if (e.Key == Avalonia.Input.Key.LeftCtrl || e.Key == Avalonia.Input.Key.RightCtrl ||
+                e.Key == Avalonia.Input.Key.LeftAlt || e.Key == Avalonia.Input.Key.RightAlt ||
+                e.Key == Avalonia.Input.Key.LeftShift || e.Key == Avalonia.Input.Key.RightShift ||
+                e.Key == Avalonia.Input.Key.LWin || e.Key == Avalonia.Input.Key.RWin)
+            {
+                return;
+            }
+
+            if (IsReservedHotkey(e.Key, e.KeyModifiers))
+            {
+                _ = ShowSaveToastAsync("This hotkey is reserved by the system or conflicts with common text editor shortcuts.", 2500);
+                IsCapturingStreamerModeHotkey = false;
+                return;
+            }
+
+            bool isSettingToDefault = (e.Key == Avalonia.Input.Key.F7 && e.KeyModifiers == Avalonia.Input.KeyModifiers.Control);
+
+            if (!isSettingToDefault && HotkeyManager.Instance.HasConflict(e.Key, e.KeyModifiers, "app.streamerMode"))
+            {
+                _ = ShowSaveToastAsync("Hotkey conflict! This combination is already in use.", 2000);
+                IsCapturingStreamerModeHotkey = false;
+                return;
+            }
+
+            _streamerModeHotkeyKey = e.Key;
+            _streamerModeHotkeyModifiers = e.KeyModifiers;
+            OnPropertyChanged(nameof(StreamerModeHotkeyDisplay));
+            IsCapturingStreamerModeHotkey = false;
+
+            if (sender is Window w)
+            {
+                w.KeyDown -= OnCaptureStreamerModeKeyDown;
+            }
+
+            e.Handled = true;
+        }
+        catch
+        {
+            IsCapturingStreamerModeHotkey = false;
+        }
+    }
+
+    public ICommand ResetStreamerModeHotkeyCommand => new RelayCommand(_ =>
+    {
+        _streamerModeHotkeyKey = Avalonia.Input.Key.F7;
+        _streamerModeHotkeyModifiers = Avalonia.Input.KeyModifiers.Control;
+        OnPropertyChanged(nameof(StreamerModeHotkeyDisplay));
     }, _ => true);
 
     public bool EnableDebugLogAutoTrim
@@ -4356,13 +4521,16 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string RelayServer { get => NetworkVm.RelayServer; set => NetworkVm.RelayServer = value; }
     public int RelayPresenceTimeoutSeconds { get => NetworkVm.RelayPresenceTimeoutSeconds; set => NetworkVm.RelayPresenceTimeoutSeconds = value; }
     public int RelayDiscoveryTtlMinutes { get => NetworkVm.RelayDiscoveryTtlMinutes; set => NetworkVm.RelayDiscoveryTtlMinutes = value; }
+    public bool ForceSeedBootstrap { get => NetworkVm.ForceSeedBootstrap; set => NetworkVm.ForceSeedBootstrap = value; }
     public string NewRelayServer { get => NetworkVm.NewRelayServer; set => NetworkVm.NewRelayServer = value; }
+    public string NewWanSeedNode { get => NetworkVm.NewWanSeedNode; set => NetworkVm.NewWanSeedNode = value; }
     public string NetworkInfoMessage => NetworkVm.InfoMessage;
     public string NetworkErrorMessage => NetworkVm.ErrorMessage;
     public string NewBlockedPeer { get; set; } = string.Empty; // TODO: Implement in NetworkViewModel
 
     // Network collections exposed from NetworkViewModel
     public System.Collections.ObjectModel.ObservableCollection<string> SavedRelayServers => NetworkVm.SavedRelayServers;
+    public System.Collections.ObjectModel.ObservableCollection<string> WanSeedNodes => NetworkVm.WanSeedNodes;
     public System.Collections.ObjectModel.ObservableCollection<string> BlockedPeers => NetworkVm.BlockedPeers;
     public System.Collections.ObjectModel.ObservableCollection<Peer> DiscoveredPeers => NetworkVm.DiscoveredPeers;
     public System.Collections.ObjectModel.ObservableCollection<NetworkViewModel.AdapterItem> NetworkAdapters => NetworkVm.Adapters;
@@ -4398,6 +4566,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         get => NetworkVm.SelectedRelayServer;
         set => NetworkVm.SelectedRelayServer = value;
     }
+    public string? SelectedWanSeedNode
+    {
+        get => NetworkVm.SelectedWanSeedNode;
+        set => NetworkVm.SelectedWanSeedNode = value;
+    }
     public NetworkViewModel.AdapterItem? SelectedNetworkAdapter 
     { 
         get => NetworkVm.SelectedAdapter; 
@@ -4408,6 +4581,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand AddRelayServerCommand => NetworkVm.AddRelayServerCommand;
     public ICommand RemoveRelayServerCommand => NetworkVm.RemoveRelayServerCommand;
     public ICommand UseRelayServerCommand => NetworkVm.UseRelayServerCommand;
+    public ICommand AddWanSeedNodeCommand => NetworkVm.AddWanSeedNodeCommand;
+    public ICommand RemoveWanSeedNodeCommand => NetworkVm.RemoveWanSeedNodeCommand;
+    public ICommand UseWanSeedNodeCommand => NetworkVm.UseWanSeedNodeCommand;
     public ICommand BlockPeerCommand => NetworkVm.BlockPeerCommand;
     public ICommand UnblockPeerCommand => NetworkVm.UnblockPeerCommand;
     public ICommand BlockSelectedPeersCommand => NetworkVm.BlockSelectedPeersCommand;
@@ -6004,6 +6180,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         RelayServer = s.RelayServer?.Trim() ?? string.Empty;
         RelayPresenceTimeoutSeconds = Math.Clamp(s.RelayPresenceTimeoutSeconds <= 0 ? 45 : s.RelayPresenceTimeoutSeconds, 10, 300);
         RelayDiscoveryTtlMinutes = Math.Clamp(s.RelayDiscoveryTtlMinutes <= 0 ? 3 : s.RelayDiscoveryTtlMinutes, 1, 60);
+        ForceSeedBootstrap = s.ForceSeedBootstrap;
         EnableGeoBlocking = s.EnableGeoBlocking;
     RetryNatVerificationCommand = new RelayCommand(async _ => { try { await AppServices.Nat.RetryVerificationAsync(); } catch { } });
         SaveCommand = new RelayCommand(async _ => await SaveAsync(showToast: true, close: false), _ => Port >= 1 && Port <= 65535);
@@ -6026,6 +6203,9 @@ public class NetworkViewModel : INotifyPropertyChanged
         AddRelayServerCommand = new RelayCommand(_ => AddRelayServer(), _ => IsValidRelayEntry(NewRelayServer));
         RemoveRelayServerCommand = new RelayCommand(entry => { if (entry is string relay) RemoveRelayServer(relay); });
         UseRelayServerCommand = new RelayCommand(entry => { if (entry is string relay) RelayServer = relay; });
+        AddWanSeedNodeCommand = new RelayCommand(_ => AddWanSeedNode(), _ => IsValidRelayEntry(NewWanSeedNode));
+        RemoveWanSeedNodeCommand = new RelayCommand(entry => { if (entry is string seed) RemoveWanSeedNode(seed); });
+        UseWanSeedNodeCommand = new RelayCommand(entry => { if (entry is string seed) RelayServer = seed; });
         
         // IP Blocking Commands
         AddBadActorIpCommand = new RelayCommand(_ => AddBadActorIp(), _ => !string.IsNullOrWhiteSpace(NewBadActorIp));
@@ -6040,6 +6220,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         RefreshLists();
         RefreshIpLists();
         RefreshRelayServers();
+        RefreshWanSeedNodes();
 
         LoadAdapters();
         MoveAdapterUpCommand = new RelayCommand(_ => MoveAdapter(-1), _ => SelectedAdapter != null);
@@ -6232,6 +6413,61 @@ public class NetworkViewModel : INotifyPropertyChanged
         }
     }
 
+    private bool _forceSeedBootstrap;
+    public bool ForceSeedBootstrap
+    {
+        get => _forceSeedBootstrap;
+        set
+        {
+            if (_forceSeedBootstrap != value)
+            {
+                _forceSeedBootstrap = value;
+                OnPropertyChanged();
+                try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
+            }
+        }
+    }
+
+    private System.Collections.ObjectModel.ObservableCollection<string> _wanSeedNodes = new();
+    public System.Collections.ObjectModel.ObservableCollection<string> WanSeedNodes
+    {
+        get => _wanSeedNodes;
+        private set
+        {
+            _wanSeedNodes = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private string _newWanSeedNode = string.Empty;
+    public string NewWanSeedNode
+    {
+        get => _newWanSeedNode;
+        set
+        {
+            if (!string.Equals(_newWanSeedNode, value, StringComparison.Ordinal))
+            {
+                _newWanSeedNode = value ?? string.Empty;
+                OnPropertyChanged();
+                (AddWanSeedNodeCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    private string? _selectedWanSeedNode;
+    public string? SelectedWanSeedNode
+    {
+        get => _selectedWanSeedNode;
+        set
+        {
+            if (!string.Equals(_selectedWanSeedNode, value, StringComparison.Ordinal))
+            {
+                _selectedWanSeedNode = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     // [SECURITY] Geo-blocking settings
     private bool _enableGeoBlocking;
     public bool EnableGeoBlocking
@@ -6271,6 +6507,9 @@ public class NetworkViewModel : INotifyPropertyChanged
     public ICommand AddRelayServerCommand { get; }
     public ICommand RemoveRelayServerCommand { get; }
     public ICommand UseRelayServerCommand { get; }
+    public ICommand AddWanSeedNodeCommand { get; }
+    public ICommand RemoveWanSeedNodeCommand { get; }
+    public ICommand UseWanSeedNodeCommand { get; }
     public ICommand MoveAdapterUpCommand { get; }
     public ICommand MoveAdapterDownCommand { get; }
     public ICommand SaveAdaptersCommand { get; }
@@ -6465,6 +6704,13 @@ public class NetworkViewModel : INotifyPropertyChanged
                 .Where(IsValidRelayEntry)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+            s.ForceSeedBootstrap = ForceSeedBootstrap;
+            s.WanSeedNodes = WanSeedNodes
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim())
+                .Where(IsValidRelayEntry)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
             s.EnableGeoBlocking = EnableGeoBlocking;
             _settings.Save(AppServices.Passphrase);
             // Networking lifecycle is handled by app-level service; notify via centralized event
@@ -6506,65 +6752,33 @@ public class NetworkViewModel : INotifyPropertyChanged
     {
         try
         {
-            if (!OperatingSystem.IsWindows())
-            {
-                InfoMessage = "Firewall troubleshooter is available on Windows only.";
-                return;
-            }
+            var settingsPort = 26264;
+            try { settingsPort = _settings.Settings.Port; } catch { }
 
-            var exePath = Environment.ProcessPath;
-            if (string.IsNullOrWhiteSpace(exePath))
+            var result = await WindowsFirewallRuleManager.RefreshRulesAsync(settingsPort, force: true);
+            switch (result)
             {
-                try { exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName; } catch { }
+                case FirewallRuleRefreshResult.SkippedNonWindows:
+                    InfoMessage = "Firewall troubleshooter is available on Windows only.";
+                    return;
+                case FirewallRuleRefreshResult.MissingExecutablePath:
+                    ErrorMessage = "Unable to determine executable path for firewall repair.";
+                    return;
+                case FirewallRuleRefreshResult.Canceled:
+                    InfoMessage = "Firewall troubleshooter canceled.";
+                    return;
+                case FirewallRuleRefreshResult.Success:
+                case FirewallRuleRefreshResult.UpToDate:
+                    ErrorMessage = string.Empty;
+                    InfoMessage = "Firewall rules refreshed. Networking restarted.";
+                    // Force-restart the network listener so the new firewall rules take effect
+                    // immediately without requiring a full app restart.
+                    try { AppServices.Network.ForceRestart(); } catch { }
+                    return;
+                default:
+                    ErrorMessage = "Firewall troubleshooter failed. Try running Zer0Talk as Administrator.";
+                    return;
             }
-
-            if (string.IsNullOrWhiteSpace(exePath))
-            {
-                ErrorMessage = "Unable to determine executable path for firewall repair.";
-                return;
-            }
-
-            var escapedExe = exePath.Replace("'", "''", StringComparison.Ordinal);
-            var script =
-                "$ErrorActionPreference='SilentlyContinue';" +
-                "$exe='" + escapedExe + "';" +
-                "Get-NetFirewallRule -DisplayName 'Zer0Talk*' | Remove-NetFirewallRule -Confirm:$false;" +
-                "Get-NetFirewallRule | Where-Object { $app = $_ | Get-NetFirewallApplicationFilter; $app -and $app.Program -and [string]::Equals($app.Program, $exe, [System.StringComparison]::OrdinalIgnoreCase) } | Remove-NetFirewallRule -Confirm:$false;" +
-                "New-NetFirewallRule -DisplayName 'Zer0Talk Inbound' -Direction Inbound -Program $exe -Action Allow -Profile Any | Out-Null;" +
-                "New-NetFirewallRule -DisplayName 'Zer0Talk Outbound' -Direction Outbound -Program $exe -Action Allow -Profile Any | Out-Null;";
-
-            var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script));
-            var psi = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "powershell",
-                Arguments = $"-NoLogo -NoProfile -ExecutionPolicy Bypass -EncodedCommand {encoded}",
-                UseShellExecute = true,
-                Verb = "runas",
-                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
-            };
-
-            using var proc = System.Diagnostics.Process.Start(psi);
-            if (proc == null)
-            {
-                ErrorMessage = "Failed to start firewall troubleshooter.";
-                return;
-            }
-
-            await System.Threading.Tasks.Task.Run(() => proc.WaitForExit());
-            if (proc.ExitCode == 0)
-            {
-                ErrorMessage = string.Empty;
-                InfoMessage = "Firewall rules refreshed. Zer0Talk networking is re-initializing.";
-                try { AppServices.Events.RaiseNetworkConfigChanged(); } catch { }
-            }
-            else
-            {
-                ErrorMessage = "Firewall troubleshooter failed. Try running Zer0Talk as Administrator.";
-            }
-        }
-        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
-        {
-            InfoMessage = "Firewall troubleshooter canceled.";
         }
         catch (Exception ex)
         {
@@ -6585,7 +6799,9 @@ public class NetworkViewModel : INotifyPropertyChanged
             RelayServer = s.RelayServer?.Trim() ?? string.Empty;
             RelayPresenceTimeoutSeconds = Math.Clamp(s.RelayPresenceTimeoutSeconds <= 0 ? 45 : s.RelayPresenceTimeoutSeconds, 10, 300);
             RelayDiscoveryTtlMinutes = Math.Clamp(s.RelayDiscoveryTtlMinutes <= 0 ? 3 : s.RelayDiscoveryTtlMinutes, 1, 60);
+            ForceSeedBootstrap = s.ForceSeedBootstrap;
             RefreshRelayServers();
+            RefreshWanSeedNodes();
             // Apply reverted values immediately so runtime matches persisted state
             ApplyNetworkChangeLiveIfNeeded();
         }
@@ -7224,6 +7440,23 @@ public class NetworkViewModel : INotifyPropertyChanged
         }
     }
 
+    private void RefreshWanSeedNodes()
+    {
+        try
+        {
+            WanSeedNodes = new System.Collections.ObjectModel.ObservableCollection<string>(
+                (_settings.Settings.WanSeedNodes ?? new System.Collections.Generic.List<string>())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Select(s => s.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList());
+        }
+        catch
+        {
+            WanSeedNodes = new System.Collections.ObjectModel.ObservableCollection<string>();
+        }
+    }
+
     private static bool IsValidRelayEntry(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return false;
@@ -7341,6 +7574,52 @@ public class NetworkViewModel : INotifyPropertyChanged
         if (string.Equals(SelectedRelayServer, entry, StringComparison.OrdinalIgnoreCase))
         {
             SelectedRelayServer = null;
+        }
+    }
+
+    private void AddWanSeedNode()
+    {
+        var entry = NewWanSeedNode?.Trim() ?? string.Empty;
+        if (!IsValidRelayEntry(entry))
+        {
+            InfoMessage = "Seed node must be host:port, [IPv6]:port, or a 16-character token.";
+            return;
+        }
+
+        if (!IsValidRelayToken(entry) && TryParseRelayEndpoint(entry, out var normalized))
+        {
+            entry = normalized;
+        }
+
+        var list = _settings.Settings.WanSeedNodes ??= new System.Collections.Generic.List<string>();
+        if (list.Any(existing => string.Equals(existing, entry, StringComparison.OrdinalIgnoreCase)))
+        {
+            NewWanSeedNode = string.Empty;
+            return;
+        }
+
+        list.Add(entry);
+        WanSeedNodes.Add(entry);
+        NewWanSeedNode = string.Empty;
+    }
+
+    private void RemoveWanSeedNode(string seed)
+    {
+        var entry = seed?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(entry)) return;
+
+        var list = _settings.Settings.WanSeedNodes ??= new System.Collections.Generic.List<string>();
+        list.RemoveAll(existing => string.Equals(existing, entry, StringComparison.OrdinalIgnoreCase));
+
+        var existingVm = WanSeedNodes.FirstOrDefault(existing => string.Equals(existing, entry, StringComparison.OrdinalIgnoreCase));
+        if (existingVm != null)
+        {
+            WanSeedNodes.Remove(existingVm);
+        }
+
+        if (string.Equals(SelectedWanSeedNode, entry, StringComparison.OrdinalIgnoreCase))
+        {
+            SelectedWanSeedNode = null;
         }
     }
 

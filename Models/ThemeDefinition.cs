@@ -695,7 +695,14 @@ namespace Zer0Talk.Models
                     
                     // List items
                     ["App.ItemHover"] = "#303030",
-                    ["App.ItemSelected"] = "#383838"
+                    ["App.ItemSelected"] = "#383838",
+                    
+                    // Status bar
+                    ["StatusBar.Background"] = "#181818",
+                    ["StatusBar.Foreground"] = "#E0E0E0",
+                    ["StatusBar.ForegroundSecondary"] = "#808080",
+                    ["StatusBar.StreamerBadge"] = "#E53935",
+                    ["StatusBar.StreamerBadgeForeground"] = "#FFFFFF"
                 },
                 // Default gradient for title bar - neutral grey gradient that users can customize
                 Gradients = new Dictionary<string, GradientDefinition>

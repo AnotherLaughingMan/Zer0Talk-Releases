@@ -52,8 +52,8 @@
                     IsChecked="{Binding IsSimulated, Mode=TwoWay}"
                     IsVisible="{Binding ShowSimulatedOption}"
                     Classes="pill-toggle"/>
-          <!-- [TRUNC-OPTIN] Status messages can be long; enable ellipsis + tooltip. -->
-          <TextBlock Classes="app-trunc" Text="{Binding Status}" FontSize="12" Opacity="0.7"/>
+            <!-- [STATUS] Status messages can be long; wrap instead of truncating. -->
+            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" TextTrimming="None" FontSize="12" Opacity="0.7" HorizontalAlignment="Stretch"/>
       </StackPanel>
   <!-- [LAYOUT] Button row anchored and padded to remain fully visible within window bounds; aligned for consistency with other windows. -->
       <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">

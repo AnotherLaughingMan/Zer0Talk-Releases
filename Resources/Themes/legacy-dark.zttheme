@@ -8,7 +8,13 @@
   "resourceDictionaries": [
     "avares://Zer0Talk/Styles/DarkThemeOverrides.axaml"
   ],
-  "colorOverrides": {},
+  "colorOverrides": {
+    "StatusBar.Background": "#181818",
+    "StatusBar.Foreground": "#E0E0E0",
+    "StatusBar.ForegroundSecondary": "#808080",
+    "StatusBar.StreamerBadge": "#E53935",
+    "StatusBar.StreamerBadgeForeground": "#FFFFFF"
+  },
   "gradients": {
     "App.TitleBarBackground": {
       "startColor": "#1E1E1E",

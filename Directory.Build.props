@@ -1,5 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
+  <PropertyGroup>
+    <Zer0TalkVersion>0.0.4.00</Zer0TalkVersion>
+    <Zer0TalkPrereleaseTag>Alpha</Zer0TalkPrereleaseTag>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ExpectedInformationalVersion>$(Zer0TalkVersion)-$(Zer0TalkPrereleaseTag)</ExpectedInformationalVersion>
+  </PropertyGroup>
+
+  <Target Name="ValidateSharedVersionSync"
+          BeforeTargets="CoreCompile"
+          Condition="'$(MSBuildProjectName)' == 'Zer0Talk' or '$(MSBuildProjectName)' == 'Zer0Talk.RelayServer'">
+    <Error Condition="'$(Version)' != '$(Zer0TalkVersion)'"
+           Text="Version mismatch in $(MSBuildProjectName): Version='$(Version)' must match Zer0TalkVersion='$(Zer0TalkVersion)'." />
+    <Error Condition="'$(AssemblyVersion)' != '$(Zer0TalkVersion)'"
+           Text="AssemblyVersion mismatch in $(MSBuildProjectName): AssemblyVersion='$(AssemblyVersion)' must match Zer0TalkVersion='$(Zer0TalkVersion)'." />
+    <Error Condition="'$(FileVersion)' != '$(Zer0TalkVersion)'"
+           Text="FileVersion mismatch in $(MSBuildProjectName): FileVersion='$(FileVersion)' must match Zer0TalkVersion='$(Zer0TalkVersion)'." />
+    <Error Condition="'$(InformationalVersion)' != '$(ExpectedInformationalVersion)' and !$([System.String]::Copy('$(InformationalVersion)').StartsWith('$(ExpectedInformationalVersion)+'))"
+           Text="InformationalVersion mismatch in $(MSBuildProjectName): InformationalVersion='$(InformationalVersion)' must match '$(ExpectedInformationalVersion)'." />
+  </Target>
+
   <!-- Disable analyzers and code style enforcement for Debug to keep feature work friction-free -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <EnableNETAnalyzers>false</EnableNETAnalyzers>

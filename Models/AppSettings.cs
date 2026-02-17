@@ -33,6 +33,8 @@ public class AppSettings
     public const int DefaultLockHotkeyModifiers = (int)KeyModifiers.Control;
     public const int DefaultClearInputHotkeyKey = (int)Key.Q;
     public const int DefaultClearInputHotkeyModifiers = (int)(KeyModifiers.Control | KeyModifiers.Shift);
+    public const int DefaultStreamerModeHotkeyKey = (int)Key.F7;
+    public const int DefaultStreamerModeHotkeyModifiers = (int)KeyModifiers.Control;
 
     public string DisplayName { get; set; } = string.Empty;
     public ThemeOption Theme { get; set; } = ThemeOption.Dark;
@@ -93,6 +95,13 @@ public class AppSettings
     public bool RelayFallbackEnabled { get; set; } = true;
     public string? RelayServer { get; set; }
     public System.Collections.Generic.List<string> SavedRelayServers { get; set; } = new();
+    // Optional WAN bootstrap seed nodes used to discover peers when no known endpoints are available.
+    // Format: "host:port" (e.g., "seed1.example.net:443").
+    // These are not forced by default; they are used opportunistically when needed.
+    public System.Collections.Generic.List<string> WanSeedNodes { get; set; } = new();
+    // When true, always include seed nodes in WAN bootstrap candidate set.
+    // Default false: only use seeds when no explicit relay/directory endpoints are configured.
+    public bool ForceSeedBootstrap { get; set; } = false;
     public int RelayPresenceTimeoutSeconds { get; set; } = 45;
     public int RelayDiscoveryTtlMinutes { get; set; } = 3;
 
@@ -117,6 +126,8 @@ public class AppSettings
     public bool BlockScreenCapture { get; set; } = true;
     // Privacy: show/hide public keys on profiles (default hidden)
     public bool ShowPublicKeys { get; set; }
+    // Privacy: streamer mode hides sensitive info (UIDs, IPs, peer names) in the UI
+    public bool StreamerMode { get; set; }
 
     // Security: Geo-blocking settings (pre-emptive defense against known hostile regions)
     public bool EnableGeoBlocking { get; set; } = true; // Default enabled for safety
@@ -139,6 +150,8 @@ public class AppSettings
     public int LockHotkeyModifiers { get; set; } = DefaultLockHotkeyModifiers; // Default: Ctrl modifier only
     public int ClearInputHotkeyKey { get; set; } = DefaultClearInputHotkeyKey; // Default: Ctrl+Shift+Q
     public int ClearInputHotkeyModifiers { get; set; } = DefaultClearInputHotkeyModifiers; // Default: Ctrl+Shift modifiers
+    public int StreamerModeHotkeyKey { get; set; } = DefaultStreamerModeHotkeyKey; // Default: Ctrl+F7
+    public int StreamerModeHotkeyModifiers { get; set; } = DefaultStreamerModeHotkeyModifiers; // Default: Ctrl modifier only
 
     // Localization: selected UI language (future expansion)
     public string Language { get; set; } = "English (US)";

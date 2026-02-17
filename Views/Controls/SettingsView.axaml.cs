@@ -257,6 +257,17 @@ namespace Zer0Talk.Views.Controls
                 clearInputBox.PointerPressed += OnClearInputHotkeyBoxPressed;
             }
             catch { }
+
+            try
+            {
+                var streamerModeBox = this.FindControl<Border>("StreamerModeHotkeyBox");
+                if (streamerModeBox == null) return;
+
+                // Remove previous handlers to avoid duplicates
+                streamerModeBox.PointerPressed -= OnStreamerModeHotkeyBoxPressed;
+                streamerModeBox.PointerPressed += OnStreamerModeHotkeyBoxPressed;
+            }
+            catch { }
         }
 
         private void OnLockHotkeyBoxPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
@@ -278,6 +289,18 @@ namespace Zer0Talk.Views.Controls
                 if (DataContext is Zer0Talk.ViewModels.SettingsViewModel vm)
                 {
                     vm.StartCapturingClearInputHotkey();
+                }
+            }
+            catch { }
+        }
+
+        private void OnStreamerModeHotkeyBoxPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+        {
+            try
+            {
+                if (DataContext is Zer0Talk.ViewModels.SettingsViewModel vm)
+                {
+                    vm.StartCapturingStreamerModeHotkey();
                 }
             }
             catch { }

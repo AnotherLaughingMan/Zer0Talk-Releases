@@ -57,6 +57,12 @@
   <SolidColorBrush x:Key="DangerButtonBackgroundColor" Color="#8F2E2E"/>
   <SolidColorBrush x:Key="DangerButtonBorderColor" Color="#6E2323"/>
   <SolidColorBrush x:Key="DangerButtonForegroundColor" Color="#EDEDED"/>
+  <!-- Status bar colors -->
+  <SolidColorBrush x:Key="StatusBar.Background" Color="#18170F"/>
+  <SolidColorBrush x:Key="StatusBar.Foreground" Color="#E6D8A8"/>
+  <SolidColorBrush x:Key="StatusBar.ForegroundSecondary" Color="#8A7F60"/>
+  <SolidColorBrush x:Key="StatusBar.StreamerBadge" Color="#D4A017"/>
+  <SolidColorBrush x:Key="StatusBar.StreamerBadgeForeground" Color="#1C1B18"/>
   </Styles.Resources>
 
   <!-- Global focus adorner metrics are defined in NeutralMetrics -->

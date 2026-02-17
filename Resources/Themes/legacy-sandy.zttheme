@@ -8,7 +8,13 @@
   "resourceDictionaries": [
     "avares://Zer0Talk/Styles/SandyThemeOverrides.axaml"
   ],
-  "colorOverrides": {},
+  "colorOverrides": {
+    "StatusBar.Background": "#332924",
+    "StatusBar.Foreground": "#E7DFD7",
+    "StatusBar.ForegroundSecondary": "#8A7E76",
+    "StatusBar.StreamerBadge": "#D95040",
+    "StatusBar.StreamerBadgeForeground": "#FFFFFF"
+  },
   "gradients": {
     "App.TitleBarBackground": {
       "startColor": "#3B2F2A",

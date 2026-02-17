@@ -63,6 +63,12 @@
     <!-- Subtle highlight colors for list items (sandy theme) -->
     <SolidColorBrush x:Key="App.ItemHover" Color="#4A3D37"/>
     <SolidColorBrush x:Key="App.ItemSelected" Color="#473B35"/>
+  <!-- Status bar colors -->
+  <SolidColorBrush x:Key="StatusBar.Background" Color="#332924"/>
+  <SolidColorBrush x:Key="StatusBar.Foreground" Color="#E7DFD7"/>
+  <SolidColorBrush x:Key="StatusBar.ForegroundSecondary" Color="#8A7E76"/>
+  <SolidColorBrush x:Key="StatusBar.StreamerBadge" Color="#D95040"/>
+  <SolidColorBrush x:Key="StatusBar.StreamerBadgeForeground" Color="#FFFFFF"/>
   </Styles.Resources>
 
   <!-- Metrics handled by NeutralMetrics; theme focuses on colors -->

@@ -641,9 +641,85 @@ namespace Zer0Talk.Services
             var messageTime = timestamp ?? DateTime.UtcNow;
             var formattedTime = messageTime.ToLocalTime().ToString("MMM d, yyyy h:mm tt");
             var titleWithTime = $"{title} • {formattedTime}";
+
+            // Determine presence-based notification behavior FIRST (before adding to notices)
+            // Rules:
+            //   Online     = Sound, no toast, no message center
+            //   Away/Idle  = Sound + toast + message center
+            //   DND        = No sound, no toast, message center (persistent, no auto-dismiss)
+            //   Invisible  = Same as Online (sound, no toast, no message center)
+            //   Offline    = No sound, no toast, message center
+            bool shouldShowToast = false;
+            bool shouldPlayAudio = false;
+            bool shouldAddToCenter = true;  // default: add to notification center
+            bool makePersistent = false;    // DND messages don't auto-dismiss
+            string presenceMode = "Unknown";
+
+            if (incoming)
+            {
+                try
+                {
+                    var settings = AppServices.Settings.Settings;
+                    presenceMode = settings.Status.ToString();
+
+                    switch (settings.Status)
+                    {
+                        case Models.PresenceStatus.Online:
+                            shouldPlayAudio = true;
+                            shouldShowToast = false;
+                            shouldAddToCenter = false;
+                            break;
+
+                        case Models.PresenceStatus.Idle:
+                            shouldPlayAudio = true;
+                            shouldShowToast = true;
+                            shouldAddToCenter = true;
+                            break;
+
+                        case Models.PresenceStatus.DoNotDisturb:
+                            shouldPlayAudio = false;
+                            shouldShowToast = false;
+                            shouldAddToCenter = true;
+                            makePersistent = true;
+                            break;
+
+                        case Models.PresenceStatus.Invisible:
+                            shouldPlayAudio = true;
+                            shouldShowToast = false;
+                            shouldAddToCenter = false;
+                            break;
+
+                        case Models.PresenceStatus.Offline:
+                            shouldPlayAudio = false;
+                            shouldShowToast = false;
+                            shouldAddToCenter = true;
+                            break;
+
+                        default:
+                            shouldPlayAudio = true;
+                            shouldShowToast = false;
+                            shouldAddToCenter = false;
+                            break;
+                    }
+
+                    TryWriteUiVerboseLogThrottled("notices.presence.mode", PresenceDecisionLogInterval,
+                        () => $"{DateTime.Now:O} [Notices] Presence mode: {presenceMode} → audio={shouldPlayAudio}, toast={shouldShowToast}, center={shouldAddToCenter}, persistent={makePersistent}\n");
+                }
+                catch (Exception ex)
+                {
+                    shouldPlayAudio = true;
+                    shouldShowToast = false;
+                    shouldAddToCenter = false;
+                    TryWriteUiVerboseLogThrottled("notices.presence.error", PresenceDecisionLogInterval,
+                        () => $"{DateTime.Now:O} [Notices] Error checking presence: {ex.Message} → defaulting to Online behavior\n");
+                }
+            }
+
+            // Build the notification item; only add to _notices if shouldAddToCenter or outgoing
             NotificationItem updated;
             bool notify = false;
-            bool created = false;
+            bool addedToCenter = !incoming || shouldAddToCenter;
+
             lock (_notices)
             {
                 var index = _notices.FindIndex(n => n.IsMessage && n.MessageId == messageId);
@@ -661,11 +737,13 @@ namespace Zer0Talk.Services
                         IsMessage = true,
                         IsIncoming = incoming,
                         MessageId = messageId,
-                        ReadUtc = readUtc
+                        ReadUtc = readUtc,
+                        IsPersistent = makePersistent || existing.IsPersistent
                     };
                     _notices[index] = updated;
+                    notify = true;
                 }
-                else
+                else if (addedToCenter)
                 {
                     updated = new NotificationItem(
                         Guid.NewGuid(),
@@ -678,85 +756,44 @@ namespace Zer0Talk.Services
                         true,
                         incoming,
                         messageId,
-                        isUnread ? null : DateTime.UtcNow);
+                        isUnread ? null : DateTime.UtcNow,
+                        IsPersistent: makePersistent);
                     _notices.Add(updated);
-                    created = true;
+                    notify = true;
                 }
-                notify = true;
+                else
+                {
+                    // Not adding to center — create a detached item for return value / audio purposes
+                    updated = new NotificationItem(
+                        Guid.NewGuid(),
+                        titleWithTime ?? string.Empty,
+                        body ?? string.Empty,
+                        string.IsNullOrWhiteSpace(trimmedOrigin) ? null : trimmedOrigin,
+                        DateTime.UtcNow,
+                        string.IsNullOrWhiteSpace(body) ? null : body,
+                        isUnread,
+                        true,
+                        incoming,
+                        messageId,
+                        isUnread ? null : DateTime.UtcNow);
+                }
             }
             if (notify)
             {
-                // Always notify UI of message notice changes (for notification center)
                 QueueNoticesChanged();
                 TryWriteUiVerboseLogThrottled("notices.message.update", TimeSpan.FromMilliseconds(1500),
-                    () => $"{DateTime.Now:O} [Notices] Message notice added/updated for notification center: {updated.Title}\n");
+                    () => $"{DateTime.Now:O} [Notices] Message notice {(addedToCenter ? "added to center" : "skipped center")}: {updated.Title}\n");
             }
-            if (created && incoming)
+            if (incoming)
             {
-                // Determine notification behavior based on presence status
-                bool shouldShowToast = false;      // Default: no toast
-                bool shouldPlayAudio = false;      // Default: no audio
                 bool conversationFocused = false;
-                string presenceMode = "Unknown";
-                
                 try
                 {
-                    try
-                    {
-                        var settings = AppServices.Settings.Settings;
-                        presenceMode = settings.Status.ToString();
-                        
-                        // TESTING: Temporarily use normal logic to trace the actual execution path
-                        switch (settings.Status)
-                        {
-                            case Models.PresenceStatus.Online:
-                                shouldPlayAudio = true;   // NORMAL: Should play in Online mode
-                                shouldShowToast = true;   // Online: Show toast (if window inactive)
-                                break;
-                                
-                            case Models.PresenceStatus.Idle:
-                                shouldPlayAudio = true;   // NORMAL: Should play in Idle mode
-                                shouldShowToast = true;   // Idle: Show toast
-                                break;
-                                
-                            case Models.PresenceStatus.DoNotDisturb:
-                                shouldPlayAudio = false;  // NORMAL: Should NOT play in DND mode
-                                shouldShowToast = false;  // DND: NO toast (silent notification to message center only)
-                                break;
-                                
-                            case Models.PresenceStatus.Invisible:
-                                shouldPlayAudio = true;   // NORMAL: Should play in Invisible mode
-                                shouldShowToast = true;   // Invisible: Show toast
-                                break;
-                                
-                            case Models.PresenceStatus.Offline:
-                                shouldPlayAudio = false;  // NORMAL: Should NOT play when Offline
-                                shouldShowToast = false;  // Offline: NO toast (user cannot interact)
-                                break;
-                                
-                            default:
-                                shouldPlayAudio = true;   // NORMAL: Default to playing sound
-                                shouldShowToast = true;   // Unknown: Default to showing toast
-                                break;
-                        }
-                        
-                        TryWriteUiVerboseLogThrottled("notices.presence.mode", PresenceDecisionLogInterval,
-                            () => $"{DateTime.Now:O} [Notices] Presence mode behavior: {presenceMode} → shouldPlayAudio={shouldPlayAudio}, shouldShowToast={shouldShowToast}\n");
-                    }
-                    catch (Exception ex)
-                    {
-                        // If we can't determine presence, default to allowing notifications
-                        shouldPlayAudio = true;
-                        shouldShowToast = true;
-                        TryWriteUiVerboseLogThrottled("notices.presence.error", PresenceDecisionLogInterval,
-                            () => $"{DateTime.Now:O} [Notices] Error checking presence status: {ex.Message} → defaulting to shouldPlayAudio=true, shouldShowToast=true\n");
-                    }
-
                     conversationFocused = IsConversationFocused(updated.OriginUid);
                     TryWriteUiVerboseLogThrottled("notices.presence.decision", PresenceDecisionLogInterval,
-                        () => $"{DateTime.Now:O} [Notices] Presence={presenceMode}, conversationFocused={conversationFocused}, shouldShowToast={shouldShowToast}, shouldPlayAudio={shouldPlayAudio}, origin={updated.OriginUid}\n");
+                        () => $"{DateTime.Now:O} [Notices] Presence={presenceMode}, focused={conversationFocused}, toast={shouldShowToast}, audio={shouldPlayAudio}, center={shouldAddToCenter}, origin={updated.OriginUid}\n");
 
-                    // Show message toast only when the message is from a contact that is not currently focused.
+                    // Show toast only for Away/Idle when conversation is not focused
                     if (shouldShowToast && !conversationFocused)
                     {
                         var toastBody = string.IsNullOrWhiteSpace(updated.FullBody) ? updated.Body : updated.FullBody;
@@ -765,14 +802,13 @@ namespace Zer0Talk.Services
                     }
                     else
                     {
-                        string reason = !shouldShowToast ? "suppressed by presence mode" : "conversation is focused";
-                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Desktop toast skipped ({reason}): shouldShowToast={shouldShowToast}, conversationFocused={conversationFocused}\n"); } catch { }
+                        string reason = !shouldShowToast ? $"suppressed ({presenceMode} mode)" : "conversation is focused";
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Toast skipped ({reason})\n"); } catch { }
                     }
                 }
                 catch { }
 
-                // Play audio based on presence mode (suppressed only in DND)
-                // Audio plays in all modes except DND: Online, Away, Idle, etc.
+                // Play audio: Online/Invisible/Away always hear sound, DND never hears sound
                 try
                 {
                     try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Audio decision: shouldPlayAudio={shouldPlayAudio}, presenceMode={presenceMode}\n"); } catch { }
@@ -797,7 +833,7 @@ namespace Zer0Talk.Services
                     }
                     else
                     {
-                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Audio playback skipped (presence mode: {presenceMode}): {updated.Title}\n"); } catch { }
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Audio skipped ({presenceMode} mode): {updated.Title}\n"); } catch { }
                     }
                 }
                 catch { }

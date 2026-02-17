@@ -54,6 +54,7 @@ namespace Zer0Talk.Services
                 _cts = new CancellationTokenSource();
                 AppendLog("Trigger: start() invoked");
                 _ = Task.Run(() => Loop(_cts.Token));
+                _ = Task.Run(() => RelayInvitePollLoop(_cts.Token));
             }
         }
 
@@ -100,6 +101,49 @@ namespace Zer0Talk.Services
                 AppendLog("Trigger: timer/backoff");
                 try
                 {
+                    // Step 0: best-effort WAN directory registration for UID -> endpoint lookup
+                    try { await AppServices.WanDirectory.TryRegisterSelfAsync(ct); } catch { }
+
+                    // Step 0b: best-effort relay invite polling for WAN rendezvous
+                    // Poll multiple times to catch invites that arrive while we're processing
+                    try
+                    {
+                        var localUid = (AppServices.Identity.UID ?? string.Empty);
+                        if (localUid.StartsWith("usr-", StringComparison.Ordinal) && localUid.Length > 4)
+                        {
+                            localUid = localUid.Substring(4);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(localUid))
+                        {
+                            const int maxPollRounds = 3;
+                            for (var pollRound = 0; pollRound < maxPollRounds; pollRound++)
+                            {
+                                using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                                pollCts.CancelAfter(TimeSpan.FromSeconds(10));
+                                var invite = await AppServices.WanDirectory.WaitForRelayInviteAsync(localUid, TimeSpan.FromSeconds(8), pollCts.Token);
+                                if (invite != null)
+                                {
+                                    try
+                                    {
+                                        var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, ct);
+                                        if (joined)
+                                        {
+                                            try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
+                                            break; // Successfully connected, stop polling
+                                        }
+                                    }
+                                    catch { }
+                                }
+                                else
+                                {
+                                    break; // No invite available, stop polling
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+
                     // Step 1: Ensure NAT diagnostics are available only if needed
                     await TryNatProbeAsync(ct);
 
@@ -129,10 +173,78 @@ namespace Zer0Talk.Services
                     AppendLog($"Error: {ex.Message}");
                 }
 
-                // Backoff with cap
-                var wait = Math.Min(60, Math.Max(5, _backoffSeconds));
-                _backoffSeconds = Math.Min(60, wait * 2);
+                // Backoff with cap (capped at 30s to keep relay invite polling responsive)
+                var wait = Math.Min(30, Math.Max(5, _backoffSeconds));
+                _backoffSeconds = Math.Min(30, wait * 2);
                 await Task.Delay(TimeSpan.FromSeconds(wait), ct);
+            }
+        }
+
+        /// <summary>
+        /// Dedicated background loop that continuously polls for relay invites every 5-8 seconds.
+        /// Runs independently of the main discovery loop so invite pickup is not gated by
+        /// the 30-50 second discovery cycle. This ensures the relay invite window overlaps
+        /// with the sender's QUEUED wait (45s), preventing "ships in the night" timing failures.
+        /// </summary>
+        private async Task RelayInvitePollLoop(CancellationToken ct)
+        {
+            // Short initial delay to let registration happen in the main loop first
+            try { await Task.Delay(TimeSpan.FromSeconds(3), ct); } catch { return; }
+
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    var settings = AppServices.Settings.Settings;
+                    if (!settings.RelayFallbackEnabled || string.IsNullOrWhiteSpace(settings.RelayServer))
+                    {
+                        // Relay not enabled — sleep longer and re-check
+                        try { await Task.Delay(TimeSpan.FromSeconds(15), ct); } catch { }
+                        continue;
+                    }
+
+                    var localUid = (AppServices.Identity.UID ?? string.Empty);
+                    if (localUid.StartsWith("usr-", StringComparison.Ordinal) && localUid.Length > 4)
+                    {
+                        localUid = localUid.Substring(4);
+                    }
+
+                    if (string.IsNullOrWhiteSpace(localUid))
+                    {
+                        try { await Task.Delay(TimeSpan.FromSeconds(5), ct); } catch { }
+                        continue;
+                    }
+
+                    // Ensure we have a valid auth token for polling
+                    try { await AppServices.WanDirectory.TryRegisterSelfAsync(ct); } catch { }
+
+                    using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    pollCts.CancelAfter(TimeSpan.FromSeconds(12));
+                    var invite = await AppServices.WanDirectory.WaitForRelayInviteAsync(localUid, TimeSpan.FromSeconds(8), pollCts.Token);
+                    if (invite != null)
+                    {
+                        AppendLog($"Relay invite poll: received invite from {invite.SourceUid}");
+                        try
+                        {
+                            var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, ct);
+                            if (joined)
+                            {
+                                AppendLog($"Relay invite poll: connected via invite from {invite.SourceUid}");
+                                try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
+                            }
+                            else
+                            {
+                                AppendLog($"Relay invite poll: relay join failed for {invite.SourceUid}");
+                            }
+                        }
+                        catch { }
+                    }
+                }
+                catch (OperationCanceledException) { break; }
+                catch { }
+
+                // Short interval between polls — 5 seconds keeps us responsive
+                try { await Task.Delay(TimeSpan.FromSeconds(5), ct); } catch { }
             }
         }
 
@@ -233,6 +345,9 @@ namespace Zer0Talk.Services
 
         public Snapshot GetSnapshot()
         {
+            var seeds = Array.Empty<string>();
+            try { seeds = AppServices.WanDirectory.GetBootstrapEndpointDisplays().ToArray(); } catch { }
+
             return new Snapshot
             {
                 StateValue = CurrentState,
@@ -242,7 +357,7 @@ namespace Zer0Talk.Services
                 LastError = _lastError,
                 BackoffSeconds = _backoffSeconds,
                 Log = _log.ToArray(),
-                Seeds = Array.Empty<string>(),
+                Seeds = seeds,
                 PeersCount = AppServices.Peers.Peers.Count,
                 UdpBeaconsRecv = (int)AppServices.Network.GetDiagnosticsSnapshot().UdpBeaconsRecv
             };

@@ -51,6 +51,12 @@
   <SolidColorBrush x:Key="DangerButtonBackgroundColor" Color="#8B1E1E"/>
   <SolidColorBrush x:Key="DangerButtonBorderColor" Color="#AA3A3A"/>
   <SolidColorBrush x:Key="DangerButtonForegroundColor" Color="#FFFFFF"/>
+  <!-- Status bar colors -->
+  <SolidColorBrush x:Key="StatusBar.Background" Color="#181818"/>
+  <SolidColorBrush x:Key="StatusBar.Foreground" Color="#E0E0E0"/>
+  <SolidColorBrush x:Key="StatusBar.ForegroundSecondary" Color="#808080"/>
+  <SolidColorBrush x:Key="StatusBar.StreamerBadge" Color="#E53935"/>
+  <SolidColorBrush x:Key="StatusBar.StreamerBadgeForeground" Color="#FFFFFF"/>
   </Styles.Resources>
 
   <!-- Metrics handled by NeutralMetrics; themes focus on brushes/states -->

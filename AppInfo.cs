@@ -1,14 +1,17 @@
 using System;
 using System.Reflection;
-using System.Linq;
 
 namespace Zer0Talk;
 
 public static class AppInfo
 {
-    // Clean version string - no git hashes or extra metadata
-    // Using const instead of assembly metadata to avoid ThisAssembly.AssemblyInfo injecting git hashes
-    public const string Version = "0.0.3.00";
+    private static readonly Assembly Assembly = typeof(AppInfo).Assembly;
+    private static readonly string Informational = Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+        ?.InformationalVersion
+        ?? string.Empty;
+
+    public static string Version => ExtractCoreVersion();
     public const string AppUserModelId = "Zer0Talk.App";
     public const string PrototypeTag = "InDev-Alpha";
 
@@ -39,5 +42,31 @@ public static class AppInfo
         }
         catch { }
         return (0, 0, 0, 0);
+    }
+
+    private static string ExtractCoreVersion()
+    {
+        var infoVersion = Informational;
+        if (!string.IsNullOrWhiteSpace(infoVersion))
+        {
+            var plusIndex = infoVersion.IndexOf('+');
+            if (plusIndex >= 0)
+            {
+                infoVersion = infoVersion.Substring(0, plusIndex);
+            }
+
+            var dashIndex = infoVersion.IndexOf('-');
+            if (dashIndex > 0)
+            {
+                infoVersion = infoVersion.Substring(0, dashIndex);
+            }
+
+            if (!string.IsNullOrWhiteSpace(infoVersion))
+            {
+                return infoVersion;
+            }
+        }
+
+        return Assembly.GetName().Version?.ToString() ?? "0.0.0.0";
     }
 }

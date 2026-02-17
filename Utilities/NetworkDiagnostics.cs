@@ -17,6 +17,14 @@ namespace Zer0Talk.Utilities
         private long _udpBeaconsSent;
         private long _udpBeaconsRecv;
         private long _sessionsActive;
+        // Phase 4: Connection telemetry counters
+        private long _directSuccess;
+        private long _directFail;
+        private long _natSuccess;
+        private long _natFail;
+        private long _relaySuccess;
+        private long _relayFail;
+        private long _uidMismatch;
         private readonly ConcurrentQueue<string> _recentErrors = new();
         private const int MaxErrors = 32;
 
@@ -35,6 +43,14 @@ namespace Zer0Talk.Utilities
         public void IncUdpBeaconSent() => Interlocked.Increment(ref _udpBeaconsSent);
         public void IncUdpBeaconRecv() => Interlocked.Increment(ref _udpBeaconsRecv);
         public void IncSessionsActive() => Interlocked.Increment(ref _sessionsActive);
+        // Phase 4: Connection telemetry increments
+        public void IncDirectSuccess() => Interlocked.Increment(ref _directSuccess);
+        public void IncDirectFail() => Interlocked.Increment(ref _directFail);
+        public void IncNatSuccess() => Interlocked.Increment(ref _natSuccess);
+        public void IncNatFail() => Interlocked.Increment(ref _natFail);
+        public void IncRelaySuccess() => Interlocked.Increment(ref _relaySuccess);
+        public void IncRelayFail() => Interlocked.Increment(ref _relayFail);
+        public void IncUidMismatch() => Interlocked.Increment(ref _uidMismatch);
         public void DecSessionsActive()
         {
             while (true)
@@ -67,6 +83,13 @@ namespace Zer0Talk.Utilities
                 UdpBeaconsSent = Interlocked.Read(ref _udpBeaconsSent),
                 UdpBeaconsRecv = Interlocked.Read(ref _udpBeaconsRecv),
                 SessionsActive = Math.Max(0, Interlocked.Read(ref _sessionsActive)),
+                DirectSuccess = Interlocked.Read(ref _directSuccess),
+                DirectFail = Interlocked.Read(ref _directFail),
+                NatSuccess = Interlocked.Read(ref _natSuccess),
+                NatFail = Interlocked.Read(ref _natFail),
+                RelaySuccess = Interlocked.Read(ref _relaySuccess),
+                RelayFail = Interlocked.Read(ref _relayFail),
+                UidMismatch = Interlocked.Read(ref _uidMismatch),
                 RecentErrors = errors,
             };
         }
@@ -80,6 +103,13 @@ namespace Zer0Talk.Utilities
             public long UdpBeaconsSent { get; init; }
             public long UdpBeaconsRecv { get; init; }
             public long SessionsActive { get; init; }
+            public long DirectSuccess { get; init; }
+            public long DirectFail { get; init; }
+            public long NatSuccess { get; init; }
+            public long NatFail { get; init; }
+            public long RelaySuccess { get; init; }
+            public long RelayFail { get; init; }
+            public long UidMismatch { get; init; }
             public string[] RecentErrors { get; init; } = Array.Empty<string>();
         }
     }

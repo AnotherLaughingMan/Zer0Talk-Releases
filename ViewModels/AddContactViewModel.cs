@@ -152,7 +152,8 @@ namespace Zer0Talk.ViewModels
                         CloseRequested?.Invoke(false);
                         break;
                     case Services.ContactRequestResult.NotFound:
-                        Status = "Contact not found (no active peer).";
+                        var detail = AppServices.ContactRequests.LastSendDiagnostic;
+                        Status = BuildNotFoundStatus(detail);
                         break;
                     case Services.ContactRequestResult.Timeout:
                         Status = "No response (timeout).";
@@ -187,6 +188,37 @@ namespace Zer0Talk.ViewModels
                 if (!char.IsLetterOrDigit(ch)) return false;
             }
             return true;
+        }
+
+        private static string BuildNotFoundStatus(string? detail)
+        {
+            if (string.IsNullOrWhiteSpace(detail))
+            {
+                return "Contact not found. The user may be offline or not registered online yet.";
+            }
+
+            var d = detail.Trim();
+            if (d.StartsWith("wan-lookup-miss", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Could not find that UID online. Ask them to open Zer0Talk and stay online, then try again.";
+            }
+
+            if (d.StartsWith("connect-fail", StringComparison.OrdinalIgnoreCase))
+            {
+                return "UID was found, but we could not reach that user right now. They may be offline or blocked by NAT/firewall.";
+            }
+
+            if (d.StartsWith("no-session", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Connected, but secure session setup failed. Please retry in a few seconds.";
+            }
+
+            if (d.StartsWith("throttled", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Please wait a few seconds before sending another request to this UID.";
+            }
+
+            return "Contact not found. The user may be offline or not reachable right now.";
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;

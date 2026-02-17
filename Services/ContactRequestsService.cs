@@ -29,6 +29,7 @@ namespace Zer0Talk.Services
         private readonly SettingsService _settings;
         private readonly ContactManager _contacts;
         private readonly DialogService _dialogs;
+        private string _lastSendDiagnostic = string.Empty;
     // Pending inbound requests (nonce keyed) for UI panel / toast
     private readonly ConcurrentDictionary<string, PendingContactRequest> _pendingInbound = new();
     // Map UID -> latest nonce (helps with de-dupe)
@@ -58,6 +59,7 @@ namespace Zer0Talk.Services
     public event Action<string>? VerifyRequestCancelled; // arg: uid
 
     public IReadOnlyCollection<PendingContactRequest> PendingInboundRequests => _pendingInbound.Values.ToArray();
+    public string LastSendDiagnostic => _lastSendDiagnostic;
 
         // [VERIFY] expectedPublicKeyHex: optional hex public key provided by user to validate identity. Lowercase, no separators.
         // Simple per-UID throttle to avoid spamming the same peer with requests due to UI retries or flaky sessions.
@@ -68,10 +70,12 @@ namespace Zer0Talk.Services
         {
             timeout ??= TimeSpan.FromSeconds(20);
             uid = Trim(uid);
+            SetSendDiagnostic($"start uid={uid} host={(string.IsNullOrWhiteSpace(host) ? "<none>" : host)} port={(port.HasValue ? port.Value.ToString() : "<none>")}");
             // Throttle repeated outbound requests to the same UID
             var now = DateTime.UtcNow;
             if (_lastOutboundAt.TryGetValue(uid, out var last) && (now - last) < OutboundMinInterval)
             {
+                SetSendDiagnostic($"throttled uid={uid}");
                 SafeLogNetError($"contact-request throttled uid={uid} since={(now-last).TotalMilliseconds:F0}ms<min={OutboundMinInterval.TotalMilliseconds:F0}ms");
                 return ContactRequestResult.Failed;
             }
@@ -82,17 +86,53 @@ namespace Zer0Talk.Services
                 foreach (var p in AppServices.Peers.Peers)
                 {
                     if (string.Equals(uid, Trim(p.UID), StringComparison.OrdinalIgnoreCase))
-                    { host = p.Address; port = p.Port; break; }
+                    {
+                        host = p.Address;
+                        port = p.Port;
+                        SetSendDiagnostic($"resolved-from-peers uid={uid} endpoint={host}:{port}");
+                        break;
+                    }
+                }
+
+                // WAN fallback: try registry lookup by UID via configured relay endpoint(s)
+                if (host == null || port == null || string.IsNullOrWhiteSpace(host) || port == 0)
+                {
+                    try
+                    {
+                        using var lookupCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        var lookup = await AppServices.WanDirectory.LookupPeerAsync(uid, lookupCts.Token);
+                        if (lookup != null)
+                        {
+                            host = lookup.Host;
+                            port = lookup.Port;
+                            SetSendDiagnostic($"wan-lookup-hit uid={uid} endpoint={lookup.Host}:{lookup.Port} src={lookup.Source}");
+
+                            try
+                            {
+                                var merged = new List<Models.Peer>(AppServices.Peers.Peers)
+                                {
+                                    new Models.Peer { UID = uid, Address = lookup.Host, Port = lookup.Port, Status = "Discovered" }
+                                };
+                                AppServices.Peers.SetDiscovered(merged);
+                            }
+                            catch { }
+                        }
+                        else
+                        {
+                            SetSendDiagnostic($"wan-lookup-miss uid={uid}");
+                        }
+                    }
+                    catch { }
                 }
             }
-            if (host == null || port == null || string.IsNullOrWhiteSpace(host) || port == 0) return ContactRequestResult.NotFound;
-
             using var cts = new CancellationTokenSource(timeout.Value);
             // Step 1: ensure connection + encrypted session
             var connectStart = DateTime.UtcNow;
-            var okRelayOrDirect = await _net.ConnectWithRelayFallbackAsync(Trim(uid), host!, port!.Value, cts.Token);
+            SetSendDiagnostic($"connect-attempt uid={Trim(uid)} hintHost={(string.IsNullOrWhiteSpace(host) ? "<none>" : host)} hintPort={(port.HasValue ? port.Value.ToString() : "<none>")}");
+            var okRelayOrDirect = await _net.ConnectPeerWithHintsAsync(Trim(uid), host, port, cts.Token);
             if (!okRelayOrDirect)
             {
+                SetSendDiagnostic($"connect-fail uid={Trim(uid)}");
                 SafeLogNetError($"contact-request connect-fail uid={Trim(uid)} host={host} port={port}");
                 // Queue for retry when peer comes online
                 var offlineNonce = Guid.NewGuid().ToString("N");
@@ -105,9 +145,11 @@ namespace Zer0Talk.Services
             var sessionReady = await _net.WaitForEncryptedSessionAsync(Trim(uid), TimeSpan.FromSeconds(6), cts.Token);
             if (!sessionReady)
             {
+                SetSendDiagnostic($"no-session uid={Trim(uid)}");
                 SafeLogNetError($"contact-request no-session uid={Trim(uid)} after-connect elapsed={(DateTime.UtcNow-connectStart).TotalMilliseconds:F0}ms");
                 return ContactRequestResult.Failed;
             }
+            SetSendDiagnostic($"session-ready uid={Trim(uid)}");
 
             var nonce = Guid.NewGuid().ToString("N");
             var tcs = new TaskCompletionSource<ContactRequestResult>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -135,12 +177,15 @@ namespace Zer0Talk.Services
                 }
                 if (!sent)
                 {
+                    SetSendDiagnostic($"send-fail uid={uid} attempts={attempt}");
                     SafeLogNetError($"contact-request send-fail uid={uid} attempts={attempt}");
                     return ContactRequestResult.Failed;
                 }
+                SetSendDiagnostic($"request-sent uid={uid} nonce={nonce}");
                 // Await accept/cancel
                 using var _ = cts.Token.Register(() => tcs.TrySetResult(ContactRequestResult.Timeout));
                 var result = await tcs.Task;
+                SetSendDiagnostic($"result uid={uid} outcome={result}");
                 // OnInboundAccept will have already added the contact when C1 frame arrives
                 // If successful, just update ExpectedPublicKeyHex if provided and verify
                 if (result == ContactRequestResult.Accepted && !string.IsNullOrWhiteSpace(expectedPublicKeyHex))
@@ -206,6 +251,12 @@ namespace Zer0Talk.Services
             if (string.IsNullOrWhiteSpace(hex)) return null;
             var s = hex.Trim().ToLowerInvariant();
             return s.Replace("-", string.Empty).Replace(":", string.Empty).Replace(" ", string.Empty);
+        }
+
+        private void SetSendDiagnostic(string message)
+        {
+            _lastSendDiagnostic = message;
+            try { Utilities.Logger.Log($"[ContactRequest] {message}"); } catch { }
         }
 
     // Immutable pending request description exposed to UI

@@ -44,6 +44,14 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        bool allowMultiInstance = false;
+        try
+        {
+            var argvEarly = args ?? Array.Empty<string>();
+            allowMultiInstance = argvEarly.Any(a => string.Equals(a, "--multi-instance", StringComparison.OrdinalIgnoreCase));
+        }
+        catch { }
+
         // Ensure stable taskbar grouping and identity on Windows
         try
         {
@@ -55,62 +63,69 @@ internal sealed class Program
         catch { }
 
         // Single-instance enforcement: prevent multiple Zer0Talk instances
-        try
+        if (!allowMultiInstance)
         {
-            var mutexName = "Global\\Zer0Talk_SingleInstance_" + Environment.UserName;
-            _singleInstanceMutex = new Mutex(true, mutexName, out bool createdNew);
-            
-            if (!createdNew)
+            try
             {
-                // Another instance is already running
-                Console.WriteLine("Zer0Talk is already running. Only one instance is allowed.");
-                StartupLog("Startup.SingleInstance.AlreadyRunning");
+                var mutexName = "Global\\Zer0Talk_SingleInstance_" + Environment.UserName;
+                _singleInstanceMutex = new Mutex(true, mutexName, out bool createdNew);
                 
-                // Try to find and focus the existing window
-                try
+                if (!createdNew)
                 {
-                    var processes = Process.GetProcessesByName("Zer0Talk");
-                    if (processes.Length == 0)
-                    {
-                        // Look for dotnet processes running Zer0Talk
-                        processes = Process.GetProcesses()
-                            .Where(p => p.ProcessName.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
-                            .Where(p => 
-                            {
-                                try
-                                {
-                                    return p.MainModule?.FileName?.Contains("Zer0Talk", StringComparison.OrdinalIgnoreCase) == true ||
-                                           p.MainWindowTitle?.Contains("Zer0Talk", StringComparison.OrdinalIgnoreCase) == true;
-                                }
-                                catch { return false; }
-                            })
-                            .ToArray();
-                    }
+                    // Another instance is already running
+                    Console.WriteLine("Zer0Talk is already running. Only one instance is allowed.");
+                    StartupLog("Startup.SingleInstance.AlreadyRunning");
                     
-                    var existingProcess = processes.FirstOrDefault(p => p.Id != Environment.ProcessId);
-                    if (existingProcess != null)
+                    // Try to find and focus the existing window
+                    try
                     {
-                        // Bring the existing window to front
-                        try
+                        var processes = Process.GetProcessesByName("Zer0Talk");
+                        if (processes.Length == 0)
                         {
-                            if (existingProcess.MainWindowHandle != IntPtr.Zero)
-                            {
-                                ShowWindow(existingProcess.MainWindowHandle, SW_RESTORE);
-                                SetForegroundWindow(existingProcess.MainWindowHandle);
-                            }
+                            // Look for dotnet processes running Zer0Talk
+                            processes = Process.GetProcesses()
+                                .Where(p => p.ProcessName.Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+                                .Where(p => 
+                                {
+                                    try
+                                    {
+                                        return p.MainModule?.FileName?.Contains("Zer0Talk", StringComparison.OrdinalIgnoreCase) == true ||
+                                               p.MainWindowTitle?.Contains("Zer0Talk", StringComparison.OrdinalIgnoreCase) == true;
+                                    }
+                                    catch { return false; }
+                                })
+                                .ToArray();
                         }
-                        catch { }
+                        
+                        var existingProcess = processes.FirstOrDefault(p => p.Id != Environment.ProcessId);
+                        if (existingProcess != null)
+                        {
+                            // Bring the existing window to front
+                            try
+                            {
+                                if (existingProcess.MainWindowHandle != IntPtr.Zero)
+                                {
+                                    ShowWindow(existingProcess.MainWindowHandle, SW_RESTORE);
+                                    SetForegroundWindow(existingProcess.MainWindowHandle);
+                                }
+                            }
+                            catch { }
+                        }
                     }
+                    catch { }
+                    
+                    return;
                 }
-                catch { }
-                
-                return;
+            }
+            catch (Exception ex)
+            {
+                StartupLog($"Startup.SingleInstance.Error: {ex.Message}");
+                // Continue anyway - don't let mutex issues block startup
             }
         }
-        catch (Exception ex)
+        else
         {
-            StartupLog($"Startup.SingleInstance.Error: {ex.Message}");
-            // Continue anyway - don't let mutex issues block startup
+            StartupLog("Startup.MultiInstance.Enabled");
         }
 
         // Global exception logging: capture unhandled exceptions from UI and background threads.

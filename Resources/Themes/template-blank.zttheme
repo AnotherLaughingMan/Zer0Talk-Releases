@@ -28,7 +28,12 @@
     "App.ContactName": "#A0A0A0",
     "App.ContactNameActive": "#E0E0E0",
     "App.ItemHover": "#303030",
-    "App.ItemSelected": "#383838"
+    "App.ItemSelected": "#383838",
+    "StatusBar.Background": "#181818",
+    "StatusBar.Foreground": "#E0E0E0",
+    "StatusBar.ForegroundSecondary": "#808080",
+    "StatusBar.StreamerBadge": "#E53935",
+    "StatusBar.StreamerBadgeForeground": "#FFFFFF"
   },
   "gradients": {
     "App.TitleBarBackground": {

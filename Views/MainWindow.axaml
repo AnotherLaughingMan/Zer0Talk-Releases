@@ -57,6 +57,7 @@
         <util:NotOrConverter x:Key="NotOrConverter" />
         <util:PresenceToDisplayStringConverter x:Key="PresenceToDisplayStringConverter" />
         <util:DebugUiBadgeVisibilityConverter x:Key="DebugUiBadgeVisibilityConverter" />
+        <util:StreamerModeNameConverter x:Key="StreamerModeNameConverter" />
     </Window.Resources>
 
     <Window.Styles>
@@ -158,7 +159,7 @@
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,*" Background="{DynamicResource App.Surface}">
+    <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource App.Surface}">
 
         <!-- Drag bar with system buttons, lock/logout, and panel toggles -->
         <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.TitleBarBackground}"
@@ -523,7 +524,14 @@
 
                                     <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                            <TextBlock FontWeight="SemiBold">
+                                                <TextBlock.Text>
+                                                    <MultiBinding Converter="{StaticResource StreamerModeNameConverter}">
+                                                        <Binding Path="DisplayName"/>
+                                                        <Binding Path="$parent[v:MainWindow].DataContext.IsStreamerMode"/>
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
                                             <c:VerifiedBadge Width="16" Height="16" VerticalAlignment="Center">
                                                 <c:VerifiedBadge.IsVisible>
                                                     <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
@@ -543,7 +551,14 @@
                                             </Border>
                                         </StackPanel>
                                         <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
-                                            <TextBlock Text="{Binding DisplayUID}" FontSize="12" Opacity="0.65"/>
+                                            <TextBlock FontSize="12" Opacity="0.65">
+                                                <TextBlock.Text>
+                                                    <MultiBinding Converter="{StaticResource StreamerModeNameConverter}">
+                                                        <Binding Path="DisplayUID"/>
+                                                        <Binding Path="$parent[v:MainWindow].DataContext.IsStreamerMode"/>
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Presence, Converter={StaticResource PresenceToDisplayStringConverter}}" FontSize="12" Opacity="0.6"/>
                                                 <Border Background="#444" CornerRadius="4" Padding="4,1" IsVisible="{Binding LastKnownEncrypted}">
@@ -577,8 +592,22 @@
                     <StackPanel Orientation="Vertical" Spacing="6">
                         <Grid ColumnDefinitions="*,Auto,Auto" VerticalAlignment="Center">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding SelectedContactIdentity}" FontSize="16" FontWeight="SemiBold"/>
-                                <TextBlock Text="{Binding SelectedContact.DisplayUID}" Opacity="0.6"/>
+                                <TextBlock FontSize="16" FontWeight="SemiBold">
+                                    <TextBlock.Text>
+                                        <MultiBinding Converter="{StaticResource StreamerModeNameConverter}">
+                                            <Binding Path="SelectedContactIdentity"/>
+                                            <Binding Path="IsStreamerMode"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                                <TextBlock Opacity="0.6">
+                                    <TextBlock.Text>
+                                        <MultiBinding Converter="{StaticResource StreamerModeNameConverter}">
+                                            <Binding Path="SelectedContact.DisplayUID"/>
+                                            <Binding Path="IsStreamerMode"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
                                 <c:VerifiedBadge Width="18" Height="18" VerticalAlignment="Center">
                                     <c:VerifiedBadge.IsVisible>
                                         <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
@@ -947,9 +976,29 @@
             <!-- Slide-in invite toast (top-right) -->
             <!-- Close BodyGrid before overlays to keep hierarchy balanced -->
         </Grid>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="2" Background="{DynamicResource StatusBar.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="0,1,0,0" Padding="6,3" Height="26">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Left: Connected peers count -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="&#xE77B;" Classes="icon-mdl2" FontSize="12" Foreground="{DynamicResource StatusBar.Foreground}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ConnectedPeerCountDisplay}" FontSize="12" Foreground="{DynamicResource StatusBar.Foreground}" VerticalAlignment="Center" FontWeight="Medium"/>
+                    <TextBlock Text="{Binding LocalizedConnectedPeers}" FontSize="11" Foreground="{DynamicResource StatusBar.ForegroundSecondary}" VerticalAlignment="Center" Opacity="0.8"/>
+                </StackPanel>
+
+                <!-- Right: Streamer mode indicator -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" IsVisible="{Binding StreamerModeBadgeVisible}">
+                    <Border Background="{DynamicResource StatusBar.StreamerBadge}" CornerRadius="4" Padding="6,2">
+                        <TextBlock Text="{Binding LocalizedStreamerModeActive}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource StatusBar.StreamerBadgeForeground}" VerticalAlignment="Center"/>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- Full Profile Overlay marker below remains unchanged -->
             <!-- Full Profile Overlay -->
-        <Grid Grid.RowSpan="2" ZIndex="1000" IsVisible="{Binding IsFullProfileOpen}">
+        <Grid Grid.RowSpan="3" ZIndex="1000" IsVisible="{Binding IsFullProfileOpen}">
             <!-- Backdrop: darken main window and allow click-to-dismiss -->
             <Border x:Name="FullProfileBackdrop" Background="#99000000" PointerPressed="FullProfileBackdrop_PointerPressed"/>
             <Border HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16" CornerRadius="10"
@@ -984,7 +1033,14 @@
                             </Grid>
                         </Border>
                         <StackPanel Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding SelectedContact.DisplayName}" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock FontSize="16" FontWeight="SemiBold">
+                                <TextBlock.Text>
+                                    <MultiBinding Converter="{StaticResource StreamerModeNameConverter}">
+                                        <Binding Path="SelectedContact.DisplayName"/>
+                                        <Binding Path="IsStreamerMode"/>
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <!-- Verification shield in profile card -->
                                 <c:VerifiedBadge Width="16" Height="16" VerticalAlignment="Center">
@@ -1011,11 +1067,25 @@
                                 <TextBlock Text="{Binding $parent[v:MainWindow].DataContext.LocalizedIdentityLabel}" FontWeight="SemiBold"/>
                                 <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding $parent[v:MainWindow].DataContext.LocalizedDisplayNameLabel}" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SelectedContact.DisplayName}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock.Text>
+                                            <MultiBinding Converter="{StaticResource StreamerModeNameConverter}">
+                                                <Binding Path="SelectedContact.DisplayName"/>
+                                                <Binding Path="$parent[v:MainWindow].DataContext.IsStreamerMode"/>
+                                            </MultiBinding>
+                                        </TextBlock.Text>
+                                    </TextBlock>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding $parent[v:MainWindow].DataContext.LocalizedUidLabel}" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="{Binding SelectedContact.DisplayUID}" VerticalAlignment="Center"/>
+                                        <TextBlock VerticalAlignment="Center">
+                                            <TextBlock.Text>
+                                                <MultiBinding Converter="{StaticResource StreamerModeNameConverter}">
+                                                    <Binding Path="SelectedContact.DisplayUID"/>
+                                                    <Binding Path="$parent[v:MainWindow].DataContext.IsStreamerMode"/>
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
                                         <Button Click="CopyContactUid_Click" CommandParameter="{Binding SelectedContact.UID}" ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedCopyUID}" Padding="6,2" MinWidth="0">
                                             <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
                                         </Button>
@@ -1099,7 +1169,7 @@
 
         <!-- Settings overlay: full-panel takeover (Discord-style) -->
         <Grid x:Name="SettingsOverlay"
-              Grid.RowSpan="2"
+              Grid.RowSpan="3"
               ZIndex="1200"
               IsVisible="False"
               Background="{DynamicResource App.Background}"
@@ -1133,7 +1203,7 @@
         </Grid>
 
         <!-- Lock overlay: darken the main UI while the Unlock dialog is active -->
-        <Border x:Name="LockOverlay" Grid.RowSpan="2" ZIndex="2000" IsVisible="False" Background="#99000000" IsHitTestVisible="True" Opacity="0.0">
+        <Border x:Name="LockOverlay" Grid.RowSpan="3" ZIndex="2000" IsVisible="False" Background="#99000000" IsHitTestVisible="True" Opacity="0.0">
             <Border.Transitions>
                 <Transitions>
                     <DoubleTransition Property="Opacity" Duration="0:0:0.15"/>

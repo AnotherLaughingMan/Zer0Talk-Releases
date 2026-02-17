@@ -3420,6 +3420,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             Logger.Log($"Failed to register clear input hotkey: {ex.Message}");
         }
+
+        // Register Streamer Mode hotkey
+        try
+        {
+            var settings = AppServices.Settings.Settings;
+            var key = (Key)settings.StreamerModeHotkeyKey;
+            var modifiers = (KeyModifiers)settings.StreamerModeHotkeyModifiers;
+
+            HotkeyManager.Instance.Register(
+                "app.streamerMode",
+                key,
+                modifiers,
+                () =>
+                {
+                    try
+                    {
+                        Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            if (DataContext is ViewModels.MainWindowViewModel mwvm)
+                            {
+                                mwvm.IsStreamerMode = !mwvm.IsStreamerMode;
+                                AppServices.Settings.Settings.StreamerMode = mwvm.IsStreamerMode;
+                                _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
+                            }
+                        });
+                    }
+                    catch (Exception ex) { Logger.Log($"Streamer mode hotkey error: {ex.Message}"); }
+                },
+                "Toggle Streamer Mode");
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"Failed to register streamer mode hotkey: {ex.Message}");
+        }
     }
 
     private void OnGlobalKeyDown(object? sender, KeyEventArgs e)
