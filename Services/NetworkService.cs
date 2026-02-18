@@ -84,6 +84,7 @@ namespace Zer0Talk.Services
 
     // [AUTO-CONNECT] Throttled sweep to proactively establish sessions without user action
     private readonly ConcurrentDictionary<string, DateTime> _autoConnLastAttempt = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _relaySessionConnectInFlight = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan AutoConnectBackoff = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan AutoConnectSweepMinInterval = TimeSpan.FromSeconds(3);
     private volatile int _autoConnSweepRunning;
@@ -723,10 +724,19 @@ namespace Zer0Talk.Services
 
         private async Task<bool> TryConnectViaRelaySessionAsync(string peerUid, string sessionKey, string relayHost, int relayPort, string relayDisplay, CancellationToken ct)
         {
+            var normalizedSessionKey = (sessionKey ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedSessionKey)) return false;
+
+            if (!_relaySessionConnectInFlight.TryAdd(normalizedSessionKey, 0))
+            {
+                SafeNetLog($"connect relay skipped in-flight | peer={peerUid} | session={normalizedSessionKey}");
+                return false;
+            }
+
             try
             {
                 var localUid = Trim(_identity.UID);
-                var relayClient = await _nat.TryRelayAsync(relayHost, relayPort, localUid, Trim(peerUid), sessionKey, ct);
+                var relayClient = await _nat.TryRelayAsync(relayHost, relayPort, localUid, Trim(peerUid), normalizedSessionKey, ct);
                 if (relayClient == null) { SafeNetLog($"connect relay fail | peer={peerUid} | server={relayDisplay}"); return false; }
                 var relayStream = relayClient.GetStream();
 
@@ -959,6 +969,10 @@ namespace Zer0Talk.Services
                 Logger.Log($"Relay connect/handshake exception: {ex.Message}");
                 SafeNetLog($"connect relay exception | peer={peerUid} | {ex.Message}");
                 return false;
+            }
+            finally
+            {
+                _relaySessionConnectInFlight.TryRemove(normalizedSessionKey, out _);
             }
         }
 
@@ -1556,6 +1570,8 @@ namespace Zer0Talk.Services
             {
                 try
                 {
+                    // Only auto-connect to contacts — peers without a contact entry
+                    // are transient discoveries and should not trigger relay OFFERs.
                     var uidSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     try
                     {
@@ -1564,16 +1580,6 @@ namespace Zer0Talk.Services
                             if (c == null) continue;
                             var cu = Trim(c.UID ?? string.Empty);
                             if (!string.IsNullOrWhiteSpace(cu)) uidSet.Add(cu);
-                        }
-                    }
-                    catch { }
-                    try
-                    {
-                        foreach (var p in AppServices.Peers.Peers)
-                        {
-                            if (p == null) continue;
-                            var pu = Trim(p.UID ?? string.Empty);
-                            if (!string.IsNullOrWhiteSpace(pu)) uidSet.Add(pu);
                         }
                     }
                     catch { }

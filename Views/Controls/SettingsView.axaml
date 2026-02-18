@@ -630,32 +630,40 @@
               <TextBlock Text="{Binding LocalizedCPU}" FontWeight="SemiBold"/>
               <!-- Enumerate CPU model and cache capabilities (model normal, details subtle) -->
               <TextBlock Text="{Binding CpuModel}"/>
-              <TextBlock Text="{Binding VCacheInfo}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="{Binding LocalizedCCDOffinity}" VerticalAlignment="Center"/>
-                <ComboBox SelectedIndex="{Binding CcdAffinityIndex}" Width="150" ToolTip.Tip="{Binding CcdAffinityTooltip}">
-                  <ComboBoxItem Content="{Binding LocalizedAuto}"/>
-                  <ComboBoxItem Content="{Binding LocalizedCCD0}"/>
-                  <ComboBoxItem Content="{Binding LocalizedCCD1}"/>
-                  <ComboBoxItem Content="{Binding LocalizedBothCCDs}"/>
-                </ComboBox>
-                <!-- Inline red pill warning when Both CCDs is selected -->
-                <Border
-                  Background="{DynamicResource DangerButtonBackgroundColor}"
-                  BorderBrush="{DynamicResource DangerButtonBorderColor}"
-                  CornerRadius="12"
-                  Padding="8,2"
-                  Margin="8,0,0,0"
-                  VerticalAlignment="Center"
-                  IsVisible="{Binding BothCcdWarningVisible}"
-                  ToolTip.Tip="Using both CCDs can increase latency due to inter-CCD data transfers.">
-                  <TextBlock Text="{Binding LocalizedNotRecommended}"
-                             Foreground="{DynamicResource DangerButtonForegroundColor}"
-                             FontWeight="SemiBold"
-                             FontSize="12"/>
-                </Border>
+              <TextBlock Text="{Binding VCacheInfo}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" IsVisible="{Binding IsAmdCpu}"/>
+              <!-- AMD CCD Affinity (hidden on non-AMD CPUs) -->
+              <StackPanel Spacing="12" IsVisible="{Binding IsAmdCpu}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{Binding LocalizedCCDOffinity}" VerticalAlignment="Center"/>
+                  <ComboBox SelectedIndex="{Binding CcdAffinityIndex}" Width="150" ToolTip.Tip="{Binding CcdAffinityTooltip}">
+                    <ComboBoxItem Content="{Binding LocalizedAuto}"/>
+                    <ComboBoxItem Content="{Binding LocalizedCCD0}"/>
+                    <ComboBoxItem Content="{Binding LocalizedCCD1}"/>
+                    <ComboBoxItem Content="{Binding LocalizedBothCCDs}"/>
+                  </ComboBox>
+                  <!-- Inline red pill warning when Both CCDs is selected -->
+                  <Border
+                    Background="{DynamicResource DangerButtonBackgroundColor}"
+                    BorderBrush="{DynamicResource DangerButtonBorderColor}"
+                    CornerRadius="12"
+                    Padding="8,2"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding BothCcdWarningVisible}"
+                    ToolTip.Tip="Using both CCDs can increase latency due to inter-CCD data transfers.">
+                    <TextBlock Text="{Binding LocalizedNotRecommended}"
+                               Foreground="{DynamicResource DangerButtonForegroundColor}"
+                               FontWeight="SemiBold"
+                               FontSize="12"/>
+                  </Border>
+                </StackPanel>
+                <TextBlock Text="{Binding CcdAffinityNotice}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" IsVisible="{Binding CcdAffinityNoticeVisible}"/>
               </StackPanel>
-              <TextBlock Text="{Binding CcdAffinityNotice}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" IsVisible="{Binding CcdAffinityNoticeVisible}"/>
+              <!-- Intel P-Core Targeting (hidden on non-Intel CPUs) -->
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsIntelCpu}">
+                <TextBlock Text="{Binding LocalizedIntelPCoreTargeting}" VerticalAlignment="Center"/>
+                <ToggleSwitch IsChecked="{Binding IntelPCoreTargeting}" ToolTip.Tip="{Binding LocalizedIntelPCoreTargetingHelp}"/>
+              </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedEnforceRAMLimit}" VerticalAlignment="Center"/>
                 <ToggleSwitch IsChecked="{Binding EnforceRamLimit}" ToolTip.Tip="{Binding LocalizedEnforceRAMLimitHelp}"/>
@@ -1092,7 +1100,7 @@
               <TextBlock Text="Use this window to see peers currently visible on your network and refresh the list when needed." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="860"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Content="Open Discovered Peers" Click="OpenDiscoveredPeersWindow_Click"/>
-                <Button Command="{Binding RefreshPeersCommand}" Padding="8,4" ToolTip.Tip="Refresh Peer List" FontFamily="Segoe Fluent Icons" FontSize="14" Content="&#xE72C;"/>
+                <Button Command="{Binding RefreshPeersCommand}" Padding="8,4" ToolTip.Tip="Refresh Peer List" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Content="&#xE72C;"/>
               </StackPanel>
             </StackPanel>
           </Border>

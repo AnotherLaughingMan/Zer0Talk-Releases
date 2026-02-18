@@ -75,7 +75,7 @@ If Windows shows "Windows protected your PC" (SmartScreen), see:
 
 ## 📄 User Guide
 
-For step-by-step instructions (adding contacts, deleting contacts, setting up a dedicated node, backups, and troubleshooting), see the full User Guide:
+For step-by-step instructions (adding contacts, deleting contacts, network port-forwarding fallback, backups, and troubleshooting), see the full User Guide:
 
 - `docs/user-guide.md`
 - `docs/install-run-troubleshooting.md` (install/startup issues on Windows)
@@ -99,9 +99,27 @@ For step-by-step instructions (adding contacts, deleting contacts, setting up a 
 
 Zer0Talk uses peer-to-peer connections, which means:
 - Both users must be online simultaneously to exchange messages
-- Network firewalls may need port forwarding configuration
+- Zer0Talk first attempts automatic UPnP/NAT-PMP port mapping
+- Manual port forwarding is only a fallback when automatic mapping is unavailable or failing
 - Local network connections work seamlessly
 - Internet connections require proper router configuration
+
+### Port `26264` forwarding (advanced fallback)
+
+You generally do **not** need to forward `26264` manually.
+
+Forward TCP `26264` (or your configured listening port) only when:
+- UPnP/NAT-PMP is not working on your network.
+- You want better inbound direct-connect success from peers.
+- You accept managing router/firewall exposure yourself.
+
+Why this can help:
+- Improves inbound direct peer session establishment in strict NAT environments.
+- Can reduce relay usage when direct traversal is blocked.
+
+Important:
+- This is **not** for running a dedicated peer node mode.
+- If automatic mapping works, leave manual forwarding off.
 
 ## 🔒 Privacy & Data
 

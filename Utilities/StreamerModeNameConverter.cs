@@ -28,7 +28,7 @@ namespace Zer0Talk.Utilities
             return name;
         }
 
-        private static string Scramble(string input)
+        internal static string Scramble(string input)
         {
             // Use a stable seed from the string hash so the same name always scrambles identically
             var seed = GetStableHash(input);

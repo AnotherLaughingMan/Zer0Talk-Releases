@@ -126,6 +126,75 @@ public partial class App : Application
         }
         catch { }
     }
+
+    private static void LogIconFontDiagnostics()
+    {
+        try
+        {
+            const string configuredChain = "Segoe Fluent Icons, Segoe MDL2 Assets";
+            var os = Environment.OSVersion.VersionString;
+            var fontsDir = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
+
+            var hasFluent = false;
+            var hasMdl2 = false;
+            var fluentFile = "n/a";
+            var mdl2File = "n/a";
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(fontsDir) && Directory.Exists(fontsDir))
+                {
+                    foreach (var file in Directory.EnumerateFiles(fontsDir, "*.*", SearchOption.TopDirectoryOnly))
+                    {
+                        var ext = Path.GetExtension(file);
+                        if (!ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase) &&
+                            !ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase) &&
+                            !ext.Equals(".otf", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        var fileName = Path.GetFileName(file);
+                        var lower = fileName.ToLowerInvariant();
+
+                        if (!hasFluent && (lower.Contains("fluent") || lower.Contains("segfluent") || lower.Contains("segoefluent")))
+                        {
+                            hasFluent = true;
+                            fluentFile = fileName;
+                        }
+
+                        if (!hasMdl2 && (lower.Contains("mdl2") || lower.Contains("segmdl2")))
+                        {
+                            hasMdl2 = true;
+                            mdl2File = fileName;
+                        }
+
+                        if (hasFluent && hasMdl2)
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception scanEx)
+            {
+                SafeStartupLog($"IconFonts.ScanError: {scanEx.GetType().Name} - {scanEx.Message}");
+            }
+
+            var expectedSelected = hasFluent ? "Segoe Fluent Icons" : (hasMdl2 ? "Segoe MDL2 Assets" : "none");
+
+            SafeStartupLog($"IconFonts.ConfiguredChain={configuredChain}");
+            SafeStartupLog($"IconFonts.RuntimeOS={os}");
+            SafeStartupLog($"IconFonts.FontsDirectory={fontsDir}");
+            SafeStartupLog($"IconFonts.Availability.Fluent={hasFluent}; File={fluentFile}");
+            SafeStartupLog($"IconFonts.Availability.MDL2={hasMdl2}; File={mdl2File}");
+            SafeStartupLog($"IconFonts.ExpectedSelected={expectedSelected}");
+        }
+        catch (Exception ex)
+        {
+            SafeStartupLog($"IconFonts.DiagnosticsError: {ex.GetType().Name} - {ex.Message}");
+        }
+    }
     
 
     
@@ -577,6 +646,7 @@ public partial class App : Application
             {
                 // Create/append a startup trace so error.txt is guaranteed to exist next to the executable
                 try { TryWriteErrorTxt("App.Started", null); } catch { }
+                try { LogIconFontDiagnostics(); } catch { }
                 // Log graceful exit path too
                 try { desktop.Exit += (_, __) => { try { Zer0Talk.Services.AppServices.Shutdown(); } catch { } try { TryWriteErrorTxt("App.Exit", null); } catch { } }; } catch { }
 #if DEBUG

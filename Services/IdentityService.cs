@@ -8,6 +8,7 @@ using System;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 
 using Zer0Talk.Models;
 using Zer0Talk.Utilities;
@@ -18,6 +19,9 @@ namespace Zer0Talk.Services
 {
     public class IdentityService
     {
+        private static readonly object SodiumInitLock = new();
+        private static int _sodiumReady;
+
         public string UID { get; private set; } = string.Empty;
         public byte[] PublicKey { get; private set; } = Array.Empty<byte>(); // Ed25519 public (32)
         public byte[] PrivateKey { get; private set; } = Array.Empty<byte>(); // Ed25519 secret (64)
@@ -31,12 +35,17 @@ namespace Zer0Talk.Services
         private void RaiseChanged() { try { Changed?.Invoke(); } catch { } }
         public uint AvatarVersion { get; private set; } // increments on avatar change to hint network layer
 
-        public bool IsLoaded => !string.IsNullOrWhiteSpace(UID) && PublicKey.Length == 32 && PrivateKey.Length >= 32;
+        public bool IsLoaded => !string.IsNullOrWhiteSpace(UID) && PublicKey.Length == 32 && PrivateKey.Length == 64;
 
         public void LoadFromAccount(AccountData account)
         {
-            PublicKey = account.PublicKey ?? Array.Empty<byte>();
-            PrivateKey = account.PrivateKey ?? Array.Empty<byte>();
+            var loadedPublic = account.PublicKey ?? Array.Empty<byte>();
+            var loadedPrivate = account.PrivateKey ?? Array.Empty<byte>();
+
+            NormalizeKeyMaterial(ref loadedPublic, ref loadedPrivate);
+
+            PublicKey = loadedPublic;
+            PrivateKey = loadedPrivate;
             UID = account.UID ?? string.Empty;
             Username = account.Username ?? string.Empty;
             DisplayName = account.DisplayName ?? string.Empty;
@@ -61,14 +70,72 @@ namespace Zer0Talk.Services
 
         public byte[] Sign(byte[] data)
         {
+            EnsureSodiumReady();
             if (!IsLoaded) throw new InvalidOperationException("Identity not loaded");
             return PublicKeyAuth.SignDetached(data, PrivateKey);
         }
 
         public static bool Verify(byte[] data, byte[] signature, byte[] publicKey)
         {
-            try { return PublicKeyAuth.VerifyDetached(signature, data, publicKey); }
+            try
+            {
+                EnsureSodiumReady();
+                return PublicKeyAuth.VerifyDetached(signature, data, publicKey);
+            }
             catch { return false; }
+        }
+
+        private static void NormalizeKeyMaterial(ref byte[] publicKey, ref byte[] privateKey)
+        {
+            try
+            {
+                if (privateKey.Length == 32)
+                {
+                    try
+                    {
+                        EnsureSodiumReady();
+                        var keyPair = PublicKeyAuth.GenerateKeyPair(privateKey);
+                        var derivedPublic = keyPair.PublicKey;
+                        var derivedPrivate = keyPair.PrivateKey;
+
+                        if (publicKey.Length == 32 && !publicKey.SequenceEqual(derivedPublic))
+                        {
+                            Logger.Log("Identity key normalization detected public/private mismatch; using stored public key and derived private key.");
+                        }
+                        else
+                        {
+                            publicKey = derivedPublic;
+                        }
+
+                        privateKey = derivedPrivate;
+                        Logger.Log("Identity key normalization upgraded 32-byte Ed25519 seed to 64-byte secret key.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Log($"Identity key normalization failed for 32-byte seed: {ex.Message}");
+                    }
+                }
+                else if (privateKey.Length > 64)
+                {
+                    var trimmed = new byte[64];
+                    Buffer.BlockCopy(privateKey, 0, trimmed, 0, 64);
+                    privateKey = trimmed;
+                    Logger.Log("Identity key normalization trimmed oversized private key to 64 bytes.");
+                }
+            }
+            catch { }
+        }
+
+        private static void EnsureSodiumReady()
+        {
+            if (Volatile.Read(ref _sodiumReady) == 1) return;
+            lock (SodiumInitLock)
+            {
+                if (_sodiumReady == 1) return;
+                SodiumCore.Init();
+                Volatile.Write(ref _sodiumReady, 1);
+                try { Logger.Log("IdentityService: Sodium initialized on-demand."); } catch { }
+            }
         }
 
         public static string ComputeUidFromPublicKey(byte[] pub, int minLen = 8)

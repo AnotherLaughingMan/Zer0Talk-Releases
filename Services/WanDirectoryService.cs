@@ -44,9 +44,11 @@ public sealed class WanDirectoryService
             var advertisedPort = _nat.MappedTcpPort ?? _network.ListeningPort ?? _settings.Settings.Port;
             if (advertisedPort <= 0 || advertisedPort > 65535) advertisedPort = _settings.Settings.Port > 0 ? _settings.Settings.Port : 9999;
 
+            var publicKey = GetPublicKeyHex();
+
             foreach (var endpoint in GetCandidateRelayEndpoints())
             {
-                var token = await TryRegisterWithEndpointAsync(endpoint.Host, endpoint.Port, uid, advertisedPort, ct).ConfigureAwait(false);
+                var token = await TryRegisterWithEndpointAsync(endpoint.Host, endpoint.Port, uid, advertisedPort, publicKey, ct).ConfigureAwait(false);
                 if (token != null)
                 {
                     _registeredUid = uid;
@@ -193,14 +195,54 @@ public sealed class WanDirectoryService
         return false;
     }
 
-    private async Task<string?> TryRegisterWithEndpointAsync(string host, int port, string uid, int advertisedPort, CancellationToken ct)
+    public async Task<bool> TryUnregisterAsync(CancellationToken ct)
+    {
+        try
+        {
+            var uid = NormalizeUid(_registeredUid);
+            if (string.IsNullOrWhiteSpace(uid) || string.IsNullOrWhiteSpace(_authToken)) return false;
+
+            foreach (var endpoint in GetCandidateRelayEndpoints())
+            {
+                try
+                {
+                    using var client = new TcpClient();
+                    using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    connectCts.CancelAfter(TimeSpan.FromSeconds(3));
+                    await client.ConnectAsync(endpoint.Host, endpoint.Port, connectCts.Token).ConfigureAwait(false);
+                    using var stream = client.GetStream();
+                    var line = $"UNREG {uid} {_authToken}\n";
+                    var bytes = Encoding.UTF8.GetBytes(line);
+                    await stream.WriteAsync(bytes.AsMemory(0, bytes.Length), ct).ConfigureAwait(false);
+                    await stream.FlushAsync(ct).ConfigureAwait(false);
+
+                    var resp = await ReadLineAsync(stream, TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
+                    if (!string.IsNullOrWhiteSpace(resp) && resp.StartsWith("OK", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Logger.Log($"[WanDirectory] UNREG success on {endpoint.Display} for uid={uid}");
+                        _registeredUid = string.Empty;
+                        _authToken = string.Empty;
+                        _lastRegisterUtc = DateTime.MinValue;
+                        return true;
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    private async Task<string?> TryRegisterWithEndpointAsync(string host, int port, string uid, int advertisedPort, string publicKeyHex, CancellationToken ct)
     {
         try
         {
             using var client = new TcpClient();
             await client.ConnectAsync(host, port, ct).ConfigureAwait(false);
             using var stream = client.GetStream();
-            var line = $"REG {uid} {advertisedPort}\n";
+            var line = string.IsNullOrWhiteSpace(publicKeyHex)
+                ? $"REG {uid} {advertisedPort}\n"
+                : $"REG {uid} {advertisedPort} {publicKeyHex}\n";
             var bytes = Encoding.UTF8.GetBytes(line);
             await stream.WriteAsync(bytes.AsMemory(0, bytes.Length), ct).ConfigureAwait(false);
             await stream.FlushAsync(ct).ConfigureAwait(false);
@@ -216,6 +258,20 @@ public sealed class WanDirectoryService
             return null;
         }
         catch { return null; }
+    }
+
+    private string GetPublicKeyHex()
+    {
+        try
+        {
+            var key = _identity.PublicKey;
+            if (key == null || key.Length == 0) return string.Empty;
+            return Convert.ToHexString(key).ToLowerInvariant();
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private async Task<LookupResult?> TryLookupWithEndpointAsync(string host, int port, string uid, CancellationToken ct)

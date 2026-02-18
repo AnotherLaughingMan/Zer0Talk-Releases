@@ -45,6 +45,7 @@ namespace Zer0Talk.Services
             // Generate a strong passphrase to encrypt the account container; user must store it safely
             var passphrase = GenerateStrongPassphrase();
             // Generate Ed25519 keypair
+            SodiumCore.Init();
             var kp = PublicKeyAuth.GenerateKeyPair();
             var pub = kp.PublicKey;
             var priv = kp.PrivateKey; // 64 bytes

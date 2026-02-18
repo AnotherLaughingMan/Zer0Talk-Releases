@@ -1511,6 +1511,7 @@ namespace Zer0Talk.ViewModels
 
         private void PublishMessageNotification(string originUid, string displayName, Message message, bool incoming, bool unread)
         {
+            var published = false;
             try
             {
                 var trimmedOrigin = TrimUidPrefix(originUid);
@@ -1518,11 +1519,32 @@ namespace Zer0Talk.ViewModels
                 var preview = BuildMessagePreview(message?.Content ?? string.Empty);
                 var timestamp = message?.Timestamp ?? DateTime.UtcNow;
                 AppServices.Notifications.AddOrUpdateMessageNotice(title, preview, trimmedOrigin, message?.Id ?? Guid.NewGuid(), incoming, timestamp, unread);
+                published = true;
                 
                 // Audio notification is handled by NotificationService.AddOrUpdateMessageNotice
                 // No need to duplicate audio calls here
             }
-            catch { }
+            catch (Exception ex)
+            {
+                try { Logger.Log($"PublishMessageNotification failed: incoming={incoming}, origin={originUid}, ex={ex.Message}"); } catch { }
+                try { if (Zer0Talk.Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] PublishMessageNotification exception, will attempt fallback audio: {ex.Message}\n"); } catch { }
+            }
+
+            if (incoming && !published)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await AppServices.AudioNotifications.PlaySoundAsync(AudioNotificationService.SoundType.MessageIncoming, DateTime.UtcNow, "MainWindowViewModel.PublishMessageNotificationFallback");
+                        try { if (Zer0Talk.Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Fallback MessageIncoming playback triggered from MainWindowViewModel\n"); } catch { }
+                    }
+                    catch (Exception ex)
+                    {
+                        try { Logger.Log($"PublishMessageNotification fallback audio failed: {ex.Message}"); } catch { }
+                    }
+                });
+            }
         }
 
         private void MaybeCreateOutgoingMessageNotice(Contact contact, Message message)

@@ -209,7 +209,7 @@
 
   <!-- Vector icon (Segoe Fluent Icons) for theme-adaptive monochrome icons -->
   <Style Selector="TextBlock.icon-mdl2">
-    <Setter Property="FontFamily" Value="Segoe Fluent Icons"/>
+    <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
     <Setter Property="HorizontalAlignment" Value="Center"/>
     <Setter Property="VerticalAlignment" Value="Center"/>
     <Setter Property="TextAlignment" Value="Center"/>

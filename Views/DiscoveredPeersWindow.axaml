@@ -41,7 +41,7 @@
                     </StackPanel>
                     <Button Grid.Column="1" Content="Block Selected" Command="{Binding BlockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
                     <Button Grid.Column="2" Content="Unblock Selected" Command="{Binding UnblockSelectedPeersCommand}" Margin="0,0,6,0" Padding="10,4" FontSize="12"/>
-                    <Button Grid.Column="3" Content="Remove Test Selected" Command="{Binding RemoveSelectedTestPeersCommand}" Padding="10,4" FontSize="12" ToolTip.Tip="Removes only simulated/test peers; real peers cannot be removed."/>
+                    <Button Grid.Column="3" Content="Remove Selected" Command="{Binding RemoveSelectedPeersCommand}" Padding="10,4" FontSize="12" ToolTip.Tip="Removes selected peers from your discovered list."/>
                     <CheckBox Grid.Column="4" Content="Auto" IsChecked="{Binding AutoRefreshPeers}" VerticalAlignment="Center" Margin="10,0,0,0" ToolTip.Tip="Periodically refreshes the peer list."/>
                 </Grid>
 

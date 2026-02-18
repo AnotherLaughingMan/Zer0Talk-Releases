@@ -333,6 +333,20 @@ namespace Zer0Talk.Services
             try { AppServices.PeersStore.Save(Peers, AppServices.Passphrase); } catch { }
         }
 
+        // Remove a peer from the discovered list and persist.
+        public bool RemovePeer(string uid)
+        {
+            uid = NormalizeUid(uid);
+            if (string.IsNullOrWhiteSpace(uid)) return false;
+            var removed = Peers.RemoveAll(p => string.Equals(NormalizeUid(p.UID), uid, StringComparison.OrdinalIgnoreCase)) > 0;
+            if (removed)
+            {
+                Changed?.Invoke();
+                try { AppServices.PeersStore.Save(Peers, AppServices.Passphrase); } catch { }
+            }
+            return removed;
+        }
+
         // Local-only trust control
         public void SetTrusted(string uid, bool trusted)
         {

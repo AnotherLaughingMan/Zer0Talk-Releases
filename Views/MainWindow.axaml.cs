@@ -1880,9 +1880,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            if (WindowDragHelper.TryBeginMoveDrag(this, e))
             {
-                BeginMoveDrag(e);
+                e.Handled = true;
+                return;
             }
         }
         catch { }
@@ -3569,7 +3570,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     var dismissBtn = new Button { Padding = new Thickness(6, 2) };
     dismissBtn.Classes.Add("icon-button");
     ToolTip.SetTip(dismissBtn, "Dismiss");
-    var dismissIcon = new TextBlock { Text = "\uE711", FontFamily = FontFamily.Parse("Segoe Fluent Icons") };
+    var dismissIcon = new TextBlock { Text = "\uE711", FontFamily = FontFamily.Parse("Segoe Fluent Icons, Segoe MDL2 Assets") };
     dismissBtn.Content = dismissIcon;
     dismissBtn.Click += InviteToastDismiss_Click;
 
@@ -5336,7 +5337,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         titleRow.Children.Add(new TextBlock
         {
             Text = GetFluentNotificationGlyph(Models.NotificationType.Information, isMessage: true),
-            FontFamily = new FontFamily("Segoe Fluent Icons"),
+            FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
             FontSize = 14,
             Foreground = accentBrush,
             VerticalAlignment = VerticalAlignment.Top
@@ -5495,7 +5496,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         var iconBlock = new TextBlock
         {
             Text = GetFluentNotificationGlyph(alertType, isMessage: false),
-            FontFamily = new FontFamily("Segoe Fluent Icons"),
+            FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
             FontSize = 15,
             Foreground = accentColor,
             VerticalAlignment = VerticalAlignment.Top,
@@ -5607,7 +5608,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         topRow.Children.Add(new TextBlock
         {
             Text = GetFluentNotificationGlyph(Models.NotificationType.Warning, isMessage: false, isSecurityEvent: true),
-            FontFamily = new FontFamily("Segoe Fluent Icons"),
+            FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
             FontSize = 15,
             Foreground = borderBrush,
             VerticalAlignment = VerticalAlignment.Top

@@ -53,7 +53,7 @@ namespace Zer0Talk.Services
     private static readonly TimeSpan ToastReflowLogInterval = TimeSpan.FromMilliseconds(1200);
     private static readonly TimeSpan ToastAnimationLogInterval = TimeSpan.FromMilliseconds(1200);
     private static readonly TimeSpan PresenceDecisionLogInterval = TimeSpan.FromMilliseconds(2000);
-    private static readonly FontFamily SegoeFluentIconsFont = new FontFamily("Segoe Fluent Icons");
+    private static readonly FontFamily SegoeFluentIconsFont = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets");
     private static readonly IBrush ToastSurfaceFallbackBrush = new SolidColorBrush(Color.FromArgb(255, 64, 64, 64));
     private static readonly IBrush ToastBorderErrorBrush = new SolidColorBrush(Color.FromArgb(255, 211, 47, 47));
     private static readonly IBrush ToastBorderWarningBrush = new SolidColorBrush(Color.FromArgb(255, 255, 152, 0));
@@ -643,16 +643,17 @@ namespace Zer0Talk.Services
             var titleWithTime = $"{title} • {formattedTime}";
 
             // Determine presence-based notification behavior FIRST (before adding to notices)
-            // Rules:
-            //   Online     = Sound, no toast, no message center
+            // Discord-like rules:
+            //   Online     = Sound + toast + message center
             //   Away/Idle  = Sound + toast + message center
             //   DND        = No sound, no toast, message center (persistent, no auto-dismiss)
-            //   Invisible  = Same as Online (sound, no toast, no message center)
-            //   Offline    = No sound, no toast, message center
+            //   Invisible  = Sound + toast + message center
+            //   Offline    = No sound, no toast, message center (persistent)
             bool shouldShowToast = false;
             bool shouldPlayAudio = false;
             bool shouldAddToCenter = true;  // default: add to notification center
             bool makePersistent = false;    // DND messages don't auto-dismiss
+            bool toastOnlyWhenAppInactive = false;
             string presenceMode = "Unknown";
 
             if (incoming)
@@ -666,14 +667,16 @@ namespace Zer0Talk.Services
                     {
                         case Models.PresenceStatus.Online:
                             shouldPlayAudio = true;
-                            shouldShowToast = false;
-                            shouldAddToCenter = false;
+                            shouldShowToast = true;
+                            shouldAddToCenter = true;
+                            toastOnlyWhenAppInactive = true;
                             break;
 
                         case Models.PresenceStatus.Idle:
                             shouldPlayAudio = true;
                             shouldShowToast = true;
                             shouldAddToCenter = true;
+                            toastOnlyWhenAppInactive = true;
                             break;
 
                         case Models.PresenceStatus.DoNotDisturb:
@@ -685,20 +688,22 @@ namespace Zer0Talk.Services
 
                         case Models.PresenceStatus.Invisible:
                             shouldPlayAudio = true;
-                            shouldShowToast = false;
-                            shouldAddToCenter = false;
+                            shouldShowToast = true;
+                            shouldAddToCenter = true;
+                            toastOnlyWhenAppInactive = true;
                             break;
 
                         case Models.PresenceStatus.Offline:
                             shouldPlayAudio = false;
                             shouldShowToast = false;
                             shouldAddToCenter = true;
+                            makePersistent = true;
                             break;
 
                         default:
                             shouldPlayAudio = true;
-                            shouldShowToast = false;
-                            shouldAddToCenter = false;
+                            shouldShowToast = true;
+                            shouldAddToCenter = true;
                             break;
                     }
 
@@ -787,14 +792,16 @@ namespace Zer0Talk.Services
             if (incoming)
             {
                 bool conversationFocused = false;
+                bool appIsActive = false;
                 try
                 {
                     conversationFocused = IsConversationFocused(updated.OriginUid);
+                    appIsActive = IsMainWindowActive();
                     TryWriteUiVerboseLogThrottled("notices.presence.decision", PresenceDecisionLogInterval,
-                        () => $"{DateTime.Now:O} [Notices] Presence={presenceMode}, focused={conversationFocused}, toast={shouldShowToast}, audio={shouldPlayAudio}, center={shouldAddToCenter}, origin={updated.OriginUid}\n");
+                        () => $"{DateTime.Now:O} [Notices] Presence={presenceMode}, focused={conversationFocused}, appActive={appIsActive}, toast={shouldShowToast}, audio={shouldPlayAudio}, center={shouldAddToCenter}, origin={updated.OriginUid}\n");
 
                     // Show toast only for Away/Idle when conversation is not focused
-                    if (shouldShowToast && !conversationFocused)
+                    if (shouldShowToast && !conversationFocused && (!toastOnlyWhenAppInactive || !appIsActive))
                     {
                         var toastBody = string.IsNullOrWhiteSpace(updated.FullBody) ? updated.Body : updated.FullBody;
                         ShowTransientToast(updated.Title, toastBody ?? string.Empty, Models.NotificationType.Information, updated.OriginUid);
@@ -802,13 +809,19 @@ namespace Zer0Talk.Services
                     }
                     else
                     {
-                        string reason = !shouldShowToast ? $"suppressed ({presenceMode} mode)" : "conversation is focused";
+                        string reason = !shouldShowToast
+                            ? $"suppressed ({presenceMode} mode)"
+                            : conversationFocused
+                                ? "conversation is focused"
+                                : (toastOnlyWhenAppInactive && appIsActive)
+                                    ? "app is active"
+                                    : "toast gate not met";
                         try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Toast skipped ({reason})\n"); } catch { }
                     }
                 }
                 catch { }
 
-                // Play audio: Online/Invisible/Away always hear sound, DND never hears sound
+                // Play audio: Online/Idle/Invisible hear sound, DND/Offline are silent
                 try
                 {
                     try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Audio, $"{DateTime.Now:O} [Audio] Audio decision: shouldPlayAudio={shouldPlayAudio}, presenceMode={presenceMode}\n"); } catch { }
@@ -954,6 +967,33 @@ namespace Zer0Talk.Services
                         }
 
                         return false;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
+                });
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool IsMainWindowActive()
+        {
+            try
+            {
+                return Dispatcher.UIThread.Invoke(() =>
+                {
+                    try
+                    {
+                        var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                        var mainWindow = desktop?.MainWindow;
+                        if (mainWindow == null) return false;
+                        if (!mainWindow.IsVisible) return false;
+                        if (mainWindow.WindowState == Avalonia.Controls.WindowState.Minimized) return false;
+                        return mainWindow.IsActive;
                     }
                     catch
                     {

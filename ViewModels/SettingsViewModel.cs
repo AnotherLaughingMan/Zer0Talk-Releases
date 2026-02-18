@@ -28,6 +28,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Performance: detected CPU/GPU capabilities (static for session)
     private int _detectedCcdCount = 1; // 1 = single-CCD assumed by default
     private bool _isAmdX3D;
+    private bool _isAmdCpu;
+    private bool _isIntelCpu;
+    public bool IsAmdCpu => _isAmdCpu;
+    public bool IsIntelCpu => _isIntelCpu;
     private string _cpuModel = string.Empty;
     public string CpuModel { get => _cpuModel; private set { _cpuModel = value; OnPropertyChanged(); } }
     private string _vCacheInfo = string.Empty;
@@ -65,6 +69,21 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Performance settings (backed by AppSettings)
     private int _ccdAffinityIndex;
     private int _lastApplicableCcdAffinityIndex;
+    private bool _intelPCoreTargeting;
+    public bool IntelPCoreTargeting
+    {
+        get => _intelPCoreTargeting;
+        set
+        {
+            if (_intelPCoreTargeting != value)
+            {
+                _intelPCoreTargeting = value;
+                OnPropertyChanged();
+                try { ApplyIntelPCoreTargetingImmediate(value); } catch { }
+                try { WritePerformanceLog($"Change IntelPCoreTargeting={value}"); } catch { }
+            }
+        }
+    }
     private bool _disableGpuAcceleration;
     public bool EnableGpuAcceleration
     {
@@ -506,6 +525,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             StreamerMode = settings.StreamerMode;
 
             CcdAffinityIndex = ClampRange(settings.CcdAffinityIndex, 0, 3);
+            _intelPCoreTargeting = settings.IntelPCoreTargeting;
             DisableGpuAcceleration = settings.DisableGpuAcceleration;
             FpsThrottle = Math.Max(0, settings.FpsThrottle);
             RefreshRateThrottle = Math.Max(0, settings.RefreshRateThrottle);
@@ -760,6 +780,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             EnableLogging = s.EnableLogging;
 
             CcdAffinityIndex = ClampRange(s.CcdAffinityIndex, 0, 3);
+            _intelPCoreTargeting = s.IntelPCoreTargeting;
             DisableGpuAcceleration = s.DisableGpuAcceleration;
             FpsThrottle = Math.Max(0, s.FpsThrottle);
             RefreshRateThrottle = Math.Max(0, s.RefreshRateThrottle);
@@ -1060,9 +1081,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             var ident = string.IsNullOrWhiteSpace(CpuModel)
                 ? (Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? string.Empty)
                 : CpuModel;
-            _isAmdX3D = ident.Contains("AMD", StringComparison.OrdinalIgnoreCase) && ident.Contains("X3D", StringComparison.OrdinalIgnoreCase);
+            _isAmdCpu = ident.Contains("AMD", StringComparison.OrdinalIgnoreCase);
+            _isIntelCpu = ident.Contains("Intel", StringComparison.OrdinalIgnoreCase);
+            _isAmdX3D = _isAmdCpu && ident.Contains("X3D", StringComparison.OrdinalIgnoreCase);
         }
-        catch { _isAmdX3D = false; }
+        catch { _isAmdX3D = false; _isAmdCpu = false; _isIntelCpu = false; }
         try
         {
             // Heuristic: treat >=16 logical cores as likely multi-CCD (2 CCD). Otherwise assume single-CCD.
@@ -1090,6 +1113,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
         catch { }
         // Notify dependant properties once
+        OnPropertyChanged(nameof(IsAmdCpu));
+        OnPropertyChanged(nameof(IsIntelCpu));
         OnPropertyChanged(nameof(CcdAffinityEnabled));
         OnPropertyChanged(nameof(CcdAffinityNoticeVisible));
         OnPropertyChanged(nameof(CcdAffinityNotice));
@@ -1421,6 +1446,165 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             try { WritePerformanceLogSafe($"CCD Affinity: error applying affinity → {ex.Message}"); } catch { }
         }
     }
+
+    private void ApplyIntelPCoreTargetingImmediate(bool enable)
+    {
+        try
+        {
+            if (!_isIntelCpu) return;
+            if (!OperatingSystem.IsWindows()) return;
+
+            int logicalCores = Math.Max(1, Environment.ProcessorCount);
+            ulong allMask = BuildMask(0, logicalCores);
+
+            if (!enable)
+            {
+                SetProcessAffinity(allMask);
+                WritePerformanceLogSafe($"[Intel P-Core] Disabled → mask=0x{allMask:X} (all cores)");
+                return;
+            }
+
+            // Intel hybrid CPUs (12th gen+): P-cores are typically the lower-numbered logical cores,
+            // E-cores are higher-numbered. Heuristic: use first half of cores as P-core estimate.
+            // For a 24-thread CPU (8P+8E = 16P-threads + 8E-threads), prefer the first 16.
+            int pCoreCount = DetectIntelPCoreCount(logicalCores);
+            if (pCoreCount <= 0 || pCoreCount >= logicalCores)
+            {
+                // Non-hybrid or detection failed — use all cores
+                SetProcessAffinity(allMask);
+                WritePerformanceLogSafe($"[Intel P-Core] Non-hybrid or detection failed (pCores={pCoreCount}) → mask=0x{allMask:X}");
+                return;
+            }
+
+            // P-cores occupy the lower logical processor indices on Intel hybrid architectures
+            ulong pCoreMask = BuildMask(0, pCoreCount);
+            if (pCoreMask == 0) pCoreMask = allMask;
+            SetProcessAffinity(pCoreMask);
+            WritePerformanceLogSafe($"[Intel P-Core] Targeting {pCoreCount} P-core threads → mask=0x{pCoreMask:X}");
+        }
+        catch (Exception ex)
+        {
+            try { WritePerformanceLogSafe($"[Intel P-Core] Error: {ex.Message}"); } catch { }
+        }
+    }
+
+    private static int DetectIntelPCoreCount(int logicalCores)
+    {
+        // On Windows, use GetLogicalProcessorInformationEx to detect core efficiencies
+        // Fallback heuristic: common Intel hybrid layouts
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                // Use the efficiency class from Win32 API (Win10 21H2+)
+                var pCores = DetectPCoreCountViaEfficiencyClass();
+                if (pCores > 0) return pCores;
+            }
+            catch { }
+        }
+
+        // Heuristic fallback: Intel hybrid CPUs typically have more logical P-core threads
+        // Common layouts: 8P+8E=24T, 8P+4E=20T, 6P+8E=20T, 6P+4E=16T, 4P+8E=16T
+        // P-cores have HyperThreading (2 threads each), E-cores have 1 thread each
+        // For a rough heuristic: assume ~2/3 of threads are P-core threads
+        return logicalCores * 2 / 3;
+    }
+
+    private static int DetectPCoreCountViaEfficiencyClass()
+    {
+        try
+        {
+            if (!OperatingSystem.IsWindows()) return 0;
+            uint bufferSize = 0;
+            GetLogicalProcessorInformationEx(RelationProcessorCore, IntPtr.Zero, ref bufferSize);
+            if (bufferSize == 0) return 0;
+
+            var buffer = new byte[bufferSize];
+            var handle = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+            try
+            {
+                if (!GetLogicalProcessorInformationEx(RelationProcessorCore, handle.AddrOfPinnedObject(), ref bufferSize))
+                    return 0;
+
+                int pCoreThreads = 0;
+                byte maxEfficiency = 0;
+
+                // Record layout (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX):
+                // offset 0: int Relationship (4 bytes)
+                // offset 4: uint Size (4 bytes)
+                // For RelationProcessorCore:
+                // offset 8: byte Flags
+                // offset 9: byte EfficiencyClass
+                // offset 10: byte[6] Reserved
+                // offset 16: ushort GroupCount
+                // offset 18: byte[2] padding
+                // offset 20: GROUP_AFFINITY[GroupCount] - each 12 bytes (ulong Mask + ushort Group + ushort[3] Reserved)
+                const int OFFSET_SIZE = 4;
+                const int OFFSET_EFFICIENCY_CLASS = 9;
+                const int OFFSET_GROUP_COUNT = 16;
+                const int OFFSET_GROUP_AFFINITY = 20;
+
+                // First pass: find the maximum efficiency class (P-cores have higher efficiency class)
+                uint offset = 0;
+                while (offset + 8 <= bufferSize)
+                {
+                    var recordSize = BitConverter.ToUInt32(buffer, (int)offset + OFFSET_SIZE);
+                    if (recordSize == 0 || offset + recordSize > bufferSize) break;
+                    var relationship = BitConverter.ToInt32(buffer, (int)offset);
+                    if (relationship == RelationProcessorCore && offset + OFFSET_EFFICIENCY_CLASS < bufferSize)
+                    {
+                        var eff = buffer[offset + OFFSET_EFFICIENCY_CLASS];
+                        if (eff > maxEfficiency) maxEfficiency = eff;
+                    }
+                    offset += recordSize;
+                }
+
+                if (maxEfficiency == 0) return 0; // Non-hybrid, all same class
+
+                // Second pass: count threads on cores with max efficiency (P-cores)
+                offset = 0;
+                while (offset + 8 <= bufferSize)
+                {
+                    var recordSize = BitConverter.ToUInt32(buffer, (int)offset + OFFSET_SIZE);
+                    if (recordSize == 0 || offset + recordSize > bufferSize) break;
+                    var relationship = BitConverter.ToInt32(buffer, (int)offset);
+                    if (relationship == RelationProcessorCore && offset + OFFSET_EFFICIENCY_CLASS < bufferSize)
+                    {
+                        var eff = buffer[offset + OFFSET_EFFICIENCY_CLASS];
+                        if (eff == maxEfficiency && offset + OFFSET_GROUP_COUNT + 2 <= bufferSize)
+                        {
+                            var groupCount = BitConverter.ToUInt16(buffer, (int)offset + OFFSET_GROUP_COUNT);
+                            for (int g = 0; g < groupCount; g++)
+                            {
+                                var maskOffset = (int)offset + OFFSET_GROUP_AFFINITY + g * 12;
+                                if (maskOffset + 8 <= bufferSize)
+                                {
+                                    var mask = BitConverter.ToUInt64(buffer, maskOffset);
+                                    pCoreThreads += CountBits(mask);
+                                }
+                            }
+                        }
+                    }
+                    offset += recordSize;
+                }
+                return pCoreThreads;
+            }
+            finally
+            {
+                handle.Free();
+            }
+        }
+        catch { return 0; }
+    }
+
+    private const int RelationProcessorCore = 0;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetLogicalProcessorInformationEx(
+        int RelationshipType,
+        IntPtr Buffer,
+        ref uint ReturnedLength);
 
     private static ulong BuildMask(int start, int count)
     {
@@ -1887,6 +2071,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedGPU => Services.AppServices.Localization.GetString("Settings.GPU", "GPU");
     public string LocalizedFramerate => Services.AppServices.Localization.GetString("Settings.Framerate", "Framerate");
     public string LocalizedCCDOffinity => Services.AppServices.Localization.GetString("Settings.CCDOffinity", "CCD Affinity:");
+    public string LocalizedIntelPCoreTargeting => Services.AppServices.Localization.GetString("Settings.IntelPCoreTargeting", "Prefer Performance Cores");
+    public string LocalizedIntelPCoreTargetingHelp => Services.AppServices.Localization.GetString("Settings.IntelPCoreTargetingHelp", "Target Performance cores over Efficiency cores for lower latency on Intel hybrid CPUs");
     public string LocalizedNotRecommended => Services.AppServices.Localization.GetString("Settings.NotRecommended", "Not Recommended");
     public string LocalizedEnforceRAMLimit => Services.AppServices.Localization.GetString("Settings.EnforceRAMLimit", "Enforce RAM Limit");
     public string LocalizedEnforceRAMLimitHelp => Services.AppServices.Localization.GetString("Settings.EnforceRAMLimitHelp", "Limit memory usage for the app");
@@ -2969,6 +3155,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.Theme = fallbackTheme;
             // Performance settings
             s.CcdAffinityIndex = ClampRange(CcdAffinityIndex, 0, 3);
+            s.IntelPCoreTargeting = IntelPCoreTargeting;
             s.DisableGpuAcceleration = DisableGpuAcceleration;
             s.FpsThrottle = Math.Max(0, FpsThrottle);
             s.RefreshRateThrottle = Math.Max(0, RefreshRateThrottle);
@@ -3057,6 +3244,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             try { ApplyRefreshRateThrottleImmediate(s.RefreshRateThrottle); } catch { }
             try { Zer0Talk.Services.FocusFramerateService.ApplyCurrentPolicy(); } catch { }
             try { ApplyCcdAffinityImmediate(s.CcdAffinityIndex); } catch { }
+            try { if (_isIntelCpu) ApplyIntelPCoreTargetingImmediate(s.IntelPCoreTargeting); } catch { }
             // Apply theme + theme engine live
             try
             {
@@ -6191,6 +6379,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         BlockSelectedPeersCommand = new RelayCommand(_ => BlockSelectedPeers());
         UnblockSelectedPeersCommand = new RelayCommand(_ => UnblockSelectedPeers());
         RemoveSelectedTestPeersCommand = new RelayCommand(_ => RemoveSelectedTestPeers());
+        RemoveSelectedPeersCommand = new RelayCommand(_ => RemoveSelectedPeers());
         TrustPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.SetTrusted(uid, true); RefreshLists(); } });
         UntrustPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.SetTrusted(uid, false); RefreshLists(); } });
         ClearAllBlocksCommand = new RelayCommand(_ => ConfirmClearAll());
@@ -6499,6 +6688,7 @@ public class NetworkViewModel : INotifyPropertyChanged
     public ICommand BlockSelectedPeersCommand { get; }
     public ICommand UnblockSelectedPeersCommand { get; }
     public ICommand RemoveSelectedTestPeersCommand { get; }
+    public ICommand RemoveSelectedPeersCommand { get; }
     public ICommand TrustPeerCommand { get; }
     public ICommand UntrustPeerCommand { get; }
     public ICommand ClearAllBlocksCommand { get; }
@@ -7395,6 +7585,40 @@ public class NetworkViewModel : INotifyPropertyChanged
             }
 
             target ??= _peerManager.Peers.FirstOrDefault(p => object.ReferenceEquals(p, peer));
+
+            if (target != null)
+            {
+                _peerManager.Peers.Remove(target);
+                removedAny = true;
+            }
+        }
+
+        SelectedPeers.Clear();
+
+        if (removedAny)
+        {
+            try { Zer0Talk.Services.AppServices.PeersStore.Save(_peerManager.Peers, Zer0Talk.Services.AppServices.Passphrase); } catch { }
+            try { _peerManager.IncludeContacts(); } catch { }
+        }
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshLists());
+    }
+
+    private void RemoveSelectedPeers()
+    {
+        if (SelectedPeers == null || SelectedPeers.Count == 0) return;
+
+        var selected = SelectedPeers.ToList();
+        var removedAny = false;
+
+        foreach (var peer in selected)
+        {
+            if (peer == null) continue;
+            var uid = NormalizeUid(peer.UID);
+            if (string.IsNullOrWhiteSpace(uid)) continue;
+
+            var target = _peerManager.Peers.FirstOrDefault(p =>
+                string.Equals(NormalizeUid(p.UID), uid, StringComparison.OrdinalIgnoreCase));
 
             if (target != null)
             {

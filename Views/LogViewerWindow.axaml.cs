@@ -14,6 +14,7 @@ using Avalonia.VisualTree;
 using Zer0Talk.ViewModels;
 using Zer0Talk.Services;
 using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 
 namespace Zer0Talk.Views;
 
@@ -162,7 +163,10 @@ public partial class LogViewerWindow : Window
                 if (control.FindAncestorOfType<Button>() != null) return;
                 if (control.FindAncestorOfType<TextBox>() != null) return;
             }
-            BeginMoveDrag(e);
+            if (WindowDragHelper.TryBeginMoveDrag(this, e))
+            {
+                e.Handled = true;
+            }
         }
         catch
         {

@@ -19,6 +19,7 @@ using Avalonia.VisualTree;
 
 using Zer0Talk.Models;
 using Zer0Talk.Services;
+using Zer0Talk.Utilities;
 using Zer0Talk.ViewModels;
 
 namespace Zer0Talk.Views;
@@ -182,7 +183,10 @@ public partial class NetworkWindow : Window
                 if (c is Button || c.FindAncestorOfType<Button>() != null) return;
                 if (c is TextBox || c.FindAncestorOfType<TextBox>() != null) return;
             }
-            BeginMoveDrag(e);
+            if (WindowDragHelper.TryBeginMoveDrag(this, e))
+            {
+                e.Handled = true;
+            }
         }
         catch { }
     }

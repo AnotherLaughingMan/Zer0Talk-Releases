@@ -185,6 +185,10 @@ namespace Zer0Talk.Services
             {
                 Save(passphrase);
                 Changed?.Invoke();
+
+                // Clean up peer entry and disconnect any active session
+                try { AppServices.Peers.RemovePeer(uid); } catch { }
+                try { AppServices.Network.DisconnectPeer(uid); } catch { }
             }
             return removed;
         }

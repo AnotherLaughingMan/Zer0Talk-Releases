@@ -2,6 +2,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using Zer0Talk.Utilities;
 using Zer0Talk.ViewModels;
 
 namespace Zer0Talk.Views
@@ -41,7 +42,10 @@ namespace Zer0Talk.Views
                     if (c is Button || c.FindAncestorOfType<Button>() != null) return;
                     if (c is TextBox || c.FindAncestorOfType<TextBox>() != null) return;
                 }
-                BeginMoveDrag(e);
+                if (WindowDragHelper.TryBeginMoveDrag(this, e))
+                {
+                    e.Handled = true;
+                }
             }
             catch { }
         }

@@ -80,7 +80,7 @@
     <Setter Property="Margin" Value="0,1,0,0"/>
   </Style>
   <Style Selector="TextBlock.icon-mdl2">
-    <Setter Property="FontFamily" Value="Segoe Fluent Icons"/>
+    <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
     <Setter Property="FontSize" Value="13"/>
     <Setter Property="HorizontalAlignment" Value="Center"/>
     <Setter Property="VerticalAlignment" Value="Center"/>

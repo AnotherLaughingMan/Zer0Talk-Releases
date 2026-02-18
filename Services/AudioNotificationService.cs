@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NAudio.Wave;
@@ -64,6 +65,7 @@ namespace Zer0Talk.Services
         };
 
         private readonly string _soundsDirectory;
+        private readonly string[] _soundSearchDirectories;
         private readonly string _optimizedSoundsDirectory;
         private bool _isEnabled = true;
         private float _mainVolume = 1.0f;
@@ -108,12 +110,28 @@ namespace Zer0Talk.Services
         {
             // Determine sounds directory path
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            _soundsDirectory = Path.Combine(baseDir, "Assets", "Sounds");
+            var appContextBaseDir = AppContext.BaseDirectory;
+            var currentDir = Environment.CurrentDirectory;
+            var processDir = Path.GetDirectoryName(Environment.ProcessPath ?? string.Empty) ?? string.Empty;
+            _soundSearchDirectories = new[]
+            {
+                Path.Combine(baseDir, "Assets", "Sounds"),
+                Path.Combine(appContextBaseDir, "Assets", "Sounds"),
+                Path.Combine(currentDir, "Assets", "Sounds"),
+                Path.Combine(processDir, "Assets", "Sounds")
+            }
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+            _soundsDirectory = _soundSearchDirectories.FirstOrDefault(Directory.Exists)
+                ?? Path.Combine(baseDir, "Assets", "Sounds");
             var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             _optimizedSoundsDirectory = Path.Combine(localAppData, "Zer0Talk", "AudioCache");
             
             SafeAudioLogVerbose($"Initialized with sounds directory: {_soundsDirectory}");
             SafeAudioLogVerbose($"Directory exists: {Directory.Exists(_soundsDirectory)}");
+            SafeAudioLogVerbose($"Sound search directories: {string.Join(" | ", _soundSearchDirectories)}");
             
             if (Directory.Exists(_soundsDirectory))
             {
@@ -232,26 +250,61 @@ namespace Zer0Talk.Services
             }
         }
 
-        private string ResolveSoundPath(string candidateFileName)
+        private List<string> ResolveSoundPaths(string candidateFileName)
         {
+            var paths = new List<string>();
+
+            if (string.IsNullOrWhiteSpace(candidateFileName))
+            {
+                return paths;
+            }
+
+            if (Path.IsPathRooted(candidateFileName))
+            {
+                paths.Add(candidateFileName);
+            }
+
+            if (_optimizedBySourceFileName.TryGetValue(candidateFileName, out var optimizedPath))
+            {
+                paths.Add(optimizedPath);
+            }
+
+            var candidateFileOnly = Path.GetFileName(candidateFileName);
+            if (string.IsNullOrWhiteSpace(candidateFileOnly))
+            {
+                return paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            }
+
             try
             {
-                var ext = Path.GetExtension(candidateFileName);
+                var ext = Path.GetExtension(candidateFileOnly);
                 if (!string.Equals(ext, ".wav", StringComparison.OrdinalIgnoreCase))
                 {
-                    var wavCandidate = Path.GetFileNameWithoutExtension(candidateFileName) + ".wav";
-                    var wavPath = Path.Combine(_soundsDirectory, wavCandidate);
-                    if (File.Exists(wavPath))
+                    var wavCandidate = Path.GetFileNameWithoutExtension(candidateFileOnly) + ".wav";
+                    foreach (var dir in _soundSearchDirectories)
                     {
-                        return wavPath;
+                        paths.Add(Path.Combine(dir, wavCandidate));
                     }
                 }
             }
             catch { }
 
-            if (_optimizedBySourceFileName.TryGetValue(candidateFileName, out var optimizedPath) && File.Exists(optimizedPath))
+            foreach (var dir in _soundSearchDirectories)
             {
-                return optimizedPath;
+                paths.Add(Path.Combine(dir, candidateFileOnly));
+            }
+
+            return paths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private string ResolveSoundPath(string candidateFileName)
+        {
+            foreach (var candidatePath in ResolveSoundPaths(candidateFileName))
+            {
+                if (File.Exists(candidatePath))
+                {
+                    return candidatePath;
+                }
             }
 
             return Path.Combine(_soundsDirectory, candidateFileName);
@@ -505,13 +558,17 @@ namespace Zer0Talk.Services
 
             foreach (var candidate in candidates)
             {
-                var fullPath = ResolveSoundPath(candidate);
-                if (File.Exists(fullPath))
+                var resolvedPaths = ResolveSoundPaths(candidate);
+                foreach (var resolvedPath in resolvedPaths)
                 {
-                    return fullPath;
+                    if (File.Exists(resolvedPath))
+                    {
+                        return resolvedPath;
+                    }
                 }
             }
 
+            SafeAudioLog($"No existing file found for {soundType}. Candidates: {string.Join(", ", candidates)}");
             return null;
         }
 
@@ -521,51 +578,49 @@ namespace Zer0Talk.Services
             {
                 try
                 {
-                    AudioFileReader? audioFile = null;
-
-                    // Create new audio file reader per playback so concurrent sounds can overlap safely
-                    var extension = Path.GetExtension(filePath).ToLowerInvariant();
-
-                    switch (extension)
+                    var candidatePaths = new List<string>();
+                    if (!string.IsNullOrWhiteSpace(filePath))
                     {
-                        case ".mp3":
-                        case ".wav":
-                            audioFile = new AudioFileReader(filePath);
+                        candidatePaths.Add(filePath);
+                    }
+                    var fileName = Path.GetFileName(filePath);
+                    if (!string.IsNullOrWhiteSpace(fileName))
+                    {
+                        candidatePaths.AddRange(ResolveSoundPaths(fileName));
+                    }
+                    candidatePaths = candidatePaths
+                        .Where(path => !string.IsNullOrWhiteSpace(path))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    AudioFileReader? audioFile = null;
+                    string? selectedPath = null;
+                    string? lastReaderError = null;
+
+                    foreach (var candidatePath in candidatePaths)
+                    {
+                        if (!File.Exists(candidatePath))
+                        {
+                            continue;
+                        }
+
+                        if (TryCreateAudioReader(candidatePath, out audioFile, out var readerError))
+                        {
+                            selectedPath = candidatePath;
                             break;
-                        case ".ogg":
-                            try
-                            {
-                                var vorbisReader = new VorbisWaveReader(filePath);
-                                vorbisReader.Dispose();
-                                audioFile = new AudioFileReader(filePath);
-                            }
-                            catch (Exception ex)
-                            {
-                                SafeAudioLog($"VorbisWaveReader failed for {filePath}, trying AudioFileReader: {ex.Message}");
-                                try
-                                {
-                                    audioFile = new AudioFileReader(filePath);
-                                }
-                                catch
-                                {
-                                    SafeAudioLog($"AudioFileReader also failed for OGG file: {filePath}");
-                                    return;
-                                }
-                            }
-                            break;
-                        default:
-                            SafeAudioLog($"Unsupported audio format: {extension}");
-                            return;
+                        }
+
+                        lastReaderError = readerError;
                     }
 
-                    if (audioFile == null)
+                    if (audioFile == null || string.IsNullOrWhiteSpace(selectedPath))
                     {
-                        SafeAudioLog($"Failed to create audio reader for: {filePath}");
+                        SafeAudioLog($"Failed to create audio reader for requested path '{filePath}'. Last error: {lastReaderError ?? "n/a"}");
                         return;
                     }
 
                     audioFile.Volume = volume;
-                    SafeAudioLogVerbose($"Created new audio reader for {Path.GetFileName(filePath)}");
+                    SafeAudioLogVerbose($"Created new audio reader for {Path.GetFileName(selectedPath)}");
 
                     var player = new WaveOutEvent
                     {
@@ -611,21 +666,61 @@ namespace Zer0Talk.Services
                         if (requestedAtUtc.HasValue)
                         {
                             var endToEndMs = (DateTime.UtcNow - requestedAtUtc.Value).TotalMilliseconds;
-                            SafeAudioLogVerbose($"Latency: file={Path.GetFileName(filePath)}, source={source ?? "unknown"}, pipelineMs={pipelineMs:F1}, endToEndMs={endToEndMs:F1}, cached=false");
+                            SafeAudioLogVerbose($"Latency: file={Path.GetFileName(selectedPath)}, source={source ?? "unknown"}, pipelineMs={pipelineMs:F1}, endToEndMs={endToEndMs:F1}, cached=false");
                         }
                         else
                         {
-                            SafeAudioLogVerbose($"Latency: file={Path.GetFileName(filePath)}, source={source ?? "unknown"}, pipelineMs={pipelineMs:F1}, cached=false");
+                            SafeAudioLogVerbose($"Latency: file={Path.GetFileName(selectedPath)}, source={source ?? "unknown"}, pipelineMs={pipelineMs:F1}, cached=false");
                         }
                     }
 
-                    SafeAudioLogVerbose($"Started playback of {Path.GetFileName(filePath)}");
+                    SafeAudioLogVerbose($"Started playback of {Path.GetFileName(selectedPath)}");
                 }
                 catch (Exception ex)
                 {
                     SafeAudioLog($"Playback error for {filePath}: {ex.Message}");
                 }
             });
+        }
+
+        private bool TryCreateAudioReader(string filePath, out AudioFileReader? audioFile, out string? error)
+        {
+            audioFile = null;
+            error = null;
+
+            try
+            {
+                var extension = Path.GetExtension(filePath).ToLowerInvariant();
+                switch (extension)
+                {
+                    case ".mp3":
+                    case ".wav":
+                        audioFile = new AudioFileReader(filePath);
+                        return true;
+                    case ".ogg":
+                        try
+                        {
+                            using var vorbisReader = new VorbisWaveReader(filePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            SafeAudioLog($"VorbisWaveReader failed for {filePath}, trying AudioFileReader: {ex.Message}");
+                        }
+
+                        audioFile = new AudioFileReader(filePath);
+                        return true;
+                    default:
+                        error = $"Unsupported audio format: {extension}";
+                        return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                try { audioFile?.Dispose(); } catch { }
+                audioFile = null;
+                return false;
+            }
         }
 
         public void Dispose()

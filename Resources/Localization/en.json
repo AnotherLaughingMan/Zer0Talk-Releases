@@ -99,6 +99,8 @@
     "GPU": "GPU",
     "Framerate": "Framerate",
     "CCDOffinity": "CCD Affinity:",
+    "IntelPCoreTargeting": "Prefer Performance Cores",
+    "IntelPCoreTargetingHelp": "Target Performance cores over Efficiency cores for lower latency on Intel hybrid CPUs",
     "NotRecommended": "Not Recommended",
     "EnforceRAMLimit": "Enforce RAM Limit",
     "RAMLimit": "RAM Limit:",

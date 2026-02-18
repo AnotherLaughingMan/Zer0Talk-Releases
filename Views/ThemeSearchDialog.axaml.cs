@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Zer0Talk.Services;
+using Zer0Talk.Utilities;
 
 namespace Zer0Talk.Views;
 
@@ -48,7 +49,10 @@ public partial class ThemeSearchDialog : Window
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        BeginMoveDrag(e);
+        if (WindowDragHelper.TryBeginMoveDrag(this, e))
+        {
+            e.Handled = true;
+        }
     }
 
     private void OnCloseClick(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)

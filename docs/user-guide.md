@@ -1,10 +1,11 @@
 # Zer0Talk User Guide
 
-This user guide provides step-by-step instructions for common tasks in Zer0Talk: launching the app, creating an identity, adding and deleting contacts, running a dedicated node, using the installer, and basic troubleshooting.
+This user guide provides step-by-step instructions for common tasks in Zer0Talk: launching the app, creating an identity, adding and deleting contacts, understanding relay fallback, using the installer, and basic troubleshooting.
 
 ## Table of Contents
 
 - About Peer-to-Peer Networking
+- Relay Fallback, Federation, and Privacy
 - Getting Started
 - Creating an Identity
 - Adding Contacts
@@ -14,7 +15,7 @@ This user guide provides step-by-step instructions for common tasks in Zer0Talk:
 - Account Deletion
 - Themes & Appearance
 - Notifications & Sounds
-- Running a Dedicated Node (Advanced)
+- Network Port Forwarding (Advanced)
 - Backup and Restore
 - Troubleshooting
 
@@ -28,6 +29,18 @@ Zer0Talk uses peer-to-peer (P2P) networking, which means your messages are sent 
 - **User Responsibility**: Because there is no central authority, users are solely responsible for their own use of Zer0Talk and any communications made through it
 
 **Important Disclaimer**: Zer0Talk cannot be held responsible for how users choose to use the software, what content they share, or any consequences arising from peer-to-peer communications.
+
+## Relay Fallback, Federation, and Privacy
+
+Relays in Zer0Talk are a **connectivity fallback**, not a central message service.
+
+- **Direct first, relay second:** Clients try direct/NAT traversal paths first. Relay is used only when direct paths fail.
+- **Still decentralized:** There is no global central server controlling identities, accounts, or message history.
+- **Federated by design:** Multiple relay operators can run independent relays, and relay deployments can be federated instead of relying on a single authority.
+- **No user-content storage on relay:** Relay forwards encrypted traffic and keeps short-lived routing/coordination state only (for pairing and delivery flow).
+- **No private keys on relay:** Private keys remain on client devices; relays never receive or display them.
+
+In short: relays improve reliability in difficult networks while preserving the decentralized trust model.
 
 ## Getting Started
 
@@ -132,25 +145,31 @@ To permanently delete your account and all associated user data:
   - General information, warnings, errors, and notices appear in the "Alerts" panel
 - DND (Do Not Disturb) mode still holds alerts, messages, and invites in the Notification Center, but silences sounds and doesn't display desktop pop-in notifications.
 
-## Running a Dedicated Node (Advanced)
+## Network Port Forwarding (Advanced)
 
-A Dedicated Peer Node improves the P2P Network stability by being an always-on peer. You have to leave your client running in the System Tray (enabling the System tray features that are currently broken). By being a Dedicated Peer Node you contribute to the global Zer0Talk Network by being a stable peer. This is optional and intended for advanced users.
+Zer0Talk no longer relies on a dedicated peer-node mode for normal operation. In most setups, you do **not** need manual router port forwarding.
 
-### Intended Use Cases
-- Improve message delivery when your client is offline
-- Provide a stable public endpoint for NAT traversal and rendezvous
+### When to forward port 26264
+Only forward port `26264` (or your configured listening port) if **all** of the following are true:
+- Your network does not allow automatic UPnP/NAT-PMP mapping (or mapping repeatedly fails).
+- You want more inbound direct-connect success and less dependence on relay fallback.
+- You are comfortable managing router/firewall rules.
 
-### Requirements
-- An always-on high-speed connection with no data limit
-- Keep your Zer0Talk client running in the background
-- Forward your ports on your router/firewall
-- Ensure Windows Firewall isn't blocking Zer0Talk
+### Why you might forward it
+- Improves chance that other peers can initiate direct encrypted sessions to you.
+- Can reduce connection setup time in restrictive NAT environments.
+- Can reduce relay usage when direct traversal is blocked.
 
-### Quick Setup
-1. In the app Settings -> Network toggle the "Enable as dedicated peer node" option.
-2. Forward port 26264 (or your chosen port) on your router/firewall.
-3. Ensure Windows Firewall allows Zer0Talk through.
-4. Keep your Zer0Talk client running in the background.
+### When you should not forward it
+- UPnP is already working and Zer0Talk can map a port automatically.
+- You only need standard messaging reliability (relay fallback already covers this case).
+- You are on untrusted/public networks where opening inbound ports is undesirable.
+
+### Manual forwarding checklist (only if needed)
+1. In your router, forward external TCP `26264` to the Zer0Talk machine's local IP and same port.
+2. Ensure Windows Firewall allows Zer0Talk inbound TCP on that port.
+3. Keep your local Zer0Talk listening port aligned with the forwarded port.
+4. Re-test direct connectivity in the app diagnostics/monitoring view.
 
 ## Backup and Restore
 

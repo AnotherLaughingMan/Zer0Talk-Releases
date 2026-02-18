@@ -33,8 +33,8 @@ public class AppSettings
     public const int DefaultLockHotkeyModifiers = (int)KeyModifiers.Control;
     public const int DefaultClearInputHotkeyKey = (int)Key.Q;
     public const int DefaultClearInputHotkeyModifiers = (int)(KeyModifiers.Control | KeyModifiers.Shift);
-    public const int DefaultStreamerModeHotkeyKey = (int)Key.F7;
-    public const int DefaultStreamerModeHotkeyModifiers = (int)KeyModifiers.Control;
+    public const int DefaultStreamerModeHotkeyKey = (int)Key.P;
+    public const int DefaultStreamerModeHotkeyModifiers = (int)(KeyModifiers.Control | KeyModifiers.Shift);
 
     public string DisplayName { get; set; } = string.Empty;
     public ThemeOption Theme { get; set; } = ThemeOption.Dark;
@@ -108,6 +108,8 @@ public class AppSettings
     // Performance settings
     // CPU: CCD core affinity selection (0 = Auto, 1 = CCD 0, 2 = CCD 1)
     public int CcdAffinityIndex { get; set; }
+    // CPU: Intel Performance-core targeting (prefer P-cores over E-cores)
+    public bool IntelPCoreTargeting { get; set; } = true;
     // GPU: user override to disable hardware acceleration (default enabled when false)
     public bool DisableGpuAcceleration { get; set; }
     // Frame throttles (0 = off)

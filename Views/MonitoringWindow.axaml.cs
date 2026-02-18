@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using Zer0Talk.Services;
+using Zer0Talk.Utilities;
 using Zer0Talk.ViewModels;
 
 namespace Zer0Talk.Views;
@@ -228,7 +229,10 @@ public partial class MonitoringWindow : Window, IDisposable
                 if (c is TextBox || c.FindAncestorOfType<TextBox>() != null) return;
                 if (c is ComboBox || c.FindAncestorOfType<ComboBox>() != null) return;
             }
-            BeginMoveDrag(e);
+            if (WindowDragHelper.TryBeginMoveDrag(this, e))
+            {
+                e.Handled = true;
+            }
         }
         catch { }
     }

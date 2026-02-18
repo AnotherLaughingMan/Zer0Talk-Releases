@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 using Zer0Talk.Models;
+using Zer0Talk.Utilities;
 using Zer0Talk.ViewModels;
 
 namespace Zer0Talk.Views;
@@ -72,7 +73,10 @@ public partial class DiscoveredPeersWindow : Window
                 if (c is TextBox || c.FindAncestorOfType<TextBox>() != null) return;
                 if (c is ComboBox || c.FindAncestorOfType<ComboBox>() != null) return;
             }
-            BeginMoveDrag(e);
+                if (WindowDragHelper.TryBeginMoveDrag(this, e))
+                {
+                    e.Handled = true;
+                }
         }
         catch { }
     }

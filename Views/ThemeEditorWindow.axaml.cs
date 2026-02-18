@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Zer0Talk.Utilities;
 using Zer0Talk.ViewModels;
 using Zer0Talk.Services;
 
@@ -84,7 +85,10 @@ public partial class ThemeEditorWindow : Window
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        BeginMoveDrag(e);
+        if (WindowDragHelper.TryBeginMoveDrag(this, e))
+        {
+            e.Handled = true;
+        }
     }
 
     private void OnMinimizeClick(object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
