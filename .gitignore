@@ -179,5 +179,6 @@ HOTFIX-*.md
 docs/*.md
 !docs/user-guide.md
 !docs/THEME-EDITOR-USER-GUIDE.md
+!docs/install-run-troubleshooting.md
 
 checklist.md
