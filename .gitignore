@@ -16,6 +16,9 @@ _trash/
 # InstallMe.Lite installer (not tracked in repo)
 InstallMe.Lite/
 
+# Keep relay project local-only (do not track)
+Zer0Talk.RelayServer/
+
 # Scripts folder - development/build scripts not needed in repo
 scripts/
 
