@@ -404,17 +404,21 @@ namespace Zer0Talk.Services
                 LastPunchAttemptUtc = DateTime.UtcNow;
                 LastPunchStatus = "Attempting";
                 try { Changed?.Invoke(); } catch { }
-                // Best-effort wait for any response
-                var vt = udp.ReceiveAsync(ct);
-                var t = vt.AsTask();
-                var completed = await Task.WhenAny(t, Task.Delay(1500, ct));
-                if (completed == t && t.IsCompletedSuccessfully)
+                // Best-effort wait for any response; avoid orphaned ReceiveAsync task on timeout/dispose.
+                using var receiveCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                receiveCts.CancelAfter(TimeSpan.FromMilliseconds(1500));
+                try
                 {
+                    var _ = await udp.ReceiveAsync(receiveCts.Token);
                     Logger.Log("NAT: Received UDP response; hole likely open");
                     Status = "Hole likely open";
                     LastPunchStatus = "Success";
                     try { Changed?.Invoke(); } catch { }
                     return true;
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    // Timed out waiting for punch response.
                 }
                 }
             }

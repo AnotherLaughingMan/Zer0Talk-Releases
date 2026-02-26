@@ -6,6 +6,7 @@
 // TODO[ANCHOR]: Program - Startup gating to AccountCreation/Unlock
 // TODO[ANCHOR]: Program - Defer settings/theme until after unlock/account creation
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -25,6 +26,7 @@ internal sealed class Program
     private static System.Threading.Timer? _hbTimer;
     private static int _hbCount;
     private static Mutex? _singleInstanceMutex;
+    private static readonly ConcurrentDictionary<string, DateTime> _firstChanceRecent = new();
     
     // Windows API for bringing existing window to front
     [DllImport("user32.dll")]
@@ -189,7 +191,14 @@ internal sealed class Program
             {
                 AppDomain.CurrentDomain.FirstChanceException += (s, e) =>
                 {
-                    try { ErrorLogger.LogException(e.Exception, source: "FirstChance.Program"); } catch { }
+                    try
+                    {
+                        if (ShouldLogFirstChance(e.Exception))
+                        {
+                            ErrorLogger.LogException(e.Exception, source: "FirstChance.Program");
+                        }
+                    }
+                    catch { }
                 };
             }
             catch { }
@@ -399,6 +408,31 @@ internal sealed class Program
     }
 
     // Minimal helper to ensure we always write an error.txt alongside ErrorLogger for crash diagnostics.
+    private static bool ShouldLogFirstChance(Exception ex)
+    {
+        try
+        {
+            // Skip expected shutdown/dispose noise from socket listeners.
+            if (ex is System.Net.Sockets.SocketException sock &&
+                sock.SocketErrorCode == System.Net.Sockets.SocketError.OperationAborted)
+            {
+                return false;
+            }
+
+            // Throttle duplicate first-chance entries aggressively to avoid long-run log storms.
+            var key = ex.GetType().FullName + ":" + (ex.Message ?? string.Empty);
+            var now = DateTime.UtcNow;
+            if (_firstChanceRecent.TryGetValue(key, out var last) && (now - last) < TimeSpan.FromSeconds(10))
+            {
+                return false;
+            }
+            _firstChanceRecent[key] = now;
+        }
+        catch { }
+
+        return true;
+    }
+
     private static void StartupLog(string msg)
     {
         try
