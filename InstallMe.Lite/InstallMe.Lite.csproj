@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>InstallMe.Lite</AssemblyName>
+    <RootNamespace>InstallMe.Lite</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Authors>AnotherLaughingMan</Authors>
+    <Description>Graphical installer shell for desktop applications - InstallMe Lite</Description>
+    <Company>AnotherLaughingMan</Company>
+    <Product>InstallMe.Lite</Product>
+    <Version>0.0.2.10</Version>
+    <AssemblyVersion>0.0.2.10</AssemblyVersion>
+    <FileVersion>0.0.2.10</FileVersion>
+    <InstallerPackageFile>..\zer0talk_release.zip</InstallerPackageFile>
+  </PropertyGroup>
+  <!-- Include optional embedded release zip if present in project root during publish -->
+  <ItemGroup>
+    <EmbeddedResource Include="$(InstallerPackageFile)" Condition="Exists('$(InstallerPackageFile)')" />
+    <None Include="installer-config.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,21 @@
+{
+  "appDisplayName": "Zer0Talk",
+  "executableName": "Zer0Talk.exe",
+  "defaultInstallPath": "C:\\Apps\\Zer0Talk",
+  "appDataFolderName": "Zer0Talk",
+  "shortcutName": "Zer0Talk",
+  "appUserModelId": "Zer0Talk.App",
+  "uninstallKeyName": "Zer0Talk_InstallMeLite",
+  "packageResourceName": "zer0talk_release.zip",
+  "publisher": "AnotherLaughingMan",
+  "displayVersion": "0.0.4.02",
+  "matchKeywords": [
+    "Zer0Talk",
+    "ZTalk",
+    "P2PTalk"
+  ],
+  "legacyCleanupNames": [
+    "ZTalk",
+    "P2PTalk"
+  ]
+}

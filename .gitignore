@@ -13,8 +13,7 @@ obj/
 [Bb]uildOutput/
 _trash/
 
-# InstallMe.Lite installer (not tracked in repo)
-InstallMe.Lite/
+# InstallMe.Lite project files are tracked (build outputs still ignored via bin/obj rules)
 
 # Keep relay project local-only (do not track)
 Zer0Talk.RelayServer/
