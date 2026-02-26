@@ -46,8 +46,56 @@ jobs:
       - name: Build release artifacts
         shell: pwsh
         run: |
-          ./scripts/alpha-strike.ps1 -Configuration Release -SkipDebug -SkipSigning
-          ./scripts/build-installme-lite.ps1 -SkipBuild -SkipSigning
+          $ErrorActionPreference = 'Stop'
+
+          $publishRoot = [System.IO.Path]::GetFullPath('.\\publish')
+          New-Item -ItemType Directory -Path $publishRoot -Force | Out-Null
+
+          $info = (dotnet msbuild .\\Zer0Talk.csproj -nologo -getProperty:InformationalVersion | Out-String).Trim()
+          if ([string]::IsNullOrWhiteSpace($info)) {
+            throw 'Could not resolve InformationalVersion from Zer0Talk.csproj'
+          }
+          $versionForFile = ($info -split '\\+')[0]
+          $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+
+          $releaseScDir = Join-Path $publishRoot 'win-x64-Release-sc'
+          $releaseSingleDir = Join-Path $publishRoot 'win-x64-Release-single'
+          if (Test-Path $releaseScDir) { Remove-Item $releaseScDir -Recurse -Force }
+          if (Test-Path $releaseSingleDir) { Remove-Item $releaseSingleDir -Recurse -Force }
+
+          dotnet publish .\\Zer0Talk.csproj -c Release -r win-x64 -p:SelfContained=true -o $releaseScDir --nologo
+          dotnet publish .\\Zer0Talk.csproj -c Release -r win-x64 -p:PublishSingleFile=true -p:SelfContained=true -p:EnableCompressionInSingleFile=true -o $releaseSingleDir --nologo
+
+          $zipSc = Join-Path $publishRoot "Zer0Talk-v$versionForFile-win-x64-Release-sc-$stamp.zip"
+          $zipSingle = Join-Path $publishRoot "Zer0Talk-v$versionForFile-win-x64-Release-single-$stamp.zip"
+
+          if (Test-Path $zipSc) { Remove-Item $zipSc -Force }
+          if (Test-Path $zipSingle) { Remove-Item $zipSingle -Force }
+
+          Compress-Archive -Path (Join-Path $releaseScDir '*') -DestinationPath $zipSc -Force
+          Compress-Archive -Path (Join-Path $releaseSingleDir '*') -DestinationPath $zipSingle -Force
+
+          # Build installer with embedded single-file zip payload.
+          $embeddedZip = [System.IO.Path]::GetFullPath('.\\zer0talk_release.zip')
+          Copy-Item $zipSingle $embeddedZip -Force
+          try {
+            $installerOutDir = Join-Path $publishRoot 'InstallMe.Lite'
+            if (Test-Path $installerOutDir) { Remove-Item $installerOutDir -Recurse -Force }
+
+            dotnet publish .\\InstallMe.Lite\\InstallMe.Lite.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeAllContentForSelfExtract=true -o $installerOutDir --nologo
+
+            $installerSrc = Join-Path $installerOutDir 'InstallMe.Lite.exe'
+            if (-not (Test-Path $installerSrc)) {
+              throw 'InstallMe.Lite.exe was not produced.'
+            }
+
+            $installerName = "Zer0Talk-v$versionForFile-Installer-$stamp.exe"
+            $installerDst = Join-Path $publishRoot $installerName
+            Copy-Item $installerSrc $installerDst -Force
+          }
+          finally {
+            if (Test-Path $embeddedZip) { Remove-Item $embeddedZip -Force }
+          }
 
       - name: Generate update manifest
         shell: pwsh
