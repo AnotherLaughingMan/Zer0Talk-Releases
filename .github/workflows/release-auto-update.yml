@@ -33,13 +33,21 @@ jobs:
         id: resolve_tag
         shell: pwsh
         run: |
+          $inputTag = "${{ inputs.tag }}"
           $tag = "${{ github.ref_name }}"
-          if ([string]::IsNullOrWhiteSpace($tag) -and -not [string]::IsNullOrWhiteSpace("${{ inputs.tag }}")) {
-            $tag = "${{ inputs.tag }}"
+
+          if (-not [string]::IsNullOrWhiteSpace($inputTag)) {
+            $tag = $inputTag
           }
+
           if ([string]::IsNullOrWhiteSpace($tag)) {
             throw "Could not resolve release tag."
           }
+
+          if ($tag -notmatch '^v') {
+            throw "Resolved tag '$tag' is invalid. Expected a tag starting with 'v'."
+          }
+
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "Using release tag: $tag"
 
