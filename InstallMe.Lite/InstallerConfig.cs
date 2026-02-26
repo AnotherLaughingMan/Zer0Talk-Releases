@@ -17,7 +17,7 @@ namespace InstallMe.Lite
         public string UninstallKeyName { get; set; } = "Zer0Talk_InstallMeLite";
         public string PackageResourceName { get; set; } = "zer0talk_release.zip";
         public string Publisher { get; set; } = "AnotherLaughingMan";
-        public string DisplayVersion { get; set; } = "0.0.4.01";
+        public string DisplayVersion { get; set; } = "0.0.4.02";
         public List<string> MatchKeywords { get; set; } = new() { "Zer0Talk", "ZTalk", "P2PTalk" };
         public List<string> LegacyCleanupNames { get; set; } = new() { "ZTalk", "P2PTalk" };
 

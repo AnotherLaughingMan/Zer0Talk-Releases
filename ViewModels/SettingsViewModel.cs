@@ -823,6 +823,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // About panel properties
     public string AppName => "Zer0Talk";
     public string AppVersion => Zer0Talk.AppInfo.Version;
+#if DEBUG
+    public string AppBuildConfiguration => "Debug";
+#else
+    public string AppBuildConfiguration => "Release";
+#endif
     public string AvaloniaVersion
     {
         get
