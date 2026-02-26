@@ -121,19 +121,26 @@ namespace Zer0Talk.Services
                             {
                                 using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                                 pollCts.CancelAfter(TimeSpan.FromSeconds(10));
-                                var invite = await AppServices.WanDirectory.WaitForRelayInviteAsync(localUid, TimeSpan.FromSeconds(8), pollCts.Token);
-                                if (invite != null)
+                                var invites = await AppServices.WanDirectory.WaitForRelayInvitesAsync(localUid, TimeSpan.FromSeconds(8), pollCts.Token);
+                                if (invites.Count > 0)
                                 {
-                                    try
+                                    var connected = false;
+                                    foreach (var invite in invites)
                                     {
-                                        var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, ct);
-                                        if (joined)
+                                        try
                                         {
+                                            var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, ct);
                                             try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
-                                            break; // Successfully connected, stop polling
+                                            if (joined)
+                                            {
+                                                connected = true;
+                                                break;
+                                            }
                                         }
+                                        catch { }
                                     }
-                                    catch { }
+
+                                    if (connected) break; // Successfully connected, stop polling
                                 }
                                 else
                                 {
@@ -220,24 +227,32 @@ namespace Zer0Talk.Services
 
                     using var pollCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     pollCts.CancelAfter(TimeSpan.FromSeconds(12));
-                    var invite = await AppServices.WanDirectory.WaitForRelayInviteAsync(localUid, TimeSpan.FromSeconds(8), pollCts.Token);
-                    if (invite != null)
+                    var invites = await AppServices.WanDirectory.WaitForRelayInvitesAsync(localUid, TimeSpan.FromSeconds(8), pollCts.Token);
+                    if (invites.Count > 0)
                     {
-                        AppendLog($"Relay invite poll: received invite from {invite.SourceUid}");
-                        try
+                        AppendLog($"Relay invite poll: received {invites.Count} invite(s)");
+                        var connected = false;
+                        foreach (var invite in invites)
                         {
-                            var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, ct);
-                            if (joined)
+                            try
                             {
-                                AppendLog($"Relay invite poll: connected via invite from {invite.SourceUid}");
+                                var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, ct);
                                 try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
-                            }
-                            else
-                            {
+                                if (joined)
+                                {
+                                    AppendLog($"Relay invite poll: connected via invite from {invite.SourceUid}");
+                                    connected = true;
+                                    break;
+                                }
                                 AppendLog($"Relay invite poll: relay join failed for {invite.SourceUid}");
                             }
+                            catch { }
                         }
-                        catch { }
+
+                        if (!connected)
+                        {
+                            AppendLog("Relay invite poll: processed invite batch with no successful join");
+                        }
                     }
                 }
                 catch (OperationCanceledException) { break; }

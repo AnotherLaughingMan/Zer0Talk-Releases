@@ -259,7 +259,7 @@ namespace Zer0Talk.Services
                     "Do Not Disturb" => PresenceStatus.DoNotDisturb,
                     "Invisible" => PresenceStatus.Invisible,
                     "Offline" => PresenceStatus.Offline,
-                    _ => PresenceStatus.Online
+                    _ => PresenceStatus.Offline
                 };
                 AppServices.Contacts.SetPresence(uid, s, System.TimeSpan.FromSeconds(60), Models.PresenceSource.Verified);
                 try

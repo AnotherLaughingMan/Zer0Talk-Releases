@@ -322,7 +322,7 @@ public static class AppServices
                             "Do Not Disturb" => Models.PresenceStatus.DoNotDisturb,
                             "Invisible" => Models.PresenceStatus.Invisible,
                             "Offline" => Models.PresenceStatus.Offline,
-                            _ => Models.PresenceStatus.Online
+                            _ => Models.PresenceStatus.Offline
                         };
                         try { Contacts.SetPresence(uid, s, System.TimeSpan.FromSeconds(60), Models.PresenceSource.Verified); } catch { }
                         // If not connected and peer appears reachable (not Invisible/Offline), try to connect

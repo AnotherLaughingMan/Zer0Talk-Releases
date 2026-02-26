@@ -55,6 +55,10 @@ namespace Zer0Talk.Services
     private static readonly TimeSpan OutsideLanDirectEvidenceTtl = TimeSpan.FromMinutes(20);
     private System.Threading.Timer? _presenceTimeoutTimer;
     private static readonly TimeSpan PresenceSweepInterval = TimeSpan.FromSeconds(5);
+    private readonly object _timeoutTuningGate = new();
+    private double _directSessionWaitMsEwma = 6000;
+    private double _relayAckWaitMsEwma = 5000;
+    private double _relayPairWaitMsEwma = 45000;
 
     private static TimeSpan GetPresenceTimeout()
     {
@@ -536,12 +540,15 @@ namespace Zer0Talk.Services
                     }
                     catch { }
                     // Wait for handshake to register expected session or detect mismatch
-                    var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(6);
+                    var directWaitTimeout = GetDirectSessionWaitTimeout();
+                    var deadline = DateTime.UtcNow + directWaitTimeout;
+                    var directWaitStart = DateTime.UtcNow;
                     bool reportedMismatch = false;
                     while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
                     {
                         if (_sessions.ContainsKey(expectedKey))
                         {
+                            ObserveDirectSessionWait(DateTime.UtcNow - directWaitStart);
                             MarkOutsideLanDirectSuccess(hostOrIp);
                             try { _diag.IncDirectSuccess(); } catch { }
                             SafeNetLog($"connect direct/nat success | peer={peerUid} | endpoint={hostOrIp}:{port}");
@@ -590,7 +597,7 @@ namespace Zer0Talk.Services
                         RegisterPendingOutboundExpectation(ep2, Trim(peerUid));
                     }
                     catch { }
-                    var okSession = await WaitForEncryptedSessionAsync(Trim(peerUid), TimeSpan.FromSeconds(4), ct);
+                    var okSession = await WaitForEncryptedSessionAsync(Trim(peerUid), GetDirectRetrySessionWaitTimeout(), ct);
                     if (okSession)
                     {
                         MarkOutsideLanDirectSuccess(hostOrIp);
@@ -742,11 +749,13 @@ namespace Zer0Talk.Services
 
                 // Wait for relay acknowledgment (QUEUED or PAIRED)
                 string? response = null;
+                var ackTimeout = GetRelayAckTimeout();
+                var ackStart = DateTime.UtcNow;
                 using var ackCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                ackCts.CancelAfter(TimeSpan.FromSeconds(5));
+                ackCts.CancelAfter(ackTimeout);
                 try
                 {
-                    response = await ReadLineAsync(relayStream, TimeSpan.FromSeconds(5), ackCts.Token);
+                    response = await ReadLineAsync(relayStream, ackTimeout, ackCts.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -768,16 +777,19 @@ namespace Zer0Talk.Services
 
                 if (response.StartsWith("QUEUED", StringComparison.OrdinalIgnoreCase))
                 {
+                    ObserveRelayAckWait(DateTime.UtcNow - ackStart);
                     Logger.Log($"Relay session queued, waiting for peer to connect...");
                     SafeNetLog($"connect relay queued | peer={peerUid}");
                     
                     // Wait for PAIRED message (peer needs to connect)
-                    // 45s timeout to span at least one full remote discovery-loop cycle (~30-50s)
+                    // Adaptive timeout tuned from observed peer-arrival latency.
+                    var pairTimeout = GetRelayPairWaitTimeout();
+                    var pairStart = DateTime.UtcNow;
                     using var pairCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    pairCts.CancelAfter(TimeSpan.FromSeconds(45));
+                    pairCts.CancelAfter(pairTimeout);
                     try
                     {
-                        response = await ReadLineAsync(relayStream, TimeSpan.FromSeconds(45), pairCts.Token);
+                        response = await ReadLineAsync(relayStream, pairTimeout, pairCts.Token);
                     }
                     catch (OperationCanceledException)
                     {
@@ -787,6 +799,15 @@ namespace Zer0Talk.Services
                         try { relayClient.Close(); } catch { }
                         return false;
                     }
+
+                    if (!string.IsNullOrWhiteSpace(response) && response.StartsWith("PAIRED", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ObserveRelayPairWait(DateTime.UtcNow - pairStart);
+                    }
+                }
+                else
+                {
+                    ObserveRelayAckWait(DateTime.UtcNow - ackStart);
                 }
 
                 if (string.IsNullOrEmpty(response) || !response.StartsWith("PAIRED", StringComparison.OrdinalIgnoreCase))
@@ -919,6 +940,9 @@ namespace Zer0Talk.Services
                         if (removed) RaiseSessionCountChanged();
                         try { _diag.DecSessionsActive(); } catch { }
                         try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
+                        try { AppServices.Contacts.SetLastKnownEncrypted(Trim(peerUid), false, AppServices.Passphrase); } catch { }
+                        // On session close: mark peer Offline immediately
+                        try { AppServices.Peers.SetPeerStatus(Trim(peerUid), "Offline"); } catch { }
                         try { sessionCts.Dispose(); } catch { }
                         try { relayClient.Close(); } catch { }
                     }
@@ -1276,7 +1300,7 @@ namespace Zer0Talk.Services
             {
                 int idx = 1; if (data.Length <= idx) return Task.CompletedTask; int n = data[idx++]; if (n < 0 || n > MaxPresenceToken || data.Length < idx + n) return Task.CompletedTask;
                 var tok = System.Text.Encoding.UTF8.GetString(data, idx, n).Trim().ToLowerInvariant();
-                string status = tok switch { "on" => "Online", "idle" => "Idle", "dnd" => "Do Not Disturb", "inv" => "Invisible", "off" => "Offline", _ => "Online" };
+                string status = tok switch { "on" => "Online", "idle" => "Idle", "dnd" => "Do Not Disturb", "inv" => "Invisible", "off" => "Offline", _ => "Offline" };
                 try { AppServices.Peers.SetPeerStatus(Trim(peerUid), status); } catch { }
                 try { _presenceLastSeenUtc[Trim(peerUid)] = DateTime.UtcNow; } catch { }
                 try { PresenceReceived?.Invoke(Trim(peerUid), status); } catch { }
@@ -2317,7 +2341,7 @@ namespace Zer0Talk.Services
                             {
                                 int idx = 1; if (data.Length <= idx) continue; int n = data[idx++]; if (n < 0 || n > MaxPresenceToken || data.Length < idx + n) continue;
                                 var tok = System.Text.Encoding.UTF8.GetString(data, idx, n).Trim().ToLowerInvariant();
-                                string status = tok switch { "on" => "Online", "idle" => "Idle", "dnd" => "Do Not Disturb", "inv" => "Invisible", "off" => "Offline", _ => "Online" };
+                                string status = tok switch { "on" => "Online", "idle" => "Idle", "dnd" => "Do Not Disturb", "inv" => "Invisible", "off" => "Offline", _ => "Offline" };
                                 if (!string.IsNullOrEmpty(boundUid)) { try { AppServices.Peers.SetPeerStatus(boundUid, status); } catch { } try { _presenceLastSeenUtc[boundUid] = DateTime.UtcNow; } catch { } try { PresenceReceived?.Invoke(boundUid, status); } catch { } }
                             }
                         }
@@ -2853,6 +2877,69 @@ namespace Zer0Talk.Services
             }
 
             return candidates;
+        }
+
+        private TimeSpan GetDirectSessionWaitTimeout()
+        {
+            lock (_timeoutTuningGate)
+            {
+                var ms = Math.Clamp(_directSessionWaitMsEwma * 1.75, 4000, 15000);
+                return TimeSpan.FromMilliseconds(ms);
+            }
+        }
+
+        private TimeSpan GetDirectRetrySessionWaitTimeout()
+        {
+            lock (_timeoutTuningGate)
+            {
+                var ms = Math.Clamp(_directSessionWaitMsEwma * 1.1, 3500, 9000);
+                return TimeSpan.FromMilliseconds(ms);
+            }
+        }
+
+        private TimeSpan GetRelayAckTimeout()
+        {
+            lock (_timeoutTuningGate)
+            {
+                var ms = Math.Clamp(_relayAckWaitMsEwma * 2.0, 3000, 10000);
+                return TimeSpan.FromMilliseconds(ms);
+            }
+        }
+
+        private TimeSpan GetRelayPairWaitTimeout()
+        {
+            lock (_timeoutTuningGate)
+            {
+                var ms = Math.Clamp(_relayPairWaitMsEwma * 1.6, 15000, 60000);
+                return TimeSpan.FromMilliseconds(ms);
+            }
+        }
+
+        private void ObserveDirectSessionWait(TimeSpan elapsed)
+        {
+            var measured = Math.Clamp(elapsed.TotalMilliseconds, 250, 30000);
+            lock (_timeoutTuningGate)
+            {
+                _directSessionWaitMsEwma = (_directSessionWaitMsEwma * 0.8) + (measured * 0.2);
+            }
+        }
+
+        private void ObserveRelayAckWait(TimeSpan elapsed)
+        {
+            var measured = Math.Clamp(elapsed.TotalMilliseconds, 150, 15000);
+            lock (_timeoutTuningGate)
+            {
+                _relayAckWaitMsEwma = (_relayAckWaitMsEwma * 0.8) + (measured * 0.2);
+            }
+        }
+
+        private void ObserveRelayPairWait(TimeSpan elapsed)
+        {
+            var measured = Math.Clamp(elapsed.TotalMilliseconds, 1000, 90000);
+            lock (_timeoutTuningGate)
+            {
+                _relayPairWaitMsEwma = (_relayPairWaitMsEwma * 0.85) + (measured * 0.15);
+            }
         }
 
         private static bool IsPrivateV4(byte[] octets)

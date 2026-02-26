@@ -135,10 +135,45 @@ public sealed class WanDirectoryService
 
             foreach (var endpoint in GetCandidateRelayEndpoints())
             {
-                var invite = await TryPollWithEndpointAsync(endpoint.Host, endpoint.Port, normalizedUid, endpoint.Display, ct).ConfigureAwait(false);
-                if (invite != null)
+                var endpointInvites = await TryPollWithEndpointAsync(endpoint.Host, endpoint.Port, normalizedUid, endpoint.Display, ct).ConfigureAwait(false);
+                if (endpointInvites.Count > 0)
                 {
-                    invites.Add(invite);
+                    invites.AddRange(endpointInvites);
+                }
+            }
+        }
+        catch { }
+
+        return invites;
+    }
+
+    public async Task<IReadOnlyList<RelayInvite>> WaitForRelayInvitesAsync(string uid, TimeSpan timeout, CancellationToken ct)
+    {
+        var invites = new List<RelayInvite>();
+        try
+        {
+            var normalizedUid = NormalizeUid(uid);
+            if (string.IsNullOrWhiteSpace(normalizedUid)) return invites;
+
+            var candidates = GetCandidateRelayEndpoints().ToList();
+            if (candidates.Count == 0) return invites;
+
+            // Long-poll first candidate (primary relay), then quick poll fallback on others.
+            var primary = candidates[0];
+            var waitMs = (int)Math.Clamp(timeout.TotalMilliseconds, 500, 15000);
+            var primaryInvites = await TryWaitPollWithEndpointAsync(primary.Host, primary.Port, normalizedUid, primary.Display, waitMs, ct).ConfigureAwait(false);
+            if (primaryInvites.Count > 0)
+            {
+                invites.AddRange(primaryInvites);
+            }
+
+            for (var i = 1; i < candidates.Count; i++)
+            {
+                var c = candidates[i];
+                var endpointInvites = await TryPollWithEndpointAsync(c.Host, c.Port, normalizedUid, c.Display, ct).ConfigureAwait(false);
+                if (endpointInvites.Count > 0)
+                {
+                    invites.AddRange(endpointInvites);
                 }
             }
         }
@@ -149,30 +184,8 @@ public sealed class WanDirectoryService
 
     public async Task<RelayInvite?> WaitForRelayInviteAsync(string uid, TimeSpan timeout, CancellationToken ct)
     {
-        try
-        {
-            var normalizedUid = NormalizeUid(uid);
-            if (string.IsNullOrWhiteSpace(normalizedUid)) return null;
-
-            var candidates = GetCandidateRelayEndpoints().ToList();
-            if (candidates.Count == 0) return null;
-
-            // Long-poll first candidate (primary relay), then quick poll fallback on others.
-            var primary = candidates[0];
-            var waitMs = (int)Math.Clamp(timeout.TotalMilliseconds, 500, 15000);
-            var primaryInvite = await TryWaitPollWithEndpointAsync(primary.Host, primary.Port, normalizedUid, primary.Display, waitMs, ct).ConfigureAwait(false);
-            if (primaryInvite != null) return primaryInvite;
-
-            for (var i = 1; i < candidates.Count; i++)
-            {
-                var c = candidates[i];
-                var invite = await TryPollWithEndpointAsync(c.Host, c.Port, normalizedUid, c.Display, ct).ConfigureAwait(false);
-                if (invite != null) return invite;
-            }
-        }
-        catch { }
-
-        return null;
+        var invites = await WaitForRelayInvitesAsync(uid, timeout, ct).ConfigureAwait(false);
+        return invites.FirstOrDefault();
     }
 
     public async Task<bool> TryAckRelayInviteAsync(string uid, string inviteId, CancellationToken ct)
@@ -325,7 +338,7 @@ public sealed class WanDirectoryService
         catch { return false; }
     }
 
-    private async Task<RelayInvite?> TryPollWithEndpointAsync(string host, int port, string uid, string display, CancellationToken ct)
+    private async Task<IReadOnlyList<RelayInvite>> TryPollWithEndpointAsync(string host, int port, string uid, string display, CancellationToken ct)
     {
         try
         {
@@ -343,22 +356,22 @@ public sealed class WanDirectoryService
             var resp = await ReadLineAsync(stream, TimeSpan.FromSeconds(3), ct).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(resp) || string.Equals(resp, "NONE", StringComparison.OrdinalIgnoreCase))
             {
-                return null;
+                return Array.Empty<RelayInvite>();
             }
             if (resp.StartsWith("ERR unauthorized", StringComparison.OrdinalIgnoreCase))
             {
                 Logger.Log($"POLL rejected by relay: unauthorized — forcing re-registration");
                 InvalidateAuthToken();
                 await TryRegisterSelfAsync(ct).ConfigureAwait(false);
-                return null;
+                return Array.Empty<RelayInvite>();
             }
 
-            return ParseInvite(resp, display);
+            return ParseInvites(resp, display);
         }
-        catch { return null; }
+        catch { return Array.Empty<RelayInvite>(); }
     }
 
-    private async Task<RelayInvite?> TryWaitPollWithEndpointAsync(string host, int port, string normalizedUid, string display, int waitMs, CancellationToken ct)
+    private async Task<IReadOnlyList<RelayInvite>> TryWaitPollWithEndpointAsync(string host, int port, string normalizedUid, string display, int waitMs, CancellationToken ct)
     {
         try
         {
@@ -376,7 +389,7 @@ public sealed class WanDirectoryService
             var resp = await ReadLineAsync(stream, TimeSpan.FromMilliseconds(waitMs + 1500), ct).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(resp) || string.Equals(resp, "NONE", StringComparison.OrdinalIgnoreCase))
             {
-                return null;
+                return Array.Empty<RelayInvite>();
             }
             if (resp.StartsWith("ERR unauthorized", StringComparison.OrdinalIgnoreCase))
             {
@@ -399,16 +412,16 @@ public sealed class WanDirectoryService
                         await retryStream.FlushAsync(ct).ConfigureAwait(false);
                         var retryResp = await ReadLineAsync(retryStream, TimeSpan.FromMilliseconds(waitMs + 1500), ct).ConfigureAwait(false);
                         if (!string.IsNullOrWhiteSpace(retryResp) && !string.Equals(retryResp, "NONE", StringComparison.OrdinalIgnoreCase))
-                            return ParseInvite(retryResp, display);
+                            return ParseInvites(retryResp, display);
                     }
                     catch { }
                 }
-                return null;
+                return Array.Empty<RelayInvite>();
             }
 
-            return ParseInvite(resp, display);
+            return ParseInvites(resp, display);
         }
-        catch { return null; }
+        catch { return Array.Empty<RelayInvite>(); }
     }
 
     private async Task<bool> TryAckWithEndpointAsync(string host, int port, string uid, string inviteId, CancellationToken ct)
@@ -431,9 +444,44 @@ public sealed class WanDirectoryService
         catch { return false; }
     }
 
-    private static RelayInvite? ParseInvite(string responseLine, string display)
+    private static IReadOnlyList<RelayInvite> ParseInvites(string responseLine, string display)
     {
+        if (string.IsNullOrWhiteSpace(responseLine)) return Array.Empty<RelayInvite>();
         var parts = responseLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return Array.Empty<RelayInvite>();
+
+        if (string.Equals(parts[0], "INVITE", StringComparison.OrdinalIgnoreCase))
+        {
+            var single = ParseInvitePayload(parts, display);
+            return single == null ? Array.Empty<RelayInvite>() : new[] { single };
+        }
+
+        if (string.Equals(parts[0], "INVITES", StringComparison.OrdinalIgnoreCase))
+        {
+            if (parts.Length < 2) return Array.Empty<RelayInvite>();
+            var list = new List<RelayInvite>();
+            var payload = string.Join(' ', parts.Skip(1));
+            var entries = payload.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var entry in entries)
+            {
+                var fields = entry.Split(':', StringSplitOptions.TrimEntries);
+                if (fields.Length != 3) continue;
+                var inviteId = fields[0];
+                var sourceUid = NormalizeUid(fields[1]);
+                var sessionKey = fields[2];
+                if (string.IsNullOrWhiteSpace(inviteId) || string.IsNullOrWhiteSpace(sourceUid) || string.IsNullOrWhiteSpace(sessionKey)) continue;
+                list.Add(new RelayInvite(inviteId, sourceUid, sessionKey, display));
+            }
+
+            if (list.Count == 0) return Array.Empty<RelayInvite>();
+            return list;
+        }
+
+        return Array.Empty<RelayInvite>();
+    }
+
+    private static RelayInvite? ParseInvitePayload(string[] parts, string display)
+    {
         if (parts.Length < 3 || !string.Equals(parts[0], "INVITE", StringComparison.OrdinalIgnoreCase)) return null;
 
         if (parts.Length >= 4)
