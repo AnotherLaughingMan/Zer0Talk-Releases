@@ -182,6 +182,15 @@ public class AppSettings
     public double NotificationDurationSeconds { get; set; } = 4.5; // Duration in seconds that notification toasts stay visible (0.5 to 30 seconds)
     public bool EnableNotificationBellFlash { get; set; } = true; // When enabled, the notification bell flashes for 10 seconds when new notifications arrive
 
+    // Auto-update settings
+    public bool AutoUpdateEnabled { get; set; } = true;
+    public bool AutoUpdateIncludePrerelease { get; set; } = true;
+    public int AutoUpdateIntervalHours { get; set; } = 6;
+    public string AutoUpdateOwner { get; set; } = "AnotherLaughingMan";
+    public string AutoUpdateRepo { get; set; } = "Zer0Talk-Releases";
+    public string AutoUpdateManifestUrl { get; set; } = "https://github.com/AnotherLaughingMan/Zer0Talk-Releases/releases/latest/download/update-manifest.json";
+    public string? LastIgnoredUpdateVersion { get; set; }
+
     // Security: Message burning security level (false = Standard 3-pass, true = Enhanced 6-pass)
     public bool UseEnhancedMessageBurn { get; set; } = false; // Default to standard 3-pass for backward compatibility
 }

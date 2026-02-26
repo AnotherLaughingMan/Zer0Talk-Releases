@@ -43,6 +43,7 @@ public static class AppServices
     public static AudioNotificationService AudioNotifications => AudioNotificationService.Instance;
     public static IpBlockingService IpBlocking { get; } = new(Settings);
     public static LocalizationService Localization { get; } = new();
+    public static AutoUpdateService AutoUpdate { get; } = new();
     // Centralized UI pulse key; interval can be adjusted via Settings if desired
     private const string UiPulseKey = "App.UI.Pulse";
     private static readonly object PresenceWorkGate = new();
@@ -483,6 +484,7 @@ public static class AppServices
         try { Settings.Save(Passphrase); } catch { }
         try { LinkPreview.Dispose(); } catch { }
         try { TrayIcon.Dispose(); } catch { }
+        try { AutoUpdate.Dispose(); } catch { }
         try { AudioNotifications.Dispose(); } catch { }
 #if DEBUG
     try { LogMaintenance.Stop(); } catch { }

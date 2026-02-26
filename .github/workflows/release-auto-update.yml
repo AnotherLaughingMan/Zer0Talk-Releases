@@ -1,0 +1,176 @@
+name: Release Build And Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (example: v0.0.4.01-Alpha)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    env:
+      TARGET_REPO: AnotherLaughingMan/Zer0Talk-Releases
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Resolve release tag
+        id: resolve_tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ([string]::IsNullOrWhiteSpace($tag) -and -not [string]::IsNullOrWhiteSpace("${{ inputs.tag }}")) {
+            $tag = "${{ inputs.tag }}"
+          }
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            throw "Could not resolve release tag."
+          }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Using release tag: $tag"
+
+      - name: Build release artifacts
+        shell: pwsh
+        run: |
+          ./scripts/alpha-strike.ps1 -Configuration Release -SkipDebug -SkipSigning
+          ./scripts/build-installme-lite.ps1 -SkipBuild -SkipSigning
+
+      - name: Generate update manifest
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.resolve_tag.outputs.tag }}"
+          $owner = "AnotherLaughingMan"
+          $repo = "Zer0Talk-Releases"
+          $publishRoot = [System.IO.Path]::GetFullPath('.\\publish')
+
+          $installer = Get-ChildItem -Path $publishRoot -Filter 'Zer0Talk-v*-Installer-*.exe' -File |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if (-not $installer) {
+            throw 'No installer found for manifest generation.'
+          }
+
+          $releaseScZip = Get-ChildItem -Path $publishRoot -Filter 'Zer0Talk-v*-win-x64-Release-sc-*.zip' -File |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+
+          if ($installer.Name -notmatch '^Zer0Talk-v(?<ver>.+)-Installer-\d{8}-\d{6}\.exe$') {
+            throw "Could not parse version from installer filename: $($installer.Name)"
+          }
+
+          $version = $Matches['ver']
+          $isPre = ($version -match '(?i)alpha|beta|preview|rc')
+          $baseUrl = "https://github.com/$owner/$repo/releases/download/$tag"
+          $installerSha = (Get-FileHash -Path $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+
+          $manifest = [ordered]@{
+            version = $version
+            tag = $tag
+            channel = if ($isPre) { 'alpha' } else { 'stable' }
+            prerelease = $isPre
+            publishedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+            installerUrl = "$baseUrl/$($installer.Name)"
+            installerFileName = $installer.Name
+            sha256 = $installerSha
+            releaseNotesUrl = "https://github.com/$owner/$repo/releases/tag/$tag"
+            assets = @(
+              [ordered]@{
+                name = $installer.Name
+                kind = 'installer'
+                url = "$baseUrl/$($installer.Name)"
+                sha256 = $installerSha
+              }
+            )
+          }
+
+          if ($releaseScZip) {
+            $zipSha = (Get-FileHash -Path $releaseScZip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $manifest.assets += [ordered]@{
+              name = $releaseScZip.Name
+              kind = 'release-sc'
+              url = "$baseUrl/$($releaseScZip.Name)"
+              sha256 = $zipSha
+            }
+          }
+
+          $manifest | ConvertTo-Json -Depth 8 | Set-Content -Path '.\\publish\\update-manifest.json' -Encoding UTF8
+
+      - name: Collect release files
+        shell: pwsh
+        run: |
+          $files = @()
+          $files += Get-ChildItem -Path .\publish -Filter 'Zer0Talk-v*-Installer-*.exe' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          $files += Get-ChildItem -Path .\publish -Filter 'Zer0Talk-v*-win-x64-Release*.zip' -File
+          $files += Get-Item .\publish\update-manifest.json
+          $files = $files | Where-Object { $_ -and (Test-Path $_.FullName) } | Select-Object -Unique
+          if (-not $files -or $files.Count -eq 0) {
+            throw 'No release files were collected.'
+          }
+          $fileListPath = '.\\publish\\release-files.txt'
+          $files | ForEach-Object { $_.FullName } | Set-Content -Path $fileListPath -Encoding UTF8
+          Write-Host "Collected $($files.Count) files for upload."
+
+      - name: Publish to releases repo
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            throw 'Missing RELEASE_REPO_TOKEN secret for cross-repo release publishing.'
+          }
+
+          $tag = "${{ steps.resolve_tag.outputs.tag }}"
+          $repo = "$env:TARGET_REPO"
+          $isPre = $false
+          if ($tag -match '(?i)alpha|beta|preview|rc') {
+            $isPre = $true
+          }
+
+          $existing = $null
+          try {
+            $existing = gh release view $tag --repo $repo --json tagName --jq .tagName 2>$null
+          } catch { }
+
+          if ([string]::IsNullOrWhiteSpace($existing)) {
+            $args = @('release', 'create', $tag, '--repo', $repo, '--title', $tag, '--notes', "Automated release for $tag")
+            if ($isPre) { $args += '--prerelease' }
+            gh @args
+          } else {
+            $args = @('release', 'edit', $tag, '--repo', $repo, '--title', $tag)
+            if ($isPre) { $args += '--prerelease' }
+            gh @args
+          }
+
+          $fileListPath = '.\\publish\\release-files.txt'
+          if (-not (Test-Path $fileListPath)) {
+            throw 'Missing release file list: publish/release-files.txt'
+          }
+
+          $files = Get-Content -Path $fileListPath | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+          if ($files.Count -eq 0) {
+            throw 'No files available to upload.'
+          }
+
+          gh release upload $tag --repo $repo --clobber $files
+
+      - name: Workflow summary
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.resolve_tag.outputs.tag }}"
+          Write-Host "Published release assets and update-manifest.json for $tag to $env:TARGET_REPO"

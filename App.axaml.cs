@@ -565,6 +565,16 @@ public partial class App : Application
                 TryWriteErrorTxt("Migration.Messages.Error", ex);
             }
         });
+
+        // Start auto-update checks after unlock/account setup.
+        try
+        {
+            AppServices.AutoUpdate.Start();
+        }
+        catch (Exception ex)
+        {
+            try { Logger.Log($"AutoUpdate: failed to start - {ex.Message}"); } catch { }
+        }
     }
 
     public override void OnFrameworkInitializationCompleted()
