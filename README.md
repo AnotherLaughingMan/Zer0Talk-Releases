@@ -8,7 +8,8 @@ This is an **alpha release** – it's functional but expect bugs and changes. No
 
 ---
 
-<img width="1176" height="739" alt="image" src="https://github.com/user-attachments/assets/d87fd2aa-6467-42bb-bb53-63ff0625294c" />
+<img width="1176" height="757" alt="image" src="https://github.com/user-attachments/assets/1c6232a9-1cd4-40ae-8cca-9a30c83fae23" />
+
 
 
 ---
