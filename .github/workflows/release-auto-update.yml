@@ -12,13 +12,12 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-and-publish:
+    if: github.repository == 'AnotherLaughingMan/Zer0Talk-Releases'
     runs-on: windows-latest
-    env:
-      TARGET_REPO: AnotherLaughingMan/Zer0Talk-Releases
 
     steps:
       - name: Checkout
@@ -184,14 +183,14 @@ jobs:
       - name: Publish to releases repo
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
-            throw 'Missing RELEASE_REPO_TOKEN secret for cross-repo release publishing.'
+            throw 'Missing GitHub token for release publishing.'
           }
 
           $tag = "${{ steps.resolve_tag.outputs.tag }}"
-          $repo = "$env:TARGET_REPO"
+          $repo = "${{ github.repository }}"
           $isPre = $false
           if ($tag -match '(?i)alpha|beta|preview|rc') {
             $isPre = $true
@@ -229,4 +228,4 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ steps.resolve_tag.outputs.tag }}"
-          Write-Host "Published release assets and update-manifest.json for $tag to $env:TARGET_REPO"
+          Write-Host "Published release assets and update-manifest.json for $tag to ${{ github.repository }}"
