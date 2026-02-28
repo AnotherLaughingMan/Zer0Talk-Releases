@@ -11,6 +11,8 @@
 // TODO[ANCHOR]: DialogService - Passphrase modal with Copy/Save
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia;
@@ -913,14 +915,38 @@ namespace Zer0Talk.Services
                     {
                         Title = "Save passphrase",
                         SuggestedStartLocation = start,
-                        SuggestedFileName = "passphrase.txt",
+                        SuggestedFileName = OperatingSystem.IsWindows() ? "passphrase.dpapi.txt" : "passphrase.txt",
                         FileTypeChoices = new[] { new FilePickerFileType("Text Files") { Patterns = new[] { "*.txt" } } }
                     });
                     if (file != null)
                     {
                         await using var stream = await file.OpenWriteAsync();
                         await using var writer = new StreamWriter(stream);
-                        await writer.WriteAsync(passphrase);
+                        if (OperatingSystem.IsWindows())
+                        {
+                            var passBytes = Encoding.UTF8.GetBytes(passphrase);
+                            try
+                            {
+                                var protectedBytes = ProtectedData.Protect(passBytes, optionalEntropy: null, scope: DataProtectionScope.CurrentUser);
+                                try
+                                {
+                                    await writer.WriteAsync("Zer0Talk-DPAPI-v1\n");
+                                    await writer.WriteAsync(Convert.ToBase64String(protectedBytes));
+                                }
+                                finally
+                                {
+                                    CryptographicOperations.ZeroMemory(protectedBytes);
+                                }
+                            }
+                            finally
+                            {
+                                CryptographicOperations.ZeroMemory(passBytes);
+                            }
+                        }
+                        else
+                        {
+                            await writer.WriteAsync(passphrase);
+                        }
                         await writer.FlushAsync();
                     }
                 }

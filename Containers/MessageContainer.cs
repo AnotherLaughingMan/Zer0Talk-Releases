@@ -21,7 +21,16 @@ namespace Zer0Talk.Containers
             return dir;
         }
 
-        private static string Sanitize(string uid) => string.IsNullOrWhiteSpace(uid) ? "unknown" : uid.Replace("/", "_").Replace("\\", "_");
+        private static string Sanitize(string uid)
+        {
+            if (string.IsNullOrWhiteSpace(uid)) return "unknown";
+            var value = uid.Trim();
+            foreach (var c in Path.GetInvalidFileNameChars())
+            {
+                value = value.Replace(c, '_');
+            }
+            return string.IsNullOrWhiteSpace(value) ? "unknown" : value;
+        }
 
         private static string FileForPeer(string peerUid)
         {
@@ -35,17 +44,15 @@ namespace Zer0Talk.Containers
             try
             {
                 var path = FileForPeer(peerUid);
-                Logger.Log($"MessageContainer.StoreMessage: Storing message for peer={peerUid}, path={path}");
                 var list = LoadMessages(peerUid, passphrase);
                 list.Add(message);
-                Logger.Log($"MessageContainer.StoreMessage: Now have {list.Count} messages for peer={peerUid}");
                 var json = JsonSerializer.Serialize(list, SerializationDefaults.Compact);
                 _p2e.SaveFile(path, System.Text.Encoding.UTF8.GetBytes(json), passphrase);
-                Logger.Log($"MessageContainer.StoreMessage: Successfully saved {list.Count} messages to {path}");
+                Logger.Log($"MessageContainer: stored message for peer={TrimUidPrefix(peerUid)} count={list.Count}");
             }
             catch (Exception ex)
             {
-                Logger.Log($"MessageContainer.StoreMessage: ERROR storing message for peer={peerUid}: {ex.Message}");
+                Logger.Log($"MessageContainer: store failed for peer={TrimUidPrefix(peerUid)}: {ex.Message}");
             }
         }
 
@@ -55,17 +62,13 @@ namespace Zer0Talk.Containers
             try
             {
                 var path = FileForPeer(peerUid);
-                Logger.Log($"MessageContainer.LoadMessages: Attempting to load from path={path}");
                 if (!File.Exists(path))
                 {
-                    Logger.Log($"MessageContainer.LoadMessages: File does not exist, returning empty list");
                     return new List<Message>();
                 }
                 var raw = _p2e.LoadFile(path, passphrase);
-                Logger.Log($"MessageContainer.LoadMessages: Decrypted {raw.Length} bytes");
                 var json = System.Text.Encoding.UTF8.GetString(raw);
                 var list = JsonSerializer.Deserialize<List<Message>>(json) ?? new List<Message>();
-                Logger.Log($"MessageContainer.LoadMessages: Deserialized {list.Count} messages");
                 // Normalize UIDs and repair missing IDs to keep attribution stable across versions
                 var changed = false;
                 foreach (var m in list)
@@ -106,7 +109,31 @@ namespace Zer0Talk.Containers
                 }
                 return list;
             }
-            catch { return new List<Message>(); }
+            catch (Exception ex)
+            {
+                try
+                {
+                    var path = FileForPeer(peerUid);
+                    Logger.Log($"MessageContainer: failed to load conversation for peer={TrimUidPrefix(peerUid)}: {ex.Message}");
+                    TryQuarantineCorruptConversation(path);
+                }
+                catch { }
+                return new List<Message>();
+            }
+        }
+
+        private static void TryQuarantineCorruptConversation(string path)
+        {
+            try
+            {
+                if (!File.Exists(path)) return;
+                var dir = Path.GetDirectoryName(path) ?? GetBaseDir();
+                var file = Path.GetFileNameWithoutExtension(path);
+                var quarantine = Path.Combine(dir, $"{file}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}.p2e");
+                File.Move(path, quarantine, overwrite: false);
+                Logger.Log($"MessageContainer: quarantined unreadable conversation file to {Path.GetFileName(quarantine)}");
+            }
+            catch { }
         }
 
         // Update an existing message content by Id (edit in place)

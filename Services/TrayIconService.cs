@@ -113,6 +113,8 @@ namespace Zer0Talk.Services
             {
                 if (_lifetime?.MainWindow is MainWindow mainWindow)
                 {
+                    // Return to normal close-to-exit mode when window is visible.
+                    _lifetime.ShutdownMode = ShutdownMode.OnMainWindowClose;
                     mainWindow.Show();
                     mainWindow.WindowState = WindowState.Normal;
                     mainWindow.Activate();

@@ -190,6 +190,7 @@ public class AppSettings
     public string AutoUpdateRepo { get; set; } = "Zer0Talk-Releases";
     public string AutoUpdateManifestUrl { get; set; } = "https://github.com/AnotherLaughingMan/Zer0Talk-Releases/releases/latest/download/update-manifest.json";
     public string? LastIgnoredUpdateVersion { get; set; }
+    public string? LastAutoUpdateCheckUtc { get; set; }
 
     // Security: Message burning security level (false = Standard 3-pass, true = Enhanced 6-pass)
     public bool UseEnhancedMessageBurn { get; set; } = false; // Default to standard 3-pass for backward compatibility

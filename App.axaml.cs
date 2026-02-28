@@ -485,6 +485,10 @@ public partial class App : Application
                     }
                 }
                 catch { }
+
+                // If shutdown mode was previously set to explicit (for tray/start-minimized),
+                // force a final shutdown once the main window actually closes.
+                try { desktop.Shutdown(); } catch { }
             };
         }
         catch (Exception ex)

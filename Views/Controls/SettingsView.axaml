@@ -151,6 +151,33 @@
                              Foreground="{DynamicResource App.SecondaryText}"/>
                 </StackPanel>
               </Grid>
+
+              <!-- Auto Updates -->
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding AllowAutoUpdates}" ToolTip.Tip="{Binding LocalizedAllowAutoUpdatesHelp}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding LocalizedAllowAutoUpdates}" VerticalAlignment="Center"/>
+                  <TextBlock Text="{Binding LocalizedAllowAutoUpdatesHelp}"
+                             FontSize="11"
+                             Foreground="{DynamicResource App.SecondaryText}"/>
+                </StackPanel>
+              </Grid>
+
+              <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+                <Button Content="{Binding LocalizedCheckForUpdatesNow}"
+                        Command="{Binding CheckForUpdatesNowCommand}"
+                        ToolTip.Tip="{Binding LocalizedCheckForUpdatesNowHelp}"/>
+                <TextBlock Text="{Binding LocalizedCheckForUpdatesNowHelp}"
+                           VerticalAlignment="Center"
+                           FontSize="11"
+                           Foreground="{DynamicResource App.SecondaryText}"/>
+              </StackPanel>
+
+              <TextBlock FontSize="11" Foreground="{DynamicResource App.SecondaryText}">
+                <Run Text="{Binding LocalizedLastUpdateCheck}"/>
+                <Run Text=" "/>
+                <Run Text="{Binding LastAutoUpdateCheckDisplay}" FontWeight="SemiBold"/>
+              </TextBlock>
               
             </StackPanel>
           </Border>
@@ -943,8 +970,8 @@
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedAboutLinksResources}" FontWeight="SemiBold" FontSize="16"/>
               <Grid ColumnDefinitions="*,*" RowDefinitions="Auto" ColumnSpacing="8" RowSpacing="8">
-                <Button Grid.Row="0" Grid.Column="0" Content="{Binding LocalizedAboutDocumentation}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
-                <Button Grid.Row="0" Grid.Column="1" Content="{Binding LocalizedAboutPrivacyPolicy}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
+                <Button Grid.Row="0" Grid.Column="0" Content="{Binding LocalizedAboutDocumentation}" Command="{Binding OpenDocumentationCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
+                <Button Grid.Row="0" Grid.Column="1" Content="{Binding LocalizedAboutPrivacyPolicy}" Command="{Binding OpenPrivacyPolicyCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
               </Grid>
             </StackPanel>
           </Border>
@@ -1340,7 +1367,7 @@
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedExportData}" FontWeight="SemiBold" FontSize="16"/>
               <TextBlock Text="{Binding LocalizedExportDataDescription}" TextWrapping="Wrap" Opacity="0.8"/>
-              <Button Content="{Binding LocalizedExportData}" HorizontalAlignment="Left" Padding="12,8"/>
+              <Button Content="{Binding LocalizedExportData}" Command="{Binding ExportDataCommand}" HorizontalAlignment="Left" Padding="12,8"/>
             </StackPanel>
           </Border>
 

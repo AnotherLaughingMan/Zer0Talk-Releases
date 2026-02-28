@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,6 +24,14 @@ public sealed class AutoUpdateService : IDisposable
 
     private const string BgIntervalKey = "AutoUpdate.PeriodicCheck";
     private const string UserAgent = "Zer0Talk-AutoUpdate/1.0";
+    private static readonly string[] TrustedUpdateHosts =
+    {
+        "github.com",
+        "api.github.com",
+        "objects.githubusercontent.com",
+        "githubusercontent.com",
+        "github-releases.githubusercontent.com"
+    };
 
     public AutoUpdateService()
     {
@@ -80,13 +89,18 @@ public sealed class AutoUpdateService : IDisposable
             return;
         }
 
+        AppSettings? settings = null;
+        var recordLastCheck = false;
+
         try
         {
-            var settings = AppServices.Settings.Settings;
+            settings = AppServices.Settings.Settings;
             if (!userInitiated && !settings.AutoUpdateEnabled)
             {
                 return;
             }
+
+            recordLastCheck = true;
 
             var latest = await TryResolveLatestUpdateAsync(settings, cancellationToken).ConfigureAwait(false);
             if (latest == null)
@@ -191,6 +205,16 @@ public sealed class AutoUpdateService : IDisposable
         }
         finally
         {
+            try
+            {
+                if (recordLastCheck && settings != null)
+                {
+                    settings.LastAutoUpdateCheckUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+                    TrySaveSettings();
+                }
+            }
+            catch { }
+
             try { _checkGate.Release(); } catch { }
         }
     }
@@ -232,6 +256,12 @@ public sealed class AutoUpdateService : IDisposable
             return null;
         }
 
+        if (!IsTrustedHttpsUrl(settings.AutoUpdateManifestUrl))
+        {
+            Logger.Log($"AutoUpdate: manifest URL rejected as untrusted: {settings.AutoUpdateManifestUrl}");
+            return null;
+        }
+
         try
         {
             using var response = await _httpClient.GetAsync(settings.AutoUpdateManifestUrl, cancellationToken).ConfigureAwait(false);
@@ -252,6 +282,12 @@ public sealed class AutoUpdateService : IDisposable
 
             if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(installerUrl))
             {
+                return null;
+            }
+
+            if (!IsTrustedHttpsUrl(installerUrl))
+            {
+                Logger.Log($"AutoUpdate: installer URL rejected as untrusted: {installerUrl}");
                 return null;
             }
 
@@ -391,7 +427,7 @@ public sealed class AutoUpdateService : IDisposable
             {
                 sha = sha.Substring("sha256:".Length);
             }
-            return !string.IsNullOrWhiteSpace(installerUrl);
+            return !string.IsNullOrWhiteSpace(installerUrl) && IsTrustedHttpsUrl(installerUrl);
         }
 
         return false;
@@ -401,6 +437,12 @@ public sealed class AutoUpdateService : IDisposable
     {
         try
         {
+            if (!IsTrustedHttpsUrl(release.InstallerUrl))
+            {
+                Logger.Log($"AutoUpdate: download blocked for untrusted URL: {release.InstallerUrl}");
+                return null;
+            }
+
             var fileName = GetSafeFileNameFromUrl(release.InstallerUrl);
             if (string.IsNullOrWhiteSpace(fileName))
             {
@@ -420,6 +462,13 @@ public sealed class AutoUpdateService : IDisposable
             await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             await using var dest = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.Read, 1024 * 64, useAsync: true);
             await source.CopyToAsync(dest, cancellationToken).ConfigureAwait(false);
+
+            if (!VerifyInstallerAuthenticode(targetPath))
+            {
+                TryDeleteFile(targetPath);
+                Logger.Log("AutoUpdate: installer blocked because Authenticode verification failed");
+                return null;
+            }
 
             return targetPath;
         }
@@ -614,6 +663,56 @@ public sealed class AutoUpdateService : IDisposable
             }
         }
         catch { }
+    }
+
+    private static bool IsTrustedHttpsUrl(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var host = uri.Host.Trim().TrimEnd('.');
+        foreach (var trusted in TrustedUpdateHosts)
+        {
+            if (host.Equals(trusted, StringComparison.OrdinalIgnoreCase) ||
+                host.EndsWith("." + trusted, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool VerifyInstallerAuthenticode(string installerPath)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return true;
+        }
+
+        try
+        {
+#pragma warning disable SYSLIB0057
+            using var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(installerPath));
+#pragma warning restore SYSLIB0057
+            if (string.IsNullOrWhiteSpace(cert.Thumbprint))
+            {
+                return false;
+            }
+
+            return cert.Verify();
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private sealed record UpdateReleaseInfo(string Version, string InstallerUrl, string Sha256, string ReleaseNotesUrl, bool Prerelease);

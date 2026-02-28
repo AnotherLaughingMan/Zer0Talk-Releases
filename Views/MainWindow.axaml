@@ -797,6 +797,12 @@
                                         BorderThickness="1">
                                                                         <Grid ClipToBounds="True">
                                                                             <Rectangle Fill="#44242424" RadiusX="6" RadiusY="6"/>
+                                                                            <TextBlock Text="LINK"
+                                                                                       FontSize="10"
+                                                                                       FontWeight="SemiBold"
+                                                                                       Opacity="0.55"
+                                                                                       HorizontalAlignment="Center"
+                                                                                       VerticalAlignment="Center"/>
                                                                             <Image Stretch="UniformToFill"
                                                                                    Source="{Binding ImageBytes, Converter={StaticResource ByteArrayToBitmapConverter}}"/>
                                                                         </Grid>
@@ -826,14 +832,8 @@
                                                                                    IsVisible="{Binding Description, Converter={StaticResource StringNotNullOrEmptyConverter}}" />
                                                                         <TextBlock FontSize="12"
                                                                                    Foreground="{DynamicResource App.Accent}"
-                                                                                   TextTrimming="CharacterEllipsis">
-                                                                            <TextBlock.Text>
-                                                                                <MultiBinding Converter="{StaticResource FirstNonEmptyStringConverter}">
-                                                                                    <Binding Path="DisplayUrl" />
-                                                                                    <Binding Path="Url" />
-                                                                                </MultiBinding>
-                                                                            </TextBlock.Text>
-                                                                        </TextBlock>
+                                                                                   TextTrimming="CharacterEllipsis"
+                                                                                   Text="{Binding Url}" />
                                                                     </StackPanel>
                                                                 </Grid>
                                                             </DataTemplate>
