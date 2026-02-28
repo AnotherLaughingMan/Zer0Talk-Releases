@@ -595,6 +595,12 @@ namespace Zer0Talk.ViewModels
 
                     if (string.IsNullOrWhiteSpace(target)) return;
 
+                    if (LinkPreviewService.IsBlockedShortUrl(target, out var blockedUrl, out var blockedHost))
+                    {
+                        NotifyShortUrlRejected(blockedHost, blockedUrl, isOpenAttempt: true);
+                        return;
+                    }
+
                     UrlLauncher.TryOpen(target);
                 }
                 catch { }
@@ -1254,6 +1260,12 @@ namespace Zer0Talk.ViewModels
                 var content = (OutgoingMessage ?? string.Empty).TrimEnd();
                 if (string.IsNullOrWhiteSpace(content)) return;
 
+                if (TryFindRejectedShortUrl(content, out var blockedUrl, out var blockedHost))
+                {
+                    NotifyShortUrlRejected(blockedHost, blockedUrl, isOpenAttempt: false);
+                    return;
+                }
+
                 var senderUid = TrimUidPrefix(AppServices.Identity.UID ?? string.Empty);
                 if (string.IsNullOrWhiteSpace(senderUid)) return;
 
@@ -1343,6 +1355,33 @@ namespace Zer0Talk.ViewModels
                 });
             }
             catch { }
+        }
+
+        private static bool TryFindRejectedShortUrl(string text, out string blockedUrl, out string blockedHost)
+        {
+            blockedUrl = string.Empty;
+            blockedHost = string.Empty;
+
+            foreach (var candidate in LinkPreviewService.ExtractUrls(text))
+            {
+                if (LinkPreviewService.IsBlockedShortUrl(candidate, out blockedUrl, out blockedHost))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void NotifyShortUrlRejected(string blockedHost, string blockedUrl, bool isOpenAttempt)
+        {
+            var hostLabel = string.IsNullOrWhiteSpace(blockedHost) ? "short-link host" : blockedHost;
+            var action = isOpenAttempt ? "Opening blocked" : "Message rejected";
+            var message = $"{action}: URL host '{hostLabel}' is blocked because short links can hide final destinations. URL: {blockedUrl}";
+
+            try { AppServices.Notifications.PostNotice(Models.NotificationType.Warning, message, isPersistent: false); } catch { }
+            try { _ = AppServices.Dialogs.ShowWarningAsync("Short URL blocked", message); } catch { }
+            try { Logger.Log($"[SECURITY][URL] {message}"); } catch { }
         }
 
         private void Messages_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

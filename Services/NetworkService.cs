@@ -107,6 +107,8 @@ namespace Zer0Talk.Services
     // Avatar receive throttling (avoid network/disk churn)
     private readonly ConcurrentDictionary<string, DateTime> _avatarLastAcceptedUtc = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _avatarLastSignature = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTime> _inboundReplayWindow = new(StringComparer.Ordinal);
+    private static readonly TimeSpan InboundReplayTtl = TimeSpan.FromMinutes(30);
     private readonly ConcurrentQueue<DateTime> _avatarGlobalAccepts = new();
     private static readonly TimeSpan AvatarMinIntervalPerPeer = TimeSpan.FromSeconds(10);
     private static readonly int AvatarMaxBytes = 256 * 1024; // 256 KB
@@ -615,9 +617,9 @@ namespace Zer0Talk.Services
                 SafeNetLog($"connect relay skipped | peer={peerUid} | reason=outside-lan-direct-available");
                 return false;
             }
-            if (!s.RelayFallbackEnabled || string.IsNullOrWhiteSpace(s.RelayServer))
+            if (!s.RelayFallbackEnabled)
             {
-                SafeNetLog($"connect relay skipped | peer={peerUid} | reason={(s.RelayFallbackEnabled ? "no-server" : "disabled")}");
+                SafeNetLog($"connect relay skipped | peer={peerUid} | reason=disabled");
                 return false;
             }
 
@@ -625,7 +627,7 @@ namespace Zer0Talk.Services
             if (relayCandidates.Count == 0)
             {
                 SafeNetLog($"connect relay skipped | peer={peerUid} | reason=invalid-endpoint");
-                Logger.Log($"Relay server endpoint invalid: '{s.RelayServer}'");
+                Logger.Log("Relay candidates unavailable (no valid explicit/saved/seed endpoints)");
                 return false;
             }
 
@@ -710,7 +712,7 @@ namespace Zer0Talk.Services
                 if (AppServices.Settings.Settings.BlockList?.Contains(normalizedSource) == true) return false;
 
                 var s = AppServices.Settings.Settings;
-                if (!s.RelayFallbackEnabled || string.IsNullOrWhiteSpace(s.RelayServer)) return false;
+                if (!s.RelayFallbackEnabled) return false;
 
                 var relayCandidates = BuildRelayCandidates(s);
                 if (relayCandidates.Count == 0) return false;
@@ -1120,6 +1122,11 @@ namespace Zer0Talk.Services
                 int idx = 1;
                 if (data.Length < idx + 16 + 2 + 1 + 32 + 1 + 64) return Task.CompletedTask;
                 var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16); idx += 16; var msgId = new Guid(guidBytes);
+                if (!TryAcceptInboundFrameId(peerUid, 0xB0, msgId))
+                {
+                    Logger.Log($"Duplicate/replay chat message dropped from {Trim(peerUid)} id={msgId}");
+                    return Task.CompletedTask;
+                }
                 ushort len = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2)); idx += 2; if (len > MaxChatBytes) return Task.CompletedTask;
                 if (len < 0 || data.Length < idx + len + 1 + 32 + 1 + 64) return Task.CompletedTask;
                 var txtBytes = data.AsSpan(idx, len).ToArray(); idx += len;
@@ -1164,7 +1171,7 @@ namespace Zer0Talk.Services
                     return Task.CompletedTask;
                 }
                 var content = Encoding.UTF8.GetString(txtBytes);
-                Logger.Log($"Msg from {peerUid}: {content}");
+                Logger.Log($"Msg from {Trim(peerUid)} len={content.Length} id={msgId}");
                 try { ChatMessageReceived?.Invoke(peerUid, msgId, content); } catch { }
                 // Send Chat-Received ACK: [0xB5][msgId]
                 var ack = new byte[1 + 16]; ack[0] = 0xB5; Buffer.BlockCopy(guidBytes, 0, ack, 1, 16);
@@ -1176,6 +1183,11 @@ namespace Zer0Talk.Services
                 int idx = 1;
                 if (data.Length < idx + 16 + 2 + 1 + 32 + 1 + 64) return Task.CompletedTask;
                 var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16); idx += 16; var msgId = new Guid(guidBytes);
+                if (!TryAcceptInboundFrameId(peerUid, 0xB1, msgId))
+                {
+                    Logger.Log($"Duplicate/replay edit dropped from {Trim(peerUid)} id={msgId}");
+                    return Task.CompletedTask;
+                }
                 ushort len = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2)); idx += 2; if (len > MaxChatBytes) return Task.CompletedTask;
                 if (len <= 0 || data.Length < idx + len + 1 + 32 + 1 + 64) return Task.CompletedTask;
                 var txtBytes = data.AsSpan(idx, len).ToArray(); idx += len;
@@ -1202,6 +1214,12 @@ namespace Zer0Talk.Services
                 // Delete message (signed): [0xB2][msgId(16)][pubLen(1)=32][pub(32)][sigLen(1)=64][sig(64)], sig over msgId
                 int idx = 1; if (data.Length < idx + 16 + 1 + 32 + 1 + 64) return Task.CompletedTask;
                 var guidBytes = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes, 0, 16); idx += 16;
+                var msgId = new Guid(guidBytes);
+                if (!TryAcceptInboundFrameId(peerUid, 0xB2, msgId))
+                {
+                    Logger.Log($"Duplicate/replay delete dropped from {Trim(peerUid)} id={msgId}");
+                    return Task.CompletedTask;
+                }
                 int pubLen = data[idx++]; if (pubLen != 32 || data.Length < idx + pubLen + 1 + 64) return Task.CompletedTask;
                 var pub = new byte[32]; Buffer.BlockCopy(data, idx, pub, 0, 32); idx += 32;
                 int sigLen = data[idx++]; if (sigLen != 64 || data.Length < idx + sigLen) return Task.CompletedTask;
@@ -1209,7 +1227,6 @@ namespace Zer0Talk.Services
                 var claimed = IdentityService.ComputeUidFromPublicKey(pub);
                 if (!string.Equals(Trim(claimed), Trim(peerUid), StringComparison.OrdinalIgnoreCase)) { Logger.Log("Delete spoof rejected: UID mismatch"); EnforceKeyMismatchAndTerminate(peerUid, transport, $"Delete signer UID mismatch: claimed {Trim(claimed)} != session {Trim(peerUid)}.", "Delete key mismatch detected. Conversation cannot continue."); return Task.CompletedTask; }
                 if (!IdentityService.Verify(guidBytes, sig, pub)) { Logger.Log("Delete bad signature"); return Task.CompletedTask; }
-                var msgId = new Guid(guidBytes);
                 try { AppServices.MessagesDeleteFromRemote(Trim(peerUid), msgId); } catch { }
                 try { ChatMessageDeleted?.Invoke(Trim(peerUid), msgId); } catch { }
                 // Send ACK: [0xB4][msgId]
@@ -1729,10 +1746,10 @@ namespace Zer0Talk.Services
                     try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=outside-lan-direct-available"); } catch { }
                     return false;
                 }
-                if (!s.RelayFallbackEnabled || string.IsNullOrWhiteSpace(s.RelayServer))
+                if (!s.RelayFallbackEnabled)
                 {
-                    outcome = s.RelayFallbackEnabled ? "skipped-no-relay-server" : "skipped-relay-disabled";
-                    try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason={(s.RelayFallbackEnabled ? "no-server" : "disabled")}"); } catch { }
+                    outcome = "skipped-relay-disabled";
+                    try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=disabled"); } catch { }
                     return false;
                 }
                 var relayCandidates = BuildRelayCandidates(s);
@@ -2166,7 +2183,13 @@ namespace Zer0Talk.Services
                                 // Chat message (signed): [0xB0][msgId(16)][len(2)][utf8 content][pubLen(1)=32][pub(32)][sigLen(1)=64][sig(64)]
                                 int idx = 1;
                                 if (data.Length < idx + 16 + 2 + 1 + 32 + 1 + 64) continue;
+                                if (string.IsNullOrEmpty(boundUid)) continue;
                                 var gid = new byte[16]; Buffer.BlockCopy(data, idx, gid, 0, 16); idx += 16; var mid = new Guid(gid);
+                                if (!TryAcceptInboundFrameId(boundUid, 0xB0, mid))
+                                {
+                                    Logger.Log($"Duplicate/replay chat message dropped from {boundUid} id={mid}");
+                                    continue;
+                                }
                                 ushort len = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2)); idx += 2; if (len > MaxChatBytes) continue;
                                 if (len < 0 || data.Length < idx + len + 1 + 32 + 1 + 64) continue;
                                 var txtb = data.AsSpan(idx, len).ToArray(); idx += len;
@@ -2191,7 +2214,6 @@ namespace Zer0Talk.Services
                                     }
                                 }
                                 catch { }
-                                if (string.IsNullOrEmpty(boundUid)) continue;
                                 var claimedUid = IdentityService.ComputeUidFromPublicKey(pub);
                                 if (!string.Equals(Trim(claimedUid), boundUid, StringComparison.OrdinalIgnoreCase))
                                 {
@@ -2210,7 +2232,7 @@ namespace Zer0Talk.Services
                                     continue;
                                 }
                                 var content = Encoding.UTF8.GetString(txtb);
-                                Logger.Log($"Msg from {boundUid}: {content}");
+                                Logger.Log($"Msg from {boundUid} len={content.Length} id={mid}");
                                 try { ChatMessageReceived?.Invoke(boundUid, mid, content); } catch { }
                             }
                             else if (data[0] == 0xB1)
@@ -2218,7 +2240,13 @@ namespace Zer0Talk.Services
                                 // Signed edit in direct session
                                 int idx2 = 1;
                                 if (data.Length < idx2 + 16 + 2 + 1 + 32 + 1 + 64) continue;
+                                if (string.IsNullOrEmpty(boundUid)) continue;
                                 var gid = new byte[16]; Buffer.BlockCopy(data, idx2, gid, 0, 16); idx2 += 16; var mid = new Guid(gid);
+                                if (!TryAcceptInboundFrameId(boundUid, 0xB1, mid))
+                                {
+                                    Logger.Log($"Duplicate/replay edit dropped from {boundUid} id={mid}");
+                                    continue;
+                                }
                                 ushort len2 = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx2, 2)); idx2 += 2; if (len2 > MaxChatBytes) continue;
                                 if (len2 <= 0 || data.Length < idx2 + len2 + 1 + 32 + 1 + 64) continue;
                                 var txtb = data.AsSpan(idx2, len2).ToArray(); idx2 += len2;
@@ -2226,7 +2254,6 @@ namespace Zer0Talk.Services
                                 var pub = new byte[32]; Buffer.BlockCopy(data, idx2, pub, 0, 32); idx2 += 32;
                                 int sl = data[idx2++]; if (sl != 64 || data.Length < idx2 + sl) continue;
                                 var sig = new byte[64]; Buffer.BlockCopy(data, idx2, sig, 0, 64);
-                                if (string.IsNullOrEmpty(boundUid)) continue;
                                 var claimed = IdentityService.ComputeUidFromPublicKey(pub);
                                 if (!string.Equals(Trim(claimed), boundUid, StringComparison.OrdinalIgnoreCase)) { Logger.Log("Edit spoof rejected: UID mismatch"); EnforceKeyMismatchAndTerminate(boundUid, transport, $"Edit signer UID mismatch: claimed {Trim(claimed)} != session {boundUid}.", "Edit key mismatch detected. Conversation cannot continue.", client: client); break; }
                                 var payloadToSign = new byte[16 + 2 + txtb.Length];
@@ -2244,16 +2271,21 @@ namespace Zer0Talk.Services
                             {
                                 // Signed delete in direct session
                                 int idx2 = 1; if (data.Length < idx2 + 16 + 1 + 32 + 1 + 64) continue;
+                                if (string.IsNullOrEmpty(boundUid)) continue;
                                 var gid = new byte[16]; Buffer.BlockCopy(data, idx2, gid, 0, 16); idx2 += 16;
+                                var mid = new Guid(gid);
+                                if (!TryAcceptInboundFrameId(boundUid, 0xB2, mid))
+                                {
+                                    Logger.Log($"Duplicate/replay delete dropped from {boundUid} id={mid}");
+                                    continue;
+                                }
                                 int pl = data[idx2++]; if (pl != 32 || data.Length < idx2 + pl + 1 + 64) continue;
                                 var pub = new byte[32]; Buffer.BlockCopy(data, idx2, pub, 0, 32); idx2 += 32;
                                 int sl = data[idx2++]; if (sl != 64 || data.Length < idx2 + sl) continue;
                                 var sig = new byte[64]; Buffer.BlockCopy(data, idx2, sig, 0, 64);
-                                if (string.IsNullOrEmpty(boundUid)) continue;
                                 var claimed = IdentityService.ComputeUidFromPublicKey(pub);
                                 if (!string.Equals(Trim(claimed), boundUid, StringComparison.OrdinalIgnoreCase)) { Logger.Log("Delete spoof rejected: UID mismatch"); EnforceKeyMismatchAndTerminate(boundUid, transport, $"Delete signer UID mismatch: claimed {Trim(claimed)} != session {boundUid}.", "Delete key mismatch detected. Conversation cannot continue.", client: client); break; }
                                 if (!IdentityService.Verify(gid, sig, pub)) { Logger.Log("Delete bad signature"); continue; }
-                                var mid = new Guid(gid);
                                 try { AppServices.MessagesDeleteFromRemote(boundUid, mid); } catch { }
                                 try { ChatMessageDeleted?.Invoke(boundUid, mid); } catch { }
                                 var ack = new byte[1 + 16]; ack[0] = 0xB4; Buffer.BlockCopy(gid, 0, ack, 1, 16);
@@ -2860,12 +2892,28 @@ namespace Zer0Talk.Services
                 var key = BuildRelayHealthKey(host, port);
                 if (!seen.Add(key)) return;
                 candidates.Add((host, port, endpoint.Trim()));
+
+                // If the user did not specify a port, also try 8443 as an alternate relay port.
+                // This helps on networks that expect TLS semantics on 443 and block plaintext relay traffic.
+                if (!HasExplicitPort(endpoint) && port != 8443)
+                {
+                    var altKey = BuildRelayHealthKey(host, 8443);
+                    if (seen.Add(altKey))
+                    {
+                        candidates.Add((host, 8443, $"{endpoint.Trim()}:8443"));
+                    }
+                }
             }
 
             AddCandidate(s.RelayServer);
             foreach (var relay in s.SavedRelayServers ?? new List<string>())
             {
                 AddCandidate(relay);
+            }
+            // Include seed relays as fallback candidates, especially useful for first-run WAN users.
+            foreach (var seed in s.WanSeedNodes ?? new List<string>())
+            {
+                AddCandidate(seed);
             }
 
             if (candidates.Count > 1)
@@ -2877,6 +2925,21 @@ namespace Zer0Talk.Services
             }
 
             return candidates;
+        }
+
+        private static bool HasExplicitPort(string endpoint)
+        {
+            if (string.IsNullOrWhiteSpace(endpoint)) return false;
+            var text = endpoint.Trim();
+            if (text.StartsWith("[", StringComparison.Ordinal))
+            {
+                var end = text.IndexOf(']');
+                return end > 0 && end + 1 < text.Length && text[end + 1] == ':';
+            }
+
+            var firstColon = text.IndexOf(':');
+            var lastColon = text.LastIndexOf(':');
+            return firstColon == lastColon && firstColon > 0 && firstColon < text.Length - 1;
         }
 
         private TimeSpan GetDirectSessionWaitTimeout()
@@ -2953,27 +3016,10 @@ namespace Zer0Talk.Services
 
         private bool ShouldAttemptRelayFallback(string? hostOrIp)
         {
-            try
-            {
-                if (!IsOutsideLanHost(hostOrIp)) return true;
-                var hostKey = hostOrIp?.Trim();
-                if (string.IsNullOrWhiteSpace(hostKey)) return true;
-
-                if (!_outsideLanDirectSuccessByHost.TryGetValue(hostKey, out var last)) return true;
-
-                var stale = (DateTime.UtcNow - last) > OutsideLanDirectEvidenceTtl;
-                if (stale)
-                {
-                    _outsideLanDirectSuccessByHost.TryRemove(hostKey, out _);
-                    return true;
-                }
-
-                return false;
-            }
-            catch
-            {
-                return true;
-            }
+            // Reliability-first policy: once direct/NAT has already failed for this attempt,
+            // always allow relay fallback. Prior direct success evidence can become stale quickly
+            // (NAT rebinding, roaming, endpoint drift) and should not block relay recovery.
+            return true;
         }
 
         private void MarkOutsideLanDirectSuccess(string? hostOrIp)
@@ -3562,6 +3608,37 @@ namespace Zer0Talk.Services
         }
 
         private static string Trim(string uid) => uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+
+        private bool TryAcceptInboundFrameId(string peerUid, byte frameType, Guid messageId)
+        {
+            if (messageId == Guid.Empty)
+            {
+                return false;
+            }
+
+            var now = DateTime.UtcNow;
+            var key = $"{Trim(peerUid)}:{frameType:X2}:{messageId:D}";
+            if (_inboundReplayWindow.TryGetValue(key, out var seenAt) && (now - seenAt) <= InboundReplayTtl)
+            {
+                return false;
+            }
+
+            _inboundReplayWindow[key] = now;
+
+            if (_inboundReplayWindow.Count > 5000)
+            {
+                var cutoff = now - InboundReplayTtl;
+                foreach (var kv in _inboundReplayWindow.ToArray())
+                {
+                    if (kv.Value < cutoff)
+                    {
+                        _inboundReplayWindow.TryRemove(kv.Key, out _);
+                    }
+                }
+            }
+
+            return true;
+        }
 
         private static async Task<string?> ReadLineAsync(NetworkStream stream, TimeSpan timeout, CancellationToken ct)
         {

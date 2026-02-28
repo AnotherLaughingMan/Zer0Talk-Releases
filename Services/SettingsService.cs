@@ -174,9 +174,23 @@ public class SettingsService
             if (OperatingSystem.IsWindows() && File.Exists(sidecar))
             {
                 var protectedBytes = File.ReadAllBytes(sidecar);
-                var bytes = ProtectedData.Unprotect(protectedBytes, optionalEntropy: null, scope: DataProtectionScope.CurrentUser);
-                passphrase = Encoding.UTF8.GetString(bytes);
-                return true;
+                try
+                {
+                    var bytes = UnprotectRememberedPassphrase(protectedBytes);
+                    try
+                    {
+                        passphrase = Encoding.UTF8.GetString(bytes);
+                        return true;
+                    }
+                    finally
+                    {
+                        CryptographicOperations.ZeroMemory(bytes);
+                    }
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(protectedBytes);
+                }
             }
 
             // Fallback: read from settings (available only after settings are decrypted)
@@ -184,9 +198,25 @@ public class SettingsService
             if (OperatingSystem.IsWindows() && s.RememberPassphrase && !string.IsNullOrWhiteSpace(s.RememberedPassphraseProtected))
             {
                 var protectedBytes = Convert.FromBase64String(s.RememberedPassphraseProtected);
-                var bytes = ProtectedData.Unprotect(protectedBytes, optionalEntropy: null, scope: DataProtectionScope.CurrentUser);
-                passphrase = Encoding.UTF8.GetString(bytes);
-                return true;
+                try
+                {
+                    var bytes = UnprotectRememberedPassphrase(protectedBytes);
+                    try
+                    {
+                        passphrase = Encoding.UTF8.GetString(bytes);
+                        // Migrate legacy setting blob into sidecar-only storage.
+                        SetRememberedPassphrase(passphrase);
+                        return true;
+                    }
+                    finally
+                    {
+                        CryptographicOperations.ZeroMemory(bytes);
+                    }
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(protectedBytes);
+                }
             }
             return false;
         }
@@ -198,19 +228,21 @@ public class SettingsService
 
     public void SetRememberedPassphrase(string plaintext)
     {
+        byte[]? bytes = null;
+        byte[]? protectedBytes = null;
         try
         {
             if (OperatingSystem.IsWindows())
             {
-                var bytes = Encoding.UTF8.GetBytes(plaintext);
-                var protectedBytes = ProtectedData.Protect(bytes, optionalEntropy: null, scope: DataProtectionScope.CurrentUser);
+                bytes = Encoding.UTF8.GetBytes(plaintext);
+                protectedBytes = ProtectRememberedPassphrase(bytes);
                 // Write sidecar for early boot
                 var sidecar = GetPassphraseSidecarPath();
                 Directory.CreateDirectory(Path.GetDirectoryName(sidecar)!);
                 File.WriteAllBytes(sidecar, protectedBytes);
-                // Also mirror into settings for visibility
+                // Keep only the sidecar copy to reduce duplicate secret material.
                 Settings.RememberPassphrase = true;
-                Settings.RememberedPassphraseProtected = Convert.ToBase64String(protectedBytes);
+                Settings.RememberedPassphraseProtected = null;
                 Save(AppServices.Passphrase);
                 // Persist preference in a plaintext sidecar so Unlock can read it pre-decrypt
                 SetRememberPreference(true);
@@ -227,6 +259,11 @@ public class SettingsService
             Settings.RememberPassphrase = false;
             Settings.RememberedPassphraseProtected = null;
             SetRememberPreference(false);
+        }
+        finally
+        {
+            if (bytes != null) CryptographicOperations.ZeroMemory(bytes);
+            if (protectedBytes != null) CryptographicOperations.ZeroMemory(protectedBytes);
         }
     }
 
@@ -304,6 +341,46 @@ public class SettingsService
     private static string GetUnlockWindowJsonPath()
     {
         return Zer0Talk.Utilities.AppDataPaths.Combine("unlock.window.json");
+    }
+
+    private static byte[] GetPassphraseEntropy()
+    {
+        var material = $"Zer0Talk|remember-passphrase|v1|{Environment.UserName}|{AppDataPaths.Root}";
+        return SHA256.HashData(Encoding.UTF8.GetBytes(material));
+    }
+
+    private static byte[] ProtectRememberedPassphrase(byte[] plaintext)
+    {
+        var entropy = GetPassphraseEntropy();
+        try
+        {
+            return ProtectedData.Protect(plaintext, optionalEntropy: entropy, scope: DataProtectionScope.CurrentUser);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(entropy);
+        }
+    }
+
+    private static byte[] UnprotectRememberedPassphrase(byte[] protectedBytes)
+    {
+        var entropy = GetPassphraseEntropy();
+        try
+        {
+            try
+            {
+                return ProtectedData.Unprotect(protectedBytes, optionalEntropy: entropy, scope: DataProtectionScope.CurrentUser);
+            }
+            catch (CryptographicException)
+            {
+                // Backward compatibility for existing blobs written without entropy.
+                return ProtectedData.Unprotect(protectedBytes, optionalEntropy: null, scope: DataProtectionScope.CurrentUser);
+            }
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(entropy);
+        }
     }
 
     private static void TryWriteUnlockJsonRemember(bool remember)

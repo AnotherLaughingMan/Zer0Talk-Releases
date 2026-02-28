@@ -130,9 +130,9 @@ namespace Zer0Talk.Services
                                         try
                                         {
                                             var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, ct);
-                                            try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
                                             if (joined)
                                             {
+                                                try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
                                                 connected = true;
                                                 break;
                                             }
@@ -203,7 +203,7 @@ namespace Zer0Talk.Services
                 try
                 {
                     var settings = AppServices.Settings.Settings;
-                    if (!settings.RelayFallbackEnabled || string.IsNullOrWhiteSpace(settings.RelayServer))
+                    if (!settings.RelayFallbackEnabled)
                     {
                         // Relay not enabled — sleep longer and re-check
                         try { await Task.Delay(TimeSpan.FromSeconds(15), ct); } catch { }
@@ -237,9 +237,9 @@ namespace Zer0Talk.Services
                             try
                             {
                                 var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, ct);
-                                try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
                                 if (joined)
                                 {
+                                    try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
                                     AppendLog($"Relay invite poll: connected via invite from {invite.SourceUid}");
                                     connected = true;
                                     break;

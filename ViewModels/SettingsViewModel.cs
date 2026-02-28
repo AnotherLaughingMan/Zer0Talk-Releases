@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -141,6 +142,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(UiFontFamily),
         nameof(Language),
         nameof(DefaultPresenceIndex),
+        nameof(AllowAutoUpdates),
         nameof(SuppressNotificationsInDnd),
         nameof(NotificationDurationSeconds),
         nameof(EnableNotificationBellFlash),
@@ -331,6 +333,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private string _baseLanguage = "English (US)";
     // Baseline: General additions
     private int _baseDefaultPresenceIndex;
+    private bool _baseAllowAutoUpdates;
     private bool _baseSuppressNotificationsInDnd;
     private double _baseNotificationDurationSeconds;
     private bool _baseEnableNotificationBellFlash;
@@ -458,6 +461,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             ShowKeyboardFocus = settings.ShowKeyboardFocus;
             EnhancedKeyboardNavigation = settings.EnhancedKeyboardNavigation;
             DefaultPresenceIndex = PresenceToIndex(settings.Status);
+            AllowAutoUpdates = settings.AutoUpdateEnabled;
+            UpdateLastAutoUpdateCheckDisplay(settings.LastAutoUpdateCheckUtc);
             SuppressNotificationsInDnd = settings.SuppressNotificationsInDnd;
             NotificationDurationSeconds = Math.Clamp(settings.NotificationDurationSeconds, 0.5, 30.0);
             EnableNotificationBellFlash = settings.EnableNotificationBellFlash;
@@ -594,6 +599,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         DeleteAccountCommand = new RelayCommand(_ => DeleteAccount(), _ => !string.IsNullOrWhiteSpace(DeleteConfirmText) && string.Equals(DeleteConfirmText.Trim(), GeneratedDeleteCode, StringComparison.Ordinal));
         ResetLayoutCommand = new RelayCommand(_ => ResetLayout(), _ => true);
         RunLogMaintenanceCommand = new RelayCommand(async _ => await RunLogMaintenanceAsync(), _ => true);
+        CheckForUpdatesNowCommand = new RelayCommand(async _ => await CheckForUpdatesNowAsync(), _ => true);
+        OpenDocumentationCommand = new RelayCommand(_ => OpenDocumentation(), _ => true);
+        OpenPrivacyPolicyCommand = new RelayCommand(_ => OpenPrivacyPolicy(), _ => true);
+        ExportDataCommand = new RelayCommand(async _ => await ExportDataAsync(), _ => true);
         CopyPublicKeyCommand = new RelayCommand(async _ => await CopyPublicKeyAsync(), _ => !string.IsNullOrWhiteSpace(SelfPublicKeyHex));
         ClearErrorLogCommand = new RelayCommand(_ => PurgeAllLogs(), _ => true);
         ExportThemeCommand = new RelayCommand(async _ => await ExportCurrentThemeAsync(), _ => !string.IsNullOrWhiteSpace(CurrentThemeId));
@@ -760,6 +769,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             UiFontFamily = string.IsNullOrWhiteSpace(s.UiFontFamily) ? null : s.UiFontFamily;
             LockBlurRadius = ClampRange(s.LockBlurRadius, 0, 10);
             DefaultPresenceIndex = PresenceToIndex(s.Status);
+            AllowAutoUpdates = s.AutoUpdateEnabled;
+            UpdateLastAutoUpdateCheckDisplay(s.LastAutoUpdateCheckUtc);
             SuppressNotificationsInDnd = s.SuppressNotificationsInDnd;
             NotificationDurationSeconds = Math.Clamp(s.NotificationDurationSeconds, 0.5, 30.0);
             AutoLockEnabled = s.AutoLockEnabled;
@@ -1986,6 +1997,12 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedCurrentSetting => Services.AppServices.Localization.GetString("Settings.CurrentSetting", "Current setting:");
     public string LocalizedSeconds => Services.AppServices.Localization.GetString("Settings.Seconds", "seconds");
     public string LocalizedOfflineAutomatic => Services.AppServices.Localization.GetString("Settings.OfflineAutomatic", "Offline is automatic only and cannot be selected.");
+    public string LocalizedAllowAutoUpdates => Services.AppServices.Localization.GetString("Settings.AllowAutoUpdates", "Allow Auto Updates");
+    public string LocalizedAllowAutoUpdatesHelp => Services.AppServices.Localization.GetString("Settings.AllowAutoUpdatesHelp", "Automatically check for and prompt to install new versions.");
+    public string LocalizedCheckForUpdatesNow => Services.AppServices.Localization.GetString("Settings.CheckForUpdatesNow", "Check for Updates Now");
+    public string LocalizedCheckForUpdatesNowHelp => Services.AppServices.Localization.GetString("Settings.CheckForUpdatesNowHelp", "Runs an immediate update check even when auto updates are disabled.");
+    public string LocalizedLastUpdateCheck => Services.AppServices.Localization.GetString("Settings.LastUpdateCheck", "Last checked:");
+    public string LocalizedNever => Services.AppServices.Localization.GetString("Common.Never", "Never");
     public string LocalizedEnableNotificationBellFlash => Services.AppServices.Localization.GetString("Settings.EnableNotificationBellFlash", "Enable notification bell flash");
     public string LocalizedNotificationBellFlashHelp => Services.AppServices.Localization.GetString("Settings.NotificationBellFlashHelp", "Flash the bell icon for 10 seconds when notifications arrive");
     public string LocalizedAutoLock => Services.AppServices.Localization.GetString("Settings.AutoLock", "Auto-Lock");
@@ -2673,6 +2690,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedCurrentSetting));
             OnPropertyChanged(nameof(LocalizedSeconds));
             OnPropertyChanged(nameof(LocalizedOfflineAutomatic));
+            OnPropertyChanged(nameof(LocalizedAllowAutoUpdates));
+            OnPropertyChanged(nameof(LocalizedAllowAutoUpdatesHelp));
+            OnPropertyChanged(nameof(LocalizedCheckForUpdatesNow));
+            OnPropertyChanged(nameof(LocalizedCheckForUpdatesNowHelp));
+            OnPropertyChanged(nameof(LocalizedLastUpdateCheck));
+            OnPropertyChanged(nameof(LocalizedNever));
+            UpdateLastAutoUpdateCheckDisplay(_lastAutoUpdateCheckUtcRaw);
             OnPropertyChanged(nameof(LocalizedEnableNotificationBellFlash));
             OnPropertyChanged(nameof(LocalizedNotificationBellFlashHelp));
             OnPropertyChanged(nameof(LocalizedAutoLock));
@@ -3027,6 +3051,24 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         };
     private int _defaultPresenceIndex;
     public int DefaultPresenceIndex { get => _defaultPresenceIndex; set { var v = value; if (v < 0) v = 0; if (v > 3) v = 3; if (_defaultPresenceIndex != v) { _defaultPresenceIndex = v; OnPropertyChanged(); } } }
+
+    private bool _allowAutoUpdates;
+    public bool AllowAutoUpdates { get => _allowAutoUpdates; set { if (_allowAutoUpdates != value) { _allowAutoUpdates = value; OnPropertyChanged(); } } }
+
+    private string? _lastAutoUpdateCheckUtcRaw;
+    private string _lastAutoUpdateCheckDisplay = "Never";
+    public string LastAutoUpdateCheckDisplay
+    {
+        get => _lastAutoUpdateCheckDisplay;
+        private set
+        {
+            if (!string.Equals(_lastAutoUpdateCheckDisplay, value, StringComparison.Ordinal))
+            {
+                _lastAutoUpdateCheckDisplay = value;
+                OnPropertyChanged();
+            }
+        }
+    }
     
     private bool _suppressNotificationsInDnd;
     public bool SuppressNotificationsInDnd { get => _suppressNotificationsInDnd; set { if (_suppressNotificationsInDnd != value) { _suppressNotificationsInDnd = value; OnPropertyChanged(); } } }
@@ -3072,6 +3114,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand PurgeAllMessagesCommand { get; }
     public ICommand ResetLayoutCommand { get; }
     public ICommand RunLogMaintenanceCommand { get; }
+    public ICommand CheckForUpdatesNowCommand { get; }
+    public ICommand OpenDocumentationCommand { get; }
+    public ICommand OpenPrivacyPolicyCommand { get; }
+    public ICommand ExportDataCommand { get; }
     public ICommand RetryNatVerificationCommand => new RelayCommand(async _ => { try { await AppServices.Nat.RetryVerificationAsync(); } catch { } });
     public ICommand CopyPublicKeyCommand { get; }
     public ICommand ExportThemeCommand { get; }  // Phase 3 Step 2
@@ -3111,6 +3157,189 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public event EventHandler? CloseRequested;
 
     public string ErrorMessage { get => _errorMessage; set { _errorMessage = value; OnPropertyChanged(); } }
+
+    private void UpdateLastAutoUpdateCheckDisplay(string? utcRaw)
+    {
+        _lastAutoUpdateCheckUtcRaw = utcRaw;
+
+        if (string.IsNullOrWhiteSpace(utcRaw))
+        {
+            LastAutoUpdateCheckDisplay = LocalizedNever;
+            return;
+        }
+
+        if (DateTime.TryParse(utcRaw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsedUtc))
+        {
+            LastAutoUpdateCheckDisplay = parsedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+            return;
+        }
+
+        LastAutoUpdateCheckDisplay = utcRaw;
+    }
+
+    private async Task CheckForUpdatesNowAsync()
+    {
+        try
+        {
+            await AppServices.AutoUpdate.CheckForUpdatesAsync(userInitiated: true, System.Threading.CancellationToken.None);
+            UpdateLastAutoUpdateCheckDisplay(_settings.Settings.LastAutoUpdateCheckUtc);
+        }
+        catch { }
+    }
+
+    private static void OpenFileInShell(string filePath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath)) return;
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = filePath,
+                UseShellExecute = true
+            };
+            _ = System.Diagnostics.Process.Start(psi);
+        }
+        catch { }
+    }
+
+    private void OpenDocumentation()
+    {
+        try
+        {
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "docs", "user-guide.md"),
+                Path.Combine(AppContext.BaseDirectory, "README.md")
+            };
+            var file = candidates.FirstOrDefault(File.Exists);
+            if (string.IsNullOrWhiteSpace(file))
+            {
+                _ = ShowSaveToastAsync("Documentation file not found", 2500);
+                return;
+            }
+
+            OpenFileInShell(file);
+            _ = ShowSaveToastAsync("Opened documentation", 1800);
+        }
+        catch
+        {
+            _ = ShowSaveToastAsync("Unable to open documentation", 2500);
+        }
+    }
+
+    private void OpenPrivacyPolicy()
+    {
+        try
+        {
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "Disclaimer.md"),
+                Path.Combine(AppContext.BaseDirectory, "LICENSE.md")
+            };
+            var file = candidates.FirstOrDefault(File.Exists);
+            if (string.IsNullOrWhiteSpace(file))
+            {
+                _ = ShowSaveToastAsync("Privacy policy file not found", 2500);
+                return;
+            }
+
+            OpenFileInShell(file);
+            _ = ShowSaveToastAsync("Opened privacy information", 1800);
+        }
+        catch
+        {
+            _ = ShowSaveToastAsync("Unable to open privacy information", 2500);
+        }
+    }
+
+    private async Task ExportDataAsync()
+    {
+        try
+        {
+            var window = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+            if (window == null)
+            {
+                await ShowSaveToastAsync("Unable to access file system", 2500);
+                return;
+            }
+
+            var file = await window.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+            {
+                Title = "Export Zer0Talk Data",
+                SuggestedFileName = $"zer0talk-export-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip",
+                FileTypeChoices = new[]
+                {
+                    new Avalonia.Platform.Storage.FilePickerFileType("ZIP Archive")
+                    {
+                        Patterns = new[] { "*.zip" }
+                    }
+                }
+            });
+
+            if (file == null) return;
+            var outputPath = file.Path.LocalPath;
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                await ShowSaveToastAsync("Invalid export destination", 2500);
+                return;
+            }
+
+            var root = Zer0Talk.Utilities.AppDataPaths.Root;
+            if (!Directory.Exists(root))
+            {
+                await ShowSaveToastAsync("No app data found to export", 2500);
+                return;
+            }
+
+            var includeRoots = new[] { "messages", "outbox", "Themes", "Logs", "security" };
+            var includeFiles = new[]
+            {
+                "settings.p2e",
+                "contacts.p2e",
+                "peers.p2e",
+                "user.p2e",
+                "window_state.json",
+                "unlock.window.json"
+            };
+
+            await Task.Run(() =>
+            {
+                if (File.Exists(outputPath)) File.Delete(outputPath);
+
+                using var stream = File.Create(outputPath);
+                using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
+
+                foreach (var fileName in includeFiles)
+                {
+                    var full = Path.Combine(root, fileName);
+                    if (File.Exists(full))
+                    {
+                        archive.CreateEntryFromFile(full, fileName, CompressionLevel.Optimal);
+                    }
+                }
+
+                foreach (var dirName in includeRoots)
+                {
+                    var fullDir = Path.Combine(root, dirName);
+                    if (!Directory.Exists(fullDir)) continue;
+
+                    foreach (var fullPath in Directory.GetFiles(fullDir, "*", SearchOption.AllDirectories))
+                    {
+                        var rel = Path.GetRelativePath(root, fullPath).Replace('\\', '/');
+                        archive.CreateEntryFromFile(fullPath, rel, CompressionLevel.Optimal);
+                    }
+                }
+            });
+
+            await ShowSaveToastAsync($"Exported data: {Path.GetFileName(outputPath)}", 2500);
+        }
+        catch
+        {
+            await ShowSaveToastAsync("Data export failed", 3000);
+        }
+    }
 
     // Lock blur radius (for dimming effect). Clamp to [0..10].
     private int _lockBlurRadius = 6;
@@ -3179,6 +3408,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.Language = string.IsNullOrWhiteSpace(Language) ? "English (US)" : Language;
             // General additions
             s.Status = IndexToPresence(DefaultPresenceIndex);
+            s.AutoUpdateEnabled = AllowAutoUpdates;
             s.SuppressNotificationsInDnd = SuppressNotificationsInDnd;
             s.NotificationDurationSeconds = Math.Clamp(NotificationDurationSeconds, 0.5, 30.0);
             s.EnableNotificationBellFlash = EnableNotificationBellFlash;
@@ -3488,6 +3718,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (!string.Equals(_baseUiFontFamily ?? string.Empty, UiFontFamily ?? string.Empty, StringComparison.Ordinal)) return true;
             if (!string.Equals(_baseLanguage ?? "English (US)", Language ?? "English (US)", StringComparison.Ordinal)) return true;
             if (_baseDefaultPresenceIndex != _defaultPresenceIndex) return true;
+            if (_baseAllowAutoUpdates != _allowAutoUpdates) return true;
             if (_baseSuppressNotificationsInDnd != _suppressNotificationsInDnd) return true;
             if (Math.Abs(_baseNotificationDurationSeconds - _notificationDurationSeconds) > 0.01) return true;
             if (_baseAutoLockEnabled != _autoLockEnabled) return true;
@@ -3590,6 +3821,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _baseUiFontFamily = UiFontFamily;
             _baseLanguage = Language ?? "English (US)";
             _baseDefaultPresenceIndex = _defaultPresenceIndex;
+            _baseAllowAutoUpdates = _allowAutoUpdates;
             _baseSuppressNotificationsInDnd = _suppressNotificationsInDnd;
             _baseNotificationDurationSeconds = _notificationDurationSeconds;
             _baseEnableNotificationBellFlash = _enableNotificationBellFlash;

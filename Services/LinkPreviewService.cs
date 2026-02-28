@@ -1,9 +1,12 @@
 using System;
 using System.Buffers;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -30,6 +33,26 @@ public class LinkPreviewService : IDisposable
     private static readonly Regex StyleTagRegex = new("<style[^>]*>[\\s\\S]*?(?:</style>|$)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex HtmlCommentRegex = new("<!--.*?(?:-->|$)", RegexOptions.Singleline | RegexOptions.Compiled);
     private static readonly Regex HtmlTagRegex = new("<[^>]+>", RegexOptions.Compiled);
+    private static readonly HashSet<string> BlockedShortUrlHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "bit.ly",
+        "t.co",
+        "tinyurl.com",
+        "goo.gl",
+        "ow.ly",
+        "is.gd",
+        "buff.ly",
+        "cutt.ly",
+        "tiny.cc",
+        "shorturl.at",
+        "rebrand.ly",
+        "lnkd.in",
+        "rb.gy",
+        "soo.gd",
+        "s2r.co",
+        "adf.ly",
+        "bit.do"
+    };
 
     private readonly ConcurrentDictionary<string, CachedPreview> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly HttpClient _httpClient;
@@ -43,7 +66,8 @@ public class LinkPreviewService : IDisposable
             var handler = new HttpClientHandler
             {
                 AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-                AllowAutoRedirect = true,
+                // Follow redirects manually so each hop can be SSRF-validated.
+                AllowAutoRedirect = false,
             };
             _httpClient = new HttpClient(handler, disposeHandler: true)
             {
@@ -72,6 +96,11 @@ public class LinkPreviewService : IDisposable
             return null;
         }
 
+        if (IsBlockedShortUrlHost(requestUri.Host))
+        {
+            return BuildRejectedShortUrlPreview(requestUri);
+        }
+
         if (_cache.TryGetValue(cacheKey, out var cached) && DateTime.UtcNow - cached.Timestamp <= PreviewCacheDuration)
         {
             return ClonePreview(cached.Preview);
@@ -91,14 +120,11 @@ public class LinkPreviewService : IDisposable
                 var html = await DownloadHtmlAsync(requestUri, cancellationToken).ConfigureAwait(false);
                 if (string.IsNullOrWhiteSpace(html))
                 {
-                    return null;
+                    return BuildFallbackPreview(requestUri);
                 }
 
                 preview = ParseMetadata(requestUri, html);
-                if (preview == null || preview.IsEmpty)
-                {
-                    return null;
-                }
+                preview ??= BuildFallbackPreview(requestUri);
             }
 
             var previewImageUrl = preview.ImageUrl;
@@ -145,6 +171,68 @@ public class LinkPreviewService : IDisposable
         return true;
     }
 
+    public static IReadOnlyList<string> ExtractUrls(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return Array.Empty<string>();
+        }
+
+        var matches = UrlRegex.Matches(text);
+        if (matches.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var urls = new List<string>(matches.Count);
+        foreach (Match match in matches)
+        {
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            var candidate = match.Value.TrimEnd('.', ',', ';');
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                continue;
+            }
+
+            if (seen.Add(candidate))
+            {
+                urls.Add(candidate);
+            }
+        }
+
+        return urls;
+    }
+
+    public static bool IsBlockedShortUrl(string? url, out string normalizedUrl, out string blockedHost)
+    {
+        normalizedUrl = string.Empty;
+        blockedHost = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return false;
+        }
+
+        if (!TryNormalizeUrl(url, out var requestUri, out _))
+        {
+            return false;
+        }
+
+        normalizedUrl = requestUri.ToString();
+        if (!IsBlockedShortUrlHost(requestUri.Host))
+        {
+            return false;
+        }
+
+        blockedHost = requestUri.Host;
+        return true;
+    }
+
     private static bool TryNormalizeUrl(string url, out Uri requestUri, out string cacheKey)
     {
         requestUri = null!;
@@ -172,13 +260,22 @@ public class LinkPreviewService : IDisposable
         }
 
         requestUri = uri;
+        if (IsDisallowedPreviewTarget(requestUri))
+        {
+            cacheKey = string.Empty;
+            return false;
+        }
         cacheKey = uri.GetComponents(UriComponents.SchemeAndServer | UriComponents.PathAndQuery, UriFormat.UriEscaped);
         return true;
     }
 
     private async Task<string?> DownloadHtmlAsync(Uri requestUri, CancellationToken cancellationToken)
     {
-        using var response = await _httpClient.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        using var response = await SendWithSafeRedirectsAsync(requestUri, cancellationToken).ConfigureAwait(false);
+        if (response == null)
+        {
+            return null;
+        }
         if (!response.IsSuccessStatusCode)
         {
             return null;
@@ -393,7 +490,11 @@ public class LinkPreviewService : IDisposable
             return null;
         }
 
-        using var response = await _httpClient.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+        using var response = await SendWithSafeRedirectsAsync(uri, cancellationToken).ConfigureAwait(false);
+        if (response == null)
+        {
+            return null;
+        }
         if (!response.IsSuccessStatusCode)
         {
             return null;
@@ -479,6 +580,185 @@ public class LinkPreviewService : IDisposable
         {
             return uri.ToString();
         }
+    }
+
+    private async Task<HttpResponseMessage?> SendWithSafeRedirectsAsync(Uri requestUri, CancellationToken cancellationToken)
+    {
+        const int maxRedirects = 5;
+        var current = requestUri;
+
+        for (var i = 0; i <= maxRedirects; i++)
+        {
+            if (IsDisallowedPreviewTarget(current))
+            {
+                return null;
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, current);
+            var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+
+            if (IsRedirectStatusCode(response.StatusCode))
+            {
+                var location = response.Headers.Location;
+                response.Dispose();
+                if (location == null)
+                {
+                    return null;
+                }
+
+                current = location.IsAbsoluteUri ? location : new Uri(current, location);
+                continue;
+            }
+
+            return response;
+        }
+
+        return null;
+    }
+
+    private static bool IsRedirectStatusCode(System.Net.HttpStatusCode statusCode)
+    {
+        var code = (int)statusCode;
+        return code is 301 or 302 or 303 or 307 or 308;
+    }
+
+    private static bool IsDisallowedPreviewTarget(Uri uri)
+    {
+        if (uri.IsLoopback)
+        {
+            return true;
+        }
+
+        var host = uri.Host?.Trim().TrimEnd('.') ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            return true;
+        }
+
+        if (host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (IPAddress.TryParse(host, out var ip))
+        {
+            return IsPrivateOrLocalAddress(ip);
+        }
+
+        try
+        {
+            var addresses = Dns.GetHostAddresses(host);
+            foreach (var addr in addresses)
+            {
+                if (IsPrivateOrLocalAddress(addr))
+                {
+                    return true;
+                }
+            }
+        }
+        catch (SocketException)
+        {
+            return false;
+        }
+        catch
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsPrivateOrLocalAddress(IPAddress ip)
+    {
+        if (IPAddress.IsLoopback(ip))
+        {
+            return true;
+        }
+
+        if (ip.AddressFamily == AddressFamily.InterNetwork)
+        {
+            var bytes = ip.GetAddressBytes();
+            if (bytes[0] == 10) return true;
+            if (bytes[0] == 127) return true;
+            if (bytes[0] == 169 && bytes[1] == 254) return true;
+            if (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31) return true;
+            if (bytes[0] == 192 && bytes[1] == 168) return true;
+            if (bytes[0] == 100 && bytes[1] >= 64 && bytes[1] <= 127) return true;
+            return false;
+        }
+
+        if (ip.AddressFamily == AddressFamily.InterNetworkV6)
+        {
+            if (ip.IsIPv6LinkLocal || ip.IsIPv6SiteLocal || ip.IsIPv6Multicast)
+            {
+                return true;
+            }
+
+            var bytes = ip.GetAddressBytes();
+            // fc00::/7 unique local addresses
+            if ((bytes[0] & 0xFE) == 0xFC)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsBlockedShortUrlHost(string? host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            return false;
+        }
+
+        var trimmed = host.Trim().TrimEnd('.');
+        foreach (var blocked in BlockedShortUrlHosts)
+        {
+            if (trimmed.Equals(blocked, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (trimmed.EndsWith("." + blocked, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static LinkPreview BuildRejectedShortUrlPreview(Uri requestUri)
+    {
+        var display = BuildDisplayUrl(requestUri);
+        return new LinkPreview
+        {
+            Url = requestUri.ToString(),
+            DisplayUrl = display,
+            Title = "Short link blocked",
+            Description = "This URL uses a known short-link host and was auto-rejected to prevent destination obfuscation.",
+            SiteName = "Security"
+        };
+    }
+
+    private static LinkPreview BuildFallbackPreview(Uri requestUri)
+    {
+        var display = BuildDisplayUrl(requestUri);
+        var path = requestUri.PathAndQuery;
+        var description = (string.IsNullOrWhiteSpace(path) || path == "/")
+            ? "No preview metadata provided by this site."
+            : Truncate(path, 240);
+
+        return new LinkPreview
+        {
+            Url = requestUri.ToString(),
+            DisplayUrl = display,
+            Title = display,
+            Description = description,
+            SiteName = display
+        };
     }
 
     private static LinkPreview ClonePreview(LinkPreview source)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
@@ -17,7 +18,7 @@ public sealed class WanDirectoryService
     private readonly NatTraversalService _nat;
     private DateTime _lastRegisterUtc = DateTime.MinValue;
     private string _registeredUid = string.Empty;
-    private string _authToken = string.Empty;
+    private readonly ConcurrentDictionary<string, string> _authTokensByEndpoint = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan RegisterInterval = TimeSpan.FromSeconds(45);
 
     public WanDirectoryService(SettingsService settings, IdentityService identity, NetworkService network, NatTraversalService nat)
@@ -36,26 +37,37 @@ public sealed class WanDirectoryService
         try
         {
             var now = DateTime.UtcNow;
-            if ((now - _lastRegisterUtc) < RegisterInterval && !string.IsNullOrWhiteSpace(_authToken)) return false;
-            
             var uid = NormalizeUid(_identity.UID);
             if (string.IsNullOrWhiteSpace(uid)) return false;
+
+            if ((now - _lastRegisterUtc) < RegisterInterval &&
+                string.Equals(uid, _registeredUid, StringComparison.OrdinalIgnoreCase) &&
+                !_authTokensByEndpoint.IsEmpty)
+            {
+                return false;
+            }
 
             var advertisedPort = _nat.MappedTcpPort ?? _network.ListeningPort ?? _settings.Settings.Port;
             if (advertisedPort <= 0 || advertisedPort > 65535) advertisedPort = _settings.Settings.Port > 0 ? _settings.Settings.Port : 9999;
 
             var publicKey = GetPublicKeyHex();
+            var success = false;
 
             foreach (var endpoint in GetCandidateRelayEndpoints())
             {
                 var token = await TryRegisterWithEndpointAsync(endpoint.Host, endpoint.Port, uid, advertisedPort, publicKey, ct).ConfigureAwait(false);
                 if (token != null)
                 {
-                    _registeredUid = uid;
-                    _authToken = token;
-                    _lastRegisterUtc = now;
-                    return true;
+                    _authTokensByEndpoint[BuildEndpointKey(endpoint.Host, endpoint.Port)] = token;
+                    success = true;
                 }
+            }
+
+            if (success)
+            {
+                _registeredUid = uid;
+                _lastRegisterUtc = now;
+                return true;
             }
         }
         catch { }
@@ -213,18 +225,23 @@ public sealed class WanDirectoryService
         try
         {
             var uid = NormalizeUid(_registeredUid);
-            if (string.IsNullOrWhiteSpace(uid) || string.IsNullOrWhiteSpace(_authToken)) return false;
+            if (string.IsNullOrWhiteSpace(uid) || _authTokensByEndpoint.IsEmpty) return false;
+
+            var unregisteredAny = false;
 
             foreach (var endpoint in GetCandidateRelayEndpoints())
             {
                 try
                 {
+                    var endpointToken = GetAuthTokenFor(uid, endpoint.Host, endpoint.Port);
+                    if (string.IsNullOrWhiteSpace(endpointToken)) continue;
+
                     using var client = new TcpClient();
                     using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     connectCts.CancelAfter(TimeSpan.FromSeconds(3));
                     await client.ConnectAsync(endpoint.Host, endpoint.Port, connectCts.Token).ConfigureAwait(false);
                     using var stream = client.GetStream();
-                    var line = $"UNREG {uid} {_authToken}\n";
+                    var line = $"UNREG {uid} {endpointToken}\n";
                     var bytes = Encoding.UTF8.GetBytes(line);
                     await stream.WriteAsync(bytes.AsMemory(0, bytes.Length), ct).ConfigureAwait(false);
                     await stream.FlushAsync(ct).ConfigureAwait(false);
@@ -233,13 +250,21 @@ public sealed class WanDirectoryService
                     if (!string.IsNullOrWhiteSpace(resp) && resp.StartsWith("OK", StringComparison.OrdinalIgnoreCase))
                     {
                         Logger.Log($"[WanDirectory] UNREG success on {endpoint.Display} for uid={uid}");
-                        _registeredUid = string.Empty;
-                        _authToken = string.Empty;
-                        _lastRegisterUtc = DateTime.MinValue;
-                        return true;
+                        _authTokensByEndpoint.TryRemove(BuildEndpointKey(endpoint.Host, endpoint.Port), out _);
+                        unregisteredAny = true;
                     }
                 }
                 catch { }
+            }
+
+            if (unregisteredAny)
+            {
+                if (_authTokensByEndpoint.IsEmpty)
+                {
+                    _registeredUid = string.Empty;
+                    _lastRegisterUtc = DateTime.MinValue;
+                }
+                return true;
             }
         }
         catch { }
@@ -324,7 +349,7 @@ public sealed class WanDirectoryService
             using var client = new TcpClient();
             await client.ConnectAsync(host, port, ct).ConfigureAwait(false);
             using var stream = client.GetStream();
-            var authToken = GetAuthTokenFor(sourceUid);
+            var authToken = GetAuthTokenFor(sourceUid, host, port);
             var line = string.IsNullOrWhiteSpace(authToken)
                 ? $"OFFER {targetUid} {sourceUid} {sessionKey}\n"
                 : $"OFFER {targetUid} {sourceUid} {sessionKey} {authToken}\n";
@@ -345,7 +370,7 @@ public sealed class WanDirectoryService
             using var client = new TcpClient();
             await client.ConnectAsync(host, port, ct).ConfigureAwait(false);
             using var stream = client.GetStream();
-            var authToken = GetAuthTokenFor(uid);
+            var authToken = GetAuthTokenFor(uid, host, port);
             var line = string.IsNullOrWhiteSpace(authToken)
                 ? $"POLL {uid}\n"
                 : $"POLL {uid} {authToken}\n";
@@ -361,7 +386,7 @@ public sealed class WanDirectoryService
             if (resp.StartsWith("ERR unauthorized", StringComparison.OrdinalIgnoreCase))
             {
                 Logger.Log($"POLL rejected by relay: unauthorized — forcing re-registration");
-                InvalidateAuthToken();
+                InvalidateAuthToken(host, port);
                 await TryRegisterSelfAsync(ct).ConfigureAwait(false);
                 return Array.Empty<RelayInvite>();
             }
@@ -378,7 +403,7 @@ public sealed class WanDirectoryService
             using var client = new TcpClient();
             await client.ConnectAsync(host, port, ct).ConfigureAwait(false);
             using var stream = client.GetStream();
-            var authToken = GetAuthTokenFor(normalizedUid);
+            var authToken = GetAuthTokenFor(normalizedUid, host, port);
             var line = string.IsNullOrWhiteSpace(authToken)
                 ? $"WAITPOLL {normalizedUid} {waitMs}\n"
                 : $"WAITPOLL {normalizedUid} {waitMs} {authToken}\n";
@@ -394,11 +419,11 @@ public sealed class WanDirectoryService
             if (resp.StartsWith("ERR unauthorized", StringComparison.OrdinalIgnoreCase))
             {
                 Logger.Log($"WAITPOLL rejected by relay: unauthorized — forcing re-registration + retry");
-                InvalidateAuthToken();
+                InvalidateAuthToken(host, port);
                 await TryRegisterSelfAsync(ct).ConfigureAwait(false);
 
                 // Retry once with fresh token
-                var retryToken = GetAuthTokenFor(normalizedUid);
+                var retryToken = GetAuthTokenFor(normalizedUid, host, port);
                 if (!string.IsNullOrWhiteSpace(retryToken))
                 {
                     try
@@ -431,7 +456,7 @@ public sealed class WanDirectoryService
             using var client = new TcpClient();
             await client.ConnectAsync(host, port, ct).ConfigureAwait(false);
             using var stream = client.GetStream();
-            var authToken = GetAuthTokenFor(uid);
+            var authToken = GetAuthTokenFor(uid, host, port);
             var line = string.IsNullOrWhiteSpace(authToken)
                 ? $"ACK {uid} {inviteId}\n"
                 : $"ACK {uid} {inviteId} {authToken}\n";
@@ -511,10 +536,14 @@ public sealed class WanDirectoryService
             .Select(x => x.Trim())
             .ToList();
 
-        var useSeeds = settings.ForceSeedBootstrap || explicitEndpoints.Count == 0;
-        var seedEndpoints = useSeeds
-            ? (settings.WanSeedNodes ?? new List<string>()).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim())
-            : Enumerable.Empty<string>();
+        var seedEndpoints = (settings.WanSeedNodes ?? new List<string>())
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim());
+
+        if (!settings.ForceSeedBootstrap && explicitEndpoints.Count > 0)
+        {
+            // Keep explicit endpoints first; seeds are appended as fallback.
+        }
 
         IEnumerable<string> configured = explicitEndpoints.Concat(seedEndpoints);
 
@@ -525,6 +554,16 @@ public sealed class WanDirectoryService
             var key = $"{host}:{port}";
             if (!seen.Add(key)) continue;
             yield return (host, port, endpoint.Trim());
+
+            // If no explicit port was provided, also try 8443 as a fallback.
+            if (!HasExplicitPort(endpoint) && port != 8443)
+            {
+                var altKey = $"{host}:8443";
+                if (seen.Add(altKey))
+                {
+                    yield return (host, 8443, $"{endpoint.Trim()}:8443");
+                }
+            }
         }
     }
 
@@ -612,18 +651,39 @@ public sealed class WanDirectoryService
         return s.StartsWith("usr-", StringComparison.Ordinal) && s.Length > 4 ? s.Substring(4) : s;
     }
 
-    private string? GetAuthTokenFor(string uid)
+    private static bool HasExplicitPort(string endpoint)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint)) return false;
+        var text = endpoint.Trim();
+        if (text.StartsWith("[", StringComparison.Ordinal))
+        {
+            var end = text.IndexOf(']');
+            return end > 0 && end + 1 < text.Length && text[end + 1] == ':';
+        }
+
+        var firstColon = text.IndexOf(':');
+        var lastColon = text.LastIndexOf(':');
+        return firstColon == lastColon && firstColon > 0 && firstColon < text.Length - 1;
+    }
+
+    private string? GetAuthTokenFor(string uid, string host, int port)
     {
         var normalized = NormalizeUid(uid);
         if (string.IsNullOrWhiteSpace(normalized)) return null;
         if (!string.Equals(normalized, _registeredUid, StringComparison.OrdinalIgnoreCase)) return null;
-        return _authToken;
+        _authTokensByEndpoint.TryGetValue(BuildEndpointKey(host, port), out var token);
+        return token;
     }
 
-    private void InvalidateAuthToken()
+    private void InvalidateAuthToken(string host, int port)
     {
-        _authToken = string.Empty;
-        _registeredUid = string.Empty;
-        _lastRegisterUtc = DateTime.MinValue;
+        _authTokensByEndpoint.TryRemove(BuildEndpointKey(host, port), out _);
+        if (_authTokensByEndpoint.IsEmpty)
+        {
+            _registeredUid = string.Empty;
+            _lastRegisterUtc = DateTime.MinValue;
+        }
     }
+
+    private static string BuildEndpointKey(string host, int port) => $"{host}:{port}";
 }
