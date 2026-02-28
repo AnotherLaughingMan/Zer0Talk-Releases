@@ -14,6 +14,10 @@ namespace Zer0Talk.Services;
 
 public static class AppServices
 {
+    // True only while the app is intentionally shutting down (for example, tray Exit)
+    // so main-window close logic does not route into minimize-to-tray behavior.
+    public static bool IsShutdownRequested { get; set; }
+
     // Passphrase is set by LockService.Unlock() after validation against the account
     public static string Passphrase { get; set; } = string.Empty;
     public static SettingsService Settings { get; } = new(new P2EContainer());

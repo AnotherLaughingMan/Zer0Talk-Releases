@@ -113,7 +113,6 @@ namespace Zer0Talk.Services
             {
                 if (_lifetime?.MainWindow is MainWindow mainWindow)
                 {
-                    // Return to normal close-to-exit mode when window is visible.
                     _lifetime.ShutdownMode = ShutdownMode.OnMainWindowClose;
                     mainWindow.Show();
                     mainWindow.WindowState = WindowState.Normal;
@@ -132,6 +131,7 @@ namespace Zer0Talk.Services
             try
             {
                 Utilities.Logger.Log("TrayIcon: Exit requested");
+                AppServices.IsShutdownRequested = true;
                 
                 // Perform graceful shutdown
                 AppServices.Shutdown();
@@ -144,6 +144,7 @@ namespace Zer0Talk.Services
             }
             catch (Exception ex)
             {
+                AppServices.IsShutdownRequested = false;
                 Utilities.Logger.Log($"TrayIcon: Exit failed: {ex.Message}");
             }
         }

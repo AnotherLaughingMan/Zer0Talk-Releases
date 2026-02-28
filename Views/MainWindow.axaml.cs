@@ -2205,9 +2205,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 SaveLayoutAndPanels(s);
             }
             
+            // Consume shutdown request as a one-shot so normal close-to-tray behavior
+            // still works for subsequent user-initiated close actions.
+            var shutdownRequested = AppServices.IsShutdownRequested;
+            if (shutdownRequested)
+            {
+                AppServices.IsShutdownRequested = false;
+            }
+
             // Check if minimize to tray is enabled
             var settings = AppServices.Settings.Settings;
-            if (settings.MinimizeToTray && settings.ShowInSystemTray)
+            if (!shutdownRequested && settings.MinimizeToTray && settings.ShowInSystemTray)
             {
                 // Cancel the close event and hide window instead
                 e.Cancel = true;
@@ -2233,17 +2241,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 
                 return; // Don't perform shutdown - app continues running in tray
             }
-
-            // Ensure normal close semantics if shutdown mode had been switched earlier.
-            try
-            {
-                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime)
-                {
-                    lifetime.ShutdownMode = ShutdownMode.OnMainWindowClose;
-                }
-            }
-            catch { }
-
             // Perform graceful shutdown of services (idempotent, safe to call once).
             try { AppServices.Shutdown(); } catch { }
         }
