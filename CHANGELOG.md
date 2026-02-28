@@ -27,6 +27,17 @@ Run this checklist before creating a release tag.
 ## [Unreleased]
 
 ### Added
+- No unreleased additions yet.
+
+### Updated
+- No unreleased updates yet.
+
+### Fixed
+- No unreleased fixes yet.
+
+## [0.0.4.03-Alpha] - 2026-02-28
+
+### Added
 - Security replay defense window for inbound signed chat/edit/delete frames (`0xB0`/`0xB1`/`0xB2`) to reject duplicate/replayed message IDs within a bounded TTL.
 
 ### Updated
@@ -50,7 +61,7 @@ Run this checklist before creating a release tag.
 - Relay reliability remediation: unauthorized `POLL/WAITPOLL` no longer auto-register directory entries with port `0`; clients are required to re-register.
 - Relay reliability remediation: relay host now applies an authenticated per-UID command limiter to reduce CGNAT false positives from IP-only throttling.
 
-## [0.0.4.03-Alpha] - 2026-02-27
+## [0.0.4.02-Alpha] - 2026-02-27
 
 ### Added
 - Client auto-update system with manifest-first release discovery and GitHub release API fallback.
