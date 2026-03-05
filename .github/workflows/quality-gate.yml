@@ -20,14 +20,25 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
+      - name: Resolve build target
+        id: target
+        shell: pwsh
+        run: |
+          # Releases repo excludes RelayServer sources; fall back to project-level build
+          if (Test-Path '.\Zer0Talk.RelayServer\Zer0Talk.RelayServer.csproj') {
+            "solution=.\Zer0Talk.sln" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            "solution=.\Zer0Talk.csproj" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
       - name: Restore
-        run: dotnet restore .\Zer0Talk.sln
+        run: dotnet restore ${{ steps.target.outputs.solution }}
 
       - name: Build Debug
-        run: dotnet build .\Zer0Talk.sln -c Debug --no-restore
+        run: dotnet build ${{ steps.target.outputs.solution }} -c Debug --no-restore
 
       - name: Build Release
-        run: dotnet build .\Zer0Talk.sln -c Release --no-restore
+        run: dotnet build ${{ steps.target.outputs.solution }} -c Release --no-restore
 
       - name: Test
         run: dotnet test .\Tests\Zer0Talk.Tests.csproj -c Debug --no-build --results-directory .\TestResults --logger "trx;LogFileName=tests.trx"
@@ -73,6 +84,7 @@ jobs:
 
   federation-smoke:
     needs: build
+    if: github.repository != 'AnotherLaughingMan/Zer0Talk-Releases'
     runs-on: windows-latest
 
     steps:
