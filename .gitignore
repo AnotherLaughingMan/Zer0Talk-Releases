@@ -21,6 +21,7 @@ scripts/
 
 # Publish artifacts
 publish/
+TestResults/
 *.Publish.xml
 *.pubxml
 *.pubxml.user
