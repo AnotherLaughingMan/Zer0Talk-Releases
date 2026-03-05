@@ -118,6 +118,8 @@ $RECYCLE.BIN/
 *.ico
 !Assets/Avatars/*.png
 !Assets/Icons/**/*.ico
+!Zer0Talk.RelayServer/Assets/Icons/*.png
+!Zer0Talk.RelayServer/Assets/Icons/*.ico
 
 # Tooling state
 **/node_modules/
