@@ -29,6 +29,7 @@ You may not:
 - Use this software for commercial purposes, including but not limited to resale, SaaS, or monetized services.
 - Integrate this software into any platform, centralized service, or surveillance system.
 - Use this software to build or support moderation, censorship, or behavioral analytics tools.
+- Use this software for any unlawful, fraudulent, abusive, or otherwise illegal activity. Any such use may expose the end user to civil, criminal, or regulatory penalties under the laws of their own jurisdiction.
 
 ---
 
@@ -44,6 +45,7 @@ Restricting access is a necessary measure to maintain the integrity and confiden
 ### 5. **No Warranty**
 
 This software is provided “as is,” without warranty of any kind. The author disclaims all liability for any damages arising from use or misuse.
+By using this software, you agree that you are solely responsible for how you use it and for compliance with all applicable local, state, national, and international laws.
 
 ---
 

@@ -21,6 +21,7 @@ The author shall not be held liable for any direct, indirect, incidental, conseq
 ## 3. Restricted Use
 
 Zer0Talk is intended for private, non-commercial use only. It may not be used in any context involving surveillance, moderation, behavioral analytics, or platform integration. Any use outside the scope defined in the accompanying license is strictly prohibited.
+Use of Zer0Talk for any unlawful, fraudulent, abusive, or otherwise illegal activity is prohibited and may expose the end user to civil, criminal, or regulatory penalties under the laws of their own jurisdiction.
 
 ---
 
@@ -58,6 +59,7 @@ Any legal disputes arising from the use of Zer0Talk shall be governed by the law
 
 ## 9. User Responsibility and Legal Liability
 The author of Zer0Talk shall not be held responsible for any unlawful, unethical, or unauthorized use of the software by third parties. Users are solely and fully liable for any actions they take using Zer0Talk, including but not limited to the transmission of illegal content, violation of applicable laws, or misuse of the software in prohibited contexts.
+By using Zer0Talk, users agree they are solely responsible for compliance with all applicable local, state, national, and international laws.
 
 The author has no access to user data, cannot monitor usage, and cannot comply with any request to produce or disclose user communications. As such, the author cannot be held accountable for the conduct of users or the consequences of their actions.
 
