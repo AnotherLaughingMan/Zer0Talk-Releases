@@ -23,11 +23,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Assets\Icons\Zer0Talk_Relay.png" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Assets\Icons\Zer0Talk_Relay.ico" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Assets\Icons\Zer0Talk_Relay_Force.ico" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Assets\Icons\Zer0Talk_Relay_Multi.ico" CopyToOutputDirectory="PreserveNewest" />
-    <AvaloniaResource Include="Assets\Icons\Zer0Talk_Relay.png" />
+    <Content Include="Assets\Icons\Zer0Talk_Relay.png" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Assets\\Icons\\Zer0Talk_Relay.png')" />
+    <Content Include="Assets\Icons\Zer0Talk_Relay.ico" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Assets\\Icons\\Zer0Talk_Relay.ico')" />
+    <Content Include="Assets\Icons\Zer0Talk_Relay_Force.ico" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Assets\\Icons\\Zer0Talk_Relay_Force.ico')" />
+    <Content Include="Assets\Icons\Zer0Talk_Relay_Multi.ico" CopyToOutputDirectory="PreserveNewest" Condition="Exists('Assets\\Icons\\Zer0Talk_Relay_Multi.ico')" />
+    <AvaloniaResource Include="Assets\Icons\Zer0Talk_Relay.png" Condition="Exists('Assets\\Icons\\Zer0Talk_Relay.png')" />
   </ItemGroup>
 
 </Project>
