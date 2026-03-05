@@ -358,7 +358,7 @@
     "TypeMessage": "Digite uma mensagem",
     "SendMessage": "Enviar mensagem",
     "JumpToPresent": "Pular para o presente",
-    "JumpToLatest": "Jump to latest message",
+    "JumpToLatest": "Ir para a última mensagem",
     "PendingInvites": "Convites Pendentes",
     "Previous": "Anterior",
     "Next": "Próximo",
@@ -410,7 +410,17 @@
     "ConnectionRelay": "Conexão por relay",
     "DeliveryPending": "Enviando...",
     "DeliverySent": "Enviado",
-    "DeliveryDelivered": "Entregue"
+    "DeliveryDelivered": "Entregue",
+    "ChatEncryptedTransport": "Transporte criptografado (identidade não necessariamente verificada)",
+    "VerifiedBadgeTooltip": "Identidade verificada por cerimônia de confiança",
+    "Fingerprint": "Impressão digital",
+    "VerifiedOn": "Verificado em",
+    "VerificationHistory": "Histórico de verificação",
+    "NoVerificationHistory": "Nenhum evento de verificação ainda.",
+    "NeverVerified": "Nunca",
+    "Reverify": "Reverificar",
+    "IdentityVsEncryptionHint": "O escudo verifica a identidade; o cadeado indica transporte criptografado.",
+    "VersionMismatchTooltip": "Versão incompatível \u2014 o par usa v{0} (você: v{1})"
   },
   "ThemeEditor": {
     "Title": "Editor de temas Zer0Talk",

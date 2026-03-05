@@ -3568,6 +3568,7 @@ namespace Zer0Talk.ViewModels
         public string LocalizedChatEncryptedTransport => Services.AppServices.Localization.GetString("MainWindow.ChatEncryptedTransport", "Transport encrypted (identity not necessarily verified)");
         public string LocalizedVerifiedBadgeTooltip => Services.AppServices.Localization.GetString("MainWindow.VerifiedBadgeTooltip", "Identity verified via trust ceremony");
         public string AppVersion => AppInfo.Version;
+        public string LocalizedVersionMismatchTooltip => Services.AppServices.Localization.GetString("MainWindow.VersionMismatchTooltip", "Version mismatch \u2014 peer is running v{0} (you: v{1})");
         public string LocalizedFingerprintLabel => Services.AppServices.Localization.GetString("MainWindow.Fingerprint", "Fingerprint");
         public string LocalizedVerifiedOnLabel => Services.AppServices.Localization.GetString("MainWindow.VerifiedOn", "Verified On");
         public string LocalizedVerificationHistoryLabel => Services.AppServices.Localization.GetString("MainWindow.VerificationHistory", "Verification History");

@@ -358,7 +358,7 @@
     "TypeMessage": "Введите сообщение",
     "SendMessage": "Отправить сообщение",
     "JumpToPresent": "Перейти к настоящему",
-    "JumpToLatest": "Jump to latest message",
+    "JumpToLatest": "Перейти к последнему сообщению",
     "PendingInvites": "Ожидающие приглашения",
     "Previous": "Предыдущее",
     "Next": "Следующее",
@@ -410,7 +410,17 @@
     "ConnectionRelay": "Подключение через ретранслятор",
     "DeliveryPending": "Отправка...",
     "DeliverySent": "Отправлено",
-    "DeliveryDelivered": "Доставлено"
+    "DeliveryDelivered": "Доставлено",
+    "ChatEncryptedTransport": "Транспорт зашифрован (личность не обязательно подтверждена)",
+    "VerifiedBadgeTooltip": "Личность подтверждена церемонией доверия",
+    "Fingerprint": "Отпечаток",
+    "VerifiedOn": "Подтверждено",
+    "VerificationHistory": "История верификации",
+    "NoVerificationHistory": "Событий верификации пока нет.",
+    "NeverVerified": "Никогда",
+    "Reverify": "Повторно подтвердить",
+    "IdentityVsEncryptionHint": "Щит подтверждает личность; замок указывает на зашифрованный транспорт.",
+    "VersionMismatchTooltip": "Несоответствие версий \u2014 у пира v{0} (у вас: v{1})"
   },
   "ThemeEditor": {
     "Title": "Редактор тем Zer0Talk",

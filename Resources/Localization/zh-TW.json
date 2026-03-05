@@ -358,7 +358,7 @@
     "TypeMessage": "輸入訊息",
     "SendMessage": "傳送訊息",
     "JumpToPresent": "跳至最新",
-    "JumpToLatest": "Jump to latest message",
+    "JumpToLatest": "跳至最新訊息",
     "PendingInvites": "待處理邀請",
     "Previous": "上一個",
     "Next": "下一個",
@@ -410,7 +410,17 @@
     "ConnectionRelay": "中繼連線",
     "DeliveryPending": "傳送中...",
     "DeliverySent": "已傳送",
-    "DeliveryDelivered": "已送達"
+    "DeliveryDelivered": "已送達",
+    "ChatEncryptedTransport": "傳輸已加密（身份未必已驗證）",
+    "VerifiedBadgeTooltip": "已透過信任儀式驗證身份",
+    "Fingerprint": "指紋",
+    "VerifiedOn": "驗證於",
+    "VerificationHistory": "驗證歷史",
+    "NoVerificationHistory": "尚無驗證記錄。",
+    "NeverVerified": "從未",
+    "Reverify": "重新驗證",
+    "IdentityVsEncryptionHint": "盾牌驗證身份；鎖表示加密傳輸。",
+    "VersionMismatchTooltip": "版本不符 \u2014 對方使用 v{0}（你：v{1}）"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk 主題編輯器",

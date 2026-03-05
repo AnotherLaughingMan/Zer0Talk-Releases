@@ -420,7 +420,17 @@
     "ConnectionRelay": "Relay connection",
     "DeliveryPending": "Sending...",
     "DeliverySent": "Sent",
-    "DeliveryDelivered": "Delivered"
+    "DeliveryDelivered": "Delivered",
+    "ChatEncryptedTransport": "Transport encrypted (identity not necessarily verified)",
+    "VerifiedBadgeTooltip": "Identity verified via trust ceremony",
+    "Fingerprint": "Fingerprint",
+    "VerifiedOn": "Verified On",
+    "VerificationHistory": "Verification History",
+    "NoVerificationHistory": "No verification events yet.",
+    "NeverVerified": "Never",
+    "Reverify": "Re-verify",
+    "IdentityVsEncryptionHint": "Shield verifies identity; lock indicates encrypted transport.",
+    "VersionMismatchTooltip": "Version mismatch \u2014 peer is running v{0} (you: v{1})"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk Theme Editor",

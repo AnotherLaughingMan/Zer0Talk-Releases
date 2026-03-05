@@ -358,7 +358,7 @@
     "TypeMessage": "メッセージを入力",
     "SendMessage": "メッセージを送信",
     "JumpToPresent": "現在に移動",
-    "JumpToLatest": "Jump to latest message",
+    "JumpToLatest": "最新メッセージに移動",
     "PendingInvites": "保留中の招待",
     "Previous": "前へ",
     "Next": "次へ",
@@ -410,7 +410,17 @@
     "ConnectionRelay": "リレー接続",
     "DeliveryPending": "送信中...",
     "DeliverySent": "送信済み",
-    "DeliveryDelivered": "配信済み"
+    "DeliveryDelivered": "配信済み",
+    "ChatEncryptedTransport": "通信は暗号化されています（身元は未確認の場合があります）",
+    "VerifiedBadgeTooltip": "信頼式により身元確認済み",
+    "Fingerprint": "フィンガープリント",
+    "VerifiedOn": "確認日",
+    "VerificationHistory": "確認履歴",
+    "NoVerificationHistory": "確認イベントはまだありません。",
+    "NeverVerified": "未確認",
+    "Reverify": "再確認",
+    "IdentityVsEncryptionHint": "シールドは身元を確認し、鍵は暗号化された通信を示します。",
+    "VersionMismatchTooltip": "バージョン不一致 \u2014 ピアは v{0} を使用中（あなた: v{1}）"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk テーマエディター",

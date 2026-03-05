@@ -66,6 +66,7 @@
         <util:DeliveryStatusToGlyphConverter x:Key="DeliveryStatusToGlyphConverter" />
         <util:DeliveryStatusVisibleConverter x:Key="DeliveryStatusVisibleConverter" />
         <util:DeliveryStatusToTooltipConverter x:Key="DeliveryStatusToTooltipConverter" />
+        <util:VersionMismatchTooltipConverter x:Key="VersionMismatchTooltipConverter" />
     </Window.Resources>
 
     <Window.Styles>
@@ -598,7 +599,7 @@
                                             <TextBlock Classes="icon-mdl2" Text="&#xE7BA;" FontSize="14" Foreground="#E8A317" VerticalAlignment="Center"
                                                        IsVisible="{Binding HasVersionMismatch}">
                                                 <ToolTip.Tip>
-                                                    <MultiBinding StringFormat="Version mismatch — peer is running v{0} (you: v{1})">
+                                                    <MultiBinding Converter="{StaticResource VersionMismatchTooltipConverter}">
                                                         <Binding Path="PeerVersion"/>
                                                         <Binding Path="$parent[v:MainWindow].DataContext.AppVersion"/>
                                                     </MultiBinding>

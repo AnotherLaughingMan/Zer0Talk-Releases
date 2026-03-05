@@ -358,7 +358,7 @@
     "TypeMessage": "Nachricht eingeben",
     "SendMessage": "Nachricht senden",
     "JumpToPresent": "Zur Gegenwart springen",
-    "JumpToLatest": "Jump to latest message",
+    "JumpToLatest": "Zur neuesten Nachricht springen",
     "PendingInvites": "Ausstehende Einladungen",
     "Previous": "Vorherige",
     "Next": "Nächste",
@@ -410,7 +410,17 @@
     "ConnectionRelay": "Relay-Verbindung",
     "DeliveryPending": "Wird gesendet...",
     "DeliverySent": "Gesendet",
-    "DeliveryDelivered": "Zugestellt"
+    "DeliveryDelivered": "Zugestellt",
+    "ChatEncryptedTransport": "Transport verschlüsselt (Identität nicht unbedingt verifiziert)",
+    "VerifiedBadgeTooltip": "Identität durch Vertrauenszeremonie verifiziert",
+    "Fingerprint": "Fingerabdruck",
+    "VerifiedOn": "Verifiziert am",
+    "VerificationHistory": "Verifizierungsverlauf",
+    "NoVerificationHistory": "Noch keine Verifizierungsereignisse.",
+    "NeverVerified": "Nie",
+    "Reverify": "Erneut verifizieren",
+    "IdentityVsEncryptionHint": "Schild bestätigt Identität; Schloss zeigt verschlüsselten Transport an.",
+    "VersionMismatchTooltip": "Versionskonflikt \u2014 Peer nutzt v{0} (du: v{1})"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk-Themeneditor",
