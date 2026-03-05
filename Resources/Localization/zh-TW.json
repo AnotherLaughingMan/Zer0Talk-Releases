@@ -328,7 +328,7 @@
   "MainWindow": {
     "ToggleContacts": "切換聯絡人",
     "OpenNotifications": "開啟通知",
-    "LockLogout": "鎖定 / 登出",
+    "LockLogout": "登出",
     "Minimize": "最小化",
     "Maximize": "最大化 / 還原",
     "Close": "關閉",
@@ -358,6 +358,7 @@
     "TypeMessage": "輸入訊息",
     "SendMessage": "傳送訊息",
     "JumpToPresent": "跳至最新",
+    "JumpToLatest": "Jump to latest message",
     "PendingInvites": "待處理邀請",
     "Previous": "上一個",
     "Next": "下一個",
@@ -399,7 +400,17 @@
     "Presence": "狀態",
     "CopyPublicKey": "複製公鑰",
     "CloseEsc": "關閉 (Esc)",
-    "Invisible": "隱身"
+    "Invisible": "隱身",
+    "StatusBar.ConnectedPeers": "已連線的對等方",
+    "StatusBar.StreamerMode": "直播模式",
+    "StatusBar.StreamerModeActive": "直播模式",
+    "ViewVerificationHistory": "檢視歷史",
+    "SearchContacts": "搜尋聯絡人...",
+    "ConnectionDirect": "直接連線",
+    "ConnectionRelay": "中繼連線",
+    "DeliveryPending": "傳送中...",
+    "DeliverySent": "已傳送",
+    "DeliveryDelivered": "已送達"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk 主題編輯器",
@@ -585,6 +596,7 @@
     "OpenFolderTooltip": "在檔案總管中開啟記錄資料夾",
     "Autoscroll": "自動捲動",
     "AutoscrollTooltip": "保持畫面停留在最新記錄",
+    "JumpToBottom": "Jump to bottom",
     "Loading": "載入中...",
     "NoLogFiles": "找不到記錄檔",
     "RefreshToScan": "使用重新整理以重新掃描記錄目錄。"

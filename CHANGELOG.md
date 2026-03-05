@@ -27,13 +27,37 @@ Run this checklist before creating a release tag.
 ## [Unreleased]
 
 ### Added
-- None yet.
+- Message delivery status indicators on outbound messages: clock (pending), single checkmark (sent), filled checkmark (delivered via peer `0xB5` ACK). Status persisted to disk and restored on conversation load.
+- `Settings > General` toggle: `Enable smooth scrolling` to control animated scrolling behavior in client log/chat surfaces.
+- Relay settings toggle: `Enable smooth scrolling` to control animated scrolling in Relay Console and Probe Audit views.
+- Client chat `Jump to latest` control now includes an unread counter badge when new messages arrive while scrolled away from bottom.
+- Log Viewer `Jump to bottom` control now includes an unseen-entry counter badge while paused away from latest logs.
+- Contact list selection indicator: theme-colored accent bar on the left edge of each contact card (visible on all items, highlighted on selected).
+- Contact list search/filter bar: real-time text filtering by display name or UID above the contact list.
+- Last message preview on contact cards: single-line truncated preview of the most recent message with timestamp.
+- Unread message badge on contact cards: per-contact unread count pill (accent-colored) displayed on the right side.
+- Connection mode indicator on contact cards: icon showing whether a peer is connected via direct (globe) or relay (sync) connection.
+- Smart contact list sorting: contacts ordered by online presence first, then by last message time descending, then alphabetically.
+- Verification history dialog: "View history" link on profile card opens a modal with full verification event details (replaces inline list).
 
 ### Updated
-- None yet.
+- Manual `Check for Updates` now posts an immediate `Checking for updates...` notice before network resolution and explicitly reports `You are already up to date` when no newer version is found.
+- Client and Relay auto-follow/jump-to-latest flows now use eased smooth scrolling when enabled, with immediate snap fallback when disabled.
+- Client main chat canvas (`ChatScroll`) keeps native mouse-wheel behavior (including flywheel/fast-scroll mice) and uses smooth scrolling only for programmatic follow/jump transitions.
+- Client and Log Viewer jump controls are now icon-only (tooltip-first) and themed entirely through app resources for compatibility with built-in and custom themes.
+- Added localization keys for jump tooltips (`MainWindow.JumpToLatest`, `LogViewer.JumpToBottom`) across shipped language files.
+- Client wheel smooth scrolling now applies acceleration-based delta handling when enabled to preserve inertia wheel behavior while avoiding stutter/fight.
+- Contact card "Encrypted" text badge replaced with a padlock icon glyph (MDL2 `E72E`) with tooltip, reducing visual noise.
+- "Lock / Logout" title bar button renamed to "Logout" with a power button icon (MDL2 `E7E8`); updated across all 10 localization files.
+- Contact list hover/selection/focus visuals fully purged of Fluent default blue; all states now use theme-owned resources (`App.Border`, `App.ItemHover`, `App.ItemSelected`, `App.Accent`).
+- Added missing localization keys for new contact list UX features (`ViewVerificationHistory`, `SearchContacts`, `ConnectionDirect`, `ConnectionRelay`) and backfilled missing `StatusBar.*` keys across all 9 non-English locale files.
+- Fluent `SelectionIndicator` and internal `Rectangle` elements hidden inside ContactsList `ListBoxItem` template across all themes via NeutralMetrics.
 
 ### Fixed
-- None yet.
+- Added explicit manual-update diagnostic breadcrumbs (`start`, `feed-unavailable`, `up-to-date`, `update-available`, `canceled`, `failed`) in `AutoUpdate` logs to make post-release updater triage faster.
+- Fixed wheel-scroll fighting on high-inertia mice by removing forced animated wheel interception from chat scrolling.
+- Fixed "Clear All Alerts" in Notification Center not clearing warnings and other alerts that have an origin UID (e.g. connection warnings).
+- Fixed contact profile card showing "No verification events yet" after verification completes; profile now forces a full property refresh on open so verification history, fingerprint, and verified-on date always reflect current state.
 
 ## [0.0.4.04-Alpha] - 2026-03-04
 

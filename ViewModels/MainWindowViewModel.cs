@@ -37,6 +37,22 @@ namespace Zer0Talk.ViewModels
         public string PrototypeBadgeText => Zer0Talk.AppInfo.PrototypeBadgeText;
 
         public ObservableCollection<Contact> Contacts { get; } = new();
+        // Filtered contact list: bound by UI when search is active, mirrors Contacts otherwise.
+        public ObservableCollection<Contact> FilteredContacts { get; } = new();
+        private string _contactSearchText = string.Empty;
+        public string ContactSearchText
+        {
+            get => _contactSearchText;
+            set
+            {
+                if (_contactSearchText != value)
+                {
+                    _contactSearchText = value;
+                    OnPropertyChanged();
+                    ApplyContactFilter();
+                }
+            }
+        }
         public ObservableCollection<Message> Messages { get; } = new();
         public ObservableCollection<object> TimelineItems { get; } = new();
         private double _chatViewportWidth;
@@ -210,6 +226,25 @@ namespace Zer0Talk.ViewModels
                                 }
                             }
                             // Decouple presence from layout: avoid any list regrouping; UI binds directly to Contacts
+                            // Refresh per-contact metadata (unread counts, connection mode)
+                            RefreshContactMetadata();
+                            // Smart sort: Online first, then by last message time descending, then alphabetical
+                            try
+                            {
+                                var sorted = Contacts
+                                    .OrderByDescending(c => c.Presence == PresenceStatus.Online || c.Presence == PresenceStatus.Idle || c.Presence == PresenceStatus.DoNotDisturb)
+                                    .ThenByDescending(c => c.LastMessageUtc ?? DateTime.MinValue)
+                                    .ThenBy(c => c.DisplayName, StringComparer.OrdinalIgnoreCase)
+                                    .ToList();
+                                for (int i = 0; i < sorted.Count; i++)
+                                {
+                                    var current_idx = Contacts.IndexOf(sorted[i]);
+                                    if (current_idx != i) Contacts.Move(current_idx, i);
+                                }
+                            }
+                            catch { }
+                            // Re-apply search filter
+                            ApplyContactFilter();
                             if (!IsSelectionFrozen)
                             {
                                 if (!string.IsNullOrWhiteSpace(prevUid))
@@ -627,6 +662,7 @@ namespace Zer0Talk.ViewModels
         public ICommand UntrustContactCommand { get; }
         public ICommand ShowFullProfileCommand { get; }
         public ICommand CloseFullProfileCommand { get; }
+        public ICommand ShowVerificationHistoryCommand { get; }
         public ICommand SaveSimulatedProfileCommand { get; }
     public ICommand RemoveContactCommand { get; }
     public ICommand BurnConversationCommand { get; }
@@ -744,6 +780,12 @@ namespace Zer0Talk.ViewModels
             // Load contacts from manager
             AppServices.Contacts.Load(AppServices.Passphrase);
             foreach (var c in AppServices.Contacts.Contacts) Contacts.Add(c);
+            // Populate last message previews for contact list display
+            _ = Task.Run(() =>
+            {
+                LoadLastMessagePreviews();
+                Avalonia.Threading.Dispatcher.UIThread.Post(ApplyContactFilter);
+            });
             Action contactsChangedHandler = () => { ScheduleContactsRefresh(); };
             AppServices.Contacts.Changed += contactsChangedHandler;
             _teardownActions.Add(() => AppServices.Contacts.Changed -= contactsChangedHandler);
@@ -857,10 +899,14 @@ namespace Zer0Talk.ViewModels
                     }
                     IsFullProfileOpen = true;
                     EditableDisplayName = SelectedContact?.DisplayName ?? string.Empty;
+                    // Always refresh profile bindings (verification history, fingerprint, etc.)
+                    // so stale data doesn't persist when re-opening for the same contact.
+                    RaiseSelectedContactChanged();
                 }
                 catch { IsFullProfileOpen = true; }
             });
             CloseFullProfileCommand = new RelayCommand(_ => { IsFullProfileOpen = false; });
+            ShowVerificationHistoryCommand = new RelayCommand(_ => ShowVerificationHistoryDialog());
             SaveSimulatedProfileCommand = new RelayCommand(_ => SaveSimulatedProfile(), _ => CanSaveSimulatedProfile());
             RemoveContactCommand = new RelayCommand(p =>
             {
@@ -1208,9 +1254,53 @@ namespace Zer0Talk.ViewModels
                         PublishMessageNotification(senderUid, display, msg, incoming: true, unread: true);
                     }
                     _messagesStore.StoreMessage(senderUid, msg, AppServices.Passphrase);
+                    // Update contact card last message preview
+                    try
+                    {
+                        var contact = Contacts.FirstOrDefault(c => string.Equals(TrimUidPrefix(c.UID), senderUid, StringComparison.OrdinalIgnoreCase));
+                        if (contact != null)
+                        {
+                            var preview = (parsedContent ?? string.Empty).ReplaceLineEndings(" ");
+                            if (preview.Length > 80) preview = preview[..80];
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            {
+                                contact.LastMessagePreview = preview;
+                                contact.LastMessageUtc = now;
+                            });
+                        }
+                    }
+                    catch { }
                 };
                 AppServices.Network.ChatMessageReceived += chatReceivedHandler;
                 _teardownActions.Add(() => AppServices.Network.ChatMessageReceived -= chatReceivedHandler);
+            }
+            catch { }
+
+            // Subscribe to delivery ACKs (0xB5) — update outbound message status to Delivered
+            try
+            {
+                Action<string, Guid> deliveryAckedHandler = (peerUid, messageId) =>
+                {
+                    try
+                    {
+                        var normalized = TrimUidPrefix(peerUid);
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            foreach (var msg in Messages)
+                            {
+                                if (msg.Id == messageId)
+                                {
+                                    msg.DeliveryStatus = Models.MessageDeliveryStatus.Delivered;
+                                    break;
+                                }
+                            }
+                        });
+                        try { _messagesStore.UpdateDeliveryStatus(normalized, messageId, Models.MessageDeliveryStatus.Delivered, AppServices.Passphrase); } catch { }
+                    }
+                    catch { }
+                };
+                AppServices.Network.ChatMessageDeliveryAcked += deliveryAckedHandler;
+                _teardownActions.Add(() => AppServices.Network.ChatMessageDeliveryAcked -= deliveryAckedHandler);
             }
             catch { }
 
@@ -1596,6 +1686,94 @@ namespace Zer0Talk.ViewModels
 
         public bool HasSelectedContactVerificationHistory => SelectedContactVerificationHistory.Count > 0;
 
+        private string GetVerificationHistorySummary()
+        {
+            var count = SelectedContactVerificationHistory.Count;
+            if (count == 0) return LocalizedNoVerificationHistory;
+            var latest = SelectedContactVerificationHistory[0];
+            return $"{count} event{(count == 1 ? "" : "s")} \u2022 Last: {latest.VerifiedAtLocalDisplay}";
+        }
+
+        private async void ShowVerificationHistoryDialog()
+        {
+            try
+            {
+                var history = SelectedContactVerificationHistory;
+                var contactName = SelectedContact?.DisplayName ?? "Contact";
+                if (history.Count == 0) return;
+
+                var lifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                if (lifetime?.MainWindow is not Avalonia.Controls.Window owner) return;
+
+                var dialog = new Avalonia.Controls.Window
+                {
+                    Title = $"{LocalizedVerificationHistoryLabel} \u2014 {contactName}",
+                    MinWidth = 460,
+                    MaxWidth = 640,
+                    MinHeight = 260,
+                    MaxHeight = 500,
+                    CanResize = false,
+                    SizeToContent = Avalonia.Controls.SizeToContent.Height,
+                    WindowStartupLocation = Avalonia.Controls.WindowStartupLocation.CenterOwner,
+                    ExtendClientAreaToDecorationsHint = true,
+                    ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
+                    ExtendClientAreaTitleBarHeightHint = 32
+                };
+
+                var stack = new Avalonia.Controls.StackPanel { Spacing = 8, Margin = new Avalonia.Thickness(20, 16, 20, 16) };
+                stack.Children.Add(new Avalonia.Controls.TextBlock
+                {
+                    Text = LocalizedVerificationHistoryLabel,
+                    FontWeight = Avalonia.Media.FontWeight.SemiBold,
+                    FontSize = 15,
+                    Margin = new Avalonia.Thickness(0, 0, 0, 4)
+                });
+
+                foreach (var entry in history)
+                {
+                    var row = new Avalonia.Controls.Grid
+                    {
+                        ColumnDefinitions = new Avalonia.Controls.ColumnDefinitions("Auto,*"),
+                        Margin = new Avalonia.Thickness(0, 4)
+                    };
+                    row.ColumnSpacing = 12;
+
+                    var dateText = new Avalonia.Controls.TextBlock { Text = entry.VerifiedAtLocalDisplay, Opacity = 0.75 };
+                    Avalonia.Controls.Grid.SetColumn(dateText, 0);
+
+                    var detailStack = new Avalonia.Controls.StackPanel { Spacing = 2 };
+                    detailStack.Children.Add(new Avalonia.Controls.TextBlock { Text = entry.Method, FontWeight = Avalonia.Media.FontWeight.SemiBold });
+                    detailStack.Children.Add(new Avalonia.Controls.TextBlock
+                    {
+                        Text = entry.Fingerprint,
+                        FontFamily = new Avalonia.Media.FontFamily("Consolas"),
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                        Opacity = 0.85
+                    });
+                    Avalonia.Controls.Grid.SetColumn(detailStack, 1);
+
+                    row.Children.Add(dateText);
+                    row.Children.Add(detailStack);
+                    stack.Children.Add(row);
+                }
+
+                var closeBtn = new Avalonia.Controls.Button
+                {
+                    Content = LocalizedClose,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                    MinWidth = 90,
+                    Padding = new Avalonia.Thickness(12, 6),
+                    Margin = new Avalonia.Thickness(0, 12, 0, 0)
+                };
+                closeBtn.Click += (_, _) => dialog.Close();
+                stack.Children.Add(closeBtn);
+
+                dialog.Content = stack;
+                await dialog.ShowDialog(owner);
+            }
+            catch { }
+        }
+
         // Chat encryption indicator: true if we have an encrypted session with the selected contact
         public bool IsChatEncrypted
         {
@@ -1719,6 +1897,7 @@ namespace Zer0Talk.ViewModels
                     RecipientUID = recipientUid,
                     Content = content,
                     Timestamp = now,
+                    DeliveryStatus = Models.MessageDeliveryStatus.Pending,
                     Signature = Array.Empty<byte>(),
                     SenderPublicKey = Array.Empty<byte>(),
                     ReplyToMessageId = replyToId,
@@ -1745,6 +1924,15 @@ namespace Zer0Talk.ViewModels
 
                 Messages.Add(message);
                 try { _messagesStore.StoreMessage(recipientUid, message, AppServices.Passphrase); } catch { }
+                // Update contact card last message preview for sent messages
+                try
+                {
+                    var preview = content.ReplaceLineEndings(" ");
+                    if (preview.Length > 80) preview = preview[..80];
+                    contact.LastMessagePreview = preview;
+                    contact.LastMessageUtc = now;
+                }
+                catch { }
                 OutgoingMessage = string.Empty;
                 ClearReplyState();
 
@@ -1782,6 +1970,8 @@ namespace Zer0Talk.ViewModels
                         if (sent)
                         {
                             try { Logger.NetworkLog($"SendResult: Sent | peer={recipientUid} id={message.Id}"); } catch { }
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() => message.DeliveryStatus = Models.MessageDeliveryStatus.Sent);
+                            try { _messagesStore.UpdateDeliveryStatus(recipientUid, message.Id, Models.MessageDeliveryStatus.Sent, AppServices.Passphrase); } catch { }
                         }
                         else
                         {
@@ -3377,11 +3567,17 @@ namespace Zer0Talk.ViewModels
         public string LocalizedChatEncrypted => Services.AppServices.Localization.GetString("MainWindow.ChatEncrypted", "Chat is end-to-end encrypted");
         public string LocalizedChatEncryptedTransport => Services.AppServices.Localization.GetString("MainWindow.ChatEncryptedTransport", "Transport encrypted (identity not necessarily verified)");
         public string LocalizedVerifiedBadgeTooltip => Services.AppServices.Localization.GetString("MainWindow.VerifiedBadgeTooltip", "Identity verified via trust ceremony");
+        public string AppVersion => AppInfo.Version;
         public string LocalizedFingerprintLabel => Services.AppServices.Localization.GetString("MainWindow.Fingerprint", "Fingerprint");
         public string LocalizedVerifiedOnLabel => Services.AppServices.Localization.GetString("MainWindow.VerifiedOn", "Verified On");
         public string LocalizedVerificationHistoryLabel => Services.AppServices.Localization.GetString("MainWindow.VerificationHistory", "Verification History");
         public string LocalizedNoVerificationHistory => Services.AppServices.Localization.GetString("MainWindow.NoVerificationHistory", "No verification events yet.");
         public string LocalizedNeverVerified => Services.AppServices.Localization.GetString("MainWindow.NeverVerified", "Never");
+        public string LocalizedViewVerificationHistory => Services.AppServices.Localization.GetString("MainWindow.ViewVerificationHistory", "View history");
+        public string LocalizedVerificationHistorySummary => GetVerificationHistorySummary();
+        public string LocalizedSearchContacts => Services.AppServices.Localization.GetString("MainWindow.SearchContacts", "Search contacts...");
+        public string LocalizedConnectionDirect => Services.AppServices.Localization.GetString("MainWindow.ConnectionDirect", "Direct connection");
+        public string LocalizedConnectionRelay => Services.AppServices.Localization.GetString("MainWindow.ConnectionRelay", "Relay connection");
         public string LocalizedIdentityVsEncryptionHint => Services.AppServices.Localization.GetString("MainWindow.IdentityVsEncryptionHint", "Shield verifies identity; lock indicates encrypted transport.");
         public string LocalizedSimulatedContact => Services.AppServices.Localization.GetString("MainWindow.SimulatedContact", "Simulated contact (loopback)");
         public string LocalizedBold => Services.AppServices.Localization.GetString("MainWindow.Bold", "Bold (**text**)");
@@ -3393,6 +3589,7 @@ namespace Zer0Talk.ViewModels
         public string LocalizedSpoiler => Services.AppServices.Localization.GetString("MainWindow.Spoiler", "Spoiler (||text||)");
         public string LocalizedTypeMessage => Services.AppServices.Localization.GetString("MainWindow.TypeMessage", "Type a message");
         public string LocalizedSendMessage => Services.AppServices.Localization.GetString("MainWindow.SendMessage", "Send message");
+        public string LocalizedJumpToLatest => Services.AppServices.Localization.GetString("MainWindow.JumpToLatest", "Jump to latest message");
         public string LocalizedJumpToPresent => Services.AppServices.Localization.GetString("MainWindow.JumpToPresent", "Jump to present");
         public string LocalizedPendingInvites => Services.AppServices.Localization.GetString("MainWindow.PendingInvites", "Pending Invites");
         public string LocalizedPrevious => Services.AppServices.Localization.GetString("MainWindow.Previous", "Previous");
@@ -3432,7 +3629,7 @@ namespace Zer0Talk.ViewModels
         public string LocalizedDelete => Services.AppServices.Localization.GetString("MainWindow.Delete", "Delete");
         public string LocalizedToggleContacts => Services.AppServices.Localization.GetString("MainWindow.ToggleContacts", "Toggle Contacts");
         public string LocalizedOpenNotifications => Services.AppServices.Localization.GetString("MainWindow.OpenNotifications", "Open Notifications");
-        public string LocalizedLockLogout => Services.AppServices.Localization.GetString("MainWindow.LockLogout", "Lock / Logout");
+        public string LocalizedLockLogout => Services.AppServices.Localization.GetString("MainWindow.LockLogout", "Logout");
         public string LocalizedMinimize => Services.AppServices.Localization.GetString("MainWindow.Minimize", "Minimize");
         public string LocalizedMaximize => Services.AppServices.Localization.GetString("MainWindow.Maximize", "Maximize / Restore");
         public string LocalizedClose => Services.AppServices.Localization.GetString("MainWindow.Close", "Close");
@@ -3467,6 +3664,11 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedVerificationHistoryLabel));
             OnPropertyChanged(nameof(LocalizedNoVerificationHistory));
             OnPropertyChanged(nameof(LocalizedNeverVerified));
+            OnPropertyChanged(nameof(LocalizedViewVerificationHistory));
+            OnPropertyChanged(nameof(LocalizedVerificationHistorySummary));
+            OnPropertyChanged(nameof(LocalizedSearchContacts));
+            OnPropertyChanged(nameof(LocalizedConnectionDirect));
+            OnPropertyChanged(nameof(LocalizedConnectionRelay));
             OnPropertyChanged(nameof(LocalizedIdentityVsEncryptionHint));
             OnPropertyChanged(nameof(LocalizedSimulatedContact));
             OnPropertyChanged(nameof(LocalizedBold));
@@ -3478,6 +3680,7 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedSpoiler));
             OnPropertyChanged(nameof(LocalizedTypeMessage));
             OnPropertyChanged(nameof(LocalizedSendMessage));
+            OnPropertyChanged(nameof(LocalizedJumpToLatest));
             OnPropertyChanged(nameof(LocalizedJumpToPresent));
             OnPropertyChanged(nameof(LocalizedPendingInvites));
             OnPropertyChanged(nameof(LocalizedPrevious));
@@ -3549,6 +3752,80 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(SelectedContactVerifiedOnDisplay));
             OnPropertyChanged(nameof(SelectedContactVerificationHistory));
             OnPropertyChanged(nameof(HasSelectedContactVerificationHistory));
+            OnPropertyChanged(nameof(LocalizedVerificationHistorySummary));
+        }
+
+        /// <summary>Apply contact search filter to produce FilteredContacts from Contacts.</summary>
+        private void ApplyContactFilter()
+        {
+            try
+            {
+                FilteredContacts.Clear();
+                var query = (_contactSearchText ?? string.Empty).Trim();
+                if (string.IsNullOrEmpty(query))
+                {
+                    foreach (var c in Contacts) FilteredContacts.Add(c);
+                }
+                else
+                {
+                    foreach (var c in Contacts)
+                    {
+                        if ((c.DisplayName ?? string.Empty).Contains(query, StringComparison.OrdinalIgnoreCase)
+                            || (c.UID ?? string.Empty).Contains(query, StringComparison.OrdinalIgnoreCase))
+                        {
+                            FilteredContacts.Add(c);
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>Load last message preview for all contacts (fire-and-forget, background).</summary>
+        private void LoadLastMessagePreviews()
+        {
+            try
+            {
+                foreach (var contact in Contacts)
+                {
+                    try
+                    {
+                        var uid = TrimUidPrefix(contact.UID);
+                        if (string.IsNullOrWhiteSpace(uid)) continue;
+                        var messages = _messagesStore.LoadMessages(uid, AppServices.Passphrase);
+                        if (messages.Count > 0)
+                        {
+                            var last = messages[^1];
+                            var preview = (last.Content ?? string.Empty).ReplaceLineEndings(" ");
+                            if (preview.Length > 80) preview = preview[..80];
+                            contact.LastMessagePreview = preview;
+                            contact.LastMessageUtc = last.Timestamp;
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>Refresh unread counts and connection modes for all contacts.</summary>
+        private void RefreshContactMetadata()
+        {
+            try
+            {
+                foreach (var c in Contacts)
+                {
+                    try
+                    {
+                        var uid = TrimUidPrefix(c.UID);
+                        c.UnreadCount = AppServices.Notifications.GetUnreadCountForPeer(uid);
+                        c.ConnectionMode = AppServices.Network.GetConnectionMode(uid);
+                        c.PeerVersion = AppServices.Network.GetPeerVersion(uid);
+                    }
+                    catch { }
+                }
+            }
+            catch { }
         }
 
         // Group headers removed; UI binds directly to Contacts

@@ -36,6 +36,8 @@ namespace Zer0Talk.Services
         private UdpClient? _udp;
         private Task? _udpTask;
     private readonly ConcurrentDictionary<string, Utilities.AeadTransport> _sessions = new(StringComparer.OrdinalIgnoreCase);
+    // Track per-peer connection mode (direct vs relay) for UI display
+    private readonly ConcurrentDictionary<string, Models.ConnectionMode> _sessionModes = new(StringComparer.OrdinalIgnoreCase);
     // Track peer's ephemeral ECDH public key (DER SPKI) per transport to verify identity binding
     private readonly ConcurrentDictionary<Utilities.AeadTransport, byte[]> _handshakePeerKeys = new();
     // Tracks expected peer UID for outbound connections until handshake completes (keyed by remote endpoint string)
@@ -191,6 +193,7 @@ namespace Zer0Talk.Services
     public event Action<string, Guid, string, bool>? ChatMessageReactionReceived; // (peerUid, messageId, emoji, isAdd)
     public event Action<string, Guid>? ChatMessageEditAcked; // (peerUid, messageId)
     public event Action<string, Guid>? ChatMessageDeleteAcked; // (peerUid, messageId)
+    public event Action<string, Guid>? ChatMessageDeliveryAcked; // (peerUid, messageId)
     // Raised when presence is received from a peer (uid, status)
     public event Action<string, string>? PresenceReceived;
 
@@ -898,6 +901,7 @@ namespace Zer0Talk.Services
 
                 var normUid = Trim(peerUid);
                 _sessions[normUid] = transport;
+                _sessionModes[normUid] = Models.ConnectionMode.Relay;
                 try
                 {
                     Logger.Log($"[sess] add | mode=relay | peer={normUid} | total={_sessions.Count} | ts={DateTime.UtcNow:o}");
@@ -940,6 +944,7 @@ namespace Zer0Talk.Services
                     finally
                     {
                         var removed = _sessions.TryRemove(Trim(peerUid), out _);
+                        try { _sessionModes.TryRemove(Trim(peerUid), out _); } catch { }
                         try { if (removed) Logger.Log($"[sess] remove | mode=relay | peer={Trim(peerUid)} | reason=reader-exit | ts={DateTime.UtcNow:o}"); } catch { }
                         if (removed) RaiseSessionCountChanged();
                         try { _diag.DecSessionsActive(); } catch { }
@@ -1253,7 +1258,12 @@ namespace Zer0Talk.Services
             }
             else if (data[0] == 0xB5)
             {
-                // Chat Received ACK: [0xB5][msgId(16)] - delivery tracking removed, ignored
+                // Chat Received ACK: [0xB5][msgId(16)] - peer confirmed delivery
+                int idx = 1; if (data.Length < idx + 16) return Task.CompletedTask;
+                var guidBytes5 = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes5, 0, 16);
+                var msgId5 = new Guid(guidBytes5);
+                Logger.Log($"Delivery ACK from {Trim(peerUid)} id={msgId5}");
+                try { ChatMessageDeliveryAcked?.Invoke(Trim(peerUid), msgId5); } catch { }
             }
             else if (data[0] == 0xB6)
             {
@@ -2184,6 +2194,7 @@ namespace Zer0Talk.Services
                                     if (!_sessions.ContainsKey(normClaimed2))
                                     {
                                         _sessions[normClaimed2] = transport;
+                                        _sessionModes[normClaimed2] = Models.ConnectionMode.Direct;
                                         try
                                         {
                                             Logger.Log($"[sess] add | mode=direct | peer={normClaimed2} | total={_sessions.Count} | ts={DateTime.UtcNow:o}");
@@ -2496,6 +2507,7 @@ namespace Zer0Talk.Services
                     if (!string.IsNullOrEmpty(boundUid))
                     {
                         var removed = _sessions.TryRemove(boundUid, out _);
+                        try { _sessionModes.TryRemove(boundUid, out _); } catch { }
                         try { if (removed) Logger.Log($"[sess] remove | mode=direct | peer={boundUid} | reason=reader-exit | ts={DateTime.UtcNow:o}"); } catch { }
                         if (removed) RaiseSessionCountChanged();
                     }
@@ -2693,6 +2705,7 @@ namespace Zer0Talk.Services
 
                     var removed2 = false;
                     try { removed2 = _sessions.TryRemove(normalizedUid, out _); } catch { }
+                    try { _sessionModes.TryRemove(normalizedUid, out _); } catch { }
                     if (removed2) RaiseSessionCountChanged();
                     try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
                     try { _transportEndpoints.TryRemove(transport, out _); } catch { }
@@ -3509,6 +3522,19 @@ namespace Zer0Talk.Services
         /// <summary>Number of active encrypted sessions (connected peers).</summary>
         public int ActiveSessionCount => _sessions.Count;
 
+        /// <summary>Returns the connection mode (Direct/Relay/None) for a peer.</summary>
+        public Models.ConnectionMode GetConnectionMode(string peerUid)
+        {
+            var key = Trim(peerUid);
+            return _sessionModes.TryGetValue(key, out var mode) ? mode : Models.ConnectionMode.None;
+        }
+
+        public string? GetPeerVersion(string peerUid)
+        {
+            var key = Trim(peerUid);
+            return _peerVersions.TryGetValue(key, out var ver) ? ver : null;
+        }
+
         /// <summary>Raised when the active session count changes (session added or removed).</summary>
         public event Action<int>? SessionCountChanged;
 
@@ -3612,6 +3638,7 @@ namespace Zer0Talk.Services
                 var key = Trim(peerUid);
                 if (_sessions.TryRemove(key, out var transport))
                 {
+                    try { _sessionModes.TryRemove(key, out _); } catch { }
                     try { transport?.Dispose(); } catch { }
                     Logger.Log($"Disconnected session with blocked peer: {key}");
                     SafeNetLog($"session disconnect | peer={key} | reason=blocked");

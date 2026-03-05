@@ -232,6 +232,21 @@ namespace Zer0Talk.Containers
             catch { return false; }
         }
 
+        public bool UpdateDeliveryStatus(string peerUid, Guid messageId, MessageDeliveryStatus status, string passphrase)
+        {
+            try
+            {
+                var list = LoadMessages(peerUid, passphrase);
+                var idx = list.FindIndex(m => m.Id == messageId);
+                if (idx < 0) return false;
+                list[idx].DeliveryStatus = status;
+                var json = JsonSerializer.Serialize(list, SerializationDefaults.Compact);
+                _p2e.SaveFile(FileForPeer(peerUid), System.Text.Encoding.UTF8.GetBytes(json), passphrase);
+                return true;
+            }
+            catch { return false; }
+        }
+
         // Replace entire conversation (used when treating user-deleted as permanently removed)
         public bool ReplaceConversation(string peerUid, List<Message> messages, string passphrase)
         {

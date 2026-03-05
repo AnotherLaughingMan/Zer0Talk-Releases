@@ -539,6 +539,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private DateTime _lastBringIntoViewAtUtc; // suppress bursts at startup/add storms
     private double _lastAutoScrollExtentHeight; // guard: only auto-scroll when extent grows
     private ScrollAnimator? _chatScrollAnimator;
+    private const double JumpButtonShowGapThreshold = 28.0;
+    private const double UnreadCountGapThreshold = 120.0;
     private readonly HashSet<Message> _trackedMessages = new();
     private NotifyCollectionChangedEventHandler? _messagesChangedHandler;
 
@@ -894,16 +896,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             // Discord-like behavior: when at bottom, clear unread counter; otherwise keep/show jump button
             if (_followChat)
             {
-                if (_unreadSinceLastBottom != 0)
-                {
-                    _unreadSinceLastBottom = 0;
-                    UpdateJumpToBottomUi();
-                }
+                _unreadSinceLastBottom = 0;
             }
-            else
-            {
-                UpdateJumpToBottomUi();
-            }
+            UpdateJumpToBottomUi();
             SafeUiLog($"ScrollChanged: offsetY={sv.Offset.Y:F1}, extentH={sv.Extent.Height:F1}, viewportH={sv.Viewport.Height:F1}, bottomGap={bottomGap:F1}, stick={_stickToBottom}, guard={(guardActive ? "Y" : "N")}");
         }
         catch { }
@@ -998,14 +993,61 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 var sv = v.FindAncestorOfType<ScrollViewer>();
                 if (sv?.Name == "ChatScroll")
                 {
+                    var now = DateTime.UtcNow;
+                    var absDeltaY = Math.Abs(e.Delta.Y);
+                    if (absDeltaY > 0.0001)
+                    {
+                        if (IsSmoothScrollingEnabled())
+                        {
+                            // Acceleration-based wheel scrolling preserves inertia/flywheel behavior
+                            // while still feeling smooth on standard mice.
+                            var elapsedMs = (now - _lastWheelEventAtUtc).TotalMilliseconds;
+                            if (elapsedMs > 0 && elapsedMs <= 95)
+                            {
+                                _wheelAccelerationFactor = Math.Min(2.25, _wheelAccelerationFactor + 0.18);
+                            }
+                            else if (elapsedMs > 240)
+                            {
+                                _wheelAccelerationFactor = 0;
+                            }
+                            else
+                            {
+                                _wheelAccelerationFactor = Math.Max(0, _wheelAccelerationFactor * 0.72);
+                            }
+
+                            var speedBoost = 1.0 + Math.Min(1.1, absDeltaY * 0.42) + _wheelAccelerationFactor;
+                            var deltaPixels = e.Delta.Y * WheelBasePixels * speedBoost;
+
+                            sv.UpdateLayout();
+                            var maxY = Math.Max(0, sv.Extent.Height - sv.Viewport.Height);
+                            var currentY = sv.Offset.Y;
+                            var targetY = Math.Clamp(currentY - deltaPixels, 0, maxY);
+                            if (IsSmoothScrollingEnabled())
+                            {
+                                var animator = EnsureChatScrollAnimator(sv);
+                                if (animator == null || !animator.MoveTo(targetY))
+                                    sv.Offset = new Vector(sv.Offset.X, targetY);
+                            }
+                            else
+                            {
+                                sv.Offset = new Vector(sv.Offset.X, targetY);
+                            }
+                            e.Handled = true;
+                        }
+
+                        _userScrollHoldoffUntilUtc = now.AddMilliseconds(450);
+                        _lastWheelEventAtUtc = now;
+                    }
+
                     // Only unstick on upward scroll attempts (Delta.Y > 0)
                     if (e.Delta.Y > 0.0001)
                     {
                         _stickToBottom = false;
+                        _followChat = false;
                         _autoFollowGuardUntilUtc = DateTime.MinValue;
-                        var now = DateTime.UtcNow;
                         bool wasInactive = now >= _userScrollHoldoffUntilUtc;
                         _userScrollHoldoffUntilUtc = now.AddMilliseconds(700);
+                        UpdateJumpToBottomUi();
                         // Log on activation or after cooldown to avoid spam
                         if (wasInactive || (now - _lastWheelHoldoffLogAtUtc) > TimeSpan.FromMilliseconds(400))
                         {
@@ -1172,7 +1214,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 {
                     _followChat = atBottomNow;
                     _stickToBottom = atBottomNow;
-                    _unreadSinceLastBottom += addCount;
+                    if (ShouldTrackUnreadCounter(sv))
+                    {
+                        _unreadSinceLastBottom += addCount;
+                    }
                     UpdateJumpToBottomUi();
                 }
                 else
@@ -1328,7 +1373,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _unreadSinceLastBottom = 0;
             UpdateJumpToBottomUi();
             // User intent must override any holdoffs: force scroll now
-            ForceScrollToBottom("JumpToPresent click");
+            ForceScrollToBottom("JumpToPresent click", bypassUserScrollHoldoff: true);
         }
         catch { }
     }
@@ -1338,15 +1383,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var btn = this.FindControl<Button>("JumpToBottomButton");
-            var lbl = this.FindControl<TextBlock>("JumpToBottomLabel");
+            var badge = this.FindControl<Border>("JumpToBottomCountBadge");
+            var badgeText = this.FindControl<TextBlock>("JumpToBottomCountText");
+            var sv = this.FindControl<ScrollViewer>("ChatScroll");
+            var shouldShowButton = ShouldShowJumpToBottomButton(sv);
+            // When committed to following (at bottom or scrolling to bottom), always hide
+            if (shouldShowButton && (_followChat || _stickToBottom))
+                shouldShowButton = false;
             if (btn != null)
             {
-                btn.IsVisible = !_stickToBottom && _unreadSinceLastBottom > 0;
+                btn.IsVisible = shouldShowButton;
+                var jumpToLatestText = AppServices.Localization.GetString("MainWindow.JumpToLatest", "Jump to latest message");
+                ToolTip.SetTip(btn, _unreadSinceLastBottom > 0 ? $"{jumpToLatestText} ({_unreadSinceLastBottom})" : jumpToLatestText);
                 SafeUiLog($"JumpUI: visible={btn.IsVisible}, unread={_unreadSinceLastBottom}");
             }
-            if (lbl != null)
+            if (badge != null)
             {
-                lbl.Text = _unreadSinceLastBottom > 0 ? $"Jump to present ({_unreadSinceLastBottom})" : "Jump to present";
+                badge.IsVisible = shouldShowButton && _unreadSinceLastBottom > 0;
+            }
+            if (badgeText != null)
+            {
+                badgeText.Text = _unreadSinceLastBottom > 0 ? _unreadSinceLastBottom.ToString() : "0";
             }
         }
         catch { }
@@ -1484,12 +1541,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
-    private bool SmoothScrollToOffset(ScrollViewer sv, double targetY)
+    private bool SmoothScrollToOffset(ScrollViewer sv, double targetY, bool bypassUserScrollHoldoff = false)
     {
         try
         {
             sv.UpdateLayout();
             targetY = Math.Max(0, targetY);
+            if (!bypassUserScrollHoldoff && DateTime.UtcNow < _userScrollHoldoffUntilUtc)
+            {
+                var currentDuringHoldoff = sv.Offset;
+                sv.Offset = new Vector(currentDuringHoldoff.X, targetY);
+                return false;
+            }
+            if (!IsSmoothScrollingEnabled())
+            {
+                var current = sv.Offset;
+                sv.Offset = new Vector(current.X, targetY);
+                return false;
+            }
+
             var animator = EnsureChatScrollAnimator(sv);
             if (animator != null)
             {
@@ -1520,13 +1590,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            const double threshold = 2.0; // px: treat within 2px as at bottom
+            const double threshold = 12.0; // px: treat near-bottom as bottom to avoid jump button flicker
             return GetBottomGap(sv) <= threshold;
         }
         catch { return false; }
     }
 
-    private void ForceScrollToBottom(string reason)
+    private static bool ShouldShowJumpToBottomButton(ScrollViewer? sv)
+    {
+        if (sv == null) return false;
+        return GetBottomGap(sv) > JumpButtonShowGapThreshold;
+    }
+
+    private static bool ShouldTrackUnreadCounter(ScrollViewer? sv)
+    {
+        if (sv == null) return false;
+        return GetBottomGap(sv) >= UnreadCountGapThreshold;
+    }
+
+    private void ForceScrollToBottom(string reason, bool bypassUserScrollHoldoff = false)
     {
         try
         {
@@ -1540,7 +1622,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     sv.UpdateLayout();
                     var targetY = Math.Max(0, sv.Extent.Height - sv.Viewport.Height);
                     var fromY = sv.Offset.Y;
-                    var usedAnimation = SmoothScrollToOffset(sv, targetY);
+                    var usedAnimation = SmoothScrollToOffset(sv, targetY, bypassUserScrollHoldoff);
                     if (!usedAnimation && Math.Abs(sv.Offset.Y - targetY) > 0.5)
                     {
                         try { sv.ScrollToEnd(); }
@@ -1575,6 +1657,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return Math.Abs(offsetY - targetY) > eps;
         }
         catch { return false; }
+    }
+
+    private static bool IsSmoothScrollingEnabled()
+    {
+        try
+        {
+            return AppServices.Settings.Settings.EnableSmoothScrolling;
+        }
+        catch
+        {
+            return true;
+        }
     }
 
     private void MessageContent_SizeChanged(object? sender, SizeChangedEventArgs e)
@@ -1837,6 +1931,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _scrollbarPressedActive;
     private DateTime _scrollbarInteractionUntilUtc;
     private DateTime _lastWheelHoldoffLogAtUtc;
+    private DateTime _lastWheelEventAtUtc;
+    private double _wheelAccelerationFactor;
+    private const double WheelBasePixels = 58.0;
 
     private bool IsChatScrollInteractionActive()
     {
@@ -4196,20 +4293,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
-    // Write to a simple settings log beside the executable for traceability
+    // Write to the centralized settings log in AppData for traceability.
     private static void WriteSettingsLog(string line)
     {
         try
         {
             if (!Zer0Talk.Utilities.LoggingPaths.Enabled) return;
-            var path = System.IO.Path.Combine(AppContext.BaseDirectory, "logs", "settings.log");
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            Zer0Talk.Utilities.LoggingPaths.TryWrite(path, text);
+            Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Settings, text);
         }
         catch { }
     }
 
-    // Write to a simple theme log beside the executable for traceability
+    // Write to the centralized theme log in AppData for traceability.
     private static void WriteThemeLog(string line)
     {
         try
@@ -4221,15 +4317,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
-    // Write to a simple layout log beside the executable for traceability
+    // Write to the centralized layout log in AppData for traceability.
     private static void WriteLayoutLog(string line)
     {
         try
         {
             if (!Zer0Talk.Utilities.LoggingPaths.Enabled) return;
-            var path = System.IO.Path.Combine(AppContext.BaseDirectory, "logs", "layout.log");
             var text = $"{DateTime.Now:O} {line}{Environment.NewLine}";
-            Zer0Talk.Utilities.LoggingPaths.TryWrite(path, text);
+            Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Layout, text);
         }
         catch { }
     }

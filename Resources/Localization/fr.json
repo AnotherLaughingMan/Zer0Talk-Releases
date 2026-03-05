@@ -328,7 +328,7 @@
   "MainWindow": {
     "ToggleContacts": "Basculer les contacts",
     "OpenNotifications": "Ouvrir les notifications",
-    "LockLogout": "Verrouiller / Déconnecter",
+    "LockLogout": "Déconnecter",
     "Minimize": "Réduire",
     "Maximize": "Agrandir / Restaurer",
     "Close": "Fermer",
@@ -358,6 +358,7 @@
     "TypeMessage": "Tapez un message",
     "SendMessage": "Envoyer le message",
     "JumpToPresent": "Aller au présent",
+    "JumpToLatest": "Jump to latest message",
     "PendingInvites": "Invitations en attente",
     "Previous": "Précédent",
     "Next": "Suivant",
@@ -399,7 +400,17 @@
     "Presence": "Présence",
     "CopyPublicKey": "Copier la clé publique",
     "CloseEsc": "Fermer (Échap)",
-    "Invisible": "Masqué"
+    "Invisible": "Masqué",
+    "StatusBar.ConnectedPeers": "Pairs connectés",
+    "StatusBar.StreamerMode": "Mode streamer",
+    "StatusBar.StreamerModeActive": "MODE STREAMER",
+    "ViewVerificationHistory": "Voir l'historique",
+    "SearchContacts": "Rechercher des contacts...",
+    "ConnectionDirect": "Connexion directe",
+    "ConnectionRelay": "Connexion par relais",
+    "DeliveryPending": "Envoi en cours...",
+    "DeliverySent": "Envoyé",
+    "DeliveryDelivered": "Distribué"
   },
   "ThemeEditor": {
     "Title": "Éditeur de thème Zer0Talk",
@@ -585,6 +596,7 @@
     "OpenFolderTooltip": "Ouvrir le dossier des journaux dans votre explorateur de fichiers",
     "Autoscroll": "Défilement automatique",
     "AutoscrollTooltip": "Garder la vue épinglée aux dernières entrées du journal",
+    "JumpToBottom": "Jump to bottom",
     "Loading": "Chargement...",
     "NoLogFiles": "Aucun fichier journal trouvé",
     "RefreshToScan": "Utilisez Actualiser pour réanalyser le répertoire des journaux."

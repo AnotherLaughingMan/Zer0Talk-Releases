@@ -338,7 +338,7 @@
   "MainWindow": {
     "ToggleContacts": "Toggle Contacts",
     "OpenNotifications": "Open Notifications",
-    "LockLogout": "Lock / Logout",
+    "LockLogout": "Logout",
     "Minimize": "Minimize",
     "Maximize": "Maximize / Restore",
     "Close": "Close",
@@ -368,6 +368,7 @@
     "TypeMessage": "Type a message",
     "SendMessage": "Send message",
     "JumpToPresent": "Jump to present",
+    "JumpToLatest": "Jump to latest message",
     "PendingInvites": "Pending Invites",
     "Previous": "Previous",
     "Next": "Next",
@@ -412,7 +413,14 @@
     "Invisible": "Invisible",
     "StatusBar.ConnectedPeers": "Connected Peers",
     "StatusBar.StreamerMode": "Streamer Mode",
-    "StatusBar.StreamerModeActive": "STREAMER MODE"
+    "StatusBar.StreamerModeActive": "STREAMER MODE",
+    "ViewVerificationHistory": "View history",
+    "SearchContacts": "Search contacts...",
+    "ConnectionDirect": "Direct connection",
+    "ConnectionRelay": "Relay connection",
+    "DeliveryPending": "Sending...",
+    "DeliverySent": "Sent",
+    "DeliveryDelivered": "Delivered"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk Theme Editor",
@@ -598,6 +606,7 @@
     "OpenFolderTooltip": "Open the logs folder in your file explorer",
     "Autoscroll": "Autoscroll",
     "AutoscrollTooltip": "Keep the view pinned to the latest log entries",
+    "JumpToBottom": "Jump to bottom",
     "Loading": "Loading...",
     "NoLogFiles": "No log files found",
     "RefreshToScan": "Use Refresh to re-scan the logs directory."

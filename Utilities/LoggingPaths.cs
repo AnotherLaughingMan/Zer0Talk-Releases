@@ -4,6 +4,7 @@
 // or presence of an enable-logs.flag file next to the executable.
 using System;
 using System.IO;
+using System.Linq;
 
 namespace Zer0Talk.Utilities
 {
@@ -97,29 +98,83 @@ namespace Zer0Talk.Utilities
         {
             if (string.IsNullOrWhiteSpace(targetDir) || !Directory.Exists(targetDir)) return;
 
-            MoveLogFilesFromDirectory(baseDir, targetDir);
+            var movedFiles = 0;
+            var touchedDirs = 0;
+
+            movedFiles += MoveLogFilesFromDirectory(baseDir, targetDir, ref touchedDirs);
 
             if (!string.Equals(currentDir, baseDir, StringComparison.OrdinalIgnoreCase))
             {
-                MoveLogFilesFromDirectory(currentDir, targetDir);
+                movedFiles += MoveLogFilesFromDirectory(currentDir, targetDir, ref touchedDirs);
             }
 
             var baseLegacyLogsDir = Path.Combine(baseDir, "logs");
-            MoveLogFilesFromDirectory(baseLegacyLogsDir, targetDir);
+            movedFiles += MoveLogFilesFromDirectory(baseLegacyLogsDir, targetDir, ref touchedDirs);
 
             if (!string.Equals(currentDir, baseDir, StringComparison.OrdinalIgnoreCase))
             {
                 var currentLegacyLogsDir = Path.Combine(currentDir, "logs");
-                MoveLogFilesFromDirectory(currentLegacyLogsDir, targetDir);
+                movedFiles += MoveLogFilesFromDirectory(currentLegacyLogsDir, targetDir, ref touchedDirs);
+            }
+
+            // Sweep typical local build-output ancestors to eliminate stale bin/Debug/logs folders.
+            var (sweptDirs, sweptFiles) = SweepBuildOutputLegacyLogs(baseDir, targetDir);
+            movedFiles += sweptFiles;
+            touchedDirs += sweptDirs;
+
+            if (movedFiles > 0)
+            {
+                try
+                {
+                    var maintenancePath = Path.Combine(targetDir, "maintenance.log");
+                    var line = $"[{DateTime.UtcNow:O}] startup legacy-log sweep: touchedDirs={touchedDirs}, movedFiles={movedFiles}, baseDir={baseDir}";
+                    TryWrite(maintenancePath, line + Environment.NewLine);
+                }
+                catch { }
             }
         }
 
-        private static void MoveLogFilesFromDirectory(string sourceDir, string targetDir)
+        private static (int touchedDirs, int movedFiles) SweepBuildOutputLegacyLogs(string baseDir, string targetDir)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir)) return;
-                if (string.Equals(Path.GetFullPath(sourceDir), Path.GetFullPath(targetDir), StringComparison.OrdinalIgnoreCase)) return;
+                if (string.IsNullOrWhiteSpace(baseDir) || string.IsNullOrWhiteSpace(targetDir)) return (0, 0);
+
+                var visited = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var current = baseDir;
+                var touchedDirs = 0;
+                var movedFiles = 0;
+
+                // Walk a few parent levels from AppContext.BaseDirectory
+                // (for example .../bin/Debug/net9.0 -> .../bin/Debug -> .../bin -> project root).
+                for (var i = 0; i < 6 && !string.IsNullOrWhiteSpace(current); i++)
+                {
+                    if (!visited.Add(current)) break;
+
+                    var logsDir = Path.Combine(current, "logs");
+                    movedFiles += MoveLogFilesFromDirectory(logsDir, targetDir, ref touchedDirs);
+                    TryDeleteDirectoryIfEmpty(logsDir);
+
+                    var parent = Directory.GetParent(current);
+                    current = parent?.FullName ?? string.Empty;
+                }
+
+                return (touchedDirs, movedFiles);
+            }
+            catch { }
+
+            return (0, 0);
+        }
+
+        private static int MoveLogFilesFromDirectory(string sourceDir, string targetDir, ref int touchedDirs)
+        {
+            var movedCount = 0;
+            try
+            {
+                if (string.IsNullOrWhiteSpace(sourceDir) || !Directory.Exists(sourceDir)) return 0;
+                if (string.Equals(Path.GetFullPath(sourceDir), Path.GetFullPath(targetDir), StringComparison.OrdinalIgnoreCase)) return 0;
+
+                touchedDirs++;
 
                 foreach (var sourcePath in Directory.GetFiles(sourceDir, "*.log", SearchOption.TopDirectoryOnly))
                 {
@@ -136,6 +191,7 @@ namespace Zer0Talk.Utilities
                         }
 
                         File.Move(sourcePath, targetPath);
+                        movedCount++;
                     }
                     catch { }
                 }
@@ -156,9 +212,23 @@ namespace Zer0Talk.Utilities
                         }
 
                         File.Move(sourcePath, targetPath);
+                        movedCount++;
                     }
                     catch { }
                 }
+            }
+            catch { }
+
+            return movedCount;
+        }
+
+        private static void TryDeleteDirectoryIfEmpty(string dirPath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dirPath) || !Directory.Exists(dirPath)) return;
+                if (Directory.EnumerateFileSystemEntries(dirPath).Any()) return;
+                Directory.Delete(dirPath, recursive: false);
             }
             catch { }
         }
@@ -217,6 +287,10 @@ namespace Zer0Talk.Utilities
         public static string EncryptedChat => PathFor("enc_chat.log");
         public static string ThemeEngine => PathFor("theme_engine.log");
         public static string AccountCreation => PathFor("account_creation.log");
+        public static string Settings => PathFor("settings.log");
+        public static string Layout => PathFor("layout.log");
+        public static string MarkdownErrors => PathFor("markdown-errors.log");
+        public static string MarkdownTrace => PathFor("markdown-trace.log");
 
         public static bool TryWrite(string path, string line)
         {

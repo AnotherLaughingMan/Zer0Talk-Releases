@@ -71,6 +71,13 @@ namespace Zer0Talk.Models
         public DateTime Timestamp { get; set; }
         public DateTime? ReceivedUtc { get; set; }
 
+        private MessageDeliveryStatus _deliveryStatus;
+        public MessageDeliveryStatus DeliveryStatus
+        {
+            get => _deliveryStatus;
+            set { if (_deliveryStatus != value) { _deliveryStatus = value; OnPropertyChanged(nameof(DeliveryStatus)); } }
+        }
+
         // Optional reply metadata for inline reply chips.
         public Guid? ReplyToMessageId { get; set; }
 

@@ -20,6 +20,28 @@
     </Window.DataContext>
 
     <Window.Styles>
+        <Style Selector="Button.ux-smooth">
+            <Setter Property="Opacity" Value="0.95"/>
+            <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+            <Setter Property="RenderTransform" Value="scale(1)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="Button.ux-smooth:pointerover">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="RenderTransform" Value="scale(1.03)"/>
+        </Style>
+
+        <Style Selector="Button.ux-smooth:pressed">
+            <Setter Property="Opacity" Value="0.9"/>
+            <Setter Property="RenderTransform" Value="scale(0.98)"/>
+        </Style>
+
         <!-- ListBox item style for log files -->
         <Style Selector="ListBox.log-list-box">
             <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
@@ -68,15 +90,15 @@
                            FontWeight="SemiBold"
                            Foreground="{DynamicResource App.TitleBarForeground}"/>
                 <Button Grid.Column="2"
-                        Classes="icon-button"
                         ToolTip.Tip="Minimize"
                         Click="Minimize_Click">
+                    <Button.Classes>icon-button</Button.Classes>
                     <TextBlock Classes="icon-mdl2" Text="&#xE921;"/>
                 </Button>
                 <Button Grid.Column="3"
-                        Classes="icon-button"
                         ToolTip.Tip="Close"
                         Click="Close_Click">
+                    <Button.Classes>icon-button</Button.Classes>
                     <TextBlock Classes="icon-mdl2" Text="&#xE8BB;"/>
                 </Button>
             </Grid>
@@ -85,24 +107,18 @@
         <Border Grid.Row="1" Background="{DynamicResource App.Background}">
             <Grid Margin="12" RowDefinitions="Auto,*" RowSpacing="10">
                 <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="6">
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" VerticalAlignment="Center">
                         <StackPanel Orientation="Vertical" Spacing="2">
                             <TextBlock Text="Logs directory" FontSize="12" Opacity="0.7"/>
                             <TextBlock Text="{Binding CurrentDirectory}"
                                        Classes="app-trunc"
                                        ToolTip.Tip="{Binding CurrentDirectory}"/>
                         </StackPanel>
-                        <Button Grid.Column="1" Content="{Binding LocalizedRefresh}" Command="{Binding RefreshCommand}" MinWidth="90" ToolTip.Tip="Rescan the logs directory"/>
-                        <Button Grid.Column="2" Content="{Binding LocalizedReload}" Command="{Binding ReloadCommand}" MinWidth="90" ToolTip.Tip="Reload the currently selected log"/>
-                        <Button Grid.Column="3" Content="{Binding LocalizedTrim}" Command="{Binding TrimSelectedCommand}" MinWidth="100" ToolTip.Tip="Apply debug maintenance settings to trim this log file" Background="{DynamicResource App.Warning}" Foreground="White"/>
-                        <Button Grid.Column="4" Content="{Binding LocalizedCopyPath}" Command="{Binding CopyPathCommand}" MinWidth="90" ToolTip.Tip="Copy the selected log's full path"/>
-                        <Button Grid.Column="5" Content="{Binding LocalizedOpenFolder}" Command="{Binding OpenFolderCommand}" MinWidth="100" ToolTip.Tip="Open the logs folder in your file explorer"/>
-                        <ToggleSwitch Grid.Column="6"
-                                      Content="Autoscroll"
-                                      IsChecked="{Binding AutoscrollEnabled}"
-                                      VerticalAlignment="Center"
-                                      MinWidth="110"
-                                      ToolTip.Tip="Keep the view pinned to the latest log entries"/>
+                        <Button Grid.Column="1" Classes="ux-smooth" Content="{Binding LocalizedRefresh}" Command="{Binding RefreshCommand}" MinWidth="90" ToolTip.Tip="Rescan the logs directory"/>
+                        <Button Grid.Column="2" Classes="ux-smooth" Content="{Binding LocalizedReload}" Command="{Binding ReloadCommand}" MinWidth="90" ToolTip.Tip="Reload the currently selected log"/>
+                        <Button Grid.Column="3" Classes="ux-smooth" Content="{Binding LocalizedTrim}" Command="{Binding TrimSelectedCommand}" MinWidth="100" ToolTip.Tip="Apply debug maintenance settings to trim this log file" Background="{DynamicResource App.Warning}" Foreground="White"/>
+                        <Button Grid.Column="4" Classes="ux-smooth" Content="{Binding LocalizedCopyPath}" Command="{Binding CopyPathCommand}" MinWidth="90" ToolTip.Tip="Copy the selected log's full path"/>
+                        <Button Grid.Column="5" Classes="ux-smooth" Content="{Binding LocalizedOpenFolder}" Command="{Binding OpenFolderCommand}" MinWidth="100" ToolTip.Tip="Open the logs folder in your file explorer"/>
                     </Grid>
                     <TextBlock Text="{Binding StatusMessage}"
                                Foreground="{DynamicResource App.ForegroundSecondary}"
@@ -184,6 +200,45 @@
                             </ContentControl.ContentTemplate>
                         </ContentControl>
                     </Grid>
+
+                    <Button x:Name="JumpToLatestButton"
+                            Classes="ux-smooth"
+                            ToolTip.Tip="Jump to bottom"
+                            IsVisible="False"
+                            Width="38"
+                            Height="38"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom"
+                            Margin="0,0,12,12"
+                            Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Background="{DynamicResource App.SurfaceHover}"
+                            BorderThickness="0"
+                            CornerRadius="8"
+                            Foreground="{DynamicResource App.ForegroundPrimary}">
+                        <Grid Width="20" Height="20">
+                            <TextBlock Text="&#xE70D;" Classes="icon-mdl2" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Border x:Name="JumpToLatestCountBadge"
+                                    IsVisible="False"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Top"
+                                    Margin="0,-4,-6,0"
+                                    Background="{DynamicResource App.Accent}"
+                                    CornerRadius="9"
+                                    Padding="5,0"
+                                    MinWidth="16"
+                                    Height="16">
+                                <TextBlock x:Name="JumpToLatestCountText"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="White"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="0"/>
+                            </Border>
+                        </Grid>
+                    </Button>
                     
                     <!-- Empty state overlay -->
                     <Border Background="#AA000000"

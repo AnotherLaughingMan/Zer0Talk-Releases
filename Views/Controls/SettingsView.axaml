@@ -4,6 +4,29 @@
              xmlns:vm="clr-namespace:Zer0Talk.ViewModels"
              x:Class="Zer0Talk.Views.Controls.SettingsView"
              x:DataType="vm:SettingsViewModel">
+  <UserControl.Styles>
+    <Style Selector="Border.general-card">
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Padding" Value="16"/>
+      <Setter Property="MaxWidth" Value="680"/>
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+      <Setter Property="Background" Value="{DynamicResource App.Surface}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+    </Style>
+    <Style Selector="TextBlock.general-section-title">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Margin" Value="0,0,0,2"/>
+    </Style>
+    <Style Selector="Border.general-divider">
+      <Setter Property="Height" Value="1"/>
+      <Setter Property="Background" Value="{DynamicResource App.Border}"/>
+      <Setter Property="Opacity" Value="0.4"/>
+      <Setter Property="MaxWidth" Value="680"/>
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+      <Setter Property="Margin" Value="0,4,0,4"/>
+    </Style>
+  </UserControl.Styles>
   <Grid ColumnDefinitions="200,1,*">
     <Border Grid.Column="0" Background="{DynamicResource App.Surface}" BorderThickness="0">
       <ListBox x:Name="MenuList" SelectedIndex="0" BorderThickness="0">
@@ -96,48 +119,62 @@
         <StackPanel Margin="8" Spacing="16">
           <TextBlock Text="{Binding LocalizedGeneral}" FontWeight="SemiBold" FontSize="18"/>
 
-          <!-- Presence -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <!-- Presence Defaults -->
+          <Border Classes="general-card">
             <StackPanel Spacing="8">
-              <TextBlock Text="{Binding LocalizedDefaultPresence}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedDefaultPresence}"/>
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
                 <TextBlock Text="{Binding LocalizedStatus}" VerticalAlignment="Center"/>
                 <ComboBox Grid.Column="1" ItemsSource="{Binding PresenceItems}" SelectedIndex="{Binding DefaultPresenceIndex}" Width="150"
                           ToolTip.Tip="{Binding LocalizedDefaultPresenceHelp}"/>
               </Grid>
               <TextBlock Text="{Binding LocalizedOfflineAutomatic}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
-              
-              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
+            </StackPanel>
+          </Border>
+
+          <!-- Notifications -->
+          <Border Classes="general-card">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedNotifications}"/>
+
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,4,0,0">
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding SuppressNotificationsInDnd}" ToolTip.Tip="{Binding LocalizedSuppressNotifications}"/>
                 <TextBlock Grid.Column="1" Text="{Binding LocalizedSuppressNotifications}" VerticalAlignment="Center"/>
               </Grid>
-              
-              <!-- Notification Duration Controls -->
-              <StackPanel Spacing="8" Margin="0,12,0,0">
+
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableNotificationBellFlash}" ToolTip.Tip="{Binding LocalizedNotificationBellFlashHelp}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding LocalizedEnableNotificationBellFlash}" VerticalAlignment="Center"/>
+                  <TextBlock Text="{Binding LocalizedNotificationBellFlashHelp}"
+                             FontSize="11"
+                             Foreground="{DynamicResource App.SecondaryText}"/>
+                </StackPanel>
+              </Grid>
+
+              <StackPanel Spacing="8" Margin="0,8,0,0">
                 <TextBlock Text="{Binding LocalizedNotificationDuration}" FontWeight="Medium"/>
                 <Grid ColumnDefinitions="120,*,80,80" RowDefinitions="Auto,Auto" RowSpacing="8" ColumnSpacing="12">
-                  <!-- Slider Row -->
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding LocalizedDuration}" VerticalAlignment="Center" FontSize="12"/>
-                  <Slider Grid.Row="0" Grid.Column="1" 
-                          Minimum="0.5" Maximum="20" 
+                  <Slider Grid.Row="0" Grid.Column="1"
+                          Minimum="0.5" Maximum="20"
                           Value="{Binding NotificationDurationSeconds, Mode=TwoWay}"
-                          TickFrequency="0.5" 
+                          TickFrequency="0.5"
                           IsSnapToTickEnabled="True"
                           ToolTip.Tip="Drag to adjust notification display duration"/>
-                  <Border Grid.Row="0" Grid.Column="2" 
-                          BorderBrush="{DynamicResource App.Border}" 
-                          BorderThickness="1" 
-                          CornerRadius="4" 
-                          Padding="6,0" 
-                          Height="28" 
+                  <Border Grid.Row="0" Grid.Column="2"
+                          BorderBrush="{DynamicResource App.Border}"
+                          BorderThickness="1"
+                          CornerRadius="4"
+                          Padding="6,0"
+                          Height="28"
                           HorizontalAlignment="Center">
-                    <TextBlock Text="{Binding NotificationDurationSeconds, StringFormat='{}{0:F1}s'}" 
-                               VerticalAlignment="Center" 
-                               FontFamily="Consolas" 
+                    <TextBlock Text="{Binding NotificationDurationSeconds, StringFormat='{}{0:F1}s'}"
+                               VerticalAlignment="Center"
+                               FontFamily="Consolas"
                                FontSize="11"/>
                   </Border>
-                  
-                  <!-- Input Box Row -->
+
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding LocalizedPrecise}" VerticalAlignment="Center" FontSize="12"/>
                   <NumericUpDown Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
                                  Value="{Binding NotificationDurationSeconds, Mode=TwoWay}"
@@ -157,24 +194,29 @@
                   <Run Text="{Binding LocalizedSeconds}" FontWeight="Medium"/>
                 </TextBlock>
               </StackPanel>
+            </StackPanel>
+          </Border>
 
-              <!-- Notification Bell Flash -->
-              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableNotificationBellFlash}" ToolTip.Tip="{Binding LocalizedNotificationBellFlashHelp}"/>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                  <TextBlock Text="{Binding LocalizedEnableNotificationBellFlash}" VerticalAlignment="Center"/>
-                  <TextBlock Text="{Binding LocalizedNotificationBellFlashHelp}" 
-                             FontSize="11" 
-                             Foreground="{DynamicResource App.SecondaryText}"/>
-                </StackPanel>
-              </Grid>
+          <!-- Updates & Scrolling -->
+          <Border Classes="general-card">
+            <StackPanel Spacing="8">
+              <TextBlock Classes="general-section-title" Text="Updates and Scrolling"/>
 
-              <!-- Auto Updates -->
-              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,4,0,0">
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding AllowAutoUpdates}" ToolTip.Tip="{Binding LocalizedAllowAutoUpdatesHelp}"/>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                   <TextBlock Text="{Binding LocalizedAllowAutoUpdates}" VerticalAlignment="Center"/>
                   <TextBlock Text="{Binding LocalizedAllowAutoUpdatesHelp}"
+                             FontSize="11"
+                             Foreground="{DynamicResource App.SecondaryText}"/>
+                </StackPanel>
+              </Grid>
+
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableSmoothScrolling}" ToolTip.Tip="{Binding LocalizedEnableSmoothScrollingHelp}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding LocalizedEnableSmoothScrolling}" VerticalAlignment="Center"/>
+                  <TextBlock Text="{Binding LocalizedEnableSmoothScrollingHelp}"
                              FontSize="11"
                              Foreground="{DynamicResource App.SecondaryText}"/>
                 </StackPanel>
@@ -195,17 +237,16 @@
                 <Run Text=" "/>
                 <Run Text="{Binding LastAutoUpdateCheckDisplay}" FontWeight="SemiBold"/>
               </TextBlock>
-              
             </StackPanel>
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Auto-Lock -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="8">
-              <TextBlock Text="{Binding LocalizedAutoLock}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedAutoLock}"/>
               <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalizedEnableAutoLock}" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding AutoLockEnabled}" ToolTip.Tip="{Binding LocalizedAutoLockHelp}"/>
@@ -219,12 +260,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Lock Blur Radius -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="8">
-              <TextBlock Text="{Binding LocalizedLockBlurRadius}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedLockBlurRadius}"/>
               <Grid ColumnDefinitions="280,Auto" ColumnSpacing="12">
                 <Slider Grid.Column="0" Value="{Binding LockBlurRadius}" Minimum="0" Maximum="10" Width="280"
                   ToolTip.Tip="{Binding LocalizedLockBlurHelp}"/>
@@ -244,12 +285,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Privacy -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="8">
-              <TextBlock Text="{Binding LocalizedPrivacy}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedPrivacy}"/>
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
                 <TextBlock Grid.Column="1" Text="{Binding LocalizedBlockScreenCapture}" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding BlockScreenCapture}" ToolTip.Tip="{Binding LocalizedScreenCaptureWarning}"/>
@@ -269,12 +310,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Key Visibility -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="8">
-              <TextBlock Text="{Binding LocalizedKeyVisibility}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedKeyVisibility}"/>
               <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
                 <TextBlock Grid.Column="1" Text="{Binding LocalizedShowPublicKeys}" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowPublicKeys}" ToolTip.Tip="{Binding LocalizedShowPublicKeysHelp}"/>
@@ -283,12 +324,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Audio Settings -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedAudio}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedAudio}"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
                 <Run Text="{Binding LocalizedAudioHelp}"/>
               </TextBlock>
@@ -371,12 +412,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- System Tray -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedSystemTray}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedSystemTray}"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
                 <Run Text="{Binding LocalizedSystemTrayHelp}"/>
               </TextBlock>

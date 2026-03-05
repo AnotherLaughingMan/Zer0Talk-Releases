@@ -144,6 +144,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(Language),
         nameof(DefaultPresenceIndex),
         nameof(AllowAutoUpdates),
+        nameof(EnableSmoothScrolling),
         nameof(SuppressNotificationsInDnd),
         nameof(NotificationDurationSeconds),
         nameof(EnableNotificationBellFlash),
@@ -335,6 +336,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Baseline: General additions
     private int _baseDefaultPresenceIndex;
     private bool _baseAllowAutoUpdates;
+    private bool _baseEnableSmoothScrolling;
     private bool _baseSuppressNotificationsInDnd;
     private double _baseNotificationDurationSeconds;
     private bool _baseEnableNotificationBellFlash;
@@ -463,6 +465,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             EnhancedKeyboardNavigation = settings.EnhancedKeyboardNavigation;
             DefaultPresenceIndex = PresenceToIndex(settings.Status);
             AllowAutoUpdates = settings.AutoUpdateEnabled;
+            EnableSmoothScrolling = settings.EnableSmoothScrolling;
             UpdateLastAutoUpdateCheckDisplay(settings.LastAutoUpdateCheckUtc);
             SuppressNotificationsInDnd = settings.SuppressNotificationsInDnd;
             NotificationDurationSeconds = Math.Clamp(settings.NotificationDurationSeconds, 0.5, 30.0);
@@ -773,6 +776,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             LockBlurRadius = ClampRange(s.LockBlurRadius, 0, 10);
             DefaultPresenceIndex = PresenceToIndex(s.Status);
             AllowAutoUpdates = s.AutoUpdateEnabled;
+            EnableSmoothScrolling = s.EnableSmoothScrolling;
             UpdateLastAutoUpdateCheckDisplay(s.LastAutoUpdateCheckUtc);
             SuppressNotificationsInDnd = s.SuppressNotificationsInDnd;
             NotificationDurationSeconds = Math.Clamp(s.NotificationDurationSeconds, 0.5, 30.0);
@@ -2002,6 +2006,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedOfflineAutomatic => Services.AppServices.Localization.GetString("Settings.OfflineAutomatic", "Offline is automatic only and cannot be selected.");
     public string LocalizedAllowAutoUpdates => Services.AppServices.Localization.GetString("Settings.AllowAutoUpdates", "Allow Auto Updates");
     public string LocalizedAllowAutoUpdatesHelp => Services.AppServices.Localization.GetString("Settings.AllowAutoUpdatesHelp", "Automatically check for and prompt to install new versions.");
+    public string LocalizedEnableSmoothScrolling => Services.AppServices.Localization.GetString("Settings.EnableSmoothScrolling", "Enable smooth scrolling");
+    public string LocalizedEnableSmoothScrollingHelp => Services.AppServices.Localization.GetString("Settings.EnableSmoothScrollingHelp", "Use animated scrolling in log viewers and live feeds.");
     public string LocalizedCheckForUpdatesNow => Services.AppServices.Localization.GetString("Settings.CheckForUpdatesNow", "Check for Updates Now");
     public string LocalizedCheckForUpdatesNowHelp => Services.AppServices.Localization.GetString("Settings.CheckForUpdatesNowHelp", "Runs an immediate update check even when auto updates are disabled.");
     public string LocalizedLastUpdateCheck => Services.AppServices.Localization.GetString("Settings.LastUpdateCheck", "Last checked:");
@@ -2702,6 +2708,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedOfflineAutomatic));
             OnPropertyChanged(nameof(LocalizedAllowAutoUpdates));
             OnPropertyChanged(nameof(LocalizedAllowAutoUpdatesHelp));
+            OnPropertyChanged(nameof(LocalizedEnableSmoothScrolling));
+            OnPropertyChanged(nameof(LocalizedEnableSmoothScrollingHelp));
             OnPropertyChanged(nameof(LocalizedCheckForUpdatesNow));
             OnPropertyChanged(nameof(LocalizedCheckForUpdatesNowHelp));
             OnPropertyChanged(nameof(LocalizedLastUpdateCheck));
@@ -3068,6 +3076,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private bool _allowAutoUpdates;
     public bool AllowAutoUpdates { get => _allowAutoUpdates; set { if (_allowAutoUpdates != value) { _allowAutoUpdates = value; OnPropertyChanged(); } } }
 
+    private bool _enableSmoothScrolling = true;
+    public bool EnableSmoothScrolling { get => _enableSmoothScrolling; set { if (_enableSmoothScrolling != value) { _enableSmoothScrolling = value; OnPropertyChanged(); } } }
+
     private string? _lastAutoUpdateCheckUtcRaw;
     private string _lastAutoUpdateCheckDisplay = "Never";
     public string LastAutoUpdateCheckDisplay
@@ -3199,7 +3210,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             await AppServices.AutoUpdate.CheckForUpdatesAsync(userInitiated: true, System.Threading.CancellationToken.None);
             UpdateLastAutoUpdateCheckDisplay(_settings.Settings.LastAutoUpdateCheckUtc);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            try { Logger.Log($"Settings: CheckForUpdatesNow failed - {ex.Message}"); } catch { }
+            try { AppServices.Notifications.PostNotice(Models.NotificationType.Warning, "Update check failed. See logs for details.", isPersistent: true); } catch { }
+        }
     }
 
     private static void OpenFileInShell(string filePath)
@@ -3740,6 +3755,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             // General additions
             s.Status = IndexToPresence(DefaultPresenceIndex);
             s.AutoUpdateEnabled = AllowAutoUpdates;
+            s.EnableSmoothScrolling = EnableSmoothScrolling;
             s.SuppressNotificationsInDnd = SuppressNotificationsInDnd;
             s.NotificationDurationSeconds = Math.Clamp(NotificationDurationSeconds, 0.5, 30.0);
             s.EnableNotificationBellFlash = EnableNotificationBellFlash;
@@ -3952,8 +3968,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             if (!Utilities.LoggingPaths.Enabled) return;
-            var path = System.IO.Path.Combine(AppContext.BaseDirectory, "logs", "settings.log");
-            System.IO.File.AppendAllText(path, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {line}\n");
+            Utilities.LoggingPaths.TryWrite(Utilities.LoggingPaths.Settings, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {line}{Environment.NewLine}");
         }
         catch { }
     }
@@ -4050,6 +4065,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (!string.Equals(_baseLanguage ?? "English (US)", Language ?? "English (US)", StringComparison.Ordinal)) return true;
             if (_baseDefaultPresenceIndex != _defaultPresenceIndex) return true;
             if (_baseAllowAutoUpdates != _allowAutoUpdates) return true;
+            if (_baseEnableSmoothScrolling != _enableSmoothScrolling) return true;
             if (_baseSuppressNotificationsInDnd != _suppressNotificationsInDnd) return true;
             if (Math.Abs(_baseNotificationDurationSeconds - _notificationDurationSeconds) > 0.01) return true;
             if (_baseAutoLockEnabled != _autoLockEnabled) return true;
@@ -4153,6 +4169,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseLanguage = Language ?? "English (US)";
             _baseDefaultPresenceIndex = _defaultPresenceIndex;
             _baseAllowAutoUpdates = _allowAutoUpdates;
+            _baseEnableSmoothScrolling = _enableSmoothScrolling;
             _baseSuppressNotificationsInDnd = _suppressNotificationsInDnd;
             _baseNotificationDurationSeconds = _notificationDurationSeconds;
             _baseEnableNotificationBellFlash = _enableNotificationBellFlash;
@@ -5224,7 +5241,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            var files = System.IO.Directory.GetFiles(logsDir, "*.log");
+            var files = System.IO.Directory.GetFiles(logsDir, "*", System.IO.SearchOption.TopDirectoryOnly)
+                .Where(file =>
+                {
+                    var ext = System.IO.Path.GetExtension(file);
+                    return string.Equals(ext, ".log", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(ext, ".txt", StringComparison.OrdinalIgnoreCase);
+                })
+                .ToArray();
             if (files.Length == 0)
             {
                 _ = ShowToastAsync("No log files to purge");

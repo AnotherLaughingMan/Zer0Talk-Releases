@@ -328,7 +328,7 @@
   "MainWindow": {
     "ToggleContacts": "切换联系人",
     "OpenNotifications": "打开通知",
-    "LockLogout": "锁定/登出",
+    "LockLogout": "登出",
     "Minimize": "最小化",
     "Maximize": "最大化/还原",
     "Close": "关闭",
@@ -358,6 +358,7 @@
     "TypeMessage": "输入消息",
     "SendMessage": "发送消息",
     "JumpToPresent": "跳转到当前",
+    "JumpToLatest": "Jump to latest message",
     "PendingInvites": "待处理的邀请",
     "Previous": "上一个",
     "Next": "下一个",
@@ -399,7 +400,17 @@
     "Presence": "状态",
     "CopyPublicKey": "复制公钥",
     "CloseEsc": "关闭 (Esc)",
-    "Invisible": "隐身"
+    "Invisible": "隐身",
+    "StatusBar.ConnectedPeers": "已连接的对等方",
+    "StatusBar.StreamerMode": "直播模式",
+    "StatusBar.StreamerModeActive": "直播模式",
+    "ViewVerificationHistory": "查看历史",
+    "SearchContacts": "搜索联系人...",
+    "ConnectionDirect": "直接连接",
+    "ConnectionRelay": "中继连接",
+    "DeliveryPending": "发送中...",
+    "DeliverySent": "已发送",
+    "DeliveryDelivered": "已送达"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk 主题编辑器",
@@ -585,6 +596,7 @@
     "OpenFolderTooltip": "在文件资源管理器中打开日志文件夹",
     "Autoscroll": "自动滚动",
     "AutoscrollTooltip": "保持视图固定在最新的日志条目",
+    "JumpToBottom": "Jump to bottom",
     "Loading": "加载中...",
     "NoLogFiles": "未找到日志文件",
     "RefreshToScan": "使用刷新重新扫描日志目录。"

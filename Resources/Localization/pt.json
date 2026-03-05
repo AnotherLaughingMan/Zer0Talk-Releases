@@ -328,7 +328,7 @@
   "MainWindow": {
     "ToggleContacts": "Alternar Contatos",
     "OpenNotifications": "Abrir Notificações",
-    "LockLogout": "Bloquear / Sair",
+    "LockLogout": "Sair",
     "Minimize": "Minimizar",
     "Maximize": "Maximizar / Restaurar",
     "Close": "Fechar",
@@ -358,6 +358,7 @@
     "TypeMessage": "Digite uma mensagem",
     "SendMessage": "Enviar mensagem",
     "JumpToPresent": "Pular para o presente",
+    "JumpToLatest": "Jump to latest message",
     "PendingInvites": "Convites Pendentes",
     "Previous": "Anterior",
     "Next": "Próximo",
@@ -399,7 +400,17 @@
     "Presence": "Presença",
     "CopyPublicKey": "Copiar chave pública",
     "CloseEsc": "Fechar (Esc)",
-    "Invisible": "Invisível"
+    "Invisible": "Invisível",
+    "StatusBar.ConnectedPeers": "Pares conectados",
+    "StatusBar.StreamerMode": "Modo streamer",
+    "StatusBar.StreamerModeActive": "MODO STREAMER",
+    "ViewVerificationHistory": "Ver histórico",
+    "SearchContacts": "Pesquisar contatos...",
+    "ConnectionDirect": "Conexão direta",
+    "ConnectionRelay": "Conexão por relay",
+    "DeliveryPending": "Enviando...",
+    "DeliverySent": "Enviado",
+    "DeliveryDelivered": "Entregue"
   },
   "ThemeEditor": {
     "Title": "Editor de temas Zer0Talk",
@@ -585,6 +596,7 @@
     "OpenFolderTooltip": "Abrir a pasta de logs no seu explorador de arquivos",
     "Autoscroll": "Rolagem Automática",
     "AutoscrollTooltip": "Manter a visualização fixada nas entradas de log mais recentes",
+    "JumpToBottom": "Jump to bottom",
     "Loading": "Carregando...",
     "NoLogFiles": "Nenhum arquivo de log encontrado",
     "RefreshToScan": "Use Atualizar para reescanear o diretório de logs."

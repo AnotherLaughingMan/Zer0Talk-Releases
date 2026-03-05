@@ -328,7 +328,7 @@
   "MainWindow": {
     "ToggleContacts": "連絡先を切り替え",
     "OpenNotifications": "通知を開く",
-    "LockLogout": "ロック / ログアウト",
+    "LockLogout": "ログアウト",
     "Minimize": "最小化",
     "Maximize": "最大化 / 復元",
     "Close": "閉じる",
@@ -358,6 +358,7 @@
     "TypeMessage": "メッセージを入力",
     "SendMessage": "メッセージを送信",
     "JumpToPresent": "現在に移動",
+    "JumpToLatest": "Jump to latest message",
     "PendingInvites": "保留中の招待",
     "Previous": "前へ",
     "Next": "次へ",
@@ -399,7 +400,17 @@
     "Presence": "プレゼンス",
     "CopyPublicKey": "公開鍵をコピー",
     "CloseEsc": "閉じる (Esc)",
-    "Invisible": "不可視"
+    "Invisible": "不可視",
+    "StatusBar.ConnectedPeers": "接続中のピア",
+    "StatusBar.StreamerMode": "配信モード",
+    "StatusBar.StreamerModeActive": "配信モード",
+    "ViewVerificationHistory": "履歴を表示",
+    "SearchContacts": "連絡先を検索...",
+    "ConnectionDirect": "直接接続",
+    "ConnectionRelay": "リレー接続",
+    "DeliveryPending": "送信中...",
+    "DeliverySent": "送信済み",
+    "DeliveryDelivered": "配信済み"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk テーマエディター",
@@ -585,6 +596,7 @@
     "OpenFolderTooltip": "ファイルエクスプローラーでログフォルダーを開く",
     "Autoscroll": "自動スクロール",
     "AutoscrollTooltip": "最新のログエントリにビューを固定",
+    "JumpToBottom": "Jump to bottom",
     "Loading": "読み込み中...",
     "NoLogFiles": "ログファイルが見つかりません",
     "RefreshToScan": "ログディレクトリを再スキャンするには更新を使用してください。"

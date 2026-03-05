@@ -81,6 +81,37 @@ namespace Zer0Talk.Models
     private PresenceSource _presenceSource = PresenceSource.Unknown;
     public PresenceSource PresenceSource { get => _presenceSource; set { if (_presenceSource != value) { _presenceSource = value; OnPropertyChanged(nameof(PresenceSource)); } } }
 
+    // Transient: last message preview for contact list display
+    [JsonIgnore]
+    private string? _lastMessagePreview;
+    public string? LastMessagePreview { get => _lastMessagePreview; set { if (_lastMessagePreview != value) { _lastMessagePreview = value; OnPropertyChanged(nameof(LastMessagePreview)); OnPropertyChanged(nameof(HasLastMessage)); } } }
+    [JsonIgnore]
+    private System.DateTime? _lastMessageUtc;
+    public System.DateTime? LastMessageUtc { get => _lastMessageUtc; set { if (_lastMessageUtc != value) { _lastMessageUtc = value; OnPropertyChanged(nameof(LastMessageUtc)); OnPropertyChanged(nameof(LastMessageTimeDisplay)); } } }
+    [JsonIgnore]
+    public bool HasLastMessage => !string.IsNullOrWhiteSpace(_lastMessagePreview);
+    [JsonIgnore]
+    public string LastMessageTimeDisplay => _lastMessageUtc.HasValue ? _lastMessageUtc.Value.ToLocalTime().ToString("HH:mm") : string.Empty;
+
+    // Transient: unread message count for badge display
+    [JsonIgnore]
+    private int _unreadCount;
+    public int UnreadCount { get => _unreadCount; set { if (_unreadCount != value) { _unreadCount = value; OnPropertyChanged(nameof(UnreadCount)); OnPropertyChanged(nameof(HasUnread)); } } }
+    [JsonIgnore]
+    public bool HasUnread => _unreadCount > 0;
+
+    // Transient: connection mode (None, Direct, Relay)
+    [JsonIgnore]
+    private ConnectionMode _connectionMode = ConnectionMode.None;
+    public ConnectionMode ConnectionMode { get => _connectionMode; set { if (_connectionMode != value) { _connectionMode = value; OnPropertyChanged(nameof(ConnectionMode)); } } }
+
+    // Transient: peer's app version (set when identity is exchanged)
+    [JsonIgnore]
+    private string? _peerVersion;
+    public string? PeerVersion { get => _peerVersion; set { if (_peerVersion != value) { _peerVersion = value; OnPropertyChanged(nameof(PeerVersion)); OnPropertyChanged(nameof(HasVersionMismatch)); } } }
+    [JsonIgnore]
+    public bool HasVersionMismatch => !string.IsNullOrEmpty(_peerVersion) && !AppInfo.IsVersionCompatible(AppInfo.Version, _peerVersion);
+
         public Contact() { }
 
         public override string ToString() => string.IsNullOrWhiteSpace(DisplayName) ? DisplayUID : DisplayName;

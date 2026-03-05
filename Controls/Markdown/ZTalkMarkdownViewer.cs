@@ -336,10 +336,7 @@ namespace Zer0Talk.Controls.Markdown
         try
         {
             var truncated = CreatePreview(markdown, 200);
-            
-            // CRITICAL: Use local Logs/ folder, NOT AppData
-            var exeDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? ".";
-            var logPath = System.IO.Path.Combine(exeDir, "logs", "markdown-errors.log");
+            var logPath = LoggingPaths.MarkdownErrors;
             
             var logDir = System.IO.Path.GetDirectoryName(logPath);
             if (!string.IsNullOrEmpty(logDir) && !System.IO.Directory.Exists(logDir))
@@ -370,8 +367,7 @@ namespace Zer0Talk.Controls.Markdown
     {
         try
         {
-            var exeDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? ".";
-            var logPath = System.IO.Path.Combine(exeDir, "logs", "markdown-trace.log");
+            var logPath = LoggingPaths.MarkdownTrace;
             var logDir = System.IO.Path.GetDirectoryName(logPath);
             if (!string.IsNullOrEmpty(logDir) && !System.IO.Directory.Exists(logDir))
                 System.IO.Directory.CreateDirectory(logDir);
@@ -391,13 +387,12 @@ namespace Zer0Talk.Controls.Markdown
     {
         try
         {
-            var exeDir = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? ".";
-            var logsDir = System.IO.Path.Combine(exeDir, "logs");
+            var logsDir = LoggingPaths.LogsDirectory;
             if (!System.IO.Directory.Exists(logsDir))
                 System.IO.Directory.CreateDirectory(logsDir);
 
-            var errorPath = System.IO.Path.Combine(logsDir, "markdown-errors.log");
-            var tracePath = System.IO.Path.Combine(logsDir, "markdown-trace.log");
+            var errorPath = LoggingPaths.MarkdownErrors;
+            var tracePath = LoggingPaths.MarkdownTrace;
 
             // Archive old error log if it exists and is over 1MB
             if (System.IO.File.Exists(errorPath))

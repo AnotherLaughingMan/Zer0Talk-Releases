@@ -328,7 +328,7 @@
   "MainWindow": {
     "ToggleContacts": "Переключить контакты",
     "OpenNotifications": "Открыть уведомления",
-    "LockLogout": "Блокировка / Выход",
+    "LockLogout": "Выход",
     "Minimize": "Свернуть",
     "Maximize": "Развернуть / Восстановить",
     "Close": "Закрыть",
@@ -358,6 +358,7 @@
     "TypeMessage": "Введите сообщение",
     "SendMessage": "Отправить сообщение",
     "JumpToPresent": "Перейти к настоящему",
+    "JumpToLatest": "Jump to latest message",
     "PendingInvites": "Ожидающие приглашения",
     "Previous": "Предыдущее",
     "Next": "Следующее",
@@ -399,7 +400,17 @@
     "Presence": "Статус",
     "CopyPublicKey": "Копировать открытый ключ",
     "CloseEsc": "Закрыть (Esc)",
-    "Invisible": "Невидимый"
+    "Invisible": "Невидимый",
+    "StatusBar.ConnectedPeers": "Подключённые пиры",
+    "StatusBar.StreamerMode": "Режим стримера",
+    "StatusBar.StreamerModeActive": "РЕЖИМ СТРИМЕРА",
+    "ViewVerificationHistory": "Просмотр истории",
+    "SearchContacts": "Поиск контактов...",
+    "ConnectionDirect": "Прямое подключение",
+    "ConnectionRelay": "Подключение через ретранслятор",
+    "DeliveryPending": "Отправка...",
+    "DeliverySent": "Отправлено",
+    "DeliveryDelivered": "Доставлено"
   },
   "ThemeEditor": {
     "Title": "Редактор тем Zer0Talk",
@@ -585,6 +596,7 @@
     "OpenFolderTooltip": "Открыть папку журналов в файловом проводнике",
     "Autoscroll": "Автопрокрутка",
     "AutoscrollTooltip": "Держать вид прикреплённым к последним записям журнала",
+    "JumpToBottom": "Jump to bottom",
     "Loading": "Загрузка...",
     "NoLogFiles": "Файлы журналов не найдены",
     "RefreshToScan": "Используйте Обновить для повторного сканирования каталога журналов."

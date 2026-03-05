@@ -328,7 +328,7 @@
   "MainWindow": {
     "ToggleContacts": "Kontakte umschalten",
     "OpenNotifications": "Benachrichtigungen öffnen",
-    "LockLogout": "Sperren / Abmelden",
+    "LockLogout": "Abmelden",
     "Minimize": "Minimieren",
     "Maximize": "Maximieren / Wiederherstellen",
     "Close": "Schließen",
@@ -358,6 +358,7 @@
     "TypeMessage": "Nachricht eingeben",
     "SendMessage": "Nachricht senden",
     "JumpToPresent": "Zur Gegenwart springen",
+    "JumpToLatest": "Jump to latest message",
     "PendingInvites": "Ausstehende Einladungen",
     "Previous": "Vorherige",
     "Next": "Nächste",
@@ -399,7 +400,17 @@
     "Presence": "Anwesenheit",
     "CopyPublicKey": "Öffentlichen Schlüssel kopieren",
     "CloseEsc": "Schließen (Esc)",
-    "Invisible": "Unsichtbar"
+    "Invisible": "Unsichtbar",
+    "StatusBar.ConnectedPeers": "Verbundene Peers",
+    "StatusBar.StreamerMode": "Streamer-Modus",
+    "StatusBar.StreamerModeActive": "STREAMER-MODUS",
+    "ViewVerificationHistory": "Verlauf anzeigen",
+    "SearchContacts": "Kontakte suchen...",
+    "ConnectionDirect": "Direktverbindung",
+    "ConnectionRelay": "Relay-Verbindung",
+    "DeliveryPending": "Wird gesendet...",
+    "DeliverySent": "Gesendet",
+    "DeliveryDelivered": "Zugestellt"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk-Themeneditor",
@@ -585,6 +596,7 @@
     "OpenFolderTooltip": "Den Protokollordner in Ihrem Datei-Explorer öffnen",
     "Autoscroll": "Auto-Scroll",
     "AutoscrollTooltip": "Ansicht an den neuesten Protokolleinträgen fixieren",
+    "JumpToBottom": "Jump to bottom",
     "Loading": "Wird geladen...",
     "NoLogFiles": "Keine Protokolldateien gefunden",
     "RefreshToScan": "Verwenden Sie Aktualisieren, um das Protokollverzeichnis erneut zu scannen."

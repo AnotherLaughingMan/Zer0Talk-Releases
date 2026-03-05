@@ -328,7 +328,7 @@
   "MainWindow": {
     "ToggleContacts": "Alternar contactos",
     "OpenNotifications": "Abrir notificaciones",
-    "LockLogout": "Bloquear / Cerrar sesión",
+    "LockLogout": "Cerrar sesión",
     "Minimize": "Minimizar",
     "Maximize": "Maximizar / Restaurar",
     "Close": "Cerrar",
@@ -358,6 +358,7 @@
     "TypeMessage": "Escribe un mensaje",
     "SendMessage": "Enviar mensaje",
     "JumpToPresent": "Ir al presente",
+    "JumpToLatest": "Jump to latest message",
     "PendingInvites": "Invitaciones pendientes",
     "Previous": "Anterior",
     "Next": "Siguiente",
@@ -399,7 +400,17 @@
     "Presence": "Presencia",
     "CopyPublicKey": "Copiar clave pública",
     "CloseEsc": "Cerrar (Esc)",
-    "Invisible": "Oculto"
+    "Invisible": "Oculto",
+    "StatusBar.ConnectedPeers": "Pares conectados",
+    "StatusBar.StreamerMode": "Modo streamer",
+    "StatusBar.StreamerModeActive": "MODO STREAMER",
+    "ViewVerificationHistory": "Ver historial",
+    "SearchContacts": "Buscar contactos...",
+    "ConnectionDirect": "Conexión directa",
+    "ConnectionRelay": "Conexión por relay",
+    "DeliveryPending": "Enviando...",
+    "DeliverySent": "Enviado",
+    "DeliveryDelivered": "Entregado"
   },
   "ThemeEditor": {
     "Title": "Editor de temas de Zer0Talk",
@@ -585,6 +596,7 @@
     "OpenFolderTooltip": "Abrir la carpeta de registros en tu explorador de archivos",
     "Autoscroll": "Desplazamiento automático",
     "AutoscrollTooltip": "Mantener la vista fija en las últimas entradas del registro",
+    "JumpToBottom": "Jump to bottom",
     "Loading": "Cargando...",
     "NoLogFiles": "No se encontraron archivos de registro",
     "RefreshToScan": "Usa Actualizar para volver a escanear el directorio de registros."

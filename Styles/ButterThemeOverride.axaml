@@ -222,18 +222,27 @@
     <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
   </Style>
 
-  <!-- Contact card visuals: reduce hover/selection border thickness to 1px and avoid double borders -->
-  <!-- Target the Border with class 'contact-card' inside the Contacts list items -->
+  <!-- Contact card visuals: suppress Fluent template chrome; all visuals on .contact-card -->
   <Style Selector="#ContactsList ListBoxItem /template/ Border">
-    <!-- Remove the ListBoxItem container's border to prevent stacking with the card border -->
     <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
   <Style Selector="#ContactsList ListBoxItem:pointerover /template/ Border">
-    <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
   <Style Selector="#ContactsList ListBoxItem:selected /template/ Border">
-  <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
   </Style>
+  <!-- Contact selection indicator: accent pill on left edge when selected -->
+  <Style Selector="#ContactsList ListBoxItem Border.contact-indicator">
+    <Setter Property="Background" Value="{DynamicResource App.Border}"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:selected Border.contact-indicator">
+    <Setter Property="Background" Value="{DynamicResource App.Accent}"/>
+  </Style>
+
   <!-- Card itself: keep a subtle 1px outline; change only the brush on hover/selection -->
   <Style Selector="#ContactsList ListBoxItem">
     <Setter Property="FocusAdorner" Value="{x:Null}"/>
@@ -244,7 +253,7 @@
     <Setter Property="Background" Value="Transparent"/>
   </Style>
   <Style Selector="#ContactsList ListBoxItem:pointerover Border.contact-card">
-    <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
     <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
   </Style>
   <Style Selector="#ContactsList ListBoxItem:selected Border.contact-card">
@@ -252,7 +261,11 @@
     <Setter Property="Background" Value="{DynamicResource App.ItemSelected}"/>
   </Style>
 
-  <!-- Explicitly clear any selected/focus backgrounds for ContactsList to avoid OS accent bleed -->
+  <!-- Explicitly clear any Fluent hover/selected/focus backgrounds for ContactsList -->
+  <Style Selector="#ContactsList ListBoxItem:pointerover">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
   <Style Selector="#ContactsList ListBoxItem:selected">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
@@ -354,7 +367,11 @@
     <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
   </Style>
 
-  <!-- Explicitly clear any selected/focus backgrounds for ContactsList to avoid OS accent bleed -->
+  <!-- Clear Fluent hover/selected/focus backgrounds (secondary block) -->
+  <Style Selector="#ContactsList ListBoxItem:pointerover">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
   <Style Selector="#ContactsList ListBoxItem:selected">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="BorderBrush" Value="Transparent"/>

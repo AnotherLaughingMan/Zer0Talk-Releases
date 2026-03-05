@@ -203,6 +203,13 @@
   <Style Selector="#ContactsList ListBoxItem:selected /template/ Border">
     <Setter Property="BorderThickness" Value="0"/>
   </Style>
+  <!-- Kill Fluent's built-in selection/hover indicator inside ListBoxItem template -->
+  <Style Selector="#ContactsList ListBoxItem /template/ Border#SelectionIndicator">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem /template/ Rectangle">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
   <Style Selector="#ContactsList ListBoxItem Border.contact-card">
     <Setter Property="BorderThickness" Value="1"/>
     <Setter Property="CornerRadius" Value="0"/>

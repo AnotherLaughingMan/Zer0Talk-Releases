@@ -185,6 +185,7 @@ public class AppSettings
     public bool SuppressNotificationsInDnd { get; set; } = true; // When enabled, notification toasts and audio are suppressed in Do Not Disturb mode
     public double NotificationDurationSeconds { get; set; } = 4.5; // Duration in seconds that notification toasts stay visible (0.5 to 30 seconds)
     public bool EnableNotificationBellFlash { get; set; } = true; // When enabled, the notification bell flashes for 10 seconds when new notifications arrive
+    public bool EnableSmoothScrolling { get; set; } = true; // When enabled, log/auto-follow views use eased scroll animations
     public bool NotificationQuietHoursEnabled { get; set; } = false;
     public int NotificationQuietHoursStartHour { get; set; } = 22; // local hour (0-23)
     public int NotificationQuietHoursEndHour { get; set; } = 7; // local hour (0-23)

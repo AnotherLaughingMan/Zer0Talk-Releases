@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
-    <Zer0TalkVersion>0.0.4.04</Zer0TalkVersion>
+    <Zer0TalkVersion>0.0.4.05</Zer0TalkVersion>
     <Zer0TalkPrereleaseTag>Alpha</Zer0TalkPrereleaseTag>
   </PropertyGroup>
 

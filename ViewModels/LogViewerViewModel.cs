@@ -30,7 +30,6 @@ public sealed class LogViewerViewModel : INotifyPropertyChanged, IDisposable
     private LogDocumentViewModel? _selectedTab;
     private bool _isLoading;
     private string _statusMessage = string.Empty;
-    private bool _autoscrollEnabled = true;
 
     public LogViewerViewModel()
     {
@@ -51,6 +50,7 @@ public sealed class LogViewerViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedCopyPath => AppServices.Localization.GetString("LogViewer.CopyPath", "Copy Path");
     public string LocalizedReload => AppServices.Localization.GetString("LogViewer.Reload", "Reload");
     public string LocalizedTrim => AppServices.Localization.GetString("LogViewer.Trim", "Trim");
+    public string LocalizedJumpToBottom => AppServices.Localization.GetString("LogViewer.JumpToBottom", "Jump to bottom");
     public string LocalizedClose => AppServices.Localization.GetString("Common.Close", "Close");
 
     private void RefreshLocalizedStrings()
@@ -61,6 +61,7 @@ public sealed class LogViewerViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(LocalizedCopyPath));
         OnPropertyChanged(nameof(LocalizedReload));
         OnPropertyChanged(nameof(LocalizedTrim));
+        OnPropertyChanged(nameof(LocalizedJumpToBottom));
         OnPropertyChanged(nameof(LocalizedClose));
     }
 
@@ -69,17 +70,6 @@ public sealed class LogViewerViewModel : INotifyPropertyChanged, IDisposable
     public string CurrentDirectory => LoggingPaths.LogsDirectory;
 
     public bool HasTabs => Tabs.Count > 0;
-
-    public bool AutoscrollEnabled
-    {
-        get => _autoscrollEnabled;
-        set
-        {
-            if (_autoscrollEnabled == value) return;
-            _autoscrollEnabled = value;
-            OnPropertyChanged();
-        }
-    }
 
     public bool IsLoading
     {
@@ -373,6 +363,7 @@ public sealed class LogDocumentViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public event EventHandler? AutoUpdated;
+    public event EventHandler<int>? LinesAppended;
 
     public string DisplayName => _displayName;
     public string FullPath => _fullPath;
@@ -639,11 +630,17 @@ public sealed class LogDocumentViewModel : INotifyPropertyChanged, IDisposable
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
+                var previousContent = Content;
                 Content = text;
                 SizeBytes = sizeBytes;
                 LastWriteUtc = lastWriteUtc;
                 _loadedTimestampUtc = LastWriteUtc;
                 _contentLoaded = true;
+                var appended = CountAppendedLines(previousContent, text);
+                if (appended > 0)
+                {
+                    LinesAppended?.Invoke(this, appended);
+                }
                 if (fromWatcher) AutoUpdated?.Invoke(this, EventArgs.Empty);
             });
         }
@@ -667,6 +664,34 @@ public sealed class LogDocumentViewModel : INotifyPropertyChanged, IDisposable
         return idx == 0
             ? string.Format(CultureInfo.InvariantCulture, "{0:0} {1}", size, units[idx])
             : string.Format(CultureInfo.InvariantCulture, "{0:0.0} {1}", size, units[idx]);
+    }
+
+    private static int CountAppendedLines(string? previous, string current)
+    {
+        if (string.IsNullOrEmpty(current)) return 0;
+        if (string.IsNullOrEmpty(previous))
+        {
+            return CountLines(current);
+        }
+
+        if (current.Length <= previous.Length) return 0;
+        if (!current.StartsWith(previous, StringComparison.Ordinal)) return 0;
+
+        var tail = current.Substring(previous.Length);
+        return CountLines(tail);
+    }
+
+    private static int CountLines(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return 0;
+        var lines = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '\n') lines++;
+        }
+
+        if (text.Length > 0 && text[^1] != '\n') lines++;
+        return lines;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
