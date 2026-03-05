@@ -489,7 +489,8 @@ public sealed class WanDirectoryService
             var entries = payload.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             foreach (var entry in entries)
             {
-                var fields = entry.Split(':', StringSplitOptions.TrimEntries);
+                // Session keys contain ':' (uidA:uidB), so only split the first two delimiters.
+                var fields = entry.Split(':', 3, StringSplitOptions.TrimEntries);
                 if (fields.Length != 3) continue;
                 var inviteId = fields[0];
                 var sourceUid = NormalizeUid(fields[1]);

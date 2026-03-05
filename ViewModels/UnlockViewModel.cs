@@ -111,9 +111,24 @@ namespace Zer0Talk.ViewModels
                 // Load identity keys into memory
                 AppServices.Identity.LoadFromAccount(account);
 
-                // Load settings; if decryption fails (e.g., legacy file created with dev key), reset to defaults
-                try { AppServices.Settings.Load(AppServices.Passphrase); }
-                catch { AppServices.Settings.ResetToDefaults(AppServices.Passphrase); }
+                // Load settings; if decrypt fails, recover with defaults and notify user.
+                try
+                {
+                    AppServices.Settings.Load(AppServices.Passphrase);
+                }
+                catch (Exception settingsEx)
+                {
+                    AppServices.Settings.ResetToDefaults(AppServices.Passphrase);
+                    try
+                    {
+                        AppServices.Notifications.PostNotice(
+                            Zer0Talk.Models.NotificationType.Warning,
+                            "Settings could not be decrypted and were reset to secure defaults.",
+                            isPersistent: true);
+                    }
+                    catch { }
+                    try { Zer0Talk.Utilities.Logger.Warning($"Settings auto-reset during unlock: {settingsEx.Message}", source: nameof(UnlockViewModel), categoryOverride: "settings"); } catch { }
+                }
 
                 // Load contacts (non-fatal if it fails; service logs internally)
                 AppServices.Contacts.Load(AppServices.Passphrase);

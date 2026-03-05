@@ -1,0 +1,64 @@
+{
+  "id": "vscode-monokai",
+  "displayName": "VS Code Monokai",
+  "description": "VS Code-inspired Monokai variant with warm syntax-like accents.",
+  "author": "Zer0Talk",
+  "version": "1.0.0",
+  "baseVariant": "Dark",
+  "resourceDictionaries": [
+    "avares://Zer0Talk/Styles/DarkThemeOverrides.axaml"
+  ],
+  "colorOverrides": {
+    "App.Background": "#272822",
+    "App.Surface": "#2D2E27",
+    "App.CardBackground": "#33342C",
+    "App.ForegroundPrimary": "#F8F8F2",
+    "App.ForegroundSecondary": "#B8B8AE",
+    "App.Border": "#49483E",
+    "App.InputBorder": "#49483E",
+    "App.Accent": "#A6E22E",
+    "App.AccentLight": "#66D9EF",
+    "App.SelectionBackground": "#49483E",
+    "App.SelectionForeground": "#FFFFFF",
+    "App.ButtonBackground": "#3A3B33",
+    "App.ButtonHover": "#45463D",
+    "App.ButtonPressed": "#4D4E44",
+    "App.ChatSenderName": "#66D9EF",
+    "App.ChatReceiverName": "#E6DB74",
+    "App.ContactName": "#EAEAD7",
+    "App.ContactNameActive": "#FFFFFF",
+    "App.ItemHover": "#3A3B33",
+    "App.ItemSelected": "#49483E",
+    "StatusBar.Background": "#1F201B",
+    "StatusBar.Foreground": "#F8F8F2",
+    "StatusBar.ForegroundSecondary": "#B8B8AE",
+    "StatusBar.StreamerBadge": "#F92672",
+    "StatusBar.StreamerBadgeForeground": "#FFFFFF"
+  },
+  "gradients": {
+    "App.TitleBarBackground": {
+      "startColor": "#3A3B33",
+      "endColor": "#272822",
+      "angle": 90.0,
+      "direction": null,
+      "colorStops": {}
+    }
+  },
+  "defaultFontFamily": null,
+  "defaultUiScale": 1.0,
+  "minAppVersion": null,
+  "isLegacyTheme": false,
+  "legacyThemeOption": null,
+  "allowsCustomization": false,
+  "isReadOnly": true,
+  "themeType": 0,
+  "tags": [
+    "built-in",
+    "vscode-inspired",
+    "dark",
+    "monokai"
+  ],
+  "metadata": {},
+  "createdAt": "2026-02-28T00:00:00Z",
+  "modifiedAt": "2026-02-28T00:00:00Z"
+}

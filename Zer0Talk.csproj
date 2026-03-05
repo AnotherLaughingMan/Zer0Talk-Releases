@@ -76,6 +76,7 @@
   <ItemGroup>
   <Compile Remove="scripts/**/*.cs" />
   <Compile Remove="Scripts/**/*.cs" />
+  <Compile Remove="Tests/**/*.cs" />
   <Compile Remove="InstallMe.Lite/**/*.cs" />
   <Compile Remove="Zer0Talk.RelayServer/**/*.cs" />
   <None Remove="scripts/**/*.csproj" />
@@ -101,6 +102,9 @@
   <AvaloniaResource Include="Styles/SharedTruncation.axaml" />
     <AvaloniaResource Include="Assets\Syntax\Rust.xshd" />
     <AvaloniaResource Include="Resources\Themes\*.zttheme" />
+    <AvaloniaResource Include="Resources\Data\emoji-test.txt" />
+    <AvaloniaResource Include="Resources\Data\flags-index.json" />
+    <AvaloniaResource Include="Assets\Flags\*.png" />
     <AvaloniaResource Include="Assets\Icons\Special\Encrypted.ico" />
     <AvaloniaResource Include="Assets\Icons\Status\Away.ico" />
     <AvaloniaResource Include="Assets\Icons\Status\DND.ico" />

@@ -19,6 +19,11 @@ public enum NotificationType
     /// Error message
     /// </summary>
     Error,
+
+    /// <summary>
+    /// Software update notification
+    /// </summary>
+    Update,
     
     /// <summary>
     /// Success message

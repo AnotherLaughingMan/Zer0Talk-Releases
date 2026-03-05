@@ -631,6 +631,10 @@ public sealed class Zer0TalkMarkdownRenderer
                 inline.FontStyle = FontStyle.Italic;
             }
         }
+        else if (emphasis.DelimiterChar == '+' && emphasis.DelimiterCount == 2) // ++underline++
+        {
+            inline.TextDecorations = TextDecorations.Underline;
+        }
     }
 
     private string GetInlineText(ContainerInline? container)

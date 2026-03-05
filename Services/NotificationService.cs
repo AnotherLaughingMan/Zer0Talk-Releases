@@ -21,7 +21,7 @@ namespace Zer0Talk.Services
     // - Publishes OS notifications when available (Windows implementation here)
     public class NotificationService
     {
-    public sealed record NotificationItem(Guid Id, string Title, string Body, string? OriginUid, DateTime Utc, string? FullBody = null, bool IsUnread = false, bool IsMessage = false, bool IsIncoming = false, Guid? MessageId = null, DateTime? ReadUtc = null, bool IsPersistent = true, Models.NotificationType? Type = null);
+    public sealed record NotificationItem(Guid Id, string Title, string Body, string? OriginUid, DateTime Utc, string? FullBody = null, bool IsUnread = false, bool IsMessage = false, bool IsIncoming = false, Guid? MessageId = null, DateTime? ReadUtc = null, bool IsPersistent = true, Models.NotificationType? Type = null, bool IsPriority = false, bool IsMention = false);
     public sealed record SecurityEventItem(Guid Id, string AccountName, string PeerUid, string Summary, string Details, DateTime Utc, bool IsUnread = true);
 
     private readonly List<NotificationItem> _notices = new();
@@ -235,13 +235,14 @@ namespace Zer0Talk.Services
         {
             Models.NotificationType.Error => "\uE783",
             Models.NotificationType.Warning => "\uE7BA",
+            Models.NotificationType.Update => "\uE895",
             Models.NotificationType.Success => "\uE73E",
             Models.NotificationType.Information => "\uE946",
             _ => "\uE946"
         };
     }
 
-    private Control CreateToastContent(Window host, string? title, string text, Models.NotificationType? type = null, string? originUid = null)
+    private Control CreateToastContent(Window host, string? title, string text, Models.NotificationType? type = null, string? originUid = null, Guid? messageId = null)
     {
         var resolvedTitle = string.IsNullOrWhiteSpace(title) ? "Zer0Talk" : title;
         var resolvedBody = string.IsNullOrWhiteSpace(text) ? string.Empty : text;
@@ -266,6 +267,10 @@ namespace Zer0Talk.Services
                 borderBrush = hasOrigin
                     ? ToastBorderMessageBrush // Blue for message toasts
                     : ToastBorderInfoBrush; // Green for general info
+                accentColor = borderBrush;
+                break;
+            case Models.NotificationType.Update:
+                borderBrush = ToastBorderMessageBrush; // Blue for update notices
                 accentColor = borderBrush;
                 break;
             case Models.NotificationType.Success:
@@ -356,15 +361,23 @@ namespace Zer0Talk.Services
         grid.Children.Add(closeButton);
         grid.Children.Add(bodyBlock);
 
-        // Add "Go to Chat" button if this is a message notification (but not for invites)
+        // Add quick actions for message toasts (but not for invites).
         var isInvite = resolvedTitle.Contains("Invite", StringComparison.OrdinalIgnoreCase);
         if (hasOrigin && !isInvite)
         {
+            var actions = new WrapPanel
+            {
+                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 8, 0, 0),
+                ItemHeight = 30,
+                ItemWidth = 0
+            };
+
             var goToChatButton = new Button
             {
                 Content = Services.AppServices.Localization.GetString("Notifications.GoToChat", "Go to Chat"),
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
-                Margin = new Thickness(0, 8, 0, 0),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
                 Padding = new Thickness(12, 6),
                 Background = ToastButtonLightBackgroundBrush,
                 Foreground = ToastButtonDarkForegroundBrush,
@@ -410,10 +423,90 @@ namespace Zer0Talk.Services
                 catch { }
             };
 
-            Grid.SetRow(goToChatButton, 2);
-            Grid.SetColumn(goToChatButton, 0);
-            Grid.SetColumnSpan(goToChatButton, 3);
-            grid.Children.Add(goToChatButton);
+            var replyButton = new Button
+            {
+                Content = Services.AppServices.Localization.GetString("Notifications.Reply", "Reply"),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                Padding = new Thickness(12, 6),
+                Background = ToastButtonLightBackgroundBrush,
+                Foreground = ToastButtonDarkForegroundBrush,
+                BorderBrush = Brushes.Transparent,
+                CornerRadius = new CornerRadius(4),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(6, 0, 0, 0)
+            };
+            replyButton.Click += (_, __) =>
+            {
+                try
+                {
+                    var fullUid = originUid?.StartsWith("usr-") == true ? originUid : $"usr-{originUid}";
+                    AppServices.Events.RaiseOpenConversationRequested(fullUid);
+                    try { ReplyRequested?.Invoke(fullUid, messageId); } catch { }
+                    host.Close();
+                }
+                catch { }
+            };
+
+            var muteButton = new Button
+            {
+                Content = Services.AppServices.Localization.GetString("Notifications.Mute1h", "Mute 1h"),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                Padding = new Thickness(12, 6),
+                Background = ToastButtonLightBackgroundBrush,
+                Foreground = ToastButtonDarkForegroundBrush,
+                BorderBrush = Brushes.Transparent,
+                CornerRadius = new CornerRadius(4),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(6, 0, 0, 0)
+            };
+            muteButton.Click += (_, __) =>
+            {
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(originUid))
+                    {
+                        MuteContactTemporarily(originUid, TimeSpan.FromHours(1));
+                    }
+                    host.Close();
+                }
+                catch { }
+            };
+
+            var markReadButton = new Button
+            {
+                Content = Services.AppServices.Localization.GetString("Notifications.MarkRead", "Mark read"),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+                Padding = new Thickness(12, 6),
+                Background = ToastButtonLightBackgroundBrush,
+                Foreground = ToastButtonDarkForegroundBrush,
+                BorderBrush = Brushes.Transparent,
+                CornerRadius = new CornerRadius(4),
+                FontWeight = FontWeight.SemiBold,
+                Margin = new Thickness(6, 0, 0, 0),
+                IsVisible = messageId.HasValue
+            };
+            markReadButton.Click += (_, __) =>
+            {
+                try
+                {
+                    if (messageId.HasValue)
+                    {
+                        MarkMessageNoticeRead(messageId.Value);
+                    }
+                    host.Close();
+                }
+                catch { }
+            };
+
+            actions.Children.Add(goToChatButton);
+            actions.Children.Add(replyButton);
+            actions.Children.Add(muteButton);
+            actions.Children.Add(markReadButton);
+
+            Grid.SetRow(actions, 2);
+            Grid.SetColumn(actions, 0);
+            Grid.SetColumnSpan(actions, 3);
+            grid.Children.Add(actions);
         }
 
         // Use accent color for title to match the border theme
@@ -437,6 +530,44 @@ namespace Zer0Talk.Services
 
         public event Action? NoticesChanged;
         public event Action? SecurityEventsChanged;
+        public event Action<string, Guid?>? ReplyRequested;
+
+        private static bool IsWithinQuietHours(Models.AppSettings settings, DateTime localNow)
+        {
+            if (!settings.NotificationQuietHoursEnabled) return false;
+            var start = Math.Clamp(settings.NotificationQuietHoursStartHour, 0, 23);
+            var end = Math.Clamp(settings.NotificationQuietHoursEndHour, 0, 23);
+            var hour = localNow.Hour;
+
+            if (start == end) return true;
+            if (start < end)
+            {
+                return hour >= start && hour < end;
+            }
+
+            // Overnight window, e.g. 22 -> 07.
+            return hour >= start || hour < end;
+        }
+
+        private static void MuteContactTemporarily(string originUid, TimeSpan duration)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(originUid)) return;
+                var uid = originUid.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) ? originUid : $"usr-{originUid}";
+                if (!AppServices.Contacts.SetMuteNotifications(uid, true, AppServices.Passphrase)) return;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(duration).ConfigureAwait(false);
+                        AppServices.Contacts.SetMuteNotifications(uid, false, AppServices.Passphrase);
+                    }
+                    catch { }
+                });
+            }
+            catch { }
+        }
 
         public void PostSecurityEvent(string? peerUid, string? accountName, string summary, string details)
         {
@@ -538,6 +669,7 @@ namespace Zer0Talk.Services
                 {
                     Models.NotificationType.Error => AppServices.Localization.GetString("Notifications.Error", "Error"),
                     Models.NotificationType.Warning => AppServices.Localization.GetString("Notifications.Warning", "Warning"),
+                    Models.NotificationType.Update => AppServices.Localization.GetString("Notifications.Update", "Update"),
                     Models.NotificationType.Success => AppServices.Localization.GetString("Notifications.Success", "Success"),
                     _ => AppServices.Localization.GetString("Notifications.Information", "Information")
                 };
@@ -572,7 +704,7 @@ namespace Zer0Talk.Services
 
                     if (shouldShowToast)
                     {
-                        ShowTransientToast(item.Title, item.Body, item.Type, item.OriginUid);
+                        ShowTransientToast(item.Title, item.Body, item.Type, item.OriginUid, null);
                         try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Transient shown: {item.Title} | {item.Body} origin={item.OriginUid}\n"); } catch { }
                     }
                 }
@@ -634,7 +766,7 @@ namespace Zer0Talk.Services
             catch { }
         }
 
-        public NotificationItem AddOrUpdateMessageNotice(string title, string body, string? originUid, Guid messageId, bool incoming, DateTime? timestamp = null, bool isUnread = true)
+        public NotificationItem AddOrUpdateMessageNotice(string title, string body, string? originUid, Guid messageId, bool incoming, DateTime? timestamp = null, bool isUnread = true, bool isPriority = false, bool isMention = false)
         {
             if (messageId == Guid.Empty) messageId = Guid.NewGuid();
             var trimmedOrigin = TrimUidPrefix(originUid ?? string.Empty);
@@ -709,6 +841,24 @@ namespace Zer0Talk.Services
 
                     TryWriteUiVerboseLogThrottled("notices.presence.mode", PresenceDecisionLogInterval,
                         () => $"{DateTime.Now:O} [Notices] Presence mode: {presenceMode} → audio={shouldPlayAudio}, toast={shouldShowToast}, center={shouldAddToCenter}, persistent={makePersistent}\n");
+
+                    // Quiet hours: suppress non-priority/non-mention interruptions while still keeping inbox entries.
+                    var nowLocal = DateTime.Now;
+                    if (IsWithinQuietHours(settings, nowLocal))
+                    {
+                        var allowPriority = settings.NotificationQuietHoursAllowPriority;
+                        var allowMention = settings.NotificationQuietHoursAllowMentions;
+                        var bypass = (isPriority && allowPriority) || (isMention && allowMention);
+                        if (!bypass)
+                        {
+                            shouldPlayAudio = false;
+                            shouldShowToast = false;
+                            shouldAddToCenter = true;
+                            makePersistent = true;
+                            TryWriteUiLogThrottled("notices.quiet-hours.suppress", TimeSpan.FromMilliseconds(1500),
+                                () => $"{DateTime.Now:O} [Notices] Quiet hours suppression active. priority={isPriority} mention={isMention}\n");
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -743,7 +893,9 @@ namespace Zer0Talk.Services
                         IsIncoming = incoming,
                         MessageId = messageId,
                         ReadUtc = readUtc,
-                        IsPersistent = makePersistent || existing.IsPersistent
+                        IsPersistent = makePersistent || existing.IsPersistent,
+                        IsPriority = isPriority || existing.IsPriority,
+                        IsMention = isMention || existing.IsMention
                     };
                     _notices[index] = updated;
                     notify = true;
@@ -762,7 +914,9 @@ namespace Zer0Talk.Services
                         incoming,
                         messageId,
                         isUnread ? null : DateTime.UtcNow,
-                        IsPersistent: makePersistent);
+                        IsPersistent: makePersistent,
+                        IsPriority: isPriority,
+                        IsMention: isMention);
                     _notices.Add(updated);
                     notify = true;
                 }
@@ -780,7 +934,9 @@ namespace Zer0Talk.Services
                         true,
                         incoming,
                         messageId,
-                        isUnread ? null : DateTime.UtcNow);
+                        isUnread ? null : DateTime.UtcNow,
+                        IsPriority: isPriority,
+                        IsMention: isMention);
                 }
             }
             if (notify)
@@ -804,7 +960,7 @@ namespace Zer0Talk.Services
                     if (shouldShowToast && !conversationFocused && (!toastOnlyWhenAppInactive || !appIsActive))
                     {
                         var toastBody = string.IsNullOrWhiteSpace(updated.FullBody) ? updated.Body : updated.FullBody;
-                        ShowTransientToast(updated.Title, toastBody ?? string.Empty, Models.NotificationType.Information, updated.OriginUid);
+                        ShowTransientToast(updated.Title, toastBody ?? string.Empty, Models.NotificationType.Information, updated.OriginUid, updated.MessageId);
                         try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Desktop toast shown: {updated.Title}\n"); } catch { }
                     }
                     else
@@ -896,6 +1052,9 @@ namespace Zer0Talk.Services
                         break;
                     case Models.NotificationType.Information:
                         await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-notify-alert-toast-warn-274736.mp3", requestedAtUtc, "NotificationService.Toast.Information");
+                        break;
+                    case Models.NotificationType.Update:
+                        await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-notify-alert-toast-warn-274736.mp3", requestedAtUtc, "NotificationService.Toast.Update");
                         break;
                     case Models.NotificationType.Error:
                         await AppServices.AudioNotifications.PlayCustomSoundAsync("smooth-completed-notify-starting-alert-274739.mp3", requestedAtUtc, "NotificationService.Toast.Error");
@@ -1158,7 +1317,7 @@ namespace Zer0Talk.Services
             return uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid[4..] : uid;
         }
 
-        private void ShowTransientToast(string title, string text, Models.NotificationType? type = null, string? originUid = null)
+        private void ShowTransientToast(string title, string text, Models.NotificationType? type = null, string? originUid = null, Guid? messageId = null)
         {
             try
             {
@@ -1178,7 +1337,7 @@ namespace Zer0Talk.Services
                             ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome,
                             SystemDecorations = Avalonia.Controls.SystemDecorations.None
                         };
-                        win.Content = CreateToastContent(win, title, text, type, originUid);
+                        win.Content = CreateToastContent(win, title, text, type, originUid, messageId);
 
                         PruneToastWindows();
                         var beforeCount = _activeToastWindows.Count;

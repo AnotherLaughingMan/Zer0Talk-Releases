@@ -565,6 +565,7 @@ namespace Zer0Talk.Services
                     AppServices.Peers.SetPeerVerification(uid, true);
                     AppServices.Contacts.SetPublicKeyVerified(uid, true);
                     try { AppServices.Contacts.SetIsVerified(uid, true, AppServices.Passphrase); } catch { }
+                    TryRecordVerificationHistory(uid, peer.PublicKeyHex, "Peer Completion");
                     try { Utilities.Logger.Log($"Verification complete notification received from {uid}"); } catch { }
                     
                     // Brute-force contact list refresh when receiving verification from peer
@@ -583,6 +584,16 @@ namespace Zer0Talk.Services
                                 }, DispatcherPriority.Background);
                             } catch { }
                         }, DispatcherPriority.Send);
+                    }
+                    catch { }
+
+                    try
+                    {
+                        AppServices.Notifications.PostSecurityEvent(
+                            uid,
+                            AppServices.Identity.DisplayName,
+                            "Identity verification updated",
+                            $"{uid} confirmed verification completion.");
                     }
                     catch { }
                 }
@@ -604,6 +615,7 @@ namespace Zer0Talk.Services
                         AppServices.Contacts.SetPublicKeyVerified(uid, true);
                         // Persist the verified status so the green shield remains across sessions
                         try { AppServices.Contacts.SetIsVerified(uid, true, AppServices.Passphrase); } catch { }
+                        TryRecordVerificationHistory(uid, peer.PublicKeyHex, "Mutual Intent");
                         try { Utilities.Logger.Log($"Public key verified by mutual intent for {uid}"); } catch { }
                         
                         // Send verification complete notification to peer (0xC6)
@@ -641,8 +653,28 @@ namespace Zer0Talk.Services
                             _ = _dialogs.ShowSuccessAsync("Contact Verified", $"You verified {name}.");
                         }
                         catch { }
+
+                        try
+                        {
+                            AppServices.Notifications.PostSecurityEvent(
+                                uid,
+                                AppServices.Identity.DisplayName,
+                                "Identity verified",
+                                $"Mutual trust ceremony completed with {uid}.");
+                        }
+                        catch { }
                     }
                 }
+            }
+            catch { }
+        }
+
+        private void TryRecordVerificationHistory(string uid, string? publicKeyHex, string method)
+        {
+            try
+            {
+                var fingerprint = Utilities.TrustCeremonyFormatter.FingerprintFromPublicKeyHex(publicKeyHex);
+                _ = AppServices.Contacts.RecordVerification(uid, AppServices.Passphrase, fingerprint, method);
             }
             catch { }
         }

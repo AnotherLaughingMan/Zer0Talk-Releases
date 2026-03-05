@@ -12,6 +12,11 @@ namespace Zer0Talk.Controls;
 /// </summary>
 public partial class MarkdownToolbar : UserControl
 {
+    private int? _selectionSnapshotStart;
+    private int? _selectionSnapshotEnd;
+    private DateTime _selectionSnapshotAt = DateTime.MinValue;
+    private const int SelectionSnapshotTtlMs = 3000;
+
     public static readonly StyledProperty<TextBox?> TargetTextBoxProperty =
         AvaloniaProperty.Register<MarkdownToolbar, TextBox?>(nameof(TargetTextBox));
 
@@ -24,6 +29,78 @@ public partial class MarkdownToolbar : UserControl
     public MarkdownToolbar()
     {
         InitializeComponent();
+        AddHandler(InputElement.PointerPressedEvent, OnToolbarPointerPressed, RoutingStrategies.Tunnel);
+    }
+
+    private void OnToolbarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        try
+        {
+            CaptureSelectionSnapshot(TargetTextBox);
+        }
+        catch { }
+    }
+
+    private static (int Start, int End) GetClampedSelection(TextBox input, int textLength)
+    {
+        var rawStart = input.SelectionStart;
+        var rawEnd = input.SelectionEnd;
+        var start = Math.Min(rawStart, rawEnd);
+        start = Math.Max(0, Math.Min(start, textLength));
+        var end = Math.Max(rawStart, rawEnd);
+        end = Math.Max(0, Math.Min(end, textLength));
+        return (start, end);
+    }
+
+    private void CaptureSelectionSnapshot(TextBox? input)
+    {
+        if (input is null)
+        {
+            return;
+        }
+
+        var text = input.Text ?? string.Empty;
+        var (start, end) = GetClampedSelection(input, text.Length);
+        if (end <= start)
+        {
+            return;
+        }
+
+        _selectionSnapshotStart = start;
+        _selectionSnapshotEnd = end;
+        _selectionSnapshotAt = DateTime.UtcNow;
+    }
+
+    private bool TryResolveSelectionRange(TextBox input, out int start, out int end)
+    {
+        var text = input.Text ?? string.Empty;
+        var length = text.Length;
+        var current = GetClampedSelection(input, length);
+        start = current.Start;
+        end = current.End;
+
+        if (end > start)
+        {
+            CaptureSelectionSnapshot(input);
+            return true;
+        }
+
+        var snapshotIsFresh = (DateTime.UtcNow - _selectionSnapshotAt).TotalMilliseconds <= SelectionSnapshotTtlMs;
+        if (!snapshotIsFresh || !_selectionSnapshotStart.HasValue || !_selectionSnapshotEnd.HasValue)
+        {
+            start = end = Math.Max(0, Math.Min(input.CaretIndex, length));
+            return false;
+        }
+
+        start = Math.Max(0, Math.Min(_selectionSnapshotStart.Value, length));
+        end = Math.Max(0, Math.Min(_selectionSnapshotEnd.Value, length));
+        if (end <= start)
+        {
+            start = end = Math.Max(0, Math.Min(input.CaretIndex, length));
+            return false;
+        }
+
+        return true;
     }
 
     private void BoldButton_Click(object? sender, RoutedEventArgs e)
@@ -34,6 +111,11 @@ public partial class MarkdownToolbar : UserControl
     private void ItalicButton_Click(object? sender, RoutedEventArgs e)
     {
         ApplyFormatting("*", "*", "italic text");
+    }
+
+    private void UnderlineButton_Click(object? sender, RoutedEventArgs e)
+    {
+        ApplyFormatting("++", "++", "underline");
     }
 
     private void StrikeButton_Click(object? sender, RoutedEventArgs e)
@@ -54,9 +136,7 @@ public partial class MarkdownToolbar : UserControl
         try
         {
             var text = input.Text ?? string.Empty;
-            var start = Math.Min(input.SelectionStart, input.SelectionEnd);
-            var end = Math.Max(input.SelectionStart, input.SelectionEnd);
-            var hasSelection = end > start;
+            var hasSelection = TryResolveSelectionRange(input, out var start, out var end);
 
             if (hasSelection)
             {
@@ -70,6 +150,7 @@ public partial class MarkdownToolbar : UserControl
                 input.SelectionStart = urlStart;
                 input.SelectionEnd = urlStart + 3;
                 input.CaretIndex = urlStart + 3;
+                CaptureSelectionSnapshot(input);
             }
             else
             {
@@ -81,6 +162,7 @@ public partial class MarkdownToolbar : UserControl
                 input.SelectionStart = start + 1;
                 input.SelectionEnd = start + 10;
                 input.CaretIndex = start + 10;
+                CaptureSelectionSnapshot(input);
             }
 
             input.Focus();
@@ -101,9 +183,7 @@ public partial class MarkdownToolbar : UserControl
         try
         {
             var text = input.Text ?? string.Empty;
-            var start = Math.Min(input.SelectionStart, input.SelectionEnd);
-            var end = Math.Max(input.SelectionStart, input.SelectionEnd);
-            var hasSelection = end > start;
+            var hasSelection = TryResolveSelectionRange(input, out var start, out var end);
 
             string updatedText;
             int newSelectionStart;
@@ -129,6 +209,7 @@ public partial class MarkdownToolbar : UserControl
             input.SelectionStart = newSelectionStart;
             input.SelectionEnd = newSelectionEnd;
             input.CaretIndex = newSelectionEnd;
+            CaptureSelectionSnapshot(input);
             input.Focus();
         }
         catch { }

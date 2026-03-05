@@ -11,6 +11,7 @@
 // TODO[ANCHOR]: DialogService - Passphrase modal with Copy/Save
 using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,6 +21,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+
+using Zer0Talk.Utilities;
 
 namespace Zer0Talk.Services
 {
@@ -632,6 +635,39 @@ namespace Zer0Talk.Services
             var lifetime = Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
             if (lifetime?.MainWindow is not Window owner) return false;
 
+            string peerFingerprint;
+            try
+            {
+                var peerHex = AppServices.Peers.Peers
+                    .FirstOrDefault(p => string.Equals(p.UID, peerUid, StringComparison.OrdinalIgnoreCase))
+                    ?.PublicKeyHex;
+
+                if (string.IsNullOrWhiteSpace(peerHex))
+                {
+                    peerHex = AppServices.Contacts.Contacts
+                        .FirstOrDefault(c => string.Equals(c.UID, peerUid, StringComparison.OrdinalIgnoreCase))
+                        ?.ExpectedPublicKeyHex;
+                }
+
+                if (string.IsNullOrWhiteSpace(peerHex))
+                {
+                    peerHex = AppServices.Contacts.Contacts
+                        .FirstOrDefault(c => string.Equals(c.UID, peerUid, StringComparison.OrdinalIgnoreCase))
+                        ?.LastKnownPublicKeyHex;
+                }
+
+                peerFingerprint = TrustCeremonyFormatter.FingerprintFromPublicKeyHex(peerHex);
+            }
+            catch
+            {
+                peerFingerprint = "Unavailable";
+            }
+
+            var myFingerprint = TrustCeremonyFormatter.FingerprintFromPublicKeyHex(
+                AppServices.Identity.PublicKey is { Length: > 0 }
+                    ? Convert.ToHexString(AppServices.Identity.PublicKey)
+                    : string.Empty);
+
             var dialog = new Window
             {
                 Title = "Verification",
@@ -652,6 +688,36 @@ namespace Zer0Talk.Services
                 TextWrapping = Avalonia.Media.TextWrapping.Wrap,
                 MaxWidth = 520
             });
+
+            root.Children.Add(new TextBlock
+            {
+                Text = "Compare both fingerprints over a trusted channel before pressing Verify.",
+                Opacity = 0.8,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                MaxWidth = 520
+            });
+
+            var fingerprints = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("120,*"),
+                RowDefinitions = new RowDefinitions("Auto,Auto"),
+                RowSpacing = 6,
+                ColumnSpacing = 10,
+            };
+            fingerprints.Children.Add(new TextBlock { Text = "Your Fingerprint", Opacity = 0.82 });
+            var myText = new TextBlock { Text = myFingerprint, FontFamily = new Avalonia.Media.FontFamily("Consolas"), TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+            Grid.SetColumn(myText, 1);
+            fingerprints.Children.Add(myText);
+
+            var peerLabel = new TextBlock { Text = "Peer Fingerprint", Opacity = 0.82 };
+            Grid.SetRow(peerLabel, 1);
+            fingerprints.Children.Add(peerLabel);
+            var peerText = new TextBlock { Text = peerFingerprint, FontFamily = new Avalonia.Media.FontFamily("Consolas"), TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+            Grid.SetRow(peerText, 1);
+            Grid.SetColumn(peerText, 1);
+            fingerprints.Children.Add(peerText);
+            root.Children.Add(fingerprints);
+
             var actions = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8 };
             var cancel = new Button { Content = "Cancel" };
             var verify = new Button { Content = "Verify", IsDefault = true };

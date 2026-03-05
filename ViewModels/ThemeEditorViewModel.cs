@@ -46,6 +46,10 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
     public string LocalizedSaveTheme => AppServices.Localization.GetString("ThemeEditor.SaveTheme", "Save Theme");
     public string LocalizedSaveThemeAs => AppServices.Localization.GetString("ThemeEditor.SaveThemeAs", "Save Theme As");
     public string LocalizedSearchThemes => AppServices.Localization.GetString("ThemeEditor.SearchThemes", "Search Themes");
+    public string LocalizedNormalizeThemes => AppServices.Localization.GetString("ThemeEditor.NormalizeThemes", "Normalize Themes");
+    public string LocalizedLastMigrationRun => AppServices.Localization.GetString("ThemeEditor.LastMigrationRun", "Last migration run");
+    public string LocalizedNotRunYet => AppServices.Localization.GetString("ThemeEditor.NotRunYet", "Not run yet");
+    public string LocalizedNever => AppServices.Localization.GetString("ThemeEditor.Never", "Never");
     public string LocalizedThemeMetadata => AppServices.Localization.GetString("ThemeEditor.ThemeMetadata", "Theme Metadata");
     public string LocalizedNameLabel => AppServices.Localization.GetString("ThemeEditor.NameLabel", "Name:");
     public string LocalizedAuthorLabel => AppServices.Localization.GetString("ThemeEditor.AuthorLabel", "Author:");
@@ -154,6 +158,10 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(LocalizedSaveTheme));
         OnPropertyChanged(nameof(LocalizedSaveThemeAs));
         OnPropertyChanged(nameof(LocalizedSearchThemes));
+        OnPropertyChanged(nameof(LocalizedNormalizeThemes));
+        OnPropertyChanged(nameof(LocalizedLastMigrationRun));
+        OnPropertyChanged(nameof(LocalizedNotRunYet));
+        OnPropertyChanged(nameof(LocalizedNever));
         OnPropertyChanged(nameof(LocalizedThemeMetadata));
         OnPropertyChanged(nameof(LocalizedNameLabel));
         OnPropertyChanged(nameof(LocalizedAuthorLabel));
@@ -1003,6 +1011,20 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         set { _editableThemeVersion = value; OnPropertyChanged(); }
     }
 
+    private string _lastThemeNormalizationSummary = "Not run yet";
+    public string LastThemeNormalizationSummary
+    {
+        get => _lastThemeNormalizationSummary;
+        set { _lastThemeNormalizationSummary = value; OnPropertyChanged(); }
+    }
+
+    private string _lastThemeNormalizationTimestamp = "Never";
+    public string LastThemeNormalizationTimestamp
+    {
+        get => _lastThemeNormalizationTimestamp;
+        set { _lastThemeNormalizationTimestamp = value; OnPropertyChanged(); }
+    }
+
     #endregion
 
     #region Color Picker State
@@ -1182,6 +1204,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
     public ICommand SaveAsCommand { get; }
     public ICommand ImportThemeCommand { get; }
     public ICommand SearchDrivesForThemesCommand { get; }
+    public ICommand NormalizeThemesCommand { get; }
     public ICommand ExportModifiedThemeCommand { get; }
 
     #endregion
@@ -1194,6 +1217,8 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         {
             RefreshLocalizedStrings();
             AppServices.Localization.LanguageChanged += OnLocalizationChanged;
+            LastThemeNormalizationSummary = LocalizedNotRunYet;
+            LastThemeNormalizationTimestamp = LocalizedNever;
         }
         catch { }
 
@@ -1256,6 +1281,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         SaveAsCommand = new RelayCommand(async _ => await SaveAsAsync(), _ => true); // Always enabled - you can always SaveAs
         ImportThemeCommand = new RelayCommand(async _ => await ImportThemeAsync(), _ => true);
         SearchDrivesForThemesCommand = new RelayCommand(async _ => await SearchDrivesForThemesAsync(), _ => true);
+        NormalizeThemesCommand = new RelayCommand(async _ => await NormalizeThemesAsync(), _ => true);
         ExportModifiedThemeCommand = new RelayCommand(async _ => await ExportModifiedThemeAsync(), _ => CanUndo && !IsEditingColor && !IsEditingGradient);
     }
 
@@ -3076,6 +3102,9 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
             }
         }
 
+        // Backfill required list/contact compatibility keys for older or partially-defined themes.
+        theme.EnsureCompatibilityColorOverrides();
+
         foreach (var gradientEntry in ThemeGradients)
         {
             if (gradientEntry.GradientDefinition != null)
@@ -3257,6 +3286,46 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         catch (Exception ex)
         {
             Logger.Log($"[Theme Search] Error opening search dialog: {ex.Message}", LogLevel.Error, categoryOverride: "theme");
+        }
+    }
+
+    public async Task NormalizeThemesAsync()
+    {
+        try
+        {
+            Logger.Log("[Theme Normalize] Starting on-disk theme normalization", LogLevel.Info, categoryOverride: "theme");
+
+            var (scanned, updated, failed) = AppServices.ThemeEngine.NormalizeCustomThemesOnDisk();
+
+            var loaded = 0;
+            try
+            {
+                loaded = AppServices.ThemeEngine.LoadCustomThemes();
+            }
+            catch (Exception reloadEx)
+            {
+                Logger.Log($"[Theme Normalize] Failed to reload custom themes after normalization: {reloadEx.Message}", LogLevel.Warning, categoryOverride: "theme");
+            }
+
+            var summary = $"Normalized themes. Scanned: {scanned}, Updated: {updated}, Failed: {failed}, Reloaded: {loaded}.";
+            LastThemeNormalizationSummary = $"Scanned {scanned}, Updated {updated}, Failed {failed}, Reloaded {loaded}";
+            LastThemeNormalizationTimestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            Logger.Log($"[Theme Normalize] {summary}", LogLevel.Info, categoryOverride: "theme");
+
+            try
+            {
+                await AppServices.Dialogs.ShowInfoAsync("Theme Migration", summary, 4200);
+            }
+            catch { }
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"[Theme Normalize] Error: {ex.Message}", LogLevel.Error, categoryOverride: "theme");
+            try
+            {
+                await AppServices.Dialogs.ShowErrorAsync("Theme Migration", $"Failed to normalize themes: {ex.Message}", 4500);
+            }
+            catch { }
         }
     }
 

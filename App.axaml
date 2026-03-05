@@ -100,5 +100,12 @@
         <util:MessageIsFromContactConverter x:Key="MessageIsFromContactConverter" />
         <util:NotOrConverter x:Key="NotOrConverter" />
         <util:StringEqualsMultiConverter x:Key="StringEqualsMultiConverter" />
+        <util:ReactionCommandParameterConverter x:Key="ReactionCommandParameterConverter" />
+        <util:CountryCodeToFlagBitmapConverter x:Key="CountryCodeToFlagBitmapConverter" />
+        <util:FlagEmojiToFlagBitmapConverter x:Key="FlagEmojiToFlagBitmapConverter" />
+        <util:FlagEmojiIsCountryFlagConverter x:Key="FlagEmojiIsCountryFlagConverter" />
+        <util:FlagEmojiIsNotCountryFlagConverter x:Key="FlagEmojiIsNotCountryFlagConverter" />
+        <util:CountryCodeHasFlagConverter x:Key="CountryCodeHasFlagConverter" />
+        <util:CountryCodeHasNoFlagConverter x:Key="CountryCodeHasNoFlagConverter" />
     </Application.Resources>
 </Application>

@@ -88,6 +88,10 @@ public class AppSettings
     // Left = navigation + peers; Right = diagnostics. Center remains star-sized.
     public double? MainLeftWidth { get; set; }
     public double? MainRightWidth { get; set; }
+    // Notification center sub-view persistence: 0=Invites, 1=Messages, 2=Alerts
+    public int LastNotificationCenterView { get; set; } = 0;
+    // Composer markdown toolbar row visibility persistence
+    public bool ComposerMarkdownToolsVisible { get; set; } = true;
 
     // Connectivity: optional relay fallback if direct+NAT traversal fail.
     // If enabled, the app will attempt to reach peers via a relay service when direct connection is not possible.
@@ -181,6 +185,11 @@ public class AppSettings
     public bool SuppressNotificationsInDnd { get; set; } = true; // When enabled, notification toasts and audio are suppressed in Do Not Disturb mode
     public double NotificationDurationSeconds { get; set; } = 4.5; // Duration in seconds that notification toasts stay visible (0.5 to 30 seconds)
     public bool EnableNotificationBellFlash { get; set; } = true; // When enabled, the notification bell flashes for 10 seconds when new notifications arrive
+    public bool NotificationQuietHoursEnabled { get; set; } = false;
+    public int NotificationQuietHoursStartHour { get; set; } = 22; // local hour (0-23)
+    public int NotificationQuietHoursEndHour { get; set; } = 7; // local hour (0-23)
+    public bool NotificationQuietHoursAllowPriority { get; set; } = true;
+    public bool NotificationQuietHoursAllowMentions { get; set; } = true;
 
     // Auto-update settings
     public bool AutoUpdateEnabled { get; set; } = true;

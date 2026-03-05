@@ -31,6 +31,16 @@ public partial class App : Application
 #if DEBUG
     private static System.Threading.Timer? _heartbeat;
 #endif
+
+    private static void LogGuardedStartupFailure(string operation, Exception ex)
+    {
+        try
+        {
+            Logger.Warning($"{operation} failed: {ex.Message}", source: nameof(App), categoryOverride: "startup");
+        }
+        catch { }
+    }
+
     private static bool ShouldLogFirstChance(Exception ex)
     {
         try
@@ -113,7 +123,10 @@ public partial class App : Application
             if (ex is null) Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException(header), source: "Trace");
             else Zer0Talk.Utilities.ErrorLogger.LogException(ex, source: header);
         }
-        catch { }
+        catch (Exception writeEx)
+        {
+            LogGuardedStartupFailure($"TryWriteErrorTxt({header})", writeEx);
+        }
     }
     
     private static void SafeStartupLog(string msg)
@@ -330,8 +343,19 @@ public partial class App : Application
                         // Load additional data in background
                         _ = System.Threading.Tasks.Task.Run(() =>
                         {
-                            try { AppServices.Contacts.Load(AppServices.Passphrase); } catch { }
-                            try { var persisted = AppServices.PeersStore.Load(AppServices.Passphrase); AppServices.Peers.SetDiscovered(persisted); AppServices.Peers.IncludeContacts(); } catch { }
+                            try { AppServices.Contacts.Load(AppServices.Passphrase); }
+                            catch (Exception ex) { LogGuardedStartupFailure("AutoLogin.Contacts.Load", ex); }
+
+                            try
+                            {
+                                var persisted = AppServices.PeersStore.Load(AppServices.Passphrase);
+                                AppServices.Peers.SetDiscovered(persisted);
+                                AppServices.Peers.IncludeContacts();
+                            }
+                            catch (Exception ex)
+                            {
+                                LogGuardedStartupFailure("AutoLogin.Peers.LoadAndInclude", ex);
+                            }
                         });
                         
                         ScheduleDelayedNetworkInit();
@@ -418,15 +442,29 @@ public partial class App : Application
                             var acc = AppServices.Accounts.LoadAccount(AppServices.Passphrase);
                             AppServices.Identity.LoadFromAccount(acc);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            LogGuardedStartupFailure("Unlock.PostLoad.SettingsIdentity", ex);
+                        }
                         
                         ShowMainWindow(desktop);
                         SetupPostInitialization(desktop);
                         
                         _ = System.Threading.Tasks.Task.Run(() =>
                         {
-                            try { AppServices.Contacts.Load(AppServices.Passphrase); } catch { }
-                            try { var persisted = AppServices.PeersStore.Load(AppServices.Passphrase); AppServices.Peers.SetDiscovered(persisted); AppServices.Peers.IncludeContacts(); } catch { }
+                            try { AppServices.Contacts.Load(AppServices.Passphrase); }
+                            catch (Exception ex) { LogGuardedStartupFailure("Unlock.Contacts.Load", ex); }
+
+                            try
+                            {
+                                var persisted = AppServices.PeersStore.Load(AppServices.Passphrase);
+                                AppServices.Peers.SetDiscovered(persisted);
+                                AppServices.Peers.IncludeContacts();
+                            }
+                            catch (Exception ex)
+                            {
+                                LogGuardedStartupFailure("Unlock.Peers.LoadAndInclude", ex);
+                            }
                         });
                         
                         ScheduleDelayedNetworkInit();

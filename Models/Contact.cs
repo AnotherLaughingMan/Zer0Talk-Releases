@@ -50,6 +50,21 @@ namespace Zer0Talk.Models
         // Persisted: last-known encrypted session state (for offline/placeholder UI only; live status comes from NetworkService)
         private bool _lastKnownEncrypted;
         public bool LastKnownEncrypted { get => _lastKnownEncrypted; set { if (_lastKnownEncrypted != value) { _lastKnownEncrypted = value; OnPropertyChanged(nameof(LastKnownEncrypted)); } } }
+
+        // Persisted: when this contact was last identity-verified by trust ceremony.
+        private System.DateTime? _lastVerifiedUtc;
+        public System.DateTime? LastVerifiedUtc { get => _lastVerifiedUtc; set { if (_lastVerifiedUtc != value) { _lastVerifiedUtc = value; OnPropertyChanged(nameof(LastVerifiedUtc)); } } }
+
+        // Persisted: recent trust ceremony events for auditability in profile UI.
+        private System.Collections.Generic.List<VerificationHistoryEntry>? _verificationHistory;
+        public System.Collections.Generic.List<VerificationHistoryEntry>? VerificationHistory { get => _verificationHistory; set { if (_verificationHistory != value) { _verificationHistory = value; OnPropertyChanged(nameof(VerificationHistory)); } } }
+
+        // Local notification policy flags.
+        private bool _muteNotifications;
+        public bool MuteNotifications { get => _muteNotifications; set { if (_muteNotifications != value) { _muteNotifications = value; OnPropertyChanged(nameof(MuteNotifications)); } } }
+
+        private bool _priorityNotifications;
+        public bool PriorityNotifications { get => _priorityNotifications; set { if (_priorityNotifications != value) { _priorityNotifications = value; OnPropertyChanged(nameof(PriorityNotifications)); } } }
     // Transient presence indicator used by UI badges
     // Default to Offline until a presence is observed or a direct session is active
     [JsonIgnore]

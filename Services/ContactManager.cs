@@ -286,6 +286,59 @@ namespace Zer0Talk.Services
             }
         }
 
+        // Persisted trust-ceremony record for profile history and auditing.
+        public bool RecordVerification(string uid, string passphrase, string fingerprint, string method)
+        {
+            try
+            {
+                uid = NormalizeUid(uid);
+                if (string.IsNullOrWhiteSpace(uid)) return false;
+                var c = _contacts.FirstOrDefault(x => string.Equals(x.UID, uid, StringComparison.OrdinalIgnoreCase));
+                if (c == null) return false;
+
+                var normalizedFingerprint = (fingerprint ?? string.Empty).Trim();
+                var normalizedMethod = string.IsNullOrWhiteSpace(method) ? "Verified" : method.Trim();
+                var now = DateTime.UtcNow;
+
+                c.IsVerified = true;
+                c.PublicKeyVerified = true;
+                c.LastVerifiedUtc = now;
+
+                c.VerificationHistory ??= new List<VerificationHistoryEntry>();
+                var latest = c.VerificationHistory.Count > 0 ? c.VerificationHistory[0] : null;
+
+                // Dedupe repeated notifications for the same ceremony in a short window.
+                var isDuplicateRecent = latest != null
+                    && string.Equals(latest.Fingerprint, normalizedFingerprint, StringComparison.Ordinal)
+                    && string.Equals(latest.Method, normalizedMethod, StringComparison.Ordinal)
+                    && (now - latest.VerifiedAtUtc) <= TimeSpan.FromMinutes(5);
+
+                if (!isDuplicateRecent)
+                {
+                    c.VerificationHistory.Insert(0, new VerificationHistoryEntry
+                    {
+                        VerifiedAtUtc = now,
+                        Fingerprint = normalizedFingerprint,
+                        Method = normalizedMethod,
+                    });
+
+                    const int maxEntries = 20;
+                    if (c.VerificationHistory.Count > maxEntries)
+                    {
+                        c.VerificationHistory.RemoveRange(maxEntries, c.VerificationHistory.Count - maxEntries);
+                    }
+                }
+
+                Save(passphrase);
+                Changed?.Invoke();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
     // Transient: set Presence without persisting. Raises Changed so UI can refresh bindings.
     public void SetPresence(string uid, PresenceStatus status)
         {
@@ -511,6 +564,38 @@ namespace Zer0Talk.Services
                 string? normalized = string.IsNullOrWhiteSpace(bio) ? null : (bio!.Length > 280 ? bio.Substring(0, 280) : bio);
                 if (string.Equals(c.Bio ?? string.Empty, normalized ?? string.Empty, StringComparison.Ordinal)) return true;
                 c.Bio = normalized;
+                Save(passphrase);
+                Changed?.Invoke();
+                return true;
+            }
+            catch { return false; }
+        }
+
+        public bool SetMuteNotifications(string uid, bool muted, string passphrase)
+        {
+            try
+            {
+                uid = NormalizeUid(uid);
+                var c = _contacts.FirstOrDefault(x => string.Equals(x.UID, uid, StringComparison.OrdinalIgnoreCase));
+                if (c == null) return false;
+                if (c.MuteNotifications == muted) return true;
+                c.MuteNotifications = muted;
+                Save(passphrase);
+                Changed?.Invoke();
+                return true;
+            }
+            catch { return false; }
+        }
+
+        public bool SetPriorityNotifications(string uid, bool priority, string passphrase)
+        {
+            try
+            {
+                uid = NormalizeUid(uid);
+                var c = _contacts.FirstOrDefault(x => string.Equals(x.UID, uid, StringComparison.OrdinalIgnoreCase));
+                if (c == null) return false;
+                if (c.PriorityNotifications == priority) return true;
+                c.PriorityNotifications = priority;
                 Save(passphrase);
                 Changed?.Invoke();
                 return true;

@@ -178,6 +178,18 @@
                             </Canvas>
                         </Viewbox>
                     </Button>
+
+                    <!-- Normalize Theme Files -->
+                    <Button Command="{Binding NormalizeThemesCommand}"
+                            Background="{DynamicResource App.ButtonBackground}"
+                            Width="32" Height="32" Padding="4" CornerRadius="4"
+                            ToolTip.Tip="{Binding LocalizedNormalizeThemes}">
+                        <Viewbox Width="24" Height="24">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M12,2A10,10 0 0,1 22,12H20A8,8 0 0,0 6.54,6.54L9,9H2V2L5.12,5.12A10,10 0 0,1 12,2M12,22A10,10 0 0,1 2,12H4A8,8 0 0,0 17.46,17.46L15,15H22V22L18.88,18.88A9.97,9.97 0 0,1 12,22Z" Fill="{DynamicResource App.ForegroundPrimary}"/>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
                 </StackPanel>
             </Border>
 
@@ -1277,7 +1289,18 @@
         <!-- Status Bar -->
         <Border Grid.Row="3" Background="{DynamicResource App.Surface}" 
             BorderBrush="{DynamicResource App.Border}" BorderThickness="0,1,0,0" Padding="10,5">
-            <TextBlock Text="{Binding LocalizedReadyStatus}" FontSize="11" Opacity="0.7"/>
+            <StackPanel Spacing="2">
+                <TextBlock Text="{Binding LocalizedReadyStatus}" FontSize="11" Opacity="0.7"/>
+                <TextBlock FontSize="11" Opacity="0.75">
+                    <Run Text="{Binding LocalizedNormalizeThemes}"/>
+                    <Run Text=": "/>
+                    <Run Text="{Binding LastThemeNormalizationSummary}"/>
+                    <Run Text=" | "/>
+                    <Run Text="{Binding LocalizedLastMigrationRun}"/>
+                    <Run Text=": "/>
+                    <Run Text="{Binding LastThemeNormalizationTimestamp}"/>
+                </TextBlock>
+            </StackPanel>
         </Border>
 
     </Grid>

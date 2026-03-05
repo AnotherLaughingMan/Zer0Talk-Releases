@@ -86,6 +86,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private Avalonia.Threading.DispatcherTimer? _bellFlashStopTimer;
     private int _lastNotificationCount;
     private bool _isBellFlashing;
+    private EventHandler? _themeAppliedHandler;
+    private Guid? _lastAutoScrolledSearchMessageId;
+    private Control? _lastReactionPickerAnchor;
 
     public MainWindow()
     {
@@ -159,10 +162,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             this.Opened += (_, __) => AttachFlickerWatchers();
             this.Opened += (_, __) => InitializeMessageInputSizing();
+            this.Opened += (_, __) => RestoreComposerMarkdownToolsVisibility();
             this.Opened += (_, __) => InitializeMarkdownToolbar();
             this.Opened += (_, __) => InitializeNotificationBellFlash();
             this.Activated += (_, __) => WriteUiCategory("[Window]", "Activated");
             this.Deactivated += (_, __) => WriteUiCategory("[Window]", "Deactivated");
+        }
+        catch { }
+        try
+        {
+            _themeAppliedHandler = (_, __) =>
+            {
+                try
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        try { UpdateRightPanelHeaderAndControls(); } catch { }
+                        try { RenderInvitesPanel(); } catch { }
+                        try { RenderMessagesPanel(); } catch { }
+                        try { RenderAlertsPanel(); } catch { }
+                    }, DispatcherPriority.Background);
+                }
+                catch { }
+            };
+            ThemeEngine.ThemeApplied += _themeAppliedHandler;
         }
         catch { }
     // Regression Guard: ensure window stays resizable even if future style/theme sets it off
@@ -2863,8 +2886,72 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void UnderlineButton_Click(object? sender, RoutedEventArgs e)
     {
-        ApplyInlineFormatting("__", "__", "underline", sender);
+        ApplyInlineFormatting("++", "++", "underline", sender);
         e.Handled = true;
+    }
+
+    private void ToggleComposerMarkdownButtons_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var panel = this.FindControl<StackPanel>("ComposerMarkdownButtonsPanel");
+            if (panel == null) return;
+
+            var showButtons = !panel.IsVisible;
+            UpdateComposerMarkdownToolsUi(showButtons);
+            PersistComposerMarkdownToolsVisibility(showButtons);
+            e.Handled = true;
+        }
+        catch { }
+    }
+
+    private void RestoreComposerMarkdownToolsVisibility()
+    {
+        try
+        {
+            var visible = AppServices.Settings.Settings.ComposerMarkdownToolsVisible;
+            UpdateComposerMarkdownToolsUi(visible);
+        }
+        catch
+        {
+            try { UpdateComposerMarkdownToolsUi(true); } catch { }
+        }
+    }
+
+    private void PersistComposerMarkdownToolsVisibility(bool visible)
+    {
+        try
+        {
+            AppServices.Settings.Settings.ComposerMarkdownToolsVisible = visible;
+            _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
+        }
+        catch { }
+    }
+
+    private void UpdateComposerMarkdownToolsUi(bool visible)
+    {
+        try
+        {
+            var panel = this.FindControl<StackPanel>("ComposerMarkdownButtonsPanel");
+            var icon = this.FindControl<TextBlock>("ComposerMarkdownToggleIcon");
+            var toggleButton = this.FindControl<Button>("ComposerMarkdownToggleButton");
+            if (panel != null)
+            {
+                panel.IsVisible = visible;
+            }
+
+            if (icon != null)
+            {
+                // Fluent MDL2: ChevronRight when expanded, ChevronLeft when collapsed.
+                icon.Text = visible ? "\uE76C" : "\uE76B";
+            }
+
+            if (toggleButton != null)
+            {
+                ToolTip.SetTip(toggleButton, visible ? "Hide markdown tools" : "Show markdown tools");
+            }
+        }
+        catch { }
     }
 
     private void StrikeButton_Click(object? sender, RoutedEventArgs e)
@@ -3095,15 +3182,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (input is null) return;
 
             var text = input.Text ?? string.Empty;
-            var length = text.Length;
-            var rawStart = input.SelectionStart;
-            var rawEnd = input.SelectionEnd;
-            var start = Math.Min(rawStart, rawEnd);
-            start = Math.Max(0, Math.Min(start, length));
-            var end = Math.Max(rawStart, rawEnd);
-            end = Math.Max(0, Math.Min(end, length));
-
-            var hasSelection = end > start;
+            var hasSelection = TryResolveMessageSelectionForFormatting(input, source, out var start, out var end);
             string updatedText;
             int newSelectionStart;
             int newSelectionEnd;
@@ -3128,6 +3207,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             input.SelectionStart = newSelectionStart;
             input.SelectionEnd = newSelectionEnd;
             input.CaretIndex = newSelectionEnd;
+            CaptureMessageSelectionSnapshot(input);
             input.Focus();
         }
         catch (Exception ex)
@@ -3144,13 +3224,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (input is null) return;
 
             var text = input.Text ?? string.Empty;
-            var length = text.Length;
-            var rawStart = input.SelectionStart;
-            var rawEnd = input.SelectionEnd;
-            var start = Math.Min(rawStart, rawEnd);
-            start = Math.Max(0, Math.Min(start, length));
-            var end = Math.Max(rawStart, rawEnd);
-            end = Math.Max(0, Math.Min(end, length));
+            _ = TryResolveMessageSelectionForFormatting(input, source, out var start, out var end);
             var selectionLength = end - start;
 
             if (selectionLength <= 0)
@@ -3164,6 +3238,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 input.SelectionStart = selectStart;
                 input.SelectionEnd = selectEnd;
                 input.CaretIndex = selectEnd;
+                CaptureMessageSelectionSnapshot(input);
                 input.Focus();
                 return;
             }
@@ -3189,6 +3264,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             input.SelectionStart = caret;
             input.SelectionEnd = caret;
             input.CaretIndex = caret;
+            CaptureMessageSelectionSnapshot(input);
             input.Focus();
         }
         catch (Exception ex)
@@ -3205,14 +3281,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (input is null) return;
 
             var text = input.Text ?? string.Empty;
-            var length = text.Length;
-            var rawStart = input.SelectionStart;
-            var rawEnd = input.SelectionEnd;
-            var start = Math.Min(rawStart, rawEnd);
-            start = Math.Max(0, Math.Min(start, length));
-            var end = Math.Max(rawStart, rawEnd);
-            end = Math.Max(0, Math.Min(end, length));
-            var hasSelection = end > start;
+            var hasSelection = TryResolveMessageSelectionForFormatting(input, source, out var start, out var end);
 
             string updatedText;
             int newSelectionStart;
@@ -3245,6 +3314,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             input.SelectionStart = newSelectionStart;
             input.SelectionEnd = newSelectionEnd;
             input.CaretIndex = newSelectionEnd;
+            CaptureMessageSelectionSnapshot(input);
             input.Focus();
         }
         catch (Exception ex)
@@ -3261,13 +3331,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (input is null) return;
 
             var text = input.Text ?? string.Empty;
-            var length = text.Length;
-            var rawStart = input.SelectionStart;
-            var rawEnd = input.SelectionEnd;
-            var start = Math.Min(rawStart, rawEnd);
-            start = Math.Max(0, Math.Min(start, length));
-            var end = Math.Max(rawStart, rawEnd);
-            end = Math.Max(0, Math.Min(end, length));
+            _ = TryResolveMessageSelectionForFormatting(input, source, out var start, out var end);
             var selectionLength = end - start;
 
             if (selectionLength <= 0)
@@ -3286,6 +3350,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 input.SelectionStart = selectStart;
                 input.SelectionEnd = selectEnd;
                 input.CaretIndex = selectEnd;
+                CaptureMessageSelectionSnapshot(input);
                 input.Focus();
                 return;
             }
@@ -3327,6 +3392,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             input.SelectionStart = selectionStart;
             input.SelectionEnd = selectionEnd;
             input.CaretIndex = selectionEnd;
+            CaptureMessageSelectionSnapshot(input);
             input.Focus();
         }
         catch (Exception ex)
@@ -3506,10 +3572,102 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 try { JumpToBottom_Click(null, new RoutedEventArgs()); } catch { }
                 e.Handled = true;
             }
+            if (e.Key == Key.M &&
+                (e.KeyModifiers & KeyModifiers.Control) == KeyModifiers.Control &&
+                (e.KeyModifiers & KeyModifiers.Alt) == KeyModifiers.Alt &&
+                (e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift)
+            {
+                try { _ = RunMarkdownFormattingSmokeTestAsync(); } catch { }
+                e.Handled = true;
+            }
 #endif
         }
         catch { }
     }
+
+#if DEBUG
+    private async System.Threading.Tasks.Task RunMarkdownFormattingSmokeTestAsync()
+    {
+        try
+        {
+            var input = GetMessageInput();
+            if (input == null)
+            {
+                try { await AppServices.Dialogs.ShowCenteredToastAsync("Markdown smoke test failed: MessageInput not found", 2200); } catch { }
+                return;
+            }
+
+            var originalText = input.Text ?? string.Empty;
+            var originalSelectionStart = input.SelectionStart;
+            var originalSelectionEnd = input.SelectionEnd;
+            var originalCaret = input.CaretIndex;
+
+            var failures = new List<string>();
+
+            void RunCase(string name, Action apply, string expected)
+            {
+                try
+                {
+                    input.Text = "alpha beta gamma";
+                    input.SelectionStart = 6;
+                    input.SelectionEnd = 10;
+                    input.CaretIndex = 10;
+
+                    apply();
+
+                    var actual = input.Text ?? string.Empty;
+                    if (!string.Equals(actual, expected, StringComparison.Ordinal))
+                    {
+                        failures.Add($"{name}: expected '{expected}' but got '{actual}'");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    failures.Add($"{name}: threw {ex.GetType().Name} ({ex.Message})");
+                }
+            }
+
+            try
+            {
+                RunCase("Bold", () => ApplyInlineFormatting("**", "**", "bold text", this), "alpha **beta** gamma");
+                RunCase("Italic", () => ApplyInlineFormatting("*", "*", "italic text", this), "alpha *beta* gamma");
+                RunCase("Underline", () => ApplyInlineFormatting("++", "++", "underline", this), "alpha ++beta++ gamma");
+                RunCase("Strike", () => ApplyInlineFormatting("~~", "~~", "strike", this), "alpha ~~beta~~ gamma");
+                RunCase("Quote", () => ApplyQuoteFormatting("quote text", this), "alpha > beta gamma");
+                RunCase("Code", () => ApplyCodeFormatting(this), "alpha `beta` gamma");
+                RunCase("Spoiler", () => ApplySpoilerFormatting(this), "alpha ||beta|| gamma");
+
+                if (failures.Count == 0)
+                {
+                    SafeUiLog("[MarkdownTest] PASS: 7/7 formatter actions");
+                    try { await AppServices.Dialogs.ShowCenteredToastAsync("Markdown smoke test passed (7/7)", 1800); } catch { }
+                }
+                else
+                {
+                    foreach (var failure in failures)
+                    {
+                        SafeUiLog($"[MarkdownTest] FAIL: {failure}");
+                    }
+
+                    try { await AppServices.Dialogs.ShowCenteredToastAsync($"Markdown smoke test failed ({failures.Count})", 2600); } catch { }
+                }
+            }
+            finally
+            {
+                input.Text = originalText;
+                input.SelectionStart = originalSelectionStart;
+                input.SelectionEnd = originalSelectionEnd;
+                input.CaretIndex = originalCaret;
+                input.Focus();
+            }
+        }
+        catch (Exception ex)
+        {
+            SafeUiLog($"[MarkdownTest] ERROR: {ex.Message}");
+            try { await AppServices.Dialogs.ShowCenteredToastAsync("Markdown smoke test crashed", 2200); } catch { }
+        }
+    }
+#endif
 
     // Prevent clicks inside the profile content from bubbling to the backdrop
     private void FullProfileContent_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -4666,6 +4824,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     }
 
     private RightPanelView _rightPanelView = RightPanelView.Invites;
+    private bool _rightPanelViewRestored;
 
     // Helpers to switch the content hosts inside the right notifications panel.
     // Kept as top-level private methods (not nested) so they can be incrementally extended and tested.
@@ -4680,6 +4839,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             _rightPanelView = target;
+            try { AppServices.Settings.Settings.LastNotificationCenterView = (int)target; } catch { }
             var invitesHost = this.FindControl<ScrollViewer>("InvitesHost");
             var messagesHost = this.FindControl<ScrollViewer>("MessagesHost");
             var alertsHost = this.FindControl<ScrollViewer>("AlertsHost");
@@ -4689,6 +4849,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch { }
         try { UpdateRightPanelHeaderAndControls(); } catch { }
+    }
+
+    private void RestoreRightPanelViewIfNeeded()
+    {
+        if (_rightPanelViewRestored) return;
+        _rightPanelViewRestored = true;
+
+        try
+        {
+            var stored = AppServices.Settings.Settings.LastNotificationCenterView;
+            var target = stored switch
+            {
+                1 => RightPanelView.Messages,
+                2 => RightPanelView.Alerts,
+                _ => RightPanelView.Invites
+            };
+
+            SwitchRightPanelView(target);
+        }
+        catch
+        {
+            try { SwitchRightPanelView(RightPanelView.Invites); } catch { }
+        }
     }
 
     private void UpdateRightPanelHeaderAndControls()
@@ -4772,6 +4955,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             Models.NotificationType.Error => "\uE783",
             Models.NotificationType.Warning => "\uE7BA",
+            Models.NotificationType.Update => "\uE895",
             Models.NotificationType.Success => "\uE73E",
             Models.NotificationType.Information => "\uE946",
             _ => "\uE946"
@@ -4826,8 +5010,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     g3.Children.Add(newAlertsHost);
                 }
             }
-            // Default to invites shown
-            ShowInvitesHost();
+            RestoreRightPanelViewIfNeeded();
         }
         catch { }
     }
@@ -4959,7 +5142,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 }
                 catch { }
             }
-            try { ShowInvitesHost(); } catch { }
+            try { RestoreRightPanelViewIfNeeded(); } catch { }
             try { RenderInvitesPanel(); } catch { }
         }
         catch { }
@@ -5276,7 +5459,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     var messagesStack = this.FindControl<StackPanel>("MessagesStack");
                     if (messagesStack == null) return;
                     messagesStack.Children.Clear();
-                    var notices = noticesSnapshot.OrderByDescending(n => n.Utc).ToList();
+                    var notices = noticesSnapshot
+                        .OrderByDescending(n => n.IsPriority)
+                        .ThenByDescending(n => n.IsMention)
+                        .ThenByDescending(n => n.IsUnread)
+                        .ThenByDescending(n => n.Utc)
+                        .ToList();
                     foreach (var notice in notices)
                     {
                         messagesStack.Children.Add(BuildNotificationMessageEntry(notice));
@@ -5386,6 +5574,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             FontSize = 11,
             Opacity = notice.IsUnread ? 0.8 : 0.6
         });
+        if (notice.IsPriority)
+        {
+            metaPanel.Children.Add(new TextBlock
+            {
+                Text = "VIP",
+                FontSize = 11,
+                Opacity = 0.82,
+                Foreground = accentBrush
+            });
+        }
+        if (notice.IsMention)
+        {
+            metaPanel.Children.Add(new TextBlock
+            {
+                Text = "Mention",
+                FontSize = 11,
+                Opacity = 0.82,
+                Foreground = accentBrush
+            });
+        }
         metaPanel.Children.Add(new TextBlock
         {
             Text = notice.Utc.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
@@ -5473,6 +5681,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green
             accentColor = borderBrush;
         }
+        else if (alertType == Models.NotificationType.Update || title.Contains("Update", StringComparison.OrdinalIgnoreCase))
+        {
+            alertType = Models.NotificationType.Update;
+            borderBrush = new SolidColorBrush(Color.FromArgb(255, 33, 150, 243)); // Blue
+            accentColor = borderBrush;
+        }
         else if (alertType == Models.NotificationType.Success)
         {
             borderBrush = new SolidColorBrush(Color.FromArgb(255, 76, 175, 80)); // Green
@@ -5497,7 +5711,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         var mainGrid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
-            RowDefinitions = new RowDefinitions("Auto,Auto,Auto")
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto")
         };
 
         var iconBlock = new TextBlock
@@ -5569,6 +5783,61 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             mainGrid.Children.Add(bodyBlock);
         }
 
+        var showRetryUpdate = ShouldShowRetryUpdateAction(alert);
+        if (showRetryUpdate)
+        {
+            var retryUpdateButton = new Button
+            {
+                Content = "Retry Update",
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 8, 0, 0),
+                Padding = new Thickness(10, 4)
+            };
+            retryUpdateButton.Click += async (_, __) =>
+            {
+                try
+                {
+                    retryUpdateButton.IsEnabled = false;
+                    retryUpdateButton.Content = "Retrying...";
+
+                    try { AppServices.Notifications.RemoveNotice(alert.Id); } catch { }
+                    try
+                    {
+                        AppServices.Notifications.PostNotice(
+                            Models.NotificationType.Update,
+                            "Retry started: checking for updates now.",
+                            originUid: null,
+                            fullBody: "Retry started: checking for updates now. Zer0Talk will download and launch the installer if an eligible update is found.",
+                            isPersistent: true);
+                    }
+                    catch { }
+
+                    try { RenderAlertsPanel(); } catch { }
+                    if (DataContext is MainWindowViewModel vm)
+                    {
+                        try { vm.RefreshHasPendingInvites(); } catch { }
+                    }
+
+                    await AppServices.AutoUpdate.CheckForUpdatesAsync(userInitiated: true, CancellationToken.None);
+                }
+                catch { }
+                finally
+                {
+                    try
+                    {
+                        retryUpdateButton.IsEnabled = true;
+                        retryUpdateButton.Content = "Retry Update";
+                    }
+                    catch { }
+                }
+            };
+
+            Grid.SetRow(retryUpdateButton, 2);
+            Grid.SetColumn(retryUpdateButton, 0);
+            Grid.SetColumnSpan(retryUpdateButton, 3);
+            mainGrid.Children.Add(retryUpdateButton);
+        }
+
         // Timestamp
         var timestampBlock = new TextBlock
         {
@@ -5577,7 +5846,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             Opacity = 0.6,
             Margin = new Thickness(0, 4, 0, 0)
         };
-        Grid.SetRow(timestampBlock, 2);
+        Grid.SetRow(timestampBlock, showRetryUpdate ? 3 : 2);
         Grid.SetColumn(timestampBlock, 0);
         Grid.SetColumnSpan(timestampBlock, 3);
 
@@ -5588,6 +5857,33 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         contentBorder.Child = mainGrid;
         return contentBorder;
+    }
+
+    private static bool ShouldShowRetryUpdateAction(NotificationService.NotificationItem alert)
+    {
+        try
+        {
+            var title = alert.Title ?? string.Empty;
+            var body = alert.FullBody ?? alert.Body ?? string.Empty;
+
+            var aboutUpdate = title.Contains("update", StringComparison.OrdinalIgnoreCase)
+                || body.Contains("update", StringComparison.OrdinalIgnoreCase)
+                || alert.Type == Models.NotificationType.Update;
+            if (!aboutUpdate)
+            {
+                return false;
+            }
+
+            return body.Contains("failed", StringComparison.OrdinalIgnoreCase)
+                || body.Contains("could not", StringComparison.OrdinalIgnoreCase)
+                || body.Contains("verification failed", StringComparison.OrdinalIgnoreCase)
+                || title.Contains("error", StringComparison.OrdinalIgnoreCase)
+                || alert.Type == Models.NotificationType.Error;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private Control BuildSecurityEventEntry(NotificationService.SecurityEventItem securityEvent)
@@ -5764,6 +6060,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             // Remove any legacy width persistence
             AppServices.Settings.Settings.MainLeftWidth = null;
             AppServices.Settings.Settings.MainRightWidth = null;
+            AppServices.Settings.Settings.LastNotificationCenterView = 0;
+            _rightPanelViewRestored = false;
+            try { ShowInvitesHost(); } catch { }
             _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
         }
         catch { }
@@ -5912,6 +6211,100 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     // Floating Markdown Toolbar (Discord-style)
     private System.Threading.CancellationTokenSource? _toolbarUpdateCts;
     private DateTime _lastToolbarUpdate = DateTime.MinValue;
+    private int? _messageSelectionSnapshotStart;
+    private int? _messageSelectionSnapshotEnd;
+    private DateTime _messageSelectionSnapshotAt = DateTime.MinValue;
+    private Point? _messageSelectionPointerAnchor;
+    private DateTime _messageSelectionPointerAnchorAt = DateTime.MinValue;
+    private const int MessageSelectionSnapshotTtlMs = 3000;
+    private const int MessageSelectionPointerAnchorTtlMs = 1200;
+
+    private static (int Start, int End) GetClampedSelection(TextBox input, int textLength)
+    {
+        var rawStart = input.SelectionStart;
+        var rawEnd = input.SelectionEnd;
+        var start = Math.Min(rawStart, rawEnd);
+        start = Math.Max(0, Math.Min(start, textLength));
+        var end = Math.Max(rawStart, rawEnd);
+        end = Math.Max(0, Math.Min(end, textLength));
+        return (start, end);
+    }
+
+    private void CaptureMessageSelectionSnapshot(TextBox input)
+    {
+        try
+        {
+            var text = input.Text ?? string.Empty;
+            var (start, end) = GetClampedSelection(input, text.Length);
+            if (end <= start)
+            {
+                return;
+            }
+
+            _messageSelectionSnapshotStart = start;
+            _messageSelectionSnapshotEnd = end;
+            _messageSelectionSnapshotAt = DateTime.UtcNow;
+        }
+        catch { }
+    }
+
+    private bool TryResolveMessageSelectionForFormatting(TextBox input, object? source, out int start, out int end)
+    {
+        var text = input.Text ?? string.Empty;
+        var length = text.Length;
+        var current = GetClampedSelection(input, length);
+        start = current.Start;
+        end = current.End;
+
+        if (end > start)
+        {
+            CaptureMessageSelectionSnapshot(input);
+            return true;
+        }
+
+        var isButtonInvoke = source is Button;
+        var snapshotIsFresh = (DateTime.UtcNow - _messageSelectionSnapshotAt).TotalMilliseconds <= MessageSelectionSnapshotTtlMs;
+        if (!isButtonInvoke || !snapshotIsFresh || !_messageSelectionSnapshotStart.HasValue || !_messageSelectionSnapshotEnd.HasValue)
+        {
+            start = end = Math.Max(0, Math.Min(input.CaretIndex, length));
+            return false;
+        }
+
+        start = Math.Max(0, Math.Min(_messageSelectionSnapshotStart.Value, length));
+        end = Math.Max(0, Math.Min(_messageSelectionSnapshotEnd.Value, length));
+        if (end <= start)
+        {
+            start = end = Math.Max(0, Math.Min(input.CaretIndex, length));
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool IsFocusWithinMarkdownToolbar()
+    {
+        try
+        {
+            var focused = this.FocusManager?.GetFocusedElement();
+            if (focused is not Visual focusedVisual)
+            {
+                return false;
+            }
+
+            var toolbar = this.FindControl<Zer0Talk.Controls.MarkdownToolbar>("MarkdownFloatingToolbar");
+            if (toolbar is null)
+            {
+                return false;
+            }
+
+            return ReferenceEquals(focusedVisual, toolbar) ||
+                   focusedVisual.FindAncestorOfType<Zer0Talk.Controls.MarkdownToolbar>() == toolbar;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private void InitializeMarkdownToolbar()
     {
@@ -5927,6 +6320,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 try
                 {
+                    try
+                    {
+                        _messageSelectionPointerAnchor = e.GetPosition(input);
+                        _messageSelectionPointerAnchorAt = DateTime.UtcNow;
+                    }
+                    catch { }
+
                     // Throttle to prevent excessive updates
                     var now = DateTime.UtcNow;
                     if ((now - _lastToolbarUpdate).TotalMilliseconds < 100)
@@ -5945,6 +6345,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                         {
                             if (!token.IsCancellationRequested)
                             {
+                                CaptureMessageSelectionSnapshot(input);
                                 UpdateMarkdownToolbarVisibility(input, popup);
                             }
                         }
@@ -5959,6 +6360,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 try
                 {
+                    _messageSelectionPointerAnchor = null;
                     popup.IsOpen = false;
                 }
                 catch { }
@@ -5989,6 +6391,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                             {
                                 if (!token.IsCancellationRequested)
                                 {
+                                    CaptureMessageSelectionSnapshot(input);
                                     UpdateMarkdownToolbarVisibility(input, popup);
                                 }
                             }
@@ -6004,7 +6407,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 try
                 {
-                    popup.IsOpen = false;
+                    // Keep popup alive while focus is moving to a floating toolbar button.
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            if (IsFocusWithinMarkdownToolbar())
+                            {
+                                return;
+                            }
+
+                            popup.IsOpen = false;
+                        }
+                        catch { }
+                    }, DispatcherPriority.Background);
                 }
                 catch { }
             };
@@ -6020,7 +6436,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             
             if (hasSelection)
             {
-                // Show toolbar above selected text
+                // If the selection was made via pointer, anchor popup to the pointer position
+                // inside the composer so it floats over the selected text region.
+                var pointerAnchorIsFresh = (DateTime.UtcNow - _messageSelectionPointerAnchorAt).TotalMilliseconds <= MessageSelectionPointerAnchorTtlMs;
+                if (pointerAnchorIsFresh && _messageSelectionPointerAnchor.HasValue)
+                {
+                    var anchor = _messageSelectionPointerAnchor.Value;
+                    var anchorX = Math.Max(0, Math.Min(anchor.X, Math.Max(0, input.Bounds.Width - 1)));
+                    var anchorY = Math.Max(0, Math.Min(anchor.Y, Math.Max(0, input.Bounds.Height - 1)));
+                    popup.PlacementTarget = input;
+                    popup.Placement = PlacementMode.AnchorAndGravity;
+                    popup.PlacementRect = new Rect(anchorX, anchorY, 1, 1);
+                    popup.PlacementAnchor = PopupAnchor.Top;
+                    popup.PlacementGravity = PopupGravity.Top;
+                    popup.PlacementConstraintAdjustment = PopupPositionerConstraintAdjustment.FlipY | PopupPositionerConstraintAdjustment.SlideX;
+                    popup.HorizontalOffset = 0;
+                    popup.VerticalOffset = -10;
+                }
+                else
+                {
+                    popup.PlacementTarget = input;
+                    popup.Placement = PlacementMode.Top;
+                    popup.HorizontalOffset = 0;
+                    popup.VerticalOffset = -8;
+                }
+
                 popup.IsOpen = true;
             }
             else
@@ -6070,6 +6510,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             _inviteToastDismissBtn = null;
         }
         try { DetachRightPanelEventHandlers(); } catch { }
+        try
+        {
+            if (_themeAppliedHandler != null)
+            {
+                ThemeEngine.ThemeApplied -= _themeAppliedHandler;
+                _themeAppliedHandler = null;
+            }
+        }
+        catch { }
         try { StopNotificationBellFlash(); } catch { }
         ClearMessageHandlers();
         GC.SuppressFinalize(this);
@@ -6089,7 +6538,299 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     {
                         try { OnNotificationCountChanged(vm.NotificationCount); } catch { }
                     }
+                    else if (e.PropertyName == nameof(MainWindowViewModel.ActiveSearchMessageId))
+                    {
+                        try
+                        {
+                            var targetId = vm.ActiveSearchMessageId;
+                            if (targetId.HasValue && targetId != _lastAutoScrolledSearchMessageId)
+                            {
+                                _lastAutoScrolledSearchMessageId = targetId;
+                                ScrollActiveSearchMessageIntoView(targetId.Value);
+                            }
+                            if (!targetId.HasValue)
+                            {
+                                _lastAutoScrolledSearchMessageId = null;
+                            }
+                        }
+                        catch { }
+                    }
                 };
+            }
+        }
+        catch { }
+    }
+
+    private void ScrollActiveSearchMessageIntoView(Guid messageId)
+    {
+        try
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var target = this.GetVisualDescendants()
+                        .OfType<Control>()
+                        .FirstOrDefault(c => c.Classes.Contains("message-row") && c.DataContext is Message m && m.Id == messageId)
+                        ?? this.GetVisualDescendants()
+                            .OfType<Control>()
+                            .FirstOrDefault(c => c.DataContext is Message m && m.Id == messageId);
+
+                    if (target == null) return;
+                    target.BringIntoView();
+                }
+                catch { }
+            }, DispatcherPriority.Background);
+        }
+        catch { }
+    }
+
+    private void ReactionPickerPopup_Opened(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (sender is Popup popup)
+            {
+                ConfigureReactionPickerPopupPlacement(popup);
+            }
+
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.ReactionEmojiSearchQuery = string.Empty;
+            }
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var searchBox = this.GetVisualDescendants()
+                        .OfType<TextBox>()
+                        .FirstOrDefault(tb => string.Equals(tb.Name, "ReactionPickerSearchBox", StringComparison.Ordinal));
+
+                    if (searchBox != null)
+                    {
+                        searchBox.Focus();
+                        searchBox.SelectAll();
+                    }
+                }
+                catch { }
+            }, DispatcherPriority.Background);
+        }
+        catch { }
+    }
+
+    private void ReactionPickerButton_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _lastReactionPickerAnchor = sender as Control;
+
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.ReactionPickerTargetMessageId = (_lastReactionPickerAnchor?.DataContext as Message)?.Id ?? Guid.Empty;
+            }
+
+            var popup = this.FindControl<Popup>("ReactionPickerPopup");
+            if (popup != null)
+            {
+                ConfigureReactionPickerPopupPlacement(popup);
+                popup.IsOpen = true;
+            }
+        }
+        catch { }
+    }
+
+    private void ConfigureReactionPickerPopupPlacement(Popup popup)
+    {
+        try
+        {
+            // Keep popup placement deterministic and fully controlled by explicit coordinates.
+            popup.PlacementConstraintAdjustment = PopupPositionerConstraintAdjustment.None;
+
+            var placementHost = this.FindControl<Control>("ChatScroll")
+                ?? this.FindControl<Control>("ChatArea")
+                ?? this;
+            var hostVisual = placementHost as Visual;
+            var rootVisual = this as Visual;
+
+            popup.PlacementTarget = placementHost;
+
+            var anchorControl = _lastReactionPickerAnchor;
+            var hostWidth = Math.Max(1d, placementHost.Bounds.Width);
+            var hostHeight = Math.Max(1d, placementHost.Bounds.Height);
+
+            const double preferredPickerWidth = 420d;
+            const double minPickerWidth = 300d;
+            const double safeEdgePadding = 12d;
+            const double verticalGap = 10d;
+
+            // Horizontal size: restore fixed-lane behavior (420 when possible), with narrow-window safety clamp.
+            var maxWidthByViewport = Math.Max(minPickerWidth, hostWidth - (safeEdgePadding * 2d));
+            var pickerWidth = Math.Min(preferredPickerWidth, maxWidthByViewport);
+
+            var popupScroll = this.FindControl<ScrollViewer>("ReactionPickerPopupScroll");
+            if (popupScroll != null)
+            {
+                popupScroll.Width = pickerWidth;
+                popupScroll.MinWidth = pickerWidth;
+                popupScroll.MaxWidth = pickerWidth;
+            }
+
+            // Vertical size: keep a stable usable dropdown height.
+            var preferredPickerHeight = Math.Clamp(hostHeight * 0.62d, 320d, 460d);
+
+            // Convert anchor from root-space into chat-canvas space to avoid cross-tree translation failures.
+            Point anchorInHost;
+            if (anchorControl is Visual anchorVisual && hostVisual != null && rootVisual != null)
+            {
+                var anchorInRoot = anchorVisual.TranslatePoint(new Point(anchorVisual.Bounds.Width / 2d, anchorVisual.Bounds.Height), rootVisual);
+                var hostInRoot = hostVisual.TranslatePoint(new Point(0, 0), rootVisual);
+                if (anchorInRoot.HasValue && hostInRoot.HasValue)
+                {
+                    anchorInHost = new Point(anchorInRoot.Value.X - hostInRoot.Value.X, anchorInRoot.Value.Y - hostInRoot.Value.Y);
+                }
+                else
+                {
+                    anchorInHost = new Point(hostWidth / 2d, Math.Min(hostHeight - safeEdgePadding, 72d));
+                }
+            }
+            else
+            {
+                anchorInHost = new Point(hostWidth / 2d, Math.Min(hostHeight - safeEdgePadding, 72d));
+            }
+
+            var desiredLeft = anchorInHost.X - (pickerWidth / 2d);
+            var maxLeft = Math.Max(safeEdgePadding, hostWidth - pickerWidth - safeEdgePadding);
+            desiredLeft = Math.Clamp(desiredLeft, safeEdgePadding, maxLeft);
+
+            // Always open downward from the reaction button; never flip above it.
+            var anchorY = Math.Clamp(anchorInHost.Y, safeEdgePadding, Math.Max(safeEdgePadding, hostHeight - safeEdgePadding));
+            var desiredTop = Math.Clamp(anchorY + verticalGap, safeEdgePadding, Math.Max(safeEdgePadding, hostHeight - safeEdgePadding));
+
+            if (popupScroll != null)
+            {
+                popupScroll.Height = double.NaN;
+                popupScroll.MinHeight = Math.Min(280d, preferredPickerHeight);
+                popupScroll.MaxHeight = preferredPickerHeight;
+            }
+
+            popup.Placement = PlacementMode.AnchorAndGravity;
+            popup.PlacementAnchor = PopupAnchor.TopLeft;
+            popup.PlacementGravity = PopupGravity.TopLeft;
+            popup.PlacementRect = new Rect(desiredLeft, desiredTop, 1, 1);
+            popup.HorizontalOffset = 0;
+            popup.VerticalOffset = 0;
+        }
+        catch
+        {
+            popup.PlacementConstraintAdjustment = PopupPositionerConstraintAdjustment.None;
+            popup.Placement = PlacementMode.AnchorAndGravity;
+            popup.PlacementAnchor = PopupAnchor.TopLeft;
+            popup.PlacementGravity = PopupGravity.TopLeft;
+            popup.PlacementRect = new Rect(16, 16, 1, 1);
+            popup.HorizontalOffset = 0;
+            popup.VerticalOffset = 0;
+        }
+    }
+
+    private void ReactionPickerPopup_Closed(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.ReactionEmojiSearchQuery = string.Empty;
+            }
+        }
+        catch { }
+    }
+
+    private void ReactionPickerItem_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var popup = this.FindControl<Popup>("ReactionPickerPopup");
+            if (popup != null)
+            {
+                popup.IsOpen = false;
+            }
+        }
+        catch { }
+    }
+
+    // Composer Emoji Picker event handlers
+    private void ComposerEmojiPickerButton_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var popup = this.FindControl<Popup>("ComposerEmojiPickerPopup");
+            if (popup != null)
+            {
+                popup.IsOpen = true;
+            }
+        }
+        catch { }
+    }
+
+    private void ComposerEmojiPickerPopup_Opened(object? sender, EventArgs e)
+    {
+        try
+        {
+            // Focus search box when popup opens
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    var searchBox = this.FindControl<Control>("ComposerEmojiPickerSearchBox")
+                        ?.GetVisualDescendants()
+                        .OfType<TextBox>()
+                        .FirstOrDefault(tb => string.Equals(tb.Name, "ComposerEmojiPickerSearchBox", StringComparison.Ordinal));
+                    searchBox?.Focus();
+                }
+                catch { }
+            });
+        }
+        catch { }
+    }
+
+    private void ComposerEmojiPickerPopup_Closed(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.ComposerEmojiSearchQuery = string.Empty;
+            }
+        }
+        catch { }
+    }
+
+    private void ComposerEmojiPickerItem_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (DataContext is MainWindowViewModel vm && sender is Button button && button.CommandParameter is string emoji)
+            {
+                vm.InsertEmojiIntoMessage(emoji);
+                
+                // Keep popup open for multiple emoji insertions
+                // Close popup - user can click the emoji button again if they want more
+                var popup = this.FindControl<Popup>("ComposerEmojiPickerPopup");
+                if (popup != null)
+                {
+                    popup.IsOpen = false;
+                }
+                
+                // Focus back to message input
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    try
+                    {
+                        var messageInput = this.FindControl<TextBox>("MessageInput");
+                        messageInput?.Focus();
+                    }
+                    catch { }
+                });
             }
         }
         catch { }

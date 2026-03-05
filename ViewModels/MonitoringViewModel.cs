@@ -424,6 +424,13 @@ public class MonitoringViewModel : INotifyPropertyChanged
     private string _relayHealthSummary = "No relays configured";
     public string RelayHealthSummary { get => _relayHealthSummary; set { _relayHealthSummary = value; OnPropertyChanged(); } }
 
+    private int _healthScore = 100;
+    public int HealthScore { get => _healthScore; private set { if (_healthScore != value) { _healthScore = value; OnPropertyChanged(); OnPropertyChanged(nameof(HealthScoreSummary)); } } }
+    public string HealthScoreSummary => $"Health Score: {HealthScore}/100";
+
+    private string _connectionDoctorSummary = "Connection Doctor: Network looks healthy.";
+    public string ConnectionDoctorSummary { get => _connectionDoctorSummary; private set { if (_connectionDoctorSummary != value) { _connectionDoctorSummary = value; OnPropertyChanged(); } } }
+
     public void RefreshConnectionStats()
     {
         try
@@ -438,6 +445,10 @@ public class MonitoringViewModel : INotifyPropertyChanged
             var relayPct = relayTotal > 0 ? $" ({snap.RelaySuccess * 100 / relayTotal}%)" : "";
 
             ConnectionStatsSummary = $"Direct: {snap.DirectSuccess}/{directTotal}{directPct}  NAT: {snap.NatSuccess}/{natTotal}{natPct}  Relay: {snap.RelaySuccess}/{relayTotal}{relayPct}  Mismatch: {snap.UidMismatch}";
+
+            var evaluation = Utilities.ConnectionHealthScoring.Evaluate(snap);
+            HealthScore = evaluation.Score;
+            ConnectionDoctorSummary = "Connection Doctor: " + evaluation.DoctorSummary;
         }
         catch { }
 
@@ -559,6 +570,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(DiscoveryLastSuccessLabel));
         OnPropertyChanged(nameof(PresencePipelineSummary));
         EvaluateNatIndicator();
+        RefreshConnectionStats();
     }
 
     private void EvaluateNatIndicator()

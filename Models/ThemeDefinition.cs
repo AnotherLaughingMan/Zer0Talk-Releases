@@ -225,6 +225,78 @@ namespace Zer0Talk.Models
         }
 
         /// <summary>
+        /// Ensures required color overrides exist for consistent list/contact styling across app surfaces.
+        /// This is primarily a migration safety-net for older custom themes that predate newer keys.
+        /// </summary>
+        /// <returns>Number of injected keys.</returns>
+        public int EnsureCompatibilityColorOverrides(List<string>? warnings = null)
+        {
+            ColorOverrides ??= new Dictionary<string, string>();
+
+            var injected = 0;
+
+            if (TryResolveColor(new[] { "App.AccentLight" }, "#7998FF", out var accentLight))
+            {
+                injected += EnsureColorOverride("App.AccentLight", accentLight, warnings, "Added missing App.AccentLight for hover/selection accents");
+            }
+
+            if (TryResolveColor(new[] { "App.ItemHover", "SystemControlHighlightListLowBrush", "App.Surface" }, "#2A2A2A", out var itemHover))
+            {
+                injected += EnsureColorOverride("App.ItemHover", itemHover, warnings, "Added missing App.ItemHover for list/contact hover state");
+            }
+
+            if (TryResolveColor(new[] { "App.ItemSelected", "SystemControlHighlightListAccentLowBrush", "App.SelectionBackground", "App.ItemHover" }, "#383838", out var itemSelected))
+            {
+                injected += EnsureColorOverride("App.ItemSelected", itemSelected, warnings, "Added missing App.ItemSelected for list/contact selected state");
+            }
+
+            if (TryResolveColor(new[] { "App.Border", "App.Surface" }, "#3A3A3A", out var borderColor))
+            {
+                injected += EnsureColorOverride("App.Border", borderColor, warnings, "Added missing App.Border for contact card border rendering");
+            }
+
+            // Keep Fluent list brushes in sync with app-owned list state colors.
+            if (TryResolveColor(new[] { "SystemControlHighlightListLowBrush", "App.ItemHover" }, "#2A2A2A", out var lowListBrush))
+            {
+                injected += EnsureColorOverride("SystemControlHighlightListLowBrush", lowListBrush, warnings, "Added missing SystemControlHighlightListLowBrush from App.ItemHover");
+            }
+
+            if (TryResolveColor(new[] { "SystemControlHighlightListAccentLowBrush", "App.ItemSelected" }, "#383838", out var accentLowListBrush))
+            {
+                injected += EnsureColorOverride("SystemControlHighlightListAccentLowBrush", accentLowListBrush, warnings, "Added missing SystemControlHighlightListAccentLowBrush from App.ItemSelected");
+            }
+
+            return injected;
+        }
+
+        private int EnsureColorOverride(string key, string color, List<string>? warnings, string warning)
+        {
+            if (ColorOverrides.ContainsKey(key) && IsValidColor(ColorOverrides[key]))
+            {
+                return 0;
+            }
+
+            ColorOverrides[key] = color;
+            warnings?.Add(warning);
+            return 1;
+        }
+
+        private bool TryResolveColor(IEnumerable<string> keys, string fallback, out string value)
+        {
+            foreach (var key in keys)
+            {
+                if (ColorOverrides.TryGetValue(key, out var candidate) && IsValidColor(candidate))
+                {
+                    value = candidate;
+                    return true;
+                }
+            }
+
+            value = fallback;
+            return IsValidColor(value);
+        }
+
+        /// <summary>
         /// Check if this theme is a built-in theme (legacy or template).
         /// </summary>
         public bool IsBuiltIn()
@@ -254,6 +326,8 @@ namespace Zer0Talk.Models
         /// </summary>
         public void SaveToFile(string filePath)
         {
+            EnsureCompatibilityColorOverrides();
+
             if (!IsValid(out var error))
             {
                 throw new InvalidOperationException($"Cannot save invalid theme: {error}");
@@ -282,6 +356,9 @@ namespace Zer0Talk.Models
             {
                 throw new InvalidOperationException("Failed to deserialize theme: result was null");
             }
+
+            // Keep older themes forward-compatible with newer selectors/resources.
+            theme.EnsureCompatibilityColorOverrides();
 
             return theme;
         }
@@ -330,6 +407,9 @@ namespace Zer0Talk.Models
 
             // Comprehensive validation
             ValidateThemeContent(theme, warnings);
+
+            // Auto-heal older themes with missing compatibility keys used by newer UI selectors.
+            theme.EnsureCompatibilityColorOverrides(warnings);
 
             // Log successful import
             Zer0Talk.Utilities.Logger.Log($"[Theme Import] Loaded theme '{theme.DisplayName}' from {filePath} ({warnings.Count} warnings)", 

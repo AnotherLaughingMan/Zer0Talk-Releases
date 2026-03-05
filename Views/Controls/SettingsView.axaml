@@ -7,6 +7,23 @@
   <Grid ColumnDefinitions="200,1,*">
     <Border Grid.Column="0" Background="{DynamicResource App.Surface}" BorderThickness="0">
       <ListBox x:Name="MenuList" SelectedIndex="0" BorderThickness="0">
+        <ListBox.Styles>
+          <Style Selector="ListBox#MenuList ListBoxItem /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+          </Style>
+          <Style Selector="ListBox#MenuList ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+          </Style>
+          <Style Selector="ListBox#MenuList ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource App.ItemSelected}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}"/>
+            <Setter Property="BorderThickness" Value="3,0,0,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}"/>
+          </Style>
+        </ListBox.Styles>
         <ListBoxItem Content="{Binding LocalizedAppearance}"/>
         <ListBoxItem Content="{Binding LocalizedGeneral}"/>
         <ListBoxItem Content="{Binding LocalizedHotkeys}"/>
@@ -1088,16 +1105,16 @@
           <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
 
           <!-- WAN Seed Bootstrap -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+          <Border CornerRadius="8" Padding="16" MaxWidth="560" HorizontalAlignment="Left">
             <StackPanel Spacing="12">
               <TextBlock Text="WAN Seed Bootstrap (Advanced / Optional)" FontWeight="SemiBold"/>
-              <TextBlock Text="Seed nodes help first-time WAN discovery when no relay address is known yet. Most users should leave this empty unless support asks you to configure it." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="820"/>
+              <TextBlock Text="Seed nodes help first-time WAN discovery when no relay address is known yet. Most users should leave this empty unless support asks you to configure it." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="520"/>
               <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                 <TextBlock Text="Always use seed nodes" VerticalAlignment="Center" Width="220"/>
                 <ToggleSwitch IsChecked="{Binding ForceSeedBootstrap}" Content="On"/>
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBox Text="{Binding NewWanSeedNode}" Watermark="seed.example.com:443 or [IPv6]:443" Width="360"/>
+                <TextBox Text="{Binding NewWanSeedNode}" Watermark="seed.example.com:443 or [IPv6]:443" Width="260"/>
                 <Button Content="{Binding LocalizedAdd}" Command="{Binding AddWanSeedNodeCommand}"/>
                 <Button Content="Use" Command="{Binding UseWanSeedNodeCommand}" CommandParameter="{Binding SelectedWanSeedNode}"/>
               </StackPanel>
@@ -1105,8 +1122,8 @@
                 <ListBox ItemsSource="{Binding WanSeedNodes}" SelectedItem="{Binding SelectedWanSeedNode}" BorderThickness="0" Background="Transparent">
                   <ListBox.ItemTemplate>
                     <DataTemplate>
-                      <Grid ColumnDefinitions="*,Auto,Auto" Margin="8,4">
-                        <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center"/>
+                      <Grid ColumnDefinitions="*,Auto,Auto" Margin="8,4" ColumnSpacing="8">
+                        <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                         <Button Grid.Column="1" Margin="8,0,0,0" Content="Use" Command="{Binding $parent[UserControl].DataContext.UseWanSeedNodeCommand}" CommandParameter="{Binding}"/>
                         <Button Grid.Column="2" Margin="8,0,0,0" Content="{Binding $parent[UserControl].DataContext.LocalizedRemove}" Command="{Binding $parent[UserControl].DataContext.RemoveWanSeedNodeCommand}" CommandParameter="{Binding}"/>
                       </Grid>
@@ -1232,9 +1249,15 @@
                           <DataTemplate>
                             <Grid ColumnDefinitions="*,Auto,Auto" Margin="4,2" ToolTip.Tip="{Binding CountryName}">
                               <TextBlock Grid.Column="0" Text="{Binding IpOrRange}" VerticalAlignment="Center" FontFamily="Consolas" FontSize="11"/>
-                              <Border Grid.Column="1" Background="{DynamicResource App.Accent}" CornerRadius="3" Padding="4,1" Margin="4,0">
-                                <TextBlock Text="{Binding CountryCode}" FontSize="9" FontWeight="SemiBold" Foreground="White"/>
-                              </Border>
+                              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="4,0" VerticalAlignment="Center">
+                                <Image Width="18" Height="12" Stretch="UniformToFill"
+                                       Source="{Binding CountryCode, Converter={StaticResource CountryCodeToFlagBitmapConverter}}"
+                                       IsVisible="{Binding CountryCode, Converter={StaticResource CountryCodeHasFlagConverter}}"/>
+                                <Border Background="{DynamicResource App.Accent}" CornerRadius="3" Padding="4,1"
+                                        IsVisible="{Binding CountryCode, Converter={StaticResource CountryCodeHasNoFlagConverter}}">
+                                  <TextBlock Text="{Binding CountryCode}" FontSize="9" FontWeight="SemiBold" Foreground="White"/>
+                                </Border>
+                              </StackPanel>
                               <Button Grid.Column="2" Content="✕" Command="{Binding $parent[UserControl].DataContext.RemoveBadActorIpCommand}" 
                                       CommandParameter="{Binding}" Width="20" Height="20" FontSize="10" Padding="0"/>
                             </Grid>
@@ -1260,9 +1283,15 @@
                           <DataTemplate>
                             <Grid ColumnDefinitions="*,Auto,Auto" Margin="4,2" ToolTip.Tip="{Binding CountryName}">
                               <TextBlock Grid.Column="0" Text="{Binding IpOrRange}" VerticalAlignment="Center" FontFamily="Consolas" FontSize="11"/>
-                              <Border Grid.Column="1" Background="{DynamicResource App.Accent}" CornerRadius="3" Padding="4,1" Margin="4,0">
-                                <TextBlock Text="{Binding CountryCode}" FontSize="9" FontWeight="SemiBold" Foreground="White"/>
-                              </Border>
+                              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="4,0" VerticalAlignment="Center">
+                                <Image Width="18" Height="12" Stretch="UniformToFill"
+                                       Source="{Binding CountryCode, Converter={StaticResource CountryCodeToFlagBitmapConverter}}"
+                                       IsVisible="{Binding CountryCode, Converter={StaticResource CountryCodeHasFlagConverter}}"/>
+                                <Border Background="{DynamicResource App.Accent}" CornerRadius="3" Padding="4,1"
+                                        IsVisible="{Binding CountryCode, Converter={StaticResource CountryCodeHasNoFlagConverter}}">
+                                  <TextBlock Text="{Binding CountryCode}" FontSize="9" FontWeight="SemiBold" Foreground="White"/>
+                                </Border>
+                              </StackPanel>
                               <Button Grid.Column="2" Content="✕" Command="{Binding $parent[UserControl].DataContext.RemoveIpRangeCommand}" 
                                       CommandParameter="{Binding}" Width="20" Height="20" FontSize="10" Padding="0"/>
                             </Grid>
@@ -1367,7 +1396,17 @@
             <StackPanel Spacing="12">
               <TextBlock Text="{Binding LocalizedExportData}" FontWeight="SemiBold" FontSize="16"/>
               <TextBlock Text="{Binding LocalizedExportDataDescription}" TextWrapping="Wrap" Opacity="0.8"/>
-              <Button Content="{Binding LocalizedExportData}" Command="{Binding ExportDataCommand}" HorizontalAlignment="Left" Padding="12,8"/>
+              <Button Content="{Binding LocalizedExportDataButton}" Command="{Binding ExportDataCommand}" HorizontalAlignment="Left" Padding="12,8"/>
+
+              <TextBlock Text="{Binding LocalizedExportMigrationBundle}" FontWeight="SemiBold" FontSize="16" Margin="0,6,0,0"/>
+              <TextBlock Text="{Binding LocalizedExportMigrationBundleDescription}" TextWrapping="Wrap" Opacity="0.8"/>
+              <Button Content="{Binding LocalizedExportMigrationBundleButton}" Command="{Binding ExportMigrationBundleCommand}" HorizontalAlignment="Left" Padding="12,8"/>
+
+              <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.35" Margin="0,2,0,2"/>
+
+              <TextBlock Text="{Binding LocalizedImportData}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Text="{Binding LocalizedImportDataDescription}" TextWrapping="Wrap" Opacity="0.8"/>
+              <Button Content="{Binding LocalizedImportMigrationBundleButton}" Command="{Binding ImportDataCommand}" HorizontalAlignment="Left" Padding="12,8"/>
             </StackPanel>
           </Border>
 

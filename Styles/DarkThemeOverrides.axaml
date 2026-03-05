@@ -34,6 +34,8 @@
   <SolidColorBrush x:Key="App.ChatReceiverName" Color="#F3AA64"/>
   <SolidColorBrush x:Key="App.SelectionBackground" Color="#2E5AA8"/>
   <SolidColorBrush x:Key="App.SelectionForeground" Color="#FFFFFF"/>
+  <SolidColorBrush x:Key="App.ItemHover" Color="#2E2E2E"/>
+  <SolidColorBrush x:Key="App.ItemSelected" Color="#363636"/>
   <!-- Contact list specific (dark) -->
   <SolidColorBrush x:Key="App.ContactName" Color="#8A94A0"/>
   <SolidColorBrush x:Key="App.ContactNameActive" Color="#FFFFFF"/>

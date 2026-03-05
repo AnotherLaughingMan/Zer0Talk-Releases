@@ -14,6 +14,15 @@ namespace Zer0Talk.Services;
 
 public static class AppServices
 {
+    private static void LogGuardedFailure(string operation, Exception ex)
+    {
+        try
+        {
+            Logger.Warning($"{operation} failed: {ex.Message}", source: nameof(AppServices), categoryOverride: "app");
+        }
+        catch { }
+    }
+
     // True only while the app is intentionally shutting down (for example, tray Exit)
     // so main-window close logic does not route into minimize-to-tray behavior.
     public static bool IsShutdownRequested { get; set; }
@@ -173,7 +182,10 @@ public static class AppServices
             {
                 await Outbox.DrainAsync(normalizedUid, Passphrase, System.Threading.CancellationToken.None).ConfigureAwait(false);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                LogGuardedFailure($"Outbox.DrainAsync({normalizedUid})", ex);
+            }
             finally
             {
                 try { OutboxDrainLimiter.Release(); } catch { }
@@ -184,23 +196,27 @@ public static class AppServices
     // Convenience helper for viewmodels to cancel queued messages by id
     public static void OutboxCancelIfQueued(string peerUid, System.Guid messageId, string passphrase)
     {
-        try { Outbox.CancelQueued(peerUid, messageId, passphrase); } catch { }
+        try { Outbox.CancelQueued(peerUid, messageId, passphrase); }
+        catch (Exception ex) { LogGuardedFailure($"Outbox.CancelQueued({peerUid}, {messageId})", ex); }
     }
 
     // Update queued message content if still pending
     public static void OutboxUpdateIfQueued(string peerUid, System.Guid messageId, string newContent, string passphrase)
     {
-        try { Outbox.UpdateQueued(peerUid, messageId, newContent, passphrase); } catch { }
+        try { Outbox.UpdateQueued(peerUid, messageId, newContent, passphrase); }
+        catch (Exception ex) { LogGuardedFailure($"Outbox.UpdateQueued({peerUid}, {messageId})", ex); }
     }
 
     public static void OutboxQueueEdit(string peerUid, System.Guid messageId, string newContent, string passphrase)
     {
-        try { Outbox.EnqueueEdit(peerUid, messageId, newContent, passphrase); } catch { }
+        try { Outbox.EnqueueEdit(peerUid, messageId, newContent, passphrase); }
+        catch (Exception ex) { LogGuardedFailure($"Outbox.EnqueueEdit({peerUid}, {messageId})", ex); }
     }
 
     public static void PeersClearTransientStatuses()
     {
-        try { Peers.ClearTransientStatuses(); } catch { }
+        try { Peers.ClearTransientStatuses(); }
+        catch (Exception ex) { LogGuardedFailure("Peers.ClearTransientStatuses", ex); }
     }
 
     // Apply remote edit to local message store and notify UI where applicable
@@ -213,7 +229,10 @@ public static class AppServices
             // Raise event so UI can refresh if this conversation is currently visible
             Events.RaiseMessageEdited(peerUid, messageId, newContent);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            LogGuardedFailure($"MessagesUpdateFromRemote({peerUid}, {messageId})", ex);
+        }
     }
 
     public static void MessagesDeleteFromRemote(string peerUid, System.Guid messageId)
@@ -234,7 +253,10 @@ public static class AppServices
             // Raise event so UI can refresh if this conversation is currently visible
             Events.RaiseMessageDeleted(peerUid, messageId);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            LogGuardedFailure($"MessagesDeleteFromRemote({peerUid}, {messageId})", ex);
+        }
     }
 
     static AppServices()

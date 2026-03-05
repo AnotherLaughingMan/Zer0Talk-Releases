@@ -1,0 +1,105 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore .\Zer0Talk.sln
+
+      - name: Build Debug
+        run: dotnet build .\Zer0Talk.sln -c Debug --no-restore
+
+      - name: Build Release
+        run: dotnet build .\Zer0Talk.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test .\Tests\Zer0Talk.Tests.csproj -c Debug --no-build --results-directory .\TestResults --logger "trx;LogFileName=tests.trx"
+
+      - name: Guard new bare catches in critical paths
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $diff = git diff --unified=0 "$env:BASE_SHA" "$env:HEAD_SHA" -- App.axaml.cs Services/*.cs ViewModels/*.cs
+          if ([string]::IsNullOrWhiteSpace($diff)) {
+            Write-Host 'No critical-path changes detected for bare-catch guard.'
+            exit 0
+          }
+
+          $violations = @()
+          foreach ($line in ($diff -split "`n")) {
+            if ($line.StartsWith('+++') -or $line.StartsWith('---')) { continue }
+            if ($line.StartsWith('+') -and $line -match '\bcatch\s*\{\s*\}\s*$') {
+              $violations += $line
+            }
+          }
+
+          if ($violations.Count -gt 0) {
+            Write-Host 'New bare catch blocks were introduced in critical paths:'
+            $violations | ForEach-Object { Write-Host $_ }
+            throw 'Bare catch guard failed. Replace with logged/typed exception handling.'
+          }
+
+          Write-Host 'Bare catch guard passed.'
+
+      - name: Upload test results artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-gate-test-results
+          path: |
+            TestResults/**/*.trx
+          if-no-files-found: warn
+
+  federation-smoke:
+    needs: build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build RelayServer (Debug)
+        run: dotnet build .\Zer0Talk.RelayServer\Zer0Talk.RelayServer.csproj -c Debug
+
+      - name: Run federation smoke check
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path .\TestResults -Force | Out-Null
+          $logPath = '.\TestResults\federation-smoke.log'
+          & .\scripts\federation_smoke_check.ps1 *>&1 | Tee-Object -FilePath $logPath
+
+      - name: Upload federation smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: federation-smoke-results
+          path: |
+            TestResults\federation-smoke.log
+          if-no-files-found: warn

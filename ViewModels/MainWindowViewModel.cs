@@ -224,6 +224,10 @@ namespace Zer0Talk.ViewModels
                             }
                             // Only notify dependent properties; avoid redundant SelectedContact change when reference unchanged
                             OnPropertyChanged(nameof(SelectedContactPublicKeyHex));
+                            OnPropertyChanged(nameof(SelectedContactFingerprint));
+                            OnPropertyChanged(nameof(SelectedContactVerifiedOnDisplay));
+                            OnPropertyChanged(nameof(SelectedContactVerificationHistory));
+                            OnPropertyChanged(nameof(HasSelectedContactVerificationHistory));
                             OnPropertyChanged(nameof(IsChatEncrypted));
                             try
                             {
@@ -300,6 +304,10 @@ namespace Zer0Talk.ViewModels
                     OnPropertyChanged(nameof(SelectedContactIdentity));
                     OnPropertyChanged(nameof(SelectedContactDisplayName));
                     OnPropertyChanged(nameof(SelectedContactPublicKeyHex));
+                    OnPropertyChanged(nameof(SelectedContactFingerprint));
+                    OnPropertyChanged(nameof(SelectedContactVerifiedOnDisplay));
+                    OnPropertyChanged(nameof(SelectedContactVerificationHistory));
+                    OnPropertyChanged(nameof(HasSelectedContactVerificationHistory));
                     OnPropertyChanged(nameof(IsChatEncrypted));
                     if (_selectedContact != null)
                     {
@@ -340,8 +348,276 @@ namespace Zer0Talk.ViewModels
                 {
                     _outgoingMessage = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsOutgoingMessageEmojiOnly));
+                    OnPropertyChanged(nameof(IsComposerPreviewVisible));
                     (SendCommand as RelayCommand)?.RaiseCanExecuteChanged();
                 }
+            }
+        }
+
+        /// <summary>
+        /// Detects if the outgoing message contains only emojis and whitespace.
+        /// Used to show full-size emoji preview in the composer.
+        /// </summary>
+        public bool IsOutgoingMessageEmojiOnly
+        {
+            get => IsContentEmojiOnly(OutgoingMessage);
+        }
+
+        /// <summary>
+        /// Shows the message preview when there's content to preview.
+        /// Preview displays with proper emoji sizing before sending.
+        /// </summary>
+        public bool IsComposerPreviewVisible
+        {
+            get => !string.IsNullOrWhiteSpace(OutgoingMessage);
+        }
+
+        private string _messageSearchQuery = string.Empty;
+        public string MessageSearchQuery
+        {
+            get => _messageSearchQuery;
+            set
+            {
+                var normalized = value ?? string.Empty;
+                if (_messageSearchQuery == normalized) return;
+                _messageSearchQuery = normalized;
+                OnPropertyChanged();
+                ApplyMessageSearch();
+            }
+        }
+
+        public bool HasMessageSearchQuery => !string.IsNullOrWhiteSpace(MessageSearchQuery);
+
+        private int _messageSpaceViewIndex;
+        public int MessageSpaceViewIndex
+        {
+            get => _messageSpaceViewIndex;
+            set
+            {
+                var normalized = Math.Clamp(value, 0, 3);
+                if (_messageSpaceViewIndex == normalized) return;
+                _messageSpaceViewIndex = normalized;
+                OnPropertyChanged();
+                RebuildTimeline();
+                ApplyMessageSearch();
+            }
+        }
+
+        private int _messageSearchResultCount;
+        public int MessageSearchResultCount
+        {
+            get => _messageSearchResultCount;
+            private set { if (_messageSearchResultCount != value) { _messageSearchResultCount = value; OnPropertyChanged(); OnPropertyChanged(nameof(MessageSearchStatus)); } }
+        }
+
+        private int _messageSearchActiveResultIndex = -1;
+        public string MessageSearchStatus => MessageSearchResultCount <= 0 || _messageSearchActiveResultIndex < 0
+            ? "0 / 0"
+            : $"{_messageSearchActiveResultIndex + 1} / {MessageSearchResultCount}";
+
+        private Guid? _activeSearchMessageId;
+        public Guid? ActiveSearchMessageId
+        {
+            get => _activeSearchMessageId;
+            private set { if (_activeSearchMessageId != value) { _activeSearchMessageId = value; OnPropertyChanged(); } }
+        }
+
+        private Guid? _replyingToMessageId;
+        public Guid? ReplyingToMessageId
+        {
+            get => _replyingToMessageId;
+            private set { if (_replyingToMessageId != value) { _replyingToMessageId = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsReplyMode)); } }
+        }
+
+        private string _replyingToPreview = string.Empty;
+        public string ReplyingToPreview
+        {
+            get => _replyingToPreview;
+            private set { if (_replyingToPreview != value) { _replyingToPreview = value; OnPropertyChanged(); } }
+        }
+
+        public bool IsReplyMode => ReplyingToMessageId.HasValue && !string.IsNullOrWhiteSpace(ReplyingToPreview);
+
+        private readonly List<Guid> _messageSearchResultIds = new();
+        private readonly IReadOnlyList<ReactionEmojiCategory> _allReactionEmojiCategories;
+        private IReadOnlyList<ReactionEmojiCategory> _filteredReactionEmojiCategories = Array.Empty<ReactionEmojiCategory>();
+        private IReadOnlyList<ReactionPickerItem> _visibleReactionItems = Array.Empty<ReactionPickerItem>();
+        private static readonly HashSet<string> SkinToneSupportedBases = new(StringComparer.Ordinal)
+        {
+            "👍","👎","👏","🙌","🙏","👌","✌","🤞","🤟","🤘","🤙","👊","✊","🤛","🤜",
+            "🫶","🫱","🫲","🫳","🫴","🫰","🤌","☝","👆","👇","👉","👈","🖕","✍","💪",
+            "🦾","🖐","✋","🖖","👋","🤚"
+        };
+        private static readonly string[] SkinToneModifiers =
+        {
+            "\U0001F3FB", // light
+            "\U0001F3FC", // medium-light
+            "\U0001F3FD", // medium
+            "\U0001F3FE", // medium-dark
+            "\U0001F3FF", // dark
+        };
+
+        public IReadOnlyList<ReactionEmojiCategory> ReactionEmojiCategories => _allReactionEmojiCategories;
+        public IReadOnlyList<ReactionEmojiCategory> FilteredReactionEmojiCategories
+        {
+            get => _filteredReactionEmojiCategories;
+            private set
+            {
+                _filteredReactionEmojiCategories = value ?? Array.Empty<ReactionEmojiCategory>();
+                OnPropertyChanged();
+            }
+        }
+
+        private ReactionEmojiCategory? _selectedReactionEmojiCategory;
+        public ReactionEmojiCategory? SelectedReactionEmojiCategory
+        {
+            get => _selectedReactionEmojiCategory;
+            set
+            {
+                if (ReferenceEquals(_selectedReactionEmojiCategory, value)) return;
+                _selectedReactionEmojiCategory = value;
+                OnPropertyChanged();
+                RefreshVisibleReactionEmojis();
+            }
+        }
+
+        public IReadOnlyList<ReactionPickerItem> VisibleReactionItems
+        {
+            get => _visibleReactionItems;
+            private set
+            {
+                _visibleReactionItems = value ?? Array.Empty<ReactionPickerItem>();
+                OnPropertyChanged();
+            }
+        }
+
+        private Guid _reactionPickerTargetMessageId = Guid.Empty;
+        public Guid ReactionPickerTargetMessageId
+        {
+            get => _reactionPickerTargetMessageId;
+            set
+            {
+                if (_reactionPickerTargetMessageId == value) return;
+                _reactionPickerTargetMessageId = value;
+                OnPropertyChanged();
+            }
+        }
+
+        private string _reactionEmojiSearchQuery = string.Empty;
+        public string ReactionEmojiSearchQuery
+        {
+            get => _reactionEmojiSearchQuery;
+            set
+            {
+                var normalized = value ?? string.Empty;
+                if (string.Equals(_reactionEmojiSearchQuery, normalized, StringComparison.Ordinal)) return;
+                _reactionEmojiSearchQuery = normalized;
+                OnPropertyChanged();
+                ApplyReactionEmojiFilter();
+            }
+        }
+
+        public IReadOnlyList<ReactionSkinToneOption> ReactionSkinToneOptions { get; } =
+        [
+            new ReactionSkinToneOption { Name = "Default", DisplayEmoji = "🖐", Modifier = string.Empty },
+            new ReactionSkinToneOption { Name = "Light", DisplayEmoji = "🖐🏻", Modifier = "\U0001F3FB" },
+            new ReactionSkinToneOption { Name = "Medium-Light", DisplayEmoji = "🖐🏼", Modifier = "\U0001F3FC" },
+            new ReactionSkinToneOption { Name = "Medium", DisplayEmoji = "🖐🏽", Modifier = "\U0001F3FD" },
+            new ReactionSkinToneOption { Name = "Medium-Dark", DisplayEmoji = "🖐🏾", Modifier = "\U0001F3FE" },
+            new ReactionSkinToneOption { Name = "Dark", DisplayEmoji = "🖐🏿", Modifier = "\U0001F3FF" },
+        ];
+
+        private ReactionSkinToneOption? _selectedReactionSkinTone;
+        public ReactionSkinToneOption? SelectedReactionSkinTone
+        {
+            get => _selectedReactionSkinTone;
+            set
+            {
+                if (ReferenceEquals(_selectedReactionSkinTone, value)) return;
+                _selectedReactionSkinTone = value;
+                OnPropertyChanged();
+                RefreshVisibleReactionEmojis();
+            }
+        }
+
+        private const string ReactionThumbsUpEmoji = "👍";
+        private const string ReactionHeartEmoji = "❤️";
+        private const string ReactionLaughEmoji = "😂";
+        private const string ReactionSurprisedEmoji = "😮";
+        private const string ReactionSadEmoji = "😢";
+        private const string ReactionFireEmoji = "🔥";
+
+        // Composer Emoji Picker (separate from reaction picker, inserts emojis into message)
+        private IReadOnlyList<ReactionEmojiCategory> _filteredComposerEmojiCategories = Array.Empty<ReactionEmojiCategory>();
+        public IReadOnlyList<ReactionEmojiCategory> FilteredComposerEmojiCategories
+        {
+            get => _filteredComposerEmojiCategories;
+            private set
+            {
+                _filteredComposerEmojiCategories = value ?? Array.Empty<ReactionEmojiCategory>();
+                OnPropertyChanged();
+            }
+        }
+
+        private ReactionEmojiCategory? _selectedComposerEmojiCategory;
+        public ReactionEmojiCategory? SelectedComposerEmojiCategory
+        {
+            get => _selectedComposerEmojiCategory;
+            set
+            {
+                if (ReferenceEquals(_selectedComposerEmojiCategory, value)) return;
+                _selectedComposerEmojiCategory = value;
+                OnPropertyChanged();
+                RefreshVisibleComposerEmojis();
+            }
+        }
+
+        private IReadOnlyList<ReactionPickerItem> _visibleComposerEmojiItems = Array.Empty<ReactionPickerItem>();
+        public IReadOnlyList<ReactionPickerItem> VisibleComposerEmojiItems
+        {
+            get => _visibleComposerEmojiItems;
+            private set
+            {
+                _visibleComposerEmojiItems = value ?? Array.Empty<ReactionPickerItem>();
+                OnPropertyChanged();
+            }
+        }
+
+        private string _composerEmojiSearchQuery = string.Empty;
+        public string ComposerEmojiSearchQuery
+        {
+            get => _composerEmojiSearchQuery;
+            set
+            {
+                var normalized = value ?? string.Empty;
+                if (string.Equals(_composerEmojiSearchQuery, normalized, StringComparison.Ordinal)) return;
+                _composerEmojiSearchQuery = normalized;
+                OnPropertyChanged();
+                ApplyComposerEmojiFilter();
+            }
+        }
+
+        public IReadOnlyList<ReactionSkinToneOption> ComposerSkinToneOptions { get; } =
+        [
+            new ReactionSkinToneOption { Name = "Default", DisplayEmoji = "🖐", Modifier = string.Empty },
+            new ReactionSkinToneOption { Name = "Light", DisplayEmoji = "🖐🏻", Modifier = "\U0001F3FB" },
+            new ReactionSkinToneOption { Name = "Medium-Light", DisplayEmoji = "🖐🏼", Modifier = "\U0001F3FC" },
+            new ReactionSkinToneOption { Name = "Medium", DisplayEmoji = "🖐🏽", Modifier = "\U0001F3FD" },
+            new ReactionSkinToneOption { Name = "Medium-Dark", DisplayEmoji = "🖐🏾", Modifier = "\U0001F3FE" },
+            new ReactionSkinToneOption { Name = "Dark", DisplayEmoji = "🖐🏿", Modifier = "\U0001F3FF" },
+        ];
+
+        private ReactionSkinToneOption? _selectedComposerSkinTone;
+        public ReactionSkinToneOption? SelectedComposerSkinTone
+        {
+            get => _selectedComposerSkinTone;
+            set
+            {
+                if (ReferenceEquals(_selectedComposerSkinTone, value)) return;
+                _selectedComposerSkinTone = value;
+                OnPropertyChanged();
+                RefreshVisibleComposerEmojis();
             }
         }
 
@@ -372,6 +648,22 @@ namespace Zer0Talk.ViewModels
     public ICommand? TestWarningToastCommand { get; }
     public ICommand? TestErrorToastCommand { get; }
     public ICommand? TestMessageToastCommand { get; }
+    public ICommand NextMessageSearchResultCommand { get; }
+    public ICommand PreviousMessageSearchResultCommand { get; }
+    public ICommand ClearMessageSearchCommand { get; }
+    public ICommand ReplyToMessageCommand { get; }
+    public ICommand CancelReplyCommand { get; }
+    public ICommand TogglePinMessageCommand { get; }
+    public ICommand ToggleStarMessageCommand { get; }
+    public ICommand ToggleReactionCommand { get; }
+    public ICommand ToggleThumbsUpReactionCommand { get; }
+    public ICommand ToggleHeartReactionCommand { get; }
+    public ICommand ToggleLaughReactionCommand { get; }
+    public ICommand ToggleSurprisedReactionCommand { get; }
+    public ICommand ToggleSadReactionCommand { get; }
+    public ICommand ToggleFireReactionCommand { get; }
+    public ICommand ToggleContactMuteNotificationsCommand { get; }
+    public ICommand ToggleContactPriorityNotificationsCommand { get; }
 
         private bool _hasPendingInvites;
         public bool HasPendingInvites { get => _hasPendingInvites; private set { if (_hasPendingInvites != value) { _hasPendingInvites = value; OnPropertyChanged(); } } }
@@ -428,6 +720,14 @@ namespace Zer0Talk.ViewModels
 
         public MainWindowViewModel()
         {
+            _allReactionEmojiCategories = ReactionEmojiCatalogLoader.LoadCategories();
+            SelectedReactionSkinTone = ReactionSkinToneOptions.FirstOrDefault();
+            ApplyReactionEmojiFilter();
+            
+            // Initialize composer emoji picker (same catalog as reactions, separate state)
+            SelectedComposerSkinTone = ComposerSkinToneOptions.FirstOrDefault();
+            ApplyComposerEmojiFilter();
+            
             RefreshLoggedInUsername();
             Messages.CollectionChanged += Messages_CollectionChanged;
             _teardownActions.Add(() => Messages.CollectionChanged -= Messages_CollectionChanged);
@@ -644,6 +944,78 @@ namespace Zer0Talk.ViewModels
             });
 #endif
 
+            NextMessageSearchResultCommand = new RelayCommand(_ => MoveMessageSearchResult(+1), _ => MessageSearchResultCount > 0);
+            PreviousMessageSearchResultCommand = new RelayCommand(_ => MoveMessageSearchResult(-1), _ => MessageSearchResultCount > 0);
+            ClearMessageSearchCommand = new RelayCommand(_ => MessageSearchQuery = string.Empty, _ => HasMessageSearchQuery);
+
+            ReplyToMessageCommand = new RelayCommand(p =>
+            {
+                if (p is not Guid messageId) return;
+                var message = Messages.FirstOrDefault(m => m.Id == messageId);
+                if (message == null) return;
+                var preview = BuildMessagePreview(message.Content ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(preview)) return;
+                ReplyingToMessageId = messageId;
+                ReplyingToPreview = preview;
+                (CancelReplyCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            });
+
+            CancelReplyCommand = new RelayCommand(_ => ClearReplyState(), _ => IsReplyMode);
+
+            TogglePinMessageCommand = new RelayCommand(p =>
+            {
+                if (p is not Guid messageId) return;
+                var message = Messages.FirstOrDefault(m => m.Id == messageId);
+                if (message == null) return;
+                message.IsPinned = !message.IsPinned;
+                PersistMessageFlags(message);
+                RebuildTimeline();
+            });
+
+            ToggleStarMessageCommand = new RelayCommand(p =>
+            {
+                if (p is not Guid messageId) return;
+                var message = Messages.FirstOrDefault(m => m.Id == messageId);
+                if (message == null) return;
+                message.IsStarred = !message.IsStarred;
+                PersistMessageFlags(message);
+                RebuildTimeline();
+            });
+
+            ToggleReactionCommand = new RelayCommand(ToggleReactionFromParameter);
+            ToggleThumbsUpReactionCommand = new RelayCommand(p => ToggleReaction(p, ReactionThumbsUpEmoji));
+            ToggleHeartReactionCommand = new RelayCommand(p => ToggleReaction(p, ReactionHeartEmoji));
+            ToggleLaughReactionCommand = new RelayCommand(p => ToggleReaction(p, ReactionLaughEmoji));
+            ToggleSurprisedReactionCommand = new RelayCommand(p => ToggleReaction(p, ReactionSurprisedEmoji));
+            ToggleSadReactionCommand = new RelayCommand(p => ToggleReaction(p, ReactionSadEmoji));
+            ToggleFireReactionCommand = new RelayCommand(p => ToggleReaction(p, ReactionFireEmoji));
+
+            ToggleContactMuteNotificationsCommand = new RelayCommand(p =>
+            {
+                var uid = (p as string) ?? SelectedContact?.UID;
+                if (string.IsNullOrWhiteSpace(uid)) return;
+                var contact = Contacts.FirstOrDefault(c => string.Equals(c.UID, uid, StringComparison.OrdinalIgnoreCase));
+                if (contact == null) return;
+                var target = !contact.MuteNotifications;
+                if (AppServices.Contacts.SetMuteNotifications(uid!, target, AppServices.Passphrase))
+                {
+                    contact.MuteNotifications = target;
+                }
+            });
+
+            ToggleContactPriorityNotificationsCommand = new RelayCommand(p =>
+            {
+                var uid = (p as string) ?? SelectedContact?.UID;
+                if (string.IsNullOrWhiteSpace(uid)) return;
+                var contact = Contacts.FirstOrDefault(c => string.Equals(c.UID, uid, StringComparison.OrdinalIgnoreCase));
+                if (contact == null) return;
+                var target = !contact.PriorityNotifications;
+                if (AppServices.Contacts.SetPriorityNotifications(uid!, target, AppServices.Passphrase))
+                {
+                    contact.PriorityNotifications = target;
+                }
+            });
+
             // Aggregation helpers: compute counts and manage optimistic clears
             // (kept as instance methods so other UI code can call them directly)
             // See RefreshHasPendingInvites() implementation below.
@@ -798,17 +1170,21 @@ namespace Zer0Talk.ViewModels
                     var now = DateTime.UtcNow;
                     var senderUid = TrimUidPrefix(peerUid ?? string.Empty);
                     var recipientUid = TrimUidPrefix(AppServices.Identity.UID ?? string.Empty);
+                    ParseWireContent(content, out var parsedContent, out var replyToMessageId, out var replyToPreview);
                     var msg = new Message
                     {
                         Id = id,
                         SenderUID = senderUid,
                         RecipientUID = recipientUid,
-                        Content = content,
+                        Content = parsedContent,
                         Timestamp = now,
                         ReceivedUtc = now,
                         Signature = Array.Empty<byte>(),
                         SenderPublicKey = Array.Empty<byte>(),
+                        ReplyToMessageId = replyToMessageId,
+                        ReplyToPreview = replyToPreview,
                     };
+                    msg.EnsureReactionStateLoaded();
                     var selectedUid = SelectedContact?.UID ?? string.Empty;
                     var display = ResolveContactDisplayName(senderUid);
                     var isSelfOnline = IsSelfOnline();
@@ -861,7 +1237,11 @@ namespace Zer0Talk.ViewModels
             // Refresh selected contact's public key display when peers change (e.g., observed key appears)
             try
             {
-                Action peersChangedHandler = () => Avalonia.Threading.Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(SelectedContactPublicKeyHex)));
+                Action peersChangedHandler = () => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    OnPropertyChanged(nameof(SelectedContactPublicKeyHex));
+                    OnPropertyChanged(nameof(SelectedContactFingerprint));
+                });
                 AppServices.Events.PeersChanged += peersChangedHandler;
                 _teardownActions.Add(() => AppServices.Events.PeersChanged -= peersChangedHandler);
             }
@@ -907,11 +1287,17 @@ namespace Zer0Talk.ViewModels
             {
                 Action<string, Guid, string> chatEditedHandler = (peerUid, id, text) =>
                 {
-                    if (SelectedContact?.UID != peerUid) return;
+                    if (!IsSelectedContactPeer(peerUid)) return;
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
                         var m = Messages.FirstOrDefault(x => x.Id == id);
-                        if (m != null) { m.Content = text; m.IsEdited = true; m.EditedUtc = DateTime.UtcNow; }
+                        if (m != null)
+                        {
+                            m.Content = text;
+                            m.IsEdited = true;
+                            m.EditedUtc = DateTime.UtcNow;
+                            EnsureLinkPreviewProbe(m, forceRefresh: true);
+                        }
                         OnPropertyChanged(nameof(Messages));
                     });
                 };
@@ -929,6 +1315,31 @@ namespace Zer0Talk.ViewModels
                 };
                 AppServices.Network.ChatMessageDeleted += chatDeletedHandler;
                 _teardownActions.Add(() => AppServices.Network.ChatMessageDeleted -= chatDeletedHandler);
+
+                Action<string, Guid, string, bool> chatReactionHandler = (peerUid, id, emoji, isAdd) =>
+                {
+                    var normalizedPeer = TrimUidPrefix(peerUid ?? string.Empty);
+                    if (string.IsNullOrWhiteSpace(normalizedPeer)) return;
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            if (IsSelectedContactPeer(normalizedPeer))
+                            {
+                                var m = Messages.FirstOrDefault(x => x.Id == id);
+                                if (m != null)
+                                {
+                                    m.ApplyReaction(normalizedPeer, emoji, isAdd);
+                                }
+                            }
+
+                            _messagesStore.ApplyReaction(normalizedPeer, id, normalizedPeer, emoji, isAdd, AppServices.Passphrase);
+                        }
+                        catch { }
+                    });
+                };
+                AppServices.Network.ChatMessageReactionReceived += chatReactionHandler;
+                _teardownActions.Add(() => AppServices.Network.ChatMessageReactionReceived -= chatReactionHandler);
             }
             catch { }
             // Received ACKs handler removed - delivery tracking no longer used
@@ -996,7 +1407,7 @@ namespace Zer0Talk.ViewModels
                 // Handle MessageEdited event to refresh UI when message content changes
                 Action<string, Guid, string> messageEditedHandler = (peerUid, messageId, newContent) =>
                 {
-                    if (SelectedContact?.UID != peerUid) return;
+                    if (!IsSelectedContactPeer(peerUid)) return;
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
                         try
@@ -1007,6 +1418,7 @@ namespace Zer0Talk.ViewModels
                                 m.Content = newContent;
                                 m.IsEdited = true;
                                 m.EditedUtc = DateTime.UtcNow;
+                                EnsureLinkPreviewProbe(m, forceRefresh: true);
                                 OnPropertyChanged(nameof(Messages));
                             }
                         }
@@ -1162,6 +1574,28 @@ namespace Zer0Talk.ViewModels
             }
         }
 
+        public string SelectedContactFingerprint =>
+            TrustCeremonyFormatter.FingerprintFromPublicKeyHex(SelectedContactPublicKeyHex);
+
+        public string SelectedContactVerifiedOnDisplay
+        {
+            get
+            {
+                var when = SelectedContact?.LastVerifiedUtc;
+                return when.HasValue
+                    ? when.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                    : LocalizedNeverVerified;
+            }
+        }
+
+        public IReadOnlyList<VerificationHistoryEntry> SelectedContactVerificationHistory =>
+            (SelectedContact?.VerificationHistory ?? new List<VerificationHistoryEntry>())
+                .OrderByDescending(x => x.VerifiedAtUtc)
+                .Take(5)
+                .ToList();
+
+        public bool HasSelectedContactVerificationHistory => SelectedContactVerificationHistory.Count > 0;
+
         // Chat encryption indicator: true if we have an encrypted session with the selected contact
         public bool IsChatEncrypted
         {
@@ -1260,6 +1694,10 @@ namespace Zer0Talk.ViewModels
                 var content = (OutgoingMessage ?? string.Empty).TrimEnd();
                 if (string.IsNullOrWhiteSpace(content)) return;
 
+                var replyToId = ReplyingToMessageId;
+                var replyPreview = ReplyingToPreview;
+                var wireContent = BuildWireContent(content, replyToId, replyPreview);
+
                 if (TryFindRejectedShortUrl(content, out var blockedUrl, out var blockedHost))
                 {
                     NotifyShortUrlRejected(blockedHost, blockedUrl, isOpenAttempt: false);
@@ -1282,12 +1720,15 @@ namespace Zer0Talk.ViewModels
                     Content = content,
                     Timestamp = now,
                     Signature = Array.Empty<byte>(),
-                    SenderPublicKey = Array.Empty<byte>()
+                    SenderPublicKey = Array.Empty<byte>(),
+                    ReplyToMessageId = replyToId,
+                    ReplyToPreview = replyPreview
                 };
+                message.EnsureReactionStateLoaded();
 
                 try
                 {
-                    var payload = System.Text.Encoding.UTF8.GetBytes($"{senderUid}\n{recipientUid}\n{now.Ticks}\n{content}");
+                    var payload = System.Text.Encoding.UTF8.GetBytes($"{senderUid}\n{recipientUid}\n{now.Ticks}\n{wireContent}");
                     message.Signature = AppServices.Identity.Sign(payload);
                 }
                 catch { }
@@ -1305,6 +1746,7 @@ namespace Zer0Talk.ViewModels
                 Messages.Add(message);
                 try { _messagesStore.StoreMessage(recipientUid, message, AppServices.Passphrase); } catch { }
                 OutgoingMessage = string.Empty;
+                ClearReplyState();
 
                 // Play outgoing message sound
                 try
@@ -1336,7 +1778,7 @@ namespace Zer0Talk.ViewModels
                     try
                     {
                         Logger.NetworkLog($"SendAttempt: peer={recipientUid} id={message.Id} contentLen={message.Content?.Length ?? 0}");
-                        var sent = await AppServices.Network.SendChatAsync(recipientUid, message.Id, content, CancellationToken.None);
+                        var sent = await AppServices.Network.SendChatAsync(recipientUid, message.Id, wireContent, CancellationToken.None);
                         if (sent)
                         {
                             try { Logger.NetworkLog($"SendResult: Sent | peer={recipientUid} id={message.Id}"); } catch { }
@@ -1391,6 +1833,7 @@ namespace Zer0Talk.ViewModels
                 case NotifyCollectionChangedAction.Reset:
                     CancelAllPreviewFetches();
                     ClearTimeline();
+                    ApplyMessageSearch();
                     break;
                 case NotifyCollectionChangedAction.Add:
                     if (e.NewItems == null) return;
@@ -1402,6 +1845,7 @@ namespace Zer0Talk.ViewModels
                             EnsureLinkPreviewProbe(message);
                         }
                         RebuildTimeline();
+                        ApplyMessageSearch();
                         return;
                     }
                     foreach (var message in e.NewItems.OfType<Message>())
@@ -1409,6 +1853,7 @@ namespace Zer0Talk.ViewModels
                         AppendMessageToTimeline(message);
                         EnsureLinkPreviewProbe(message);
                     }
+                    ApplyMessageSearch();
                     break;
                 case NotifyCollectionChangedAction.Remove:
                     if (e.OldItems != null)
@@ -1419,6 +1864,7 @@ namespace Zer0Talk.ViewModels
                         }
                     }
                     RebuildTimeline();
+                    ApplyMessageSearch();
                     break;
                 case NotifyCollectionChangedAction.Replace:
                     if (e.OldItems != null)
@@ -1436,9 +1882,11 @@ namespace Zer0Talk.ViewModels
                         }
                     }
                     RebuildTimeline();
+                    ApplyMessageSearch();
                     break;
                 case NotifyCollectionChangedAction.Move:
                     RebuildTimeline();
+                    ApplyMessageSearch();
                     break;
             }
         }
@@ -1554,10 +2002,27 @@ namespace Zer0Talk.ViewModels
             try
             {
                 var trimmedOrigin = TrimUidPrefix(originUid);
-                var title = incoming ? displayName : $"To {displayName}";
+                var contactPolicy = Contacts.FirstOrDefault(c => string.Equals(TrimUidPrefix(c.UID ?? string.Empty), trimmedOrigin, StringComparison.OrdinalIgnoreCase));
+                if (incoming && contactPolicy?.MuteNotifications == true)
+                {
+                    return;
+                }
+
+                var isPriority = incoming && contactPolicy?.PriorityNotifications == true;
+                var isMention = incoming && IsMentionLikeTrigger(message?.Content ?? string.Empty);
+                if (incoming && message != null)
+                {
+                    message.IsImportant = isPriority || isMention;
+                    PersistMessageFlags(message);
+                }
+
+                var baseTitle = incoming ? displayName : $"To {displayName}";
+                var title = isPriority
+                    ? $"Priority • {baseTitle}"
+                    : baseTitle;
                 var preview = BuildMessagePreview(message?.Content ?? string.Empty);
                 var timestamp = message?.Timestamp ?? DateTime.UtcNow;
-                AppServices.Notifications.AddOrUpdateMessageNotice(title, preview, trimmedOrigin, message?.Id ?? Guid.NewGuid(), incoming, timestamp, unread);
+                AppServices.Notifications.AddOrUpdateMessageNotice(title, preview, trimmedOrigin, message?.Id ?? Guid.NewGuid(), incoming, timestamp, unread, isPriority, isMention);
                 published = true;
                 
                 // Audio notification is handled by NotificationService.AddOrUpdateMessageNotice
@@ -1635,6 +2100,250 @@ namespace Zer0Talk.ViewModels
             return trimmed.Length <= maxLen ? trimmed : string.Concat(trimmed.AsSpan(0, maxLen), "...");
         }
 
+        private bool IsMentionLikeTrigger(string content)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(content)) return false;
+                var text = content.Trim();
+                var username = LoggedInUsername?.Trim() ?? string.Empty;
+                var uidShort = LoggedInUidShort?.Trim() ?? string.Empty;
+                var uidFull = LoggedInUidFull?.Trim() ?? string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(username) && text.IndexOf($"@{username}", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                if (!string.IsNullOrWhiteSpace(uidShort) && text.IndexOf($"@{uidShort}", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                if (!string.IsNullOrWhiteSpace(uidFull) && text.IndexOf($"@{uidFull}", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                return false;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Detects if the content string contains only emojis and whitespace.
+        /// Used to render emoji-only messages/previews at full size.
+        /// </summary>
+        private static bool IsContentEmojiOnly(string? content)
+        {
+            if (string.IsNullOrWhiteSpace(content)) return false;
+
+            var text = content.Trim();
+            if (string.IsNullOrEmpty(text)) return false;
+
+            int emojiCount = 0;
+            int i = 0;
+
+            while (i < text.Length)
+            {
+                var c = text[i];
+
+                // Skip whitespace
+                if (char.IsWhiteSpace(c))
+                {
+                    i++;
+                    continue;
+                }
+
+                // Check for emoji via codepoint ranges (simplified but effective)
+                // Emoji ranges: 0x1F300-0x1F9FF (misc symbols, emoticons, etc.)
+                int codepoint = char.ConvertToUtf32(text, i);
+                if ((codepoint >= 0x1F300 && codepoint <= 0x1F9FF) ||  // Emoticons, symbols
+                    (codepoint >= 0x2600 && codepoint <= 0x27BF) ||   // Miscellaneous Symbols
+                    (codepoint >= 0x1F000 && codepoint <= 0x1F02F) ||  // Mahjong, Domino
+                    (codepoint >= 0x1F0A0 && codepoint <= 0x1F0FF))   // Playing cards
+                {
+                    emojiCount++;
+                    // Handle surrogate pairs (emojis are often 2 char units)
+                    if (char.IsHighSurrogate(text[i]))
+                    {
+                        i += 2;
+                    }
+                    else
+                    {
+                        i++;
+                    }
+                }
+                else
+                {
+                    // Found non-emoji, non-whitespace character
+                    return false;
+                }
+            }
+
+            return emojiCount > 0;
+        }
+
+        private void ApplyMessageSearch()
+        {
+            _messageSearchResultIds.Clear();
+            _messageSearchActiveResultIndex = -1;
+
+            var query = MessageSearchQuery?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                foreach (var message in Messages)
+                {
+                    message.IsSearchMatch = false;
+                    message.IsActiveSearchMatch = false;
+                }
+
+                MessageSearchResultCount = 0;
+                ActiveSearchMessageId = null;
+                OnPropertyChanged(nameof(HasMessageSearchQuery));
+                OnPropertyChanged(nameof(MessageSearchStatus));
+                (NextMessageSearchResultCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                (PreviousMessageSearchResultCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                (ClearMessageSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                return;
+            }
+
+            foreach (var message in Messages)
+            {
+                if (!MatchesCurrentMessageSpace(message))
+                {
+                    message.IsSearchMatch = false;
+                    message.IsActiveSearchMatch = false;
+                    continue;
+                }
+                var text = message.Content ?? string.Empty;
+                var matched = text.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+                message.IsSearchMatch = matched;
+                message.IsActiveSearchMatch = false;
+                if (matched)
+                {
+                    _messageSearchResultIds.Add(message.Id);
+                }
+            }
+
+            MessageSearchResultCount = _messageSearchResultIds.Count;
+            if (_messageSearchResultIds.Count > 0)
+            {
+                _messageSearchActiveResultIndex = 0;
+                SetActiveSearchResult(_messageSearchResultIds[0]);
+            }
+            else
+            {
+                ActiveSearchMessageId = null;
+            }
+
+            OnPropertyChanged(nameof(HasMessageSearchQuery));
+            OnPropertyChanged(nameof(MessageSearchStatus));
+            (NextMessageSearchResultCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (PreviousMessageSearchResultCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            (ClearMessageSearchCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+
+        private void MoveMessageSearchResult(int direction)
+        {
+            if (_messageSearchResultIds.Count == 0) return;
+
+            _messageSearchActiveResultIndex += direction;
+            if (_messageSearchActiveResultIndex < 0)
+            {
+                _messageSearchActiveResultIndex = _messageSearchResultIds.Count - 1;
+            }
+            else if (_messageSearchActiveResultIndex >= _messageSearchResultIds.Count)
+            {
+                _messageSearchActiveResultIndex = 0;
+            }
+
+            SetActiveSearchResult(_messageSearchResultIds[_messageSearchActiveResultIndex]);
+            OnPropertyChanged(nameof(MessageSearchStatus));
+        }
+
+        private void SetActiveSearchResult(Guid id)
+        {
+            foreach (var message in Messages)
+            {
+                message.IsActiveSearchMatch = message.IsSearchMatch && message.Id == id;
+            }
+            ActiveSearchMessageId = id;
+        }
+
+        private void ClearReplyState()
+        {
+            ReplyingToMessageId = null;
+            ReplyingToPreview = string.Empty;
+            (CancelReplyCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+
+        private void ToggleReaction(object? parameter, string emoji)
+        {
+            if (SelectedContact == null) return;
+            if (parameter is not Guid messageId) return;
+            var message = Messages.FirstOrDefault(m => m.Id == messageId);
+            if (message == null) return;
+
+            var actorUid = TrimUidPrefix(AppServices.Identity.UID ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(actorUid)) return;
+
+            var normalizedEmoji = (emoji ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(normalizedEmoji)) return;
+
+            var isAdd = !message.HasReaction(actorUid, normalizedEmoji);
+            message.ApplyReaction(actorUid, normalizedEmoji, isAdd);
+            PersistMessageReaction(message, actorUid, normalizedEmoji, isAdd);
+
+            var peerUid = TrimUidPrefix(SelectedContact.UID ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(peerUid) || SelectedContact.IsSimulated) return;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await AppServices.Network.SendMessageReactionAsync(peerUid, message.Id, normalizedEmoji, isAdd, CancellationToken.None);
+                }
+                catch { }
+            });
+        }
+
+        private const string ReplyMetaPrefix = "[[zt-reply:";
+
+        private static string BuildWireContent(string plainContent, Guid? replyToMessageId, string? replyPreview)
+        {
+            if (!replyToMessageId.HasValue || string.IsNullOrWhiteSpace(replyPreview))
+            {
+                return plainContent;
+            }
+
+            var previewBytes = System.Text.Encoding.UTF8.GetBytes(replyPreview);
+            var previewB64 = Convert.ToBase64String(previewBytes);
+            return $"{ReplyMetaPrefix}{replyToMessageId.Value:N}|{previewB64}]]\n{plainContent}";
+        }
+
+        private static void ParseWireContent(string wireContent, out string plainContent, out Guid? replyToMessageId, out string? replyPreview)
+        {
+            plainContent = wireContent ?? string.Empty;
+            replyToMessageId = null;
+            replyPreview = null;
+
+            if (string.IsNullOrWhiteSpace(plainContent)) return;
+            if (!plainContent.StartsWith(ReplyMetaPrefix, StringComparison.Ordinal)) return;
+
+            var end = plainContent.IndexOf("]]", StringComparison.Ordinal);
+            if (end <= ReplyMetaPrefix.Length) return;
+
+            var meta = plainContent.Substring(ReplyMetaPrefix.Length, end - ReplyMetaPrefix.Length);
+            var split = meta.Split('|', 2);
+            if (split.Length != 2) return;
+            if (!Guid.TryParse(split[0], out var parsedId)) return;
+
+            try
+            {
+                var previewBytes = Convert.FromBase64String(split[1]);
+                var preview = System.Text.Encoding.UTF8.GetString(previewBytes);
+                var nextStart = end + 2;
+                if (nextStart < plainContent.Length && plainContent[nextStart] == '\n') nextStart++;
+                plainContent = nextStart <= plainContent.Length ? plainContent.Substring(nextStart) : string.Empty;
+                replyToMessageId = parsedId;
+                replyPreview = preview;
+            }
+            catch
+            {
+                replyToMessageId = null;
+                replyPreview = null;
+            }
+        }
+
         public void FocusConversation(string uid)
         {
             try
@@ -1668,6 +2377,8 @@ namespace Zer0Talk.ViewModels
                 // Clear notification badge for this message
                 try { AppServices.Notifications.MarkMessageNoticeRead(m.Id); } catch { }
                 RefreshHasPendingInvites();
+                RebuildTimeline();
+                ApplyMessageSearch();
             }
             catch { }
         }
@@ -1679,6 +2390,8 @@ namespace Zer0Talk.ViewModels
             {
                 AppServices.Notifications.MarkAllMessageNoticesRead();
                 RefreshHasPendingInvites();
+                RebuildTimeline();
+                ApplyMessageSearch();
             }
             catch { }
         }
@@ -1691,6 +2404,8 @@ namespace Zer0Talk.ViewModels
                 // Clear all conversation notifications
                 try { AppServices.Notifications.MarkAllMessageNoticesRead(); } catch { }
                 RefreshHasPendingInvites();
+                RebuildTimeline();
+                ApplyMessageSearch();
             }
             catch { }
         }
@@ -1705,6 +2420,19 @@ namespace Zer0Talk.ViewModels
                     try { MarkAllUnreadMessagesAsRead(); }
                     catch { }
                 });
+            }
+            catch { }
+        }
+
+        // Insert emoji at the current cursor position of the message input
+        public void InsertEmojiIntoMessage(string emoji)
+        {
+            if (string.IsNullOrEmpty(emoji)) return;
+            
+            try
+            {
+                var currentMessage = OutgoingMessage ?? string.Empty;
+                OutgoingMessage = currentMessage + emoji;
             }
             catch { }
         }
@@ -1728,6 +2456,7 @@ namespace Zer0Talk.ViewModels
         {
             try
             {
+                if (!MatchesCurrentMessageSpace(message)) return;
                 var localDate = NormalizeTimestamp(message.Timestamp).ToLocalTime().Date;
                 if (_lastTimelineDate != localDate)
                 {
@@ -1818,6 +2547,357 @@ namespace Zer0Talk.ViewModels
             });
         }
 
+        private void ToggleReactionFromParameter(object? parameter)
+        {
+            if (parameter is not ReactionCommandParameter selection) return;
+            if (selection.MessageId == Guid.Empty || string.IsNullOrWhiteSpace(selection.Emoji)) return;
+            ToggleReaction(selection.MessageId, selection.Emoji);
+        }
+
+        private void ApplyReactionEmojiFilter()
+        {
+            var query = (ReactionEmojiSearchQuery ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                FilteredReactionEmojiCategories = _allReactionEmojiCategories;
+                EnsureSelectedReactionCategory();
+                return;
+            }
+
+            var filtered = new List<ReactionEmojiCategory>();
+            foreach (var category in _allReactionEmojiCategories)
+            {
+                if (category is null) continue;
+
+                var categoryMatches = (category.DisplayName ?? string.Empty)
+                    .IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+
+                if (categoryMatches)
+                {
+                    filtered.Add(category);
+                    continue;
+                }
+
+                var emojiMatches = (category.Emojis ?? Array.Empty<string>())
+                    .Where(emoji => !string.IsNullOrWhiteSpace(emoji)
+                        && (emoji.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
+                            || (ReactionEmojiCatalogLoader.GetEmojiDisplayName(emoji)?.IndexOf(query, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0))
+                    .ToList();
+
+                if (emojiMatches.Count == 0) continue;
+
+                filtered.Add(new ReactionEmojiCategory
+                {
+                    DisplayName = category.DisplayName ?? string.Empty,
+                    Emojis = emojiMatches
+                });
+            }
+
+            FilteredReactionEmojiCategories = filtered;
+            EnsureSelectedReactionCategory();
+        }
+
+        private void EnsureSelectedReactionCategory()
+        {
+            var current = SelectedReactionEmojiCategory;
+            if (current is not null)
+            {
+                var matched = FilteredReactionEmojiCategories
+                    .FirstOrDefault(c => string.Equals(c.DisplayName, current.DisplayName, StringComparison.Ordinal));
+                if (matched is not null)
+                {
+                    SelectedReactionEmojiCategory = matched;
+                    return;
+                }
+            }
+
+            SelectedReactionEmojiCategory = FilteredReactionEmojiCategories.FirstOrDefault();
+            if (SelectedReactionEmojiCategory is null)
+            {
+                VisibleReactionItems = Array.Empty<ReactionPickerItem>();
+            }
+        }
+
+        private void RefreshVisibleReactionEmojis()
+        {
+            var category = SelectedReactionEmojiCategory;
+            if (category is null)
+            {
+                VisibleReactionItems = Array.Empty<ReactionPickerItem>();
+                return;
+            }
+
+            if (string.Equals(category.DisplayName, "Flags", StringComparison.OrdinalIgnoreCase))
+            {
+                RefreshVisibleFlagItems();
+                return;
+            }
+
+            if (category.Emojis is null || category.Emojis.Count == 0)
+            {
+                VisibleReactionItems = Array.Empty<ReactionPickerItem>();
+                return;
+            }
+
+            var toneModifier = SelectedReactionSkinTone?.Modifier ?? string.Empty;
+            var selectedToneLabel = SelectedReactionSkinTone?.Name ?? "Default";
+            var transformed = new List<ReactionPickerItem>(category.Emojis.Count);
+            foreach (var emoji in category.Emojis)
+            {
+                if (string.IsNullOrWhiteSpace(emoji)) continue;
+                var emojiValue = ApplySelectedSkinTone(emoji, toneModifier);
+                var baseName = ReactionEmojiCatalogLoader.GetEmojiDisplayName(emoji) ?? "Emoji";
+                var tooltip = string.Equals(selectedToneLabel, "Default", StringComparison.OrdinalIgnoreCase)
+                    ? baseName
+                    : $"{baseName} ({selectedToneLabel})";
+
+                transformed.Add(new ReactionPickerItem
+                {
+                    Value = emojiValue,
+                    Tooltip = tooltip,
+                });
+            }
+
+            VisibleReactionItems = transformed
+                .GroupBy(x => x.Value, StringComparer.Ordinal)
+                .Select(g => g.First())
+                .ToList();
+        }
+
+        private void RefreshVisibleFlagItems()
+        {
+            var query = (ReactionEmojiSearchQuery ?? string.Empty).Trim().ToLowerInvariant();
+            var codes = FlagImageCatalog.Codes
+                .Where(code => code.Length == 2 || string.Equals(code, "eu", StringComparison.OrdinalIgnoreCase) || string.Equals(code, "un", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(code => code, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                codes = codes
+                    .Where(code => code.Contains(query, StringComparison.OrdinalIgnoreCase)
+                        || (FlagImageCatalog.TryGetCountryDisplayName(code)?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
+                    .ToList();
+            }
+
+            var items = new List<ReactionPickerItem>();
+            foreach (var code in codes)
+            {
+                var emoji = CountryCodeToFlagEmoji(code);
+                if (string.IsNullOrWhiteSpace(emoji)) continue;
+
+                var countryName = FlagImageCatalog.TryGetCountryDisplayName(code);
+                var normalizedCode = code.Trim().ToUpperInvariant();
+                var tooltip = string.IsNullOrWhiteSpace(countryName)
+                    ? $"Flag: {normalizedCode}"
+                    : $"Flag: {countryName} ({normalizedCode})";
+
+                items.Add(new ReactionPickerItem
+                {
+                    Value = emoji,
+                    FlagCode = code,
+                    Tooltip = tooltip,
+                });
+            }
+
+            VisibleReactionItems = items;
+        }
+
+        private static string CountryCodeToFlagEmoji(string countryCode)
+        {
+            var code = (countryCode ?? string.Empty).Trim().ToUpperInvariant();
+            if (code.Length != 2) return string.Empty;
+
+            var first = code[0];
+            var second = code[1];
+            if (first < 'A' || first > 'Z' || second < 'A' || second > 'Z') return string.Empty;
+
+            return string.Concat(
+                char.ConvertFromUtf32(0x1F1E6 + (first - 'A')),
+                char.ConvertFromUtf32(0x1F1E6 + (second - 'A')));
+        }
+
+        private static string ApplySelectedSkinTone(string emoji, string toneModifier)
+        {
+            var baseEmoji = StripSkinToneModifiers(emoji);
+            if (string.IsNullOrWhiteSpace(toneModifier)) return baseEmoji;
+            if (!SupportsSkinTone(baseEmoji)) return baseEmoji;
+
+            if (baseEmoji.EndsWith("\uFE0F", StringComparison.Ordinal))
+            {
+                return string.Concat(baseEmoji.AsSpan(0, baseEmoji.Length - 1), toneModifier.AsSpan(), "\uFE0F");
+            }
+
+            return baseEmoji + toneModifier;
+        }
+
+        private static bool SupportsSkinTone(string emoji)
+        {
+            var normalized = emoji.Replace("\uFE0F", string.Empty, StringComparison.Ordinal);
+            return SkinToneSupportedBases.Contains(normalized);
+        }
+
+        private static string StripSkinToneModifiers(string emoji)
+        {
+            var value = emoji ?? string.Empty;
+            foreach (var modifier in SkinToneModifiers)
+            {
+                value = value.Replace(modifier, string.Empty, StringComparison.Ordinal);
+            }
+
+            return value;
+        }
+
+        // Composer Emoji Picker methods (similar to reaction picker but for inserting emojis into messages)
+        private void ApplyComposerEmojiFilter()
+        {
+            var query = (ComposerEmojiSearchQuery ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                FilteredComposerEmojiCategories = _allReactionEmojiCategories;
+                EnsureSelectedComposerCategory();
+                return;
+            }
+
+            var filtered = new List<ReactionEmojiCategory>();
+            foreach (var category in _allReactionEmojiCategories)
+            {
+                if (category is null) continue;
+
+                var categoryMatches = (category.DisplayName ?? string.Empty)
+                    .IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+
+                if (categoryMatches)
+                {
+                    filtered.Add(category);
+                    continue;
+                }
+
+                var emojiMatches = (category.Emojis ?? Array.Empty<string>())
+                    .Where(emoji => !string.IsNullOrWhiteSpace(emoji)
+                        && (emoji.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
+                            || (ReactionEmojiCatalogLoader.GetEmojiDisplayName(emoji)?.IndexOf(query, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0))
+                    .ToList();
+
+                if (emojiMatches.Count == 0) continue;
+
+                filtered.Add(new ReactionEmojiCategory
+                {
+                    DisplayName = category.DisplayName ?? string.Empty,
+                    Emojis = emojiMatches
+                });
+            }
+
+            FilteredComposerEmojiCategories = filtered;
+            EnsureSelectedComposerCategory();
+        }
+
+        private void EnsureSelectedComposerCategory()
+        {
+            var current = SelectedComposerEmojiCategory;
+            if (current is not null)
+            {
+                var matched = FilteredComposerEmojiCategories
+                    .FirstOrDefault(c => string.Equals(c.DisplayName, current.DisplayName, StringComparison.Ordinal));
+                if (matched is not null)
+                {
+                    SelectedComposerEmojiCategory = matched;
+                    return;
+                }
+            }
+
+            SelectedComposerEmojiCategory = FilteredComposerEmojiCategories.FirstOrDefault();
+            if (SelectedComposerEmojiCategory is null)
+            {
+                VisibleComposerEmojiItems = Array.Empty<ReactionPickerItem>();
+            }
+        }
+
+        private void RefreshVisibleComposerEmojis()
+        {
+            var category = SelectedComposerEmojiCategory;
+            if (category is null)
+            {
+                VisibleComposerEmojiItems = Array.Empty<ReactionPickerItem>();
+                return;
+            }
+
+            if (string.Equals(category.DisplayName, "Flags", StringComparison.OrdinalIgnoreCase))
+            {
+                RefreshVisibleComposerFlagItems();
+                return;
+            }
+
+            if (category.Emojis is null || category.Emojis.Count == 0)
+            {
+                VisibleComposerEmojiItems = Array.Empty<ReactionPickerItem>();
+                return;
+            }
+
+            var toneModifier = SelectedComposerSkinTone?.Modifier ?? string.Empty;
+            var selectedToneLabel = SelectedComposerSkinTone?.Name ?? "Default";
+            var transformed = new List<ReactionPickerItem>(category.Emojis.Count);
+            foreach (var emoji in category.Emojis)
+            {
+                if (string.IsNullOrWhiteSpace(emoji)) continue;
+                var emojiValue = ApplySelectedSkinTone(emoji, toneModifier);
+                var baseName = ReactionEmojiCatalogLoader.GetEmojiDisplayName(emoji) ?? "Emoji";
+                var tooltip = string.Equals(selectedToneLabel, "Default", StringComparison.OrdinalIgnoreCase)
+                    ? baseName
+                    : $"{baseName} ({selectedToneLabel})";
+
+                transformed.Add(new ReactionPickerItem
+                {
+                    Value = emojiValue,
+                    Tooltip = tooltip,
+                });
+            }
+
+            VisibleComposerEmojiItems = transformed
+                .GroupBy(x => x.Value, StringComparer.Ordinal)
+                .Select(g => g.First())
+                .ToList();
+        }
+
+        private void RefreshVisibleComposerFlagItems()
+        {
+            var query = (ComposerEmojiSearchQuery ?? string.Empty).Trim().ToLowerInvariant();
+            var codes = FlagImageCatalog.Codes
+                .Where(code => code.Length == 2 || string.Equals(code, "eu", StringComparison.OrdinalIgnoreCase) || string.Equals(code, "un", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(code => code, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                codes = codes
+                    .Where(code => code.Contains(query, StringComparison.OrdinalIgnoreCase)
+                        || (FlagImageCatalog.TryGetCountryDisplayName(code)?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false))
+                    .ToList();
+            }
+
+            var items = new List<ReactionPickerItem>();
+            foreach (var code in codes)
+            {
+                var emoji = CountryCodeToFlagEmoji(code);
+                if (string.IsNullOrWhiteSpace(emoji)) continue;
+
+                var countryName = FlagImageCatalog.TryGetCountryDisplayName(code);
+                var normalizedCode = code.Trim().ToUpperInvariant();
+                var tooltip = string.IsNullOrWhiteSpace(countryName)
+                    ? $"Flag: {normalizedCode}"
+                    : $"Flag: {countryName} ({normalizedCode})";
+
+                items.Add(new ReactionPickerItem
+                {
+                    Value = emoji,
+                    FlagCode = code,
+                    Tooltip = tooltip,
+                });
+            }
+
+            VisibleComposerEmojiItems = items;
+        }
+
         private void CancelPreviewFetch(Guid messageId)
         {
             CancellationTokenSource? cts = null;
@@ -1866,6 +2946,47 @@ namespace Zer0Talk.ViewModels
                 _messagesStore.UpdateLinkPreview(peerUid, message.Id, preview, AppServices.Passphrase);
             }
             catch { }
+        }
+
+        private void PersistMessageFlags(Message message)
+        {
+            try
+            {
+                var peerUid = GetPeerUidForMessage(message);
+                if (string.IsNullOrWhiteSpace(peerUid)) return;
+                _messagesStore.UpdateFlags(peerUid, message.Id, message.IsPinned, message.IsStarred, message.IsImportant, AppServices.Passphrase);
+            }
+            catch { }
+        }
+
+        private void PersistMessageReaction(Message message, string actorUid, string emoji, bool isAdd)
+        {
+            try
+            {
+                var peerUid = GetPeerUidForMessage(message);
+                if (string.IsNullOrWhiteSpace(peerUid)) return;
+                _messagesStore.ApplyReaction(peerUid, message.Id, actorUid, emoji, isAdd, AppServices.Passphrase);
+            }
+            catch { }
+        }
+
+        private bool MatchesCurrentMessageSpace(Message message)
+        {
+            try
+            {
+                return MessageSpaceFilter.Matches(message, MessageSpaceViewIndex, IsUnreadMessage(message));
+            }
+            catch { return true; }
+        }
+
+        private bool IsUnreadMessage(Message message)
+        {
+            try
+            {
+                if (message == null || message.Id == Guid.Empty) return false;
+                return AppServices.Notifications.Notices.Any(n => n.IsMessage && n.MessageId == message.Id && n.IsUnread);
+            }
+            catch { return false; }
         }
 
         private static DateTime NormalizeTimestamp(DateTime timestamp)
@@ -1924,6 +3045,9 @@ namespace Zer0Talk.ViewModels
 
                     try { AppServices.Notifications.MarkMessageNoticeRead(message.Id); } catch { }
                 }
+
+                RebuildTimeline();
+                ApplyMessageSearch();
             }
             catch { }
         }
@@ -2251,6 +3375,14 @@ namespace Zer0Talk.ViewModels
         public string LocalizedEncrypted => Services.AppServices.Localization.GetString("MainWindow.Encrypted", "Encrypted");
         public string LocalizedBurnConversation => Services.AppServices.Localization.GetString("MainWindow.BurnConversation", "Burn conversation permanently");
         public string LocalizedChatEncrypted => Services.AppServices.Localization.GetString("MainWindow.ChatEncrypted", "Chat is end-to-end encrypted");
+        public string LocalizedChatEncryptedTransport => Services.AppServices.Localization.GetString("MainWindow.ChatEncryptedTransport", "Transport encrypted (identity not necessarily verified)");
+        public string LocalizedVerifiedBadgeTooltip => Services.AppServices.Localization.GetString("MainWindow.VerifiedBadgeTooltip", "Identity verified via trust ceremony");
+        public string LocalizedFingerprintLabel => Services.AppServices.Localization.GetString("MainWindow.Fingerprint", "Fingerprint");
+        public string LocalizedVerifiedOnLabel => Services.AppServices.Localization.GetString("MainWindow.VerifiedOn", "Verified On");
+        public string LocalizedVerificationHistoryLabel => Services.AppServices.Localization.GetString("MainWindow.VerificationHistory", "Verification History");
+        public string LocalizedNoVerificationHistory => Services.AppServices.Localization.GetString("MainWindow.NoVerificationHistory", "No verification events yet.");
+        public string LocalizedNeverVerified => Services.AppServices.Localization.GetString("MainWindow.NeverVerified", "Never");
+        public string LocalizedIdentityVsEncryptionHint => Services.AppServices.Localization.GetString("MainWindow.IdentityVsEncryptionHint", "Shield verifies identity; lock indicates encrypted transport.");
         public string LocalizedSimulatedContact => Services.AppServices.Localization.GetString("MainWindow.SimulatedContact", "Simulated contact (loopback)");
         public string LocalizedBold => Services.AppServices.Localization.GetString("MainWindow.Bold", "Bold (**text**)");
         public string LocalizedItalic => Services.AppServices.Localization.GetString("MainWindow.Italic", "Italic (*text*)");
@@ -2288,6 +3420,7 @@ namespace Zer0Talk.ViewModels
         public string LocalizedSave => Services.AppServices.Localization.GetString("Common.Save", "Save");
         public string LocalizedCloseEsc => Services.AppServices.Localization.GetString("MainWindow.CloseEsc", "Close (Esc)");
         public string LocalizedVerify => Services.AppServices.Localization.GetString("MainWindow.Verify", "Verify");
+        public string LocalizedReverify => Services.AppServices.Localization.GetString("MainWindow.Reverify", "Re-verify");
         public string LocalizedSaveSimulated => Services.AppServices.Localization.GetString("MainWindow.SaveSimulated", "Save (Simulated)");
         public string LocalizedMessagePending => Services.AppServices.Localization.GetString("MainWindow.MessagePending", "Message pending - contact is offline");
         public string LocalizedSending => Services.AppServices.Localization.GetString("MainWindow.Sending", "Sending message...");
@@ -2327,6 +3460,14 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedEncrypted));
             OnPropertyChanged(nameof(LocalizedBurnConversation));
             OnPropertyChanged(nameof(LocalizedChatEncrypted));
+            OnPropertyChanged(nameof(LocalizedChatEncryptedTransport));
+            OnPropertyChanged(nameof(LocalizedVerifiedBadgeTooltip));
+            OnPropertyChanged(nameof(LocalizedFingerprintLabel));
+            OnPropertyChanged(nameof(LocalizedVerifiedOnLabel));
+            OnPropertyChanged(nameof(LocalizedVerificationHistoryLabel));
+            OnPropertyChanged(nameof(LocalizedNoVerificationHistory));
+            OnPropertyChanged(nameof(LocalizedNeverVerified));
+            OnPropertyChanged(nameof(LocalizedIdentityVsEncryptionHint));
             OnPropertyChanged(nameof(LocalizedSimulatedContact));
             OnPropertyChanged(nameof(LocalizedBold));
             OnPropertyChanged(nameof(LocalizedItalic));
@@ -2364,6 +3505,7 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedSave));
             OnPropertyChanged(nameof(LocalizedCloseEsc));
             OnPropertyChanged(nameof(LocalizedVerify));
+            OnPropertyChanged(nameof(LocalizedReverify));
             OnPropertyChanged(nameof(LocalizedSaveSimulated));
             OnPropertyChanged(nameof(LocalizedMessagePending));
             OnPropertyChanged(nameof(LocalizedSending));
@@ -2403,6 +3545,10 @@ namespace Zer0Talk.ViewModels
         {
             OnPropertyChanged(nameof(SelectedContact));
             OnPropertyChanged(nameof(SelectedContactIdentity));
+            OnPropertyChanged(nameof(SelectedContactFingerprint));
+            OnPropertyChanged(nameof(SelectedContactVerifiedOnDisplay));
+            OnPropertyChanged(nameof(SelectedContactVerificationHistory));
+            OnPropertyChanged(nameof(HasSelectedContactVerificationHistory));
         }
 
         // Group headers removed; UI binds directly to Contacts
@@ -2439,6 +3585,19 @@ namespace Zer0Talk.ViewModels
         {
             if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
             return uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+        }
+
+        private bool IsSelectedContactPeer(string peerUid)
+        {
+            try
+            {
+                var selectedUid = SelectedContact?.UID ?? string.Empty;
+                return UidNormalization.EqualsNormalized(selectedUid, peerUid);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         // Helper: format a remaining timespan as mm:ss
@@ -2545,7 +3704,16 @@ namespace Zer0Talk.ViewModels
                 Messages.Clear();
                 var list = _messagesStore.LoadMessages(peerUid, AppServices.Passphrase);
                 Logger.Log($"LoadConversation: Loaded {list.Count} messages for peer={peerUid}");
-                foreach (var m in list) Messages.Add(m);
+                foreach (var m in list)
+                {
+                    ParseWireContent(m.Content ?? string.Empty, out var parsedContent, out var replyToMessageId, out var replyToPreview);
+                    m.Content = parsedContent;
+                    m.ReplyToMessageId = replyToMessageId;
+                    m.ReplyToPreview = replyToPreview;
+                    m.EnsureReactionStateLoaded();
+                    Messages.Add(m);
+                }
+                ApplyMessageSearch();
                 MarkMessagesAsRead();
                 // Clear notifications for this conversation
                 try { AppServices.Notifications.MarkConversationMessageNoticesRead(peerUid); } catch { }

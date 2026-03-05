@@ -386,6 +386,10 @@ public sealed class MarkdownParser
         {
             style = "strikethrough";
         }
+        else if (emphasis.DelimiterChar == '+' && emphasis.DelimiterCount == 2)
+        {
+            style = "underline";
+        }
 
         return new Emphasis 
         { 

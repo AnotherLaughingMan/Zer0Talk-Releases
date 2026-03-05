@@ -27,13 +27,116 @@ Run this checklist before creating a release tag.
 ## [Unreleased]
 
 ### Added
-- No unreleased additions yet.
+- None yet.
 
 ### Updated
-- No unreleased updates yet.
+- None yet.
 
 ### Fixed
-- No unreleased fixes yet.
+- None yet.
+
+## [0.0.4.04-Alpha] - 2026-03-04
+
+### Added
+- Theme Editor now includes a one-click `Normalize Themes` action to migrate on-disk custom/imported `.zttheme` files to the current compatibility key set.
+- Debug-only markdown smoke test hotkey (`Ctrl+Alt+Shift+M`) in MainWindow to validate formatter actions against selected text and surface pass/fail quickly during QA.
+- CI quality gate workflow (`.github/workflows/quality-gate.yml`) to enforce Debug/Release builds and relay federation smoke checks on `main` push/PR.
+- New `Tests/Zer0Talk.Tests.csproj` xUnit test project with initial message-model regression coverage.
+- New UID normalization utility (`Utilities/UidNormalization.cs`) with automated tests for prefix/case normalization.
+- New outbox edit lifecycle tests covering dedupe, queued-content update, and cancel removal behavior.
+- Origin-to-release promotion playbook (`docs/origin-to-release-promotion.md`) and helper script (`scripts/promote_origin_to_release.ps1`) to selectively cherry-pick validated commits into release.
+- Added `scripts/list_promotion_candidates.ps1` to enumerate and copy `[promote]` candidate SHAs before release promotion.
+- `scripts/promote_origin_to_release.ps1` now supports interactive candidate selection when `-CommitShas` is omitted.
+- Conversation search v1 in chat header with in-thread query, next/previous match navigation, clear action, and active-match indicators.
+- Reply workflow v1 with message-level reply action, composer reply chip, inline reply preview chips in timeline, and lightweight reply metadata transport.
+- Contact-level notification policy toggles (mute/priority) from contact context menu with persistence in encrypted contacts storage.
+- Encrypted backup/restore UX in Settings now exports `.ztbackup` archives with an embedded backup manifest and supports restore/import with overwrite confirmation.
+- Message space organization controls in chat: per-message `Pin`/`Star` actions with persistent flags and saved views (`All`, `Unread`, `Mentions/Important`, `Attachments`).
+- Multi-device migration bundle flow in Settings: one-time encrypted `.ztmigrate` export with transfer code ceremony and guided restore compatibility.
+- Monitoring productization pass: user-facing health score and actionable `Connection Doctor` guidance in Monitoring window.
+- Trust ceremony profile UX: contact fingerprint display, `Verified On` timestamp, and recent verification history entries.
+- Re-verify flow in contact profile so users can perform a fresh ceremony without clearing prior trust state.
+- Unicode emoji catalog resource (`Resources/Data/emoji-test.txt`) with loader/model utilities for category-driven reaction picker population.
+- App-wide flag graphics resource pack (`Assets/Flags/*.png`, 246 embedded country/region flags) with manifest index (`Resources/Data/flags-index.json`) for reusable lookup.
+- Message composer emoji picker integration as a shadowed glyph button with category-based emoji selection for inserting emojis into messages.
+- EmojiOnlyFontSizeConverter utility for conditional emoji sizing (72pt for emoji-only messages, 16pt for mixed content).
+
+### Updated
+- Contacts list theming was centralized into sovereignty styles so hover/selected/focus visuals now follow theme resources consistently across all built-in themes.
+- Theme save/export pipeline now auto-backfills required list/contact compatibility color keys (`App.ItemHover`, `App.ItemSelected`, `App.AccentLight`, border/list brush sync keys).
+- Composer markdown row now includes an icon-only Fluent toggle to hide/show formatting buttons with tooltip guidance.
+- AppServices critical outbox/remote-message guard paths now emit structured warning logs on failures instead of silently swallowing exceptions.
+- Quality gate now runs automated tests and includes a PR guard that blocks newly introduced bare `catch { }` blocks in `App`/`Services`/`ViewModels` critical paths.
+- Quality gate now uploads CI diagnostics artifacts (`.trx` test results and federation smoke log) for faster failure triage in GitHub Actions.
+- Contact context menu notification actions are now state-aware (`Mute`/`Unmute`, `Mark as priority`/`Remove priority`) instead of generic toggles.
+- Conversation search navigation now auto-scrolls to the active result when stepping through matches.
+- Notification inbox ordering now prioritizes VIP and mention-triggered items ahead of standard notices.
+- Toast notifications now include quick actions (`Go to Chat`, `Reply`, `Mute 1h`, `Mark read`) for message notifications.
+- Incoming notification behavior now supports quiet-hours semantics with priority/mention bypass options.
+- Verification dialog now includes side-by-side fingerprint compare guidance before confirming trust.
+- Verification semantics were clarified in UI: shield badge indicates identity verification, while lock icon indicates encrypted transport state.
+- Message hover reactions now use a compact single add-reaction button with a left-anchored flyout that keeps the action bar narrow.
+- Reaction picker now renders grouped emoji categories from the Unicode catalog in a scrollable popup, including the standard Facebook/Twitter-style reaction set.
+- Reaction picker now includes inline search to filter emoji/categories quickly in large catalogs.
+- Reaction picker now supports category selection and only renders the active category grid (instead of all categories at once) to keep the flyout responsive on large emoji catalogs.
+- Reaction picker now includes a skin tone selector for supported human/hand emojis.
+- Reaction picker category selector now shows per-category icons for faster visual navigation.
+- Reaction picker layout has been enlarged for readability (larger popup, larger controls, and 24px emoji glyphs with bigger hit targets).
+- Reaction picker now scales to main-window size (responsive width/height caps) and uses fewer columns with larger cells to avoid off-window overflow and horizontal clipping.
+- Reaction picker `Flags` category now renders real embedded colored flag graphics (image buttons) instead of relying on font-based regional indicator rendering.
+- Reaction picker received layout tuning: narrower panel/cells to prevent horizontal overflow while searching, and adjusted flyout placement/offset so it opens closer to center instead of hugging the top edge.
+- Reaction picker flyout placement is now adaptive by trigger-row position (top/middle/bottom), dynamically choosing top/bottom placement and offsets to better stay in-view and feel centered.
+- Reaction picker adaptive placement now applies stronger center bias and explicit right/left edge overflow guards, with extra downward offset for top-row messages.
+- Reaction picker positioning now anchors from the chat area left boundary (Discord-style), keeps the flyout clamped inside the main window, and uses steadier offsets across trigger rows.
+- Reaction picker horizontal placement was further corrected to deterministic chat-left anchoring with stricter right-edge clamping, preventing overlap/off-window drift on right-side message rows.
+- Reaction picker now uses a fixed panel width and a single deterministic chat-left placement lane, eliminating responsive width jitter and random horizontal drift that could push content off-window.
+- Reaction picker popup constraints now use slide-only adjustment (no auto flip jitter) with a fixed 420px panel width for consistent Discord-style placement and no horizontal hunt behavior.
+- Reaction picker placement was simplified to API-compatible deterministic offsets in a fixed chat-left lane, with auto-flip disabled and minimal top/bottom behavior to reduce jitter.
+- Reaction picker implementation switched from per-message `Flyout` to a single shared `Popup` with explicit coordinates, fixed width, and stable chat-lane anchoring to prevent right-drift and random repositioning.
+- Shared reaction picker popup now targets the root window coordinate space and uses explicit below-first / above-if-needed placement checks to prevent top-corner jumps and clipped headers.
+- Shared reaction picker popup placement now resolves anchor coordinates into the chat canvas (`ChatScroll`) space and clamps width/position to that viewport so it stays over the actual message area.
+- Reaction picker dropdown behavior now opens downward from the clicked message reaction button (no upward flip) over the chat canvas area.
+- Reaction picker sizing was refined for usability: horizontal sizing was restored to the fixed lane behavior, and vertical sizing now keeps a stable usable dropdown height so the emoji grid does not collapse.
+- Reaction picker vertical sizing logic was corrected to avoid open/click regressions: dropdown height is no longer forced to a fixed value and now caps to the available in-canvas space below the clicked reaction button.
+- Reaction picker click handling now preserves the target message ID during popup close, fixing a race where clicking an emoji could close the picker without applying the reaction.
+- Reaction picker vertical height behavior was stabilized to a consistent usable dropdown size (no aggressive below-space collapse), while preserving downward-open positioning and reaction click handling.
+- Message reaction chips now render real flag images for country-flag reactions (with text fallback for non-flag emojis).
+- Discovered peers list now renders real country flag graphics from `CountryCode` hints, with globe fallback when unavailable.
+- Security settings blocked-IP and blocked-range lists now render real country flag graphics (with country-code fallback only when no flag asset is available).
+- Added reusable flag rendering infrastructure for all views: `FlagImageCatalog`, `CountryCodeToFlagBitmapConverter`, and `Controls/FlagImage` to map country codes to real flag bitmaps.
+- Reaction picker entries now expose tooltips with human-readable emoji names and country flag names/codes, and `Flags` search now matches country names (not just two-letter codes).
+- Send button removed from chat composer in favor of implicit send-on-Enter/Shift+Enter behavior with emoji picker integration.
+- Emoji-only messages now render at 72pt font size (increased from default 16pt) in both the markdown viewer and fallback text renderer for improved visibility.
+- Message composer maximum height increased from 120px to 160px to better accommodate emoji input and multi-line composition.
+- Reverify button in contact profile now appears when either `IsVerified` or `PublicKeyVerified` is true, enabling re-verification when contact keys change or verification needs renewal.
+- Emoji catalog loader now loads only fully-qualified Unicode emoji variants (ignoring minimally-qualified duplicates) to eliminate redundant entries in picker categories.
+- Relay connected-client operator view now defaults to privacy-safe handle-centric records, with optional sensitive fields controlled by relay config.
+- Relay Console live log behavior now matches Probe Audit behavior with follow-latest state, unseen-entry tracking, and contextual Jump-to-latest tooltip text.
+- Relay queue diagnostics now include first-arrival moderation handle, relay role, and repeated-first-arrival streak warnings to make pending-session root cause analysis faster.
+- Relay Console now translates low-level relay transport messages into operator-friendly plain-English status lines, while Probe Audit retains protocol-level technical detail.
+
+
+### Fixed
+- Custom and imported `.zttheme` files now auto-normalize missing compatibility color overrides at load/register time, preventing fallback Fluent blue bleed in contact/list states.
+- Added fallback `App.ItemHover`/`App.ItemSelected` resources in sovereignty base so older themes without explicit keys still render stable contact/list states.
+- Composer markdown buttons (Bold/Italic/Underline/Strike/Quote/Code/Spoiler) now preserve highlighted text selection and correctly wrap selected text instead of replacing it with placeholder text.
+- Floating markdown selection ribbon actions now apply reliably after selection, with focus/selection handling fixes that prevent no-op clicks.
+- Underline markdown now uses `++text++` and renders as true underline (instead of `__text__`, which markdown interprets as bold).
+- Underline is now available on the floating markdown toolbar and underline tooltips use the correct `++text++` syntax.
+- Composer markdown tools visibility toggle now persists in settings across app restarts.
+- Spoiler inline chips now align with surrounding text baseline instead of rendering slightly raised.
+- Spoiler rendering now uses run-based inline text with message-level click-to-reveal/hide (instead of inline UI containers) for consistent baseline alignment.
+- Spoiler rendering preserves exact spaces around spoiler boundaries in mixed markdown text.
+- Unlock flow now shows a persistent warning notice when encrypted settings fail to decrypt and are auto-reset to secure defaults (instead of silent reset behavior).
+- Reaction command parameter handling now accepts flyout context objects (not only raw message IDs), preventing binding failures in nested picker templates.
+- Reaction picker search state now resets on open/close and the search box is focused on open for faster keyboard-driven picking.
+- Missing `OrMultiConverter` resource registration in MainWindow.axaml that caused application startup crashes when accessing contact profile re-verification controls.
+- Duplicate emoji entries in composer emoji picker (e.g., "Face in the Clouds" appearing twice) by filtering to fully-qualified Unicode variants only.
+- Relay moderation controls now support handle-based operator blocking that immediately purges pending invites, disconnects active relay sessions for the blocked UID, and enforces blocks across directory commands.
+- Relay OFFER/diagnostic logging now avoids exposing raw endpoint payloads by default, reducing sensitive operator-surface leakage.
+- Relay session pairing now suppresses duplicate same-side arrivals for an already-pending session key (`ERR already-queued`) instead of replacing the waiting pending side, reducing queue churn when one peer repeatedly arrives first.
+- Relay pending cleanup now expires unknown/anonymous pending sides faster, and stale pending entries are replaced during pairing attempts so disconnected ghost waiters stop lingering in queue.
+- Client relay invite parser now correctly handles batched `INVITES` payloads when session keys contain `:` (for example `uidA:uidB`), preventing dropped invites and missing ACK/join behavior under repeated relay offers.
 
 ## [0.0.4.03-Alpha] - 2026-02-28
 

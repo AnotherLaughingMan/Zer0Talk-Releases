@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Globalization;
@@ -603,6 +604,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         OpenDocumentationCommand = new RelayCommand(_ => OpenDocumentation(), _ => true);
         OpenPrivacyPolicyCommand = new RelayCommand(_ => OpenPrivacyPolicy(), _ => true);
         ExportDataCommand = new RelayCommand(async _ => await ExportDataAsync(), _ => true);
+        ImportDataCommand = new RelayCommand(async _ => await ImportDataAsync(), _ => true);
+        ExportMigrationBundleCommand = new RelayCommand(async _ => await ExportMigrationBundleAsync(), _ => true);
         CopyPublicKeyCommand = new RelayCommand(async _ => await CopyPublicKeyAsync(), _ => !string.IsNullOrWhiteSpace(SelfPublicKeyHex));
         ClearErrorLogCommand = new RelayCommand(_ => PurgeAllLogs(), _ => true);
         ExportThemeCommand = new RelayCommand(async _ => await ExportCurrentThemeAsync(), _ => !string.IsNullOrWhiteSpace(CurrentThemeId));
@@ -2276,8 +2279,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedTypePurgeAllData => Services.AppServices.Localization.GetString("Settings.TypePurgeAllData", "Type: PURGE-ALL-DATA");
     public string LocalizedPurgeAllMessagesButton => Services.AppServices.Localization.GetString("Settings.PurgeAllMessagesButton", "Purge All Messages");
     public string LocalizedExportData => Services.AppServices.Localization.GetString("Settings.ExportData", "Export Data");
-    public string LocalizedExportDataDescription => Services.AppServices.Localization.GetString("Settings.ExportDataDescription", "Download a copy of your data before deleting your account. This includes your messages, contacts, and settings.");
-    public string LocalizedExportDataButton => Services.AppServices.Localization.GetString("Settings.ExportDataButton", "Export Data");
+    public string LocalizedExportDataDescription => Services.AppServices.Localization.GetString("Settings.ExportDataDescription", "Create an encrypted backup of your local data. This includes messages, contacts, and settings.");
+    public string LocalizedExportDataButton => Services.AppServices.Localization.GetString("Settings.ExportDataButton", "Export Encrypted Backup");
+    public string LocalizedImportData => Services.AppServices.Localization.GetString("Settings.ImportData", "Restore Backup");
+    public string LocalizedImportDataDescription => Services.AppServices.Localization.GetString("Settings.ImportDataDescription", "Restore from an encrypted backup created on this profile. Existing local data in included folders will be replaced.");
+    public string LocalizedImportDataButton => Services.AppServices.Localization.GetString("Settings.ImportDataButton", "Import Backup");
+    public string LocalizedExportMigrationBundle => Services.AppServices.Localization.GetString("Settings.ExportMigrationBundle", "Create Migration Bundle");
+    public string LocalizedExportMigrationBundleDescription => Services.AppServices.Localization.GetString("Settings.ExportMigrationBundleDescription", "Create a one-time encrypted transfer bundle for moving to another device. A transfer code will be shown after export.");
+    public string LocalizedExportMigrationBundleButton => Services.AppServices.Localization.GetString("Settings.ExportMigrationBundleButton", "Export Migration Bundle");
+    public string LocalizedImportMigrationBundleButton => Services.AppServices.Localization.GetString("Settings.ImportMigrationBundleButton", "Import Backup / Migration Bundle");
     
     // Log Out panel strings
     public string LocalizedSignOut => Services.AppServices.Localization.GetString("Settings.SignOut", "Sign Out");
@@ -2960,6 +2970,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedExportData));
             OnPropertyChanged(nameof(LocalizedExportDataDescription));
             OnPropertyChanged(nameof(LocalizedExportDataButton));
+            OnPropertyChanged(nameof(LocalizedImportData));
+            OnPropertyChanged(nameof(LocalizedImportDataDescription));
+            OnPropertyChanged(nameof(LocalizedImportDataButton));
             
             // Log Out panel
             OnPropertyChanged(nameof(LocalizedSignOut));
@@ -3118,6 +3131,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand OpenDocumentationCommand { get; }
     public ICommand OpenPrivacyPolicyCommand { get; }
     public ICommand ExportDataCommand { get; }
+    public ICommand ImportDataCommand { get; }
+    public ICommand ExportMigrationBundleCommand { get; }
     public ICommand RetryNatVerificationCommand => new RelayCommand(async _ => { try { await AppServices.Nat.RetryVerificationAsync(); } catch { } });
     public ICommand CopyPublicKeyCommand { get; }
     public ICommand ExportThemeCommand { get; }  // Phase 3 Step 2
@@ -3252,8 +3267,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    private static readonly string[] BackupIncludeRoots = BackupArchiveFormat.IncludeRoots;
+    private static readonly string[] BackupIncludeFiles = BackupArchiveFormat.IncludeFiles;
+
     private async Task ExportDataAsync()
     {
+        byte[]? zipBytes = null;
+        byte[]? encryptedBytes = null;
+
         try
         {
             var window = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
@@ -3267,11 +3288,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
             var file = await window.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
             {
-                Title = "Export Zer0Talk Data",
-                SuggestedFileName = $"zer0talk-export-{DateTime.UtcNow:yyyyMMdd-HHmmss}.zip",
+                Title = "Export Encrypted Zer0Talk Backup",
+                SuggestedFileName = $"zer0talk-backup-{DateTime.UtcNow:yyyyMMdd-HHmmss}.ztbackup",
                 FileTypeChoices = new[]
                 {
-                    new Avalonia.Platform.Storage.FilePickerFileType("ZIP Archive")
+                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Encrypted Backup")
+                    {
+                        Patterns = new[] { "*.ztbackup" }
+                    },
+                    new Avalonia.Platform.Storage.FilePickerFileType("ZIP Archive (legacy)")
                     {
                         Patterns = new[] { "*.zip" }
                     }
@@ -3286,51 +3311,27 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            var root = Zer0Talk.Utilities.AppDataPaths.Root;
+            var root = AppDataPaths.Root;
             if (!Directory.Exists(root))
             {
                 await ShowSaveToastAsync("No app data found to export", 2500);
                 return;
             }
 
-            var includeRoots = new[] { "messages", "outbox", "Themes", "Logs", "security" };
-            var includeFiles = new[]
-            {
-                "settings.p2e",
-                "contacts.p2e",
-                "peers.p2e",
-                "user.p2e",
-                "window_state.json",
-                "unlock.window.json"
-            };
-
             await Task.Run(() =>
             {
                 if (File.Exists(outputPath)) File.Delete(outputPath);
 
-                using var stream = File.Create(outputPath);
-                using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
-
-                foreach (var fileName in includeFiles)
+                zipBytes = CreateBackupZipBytes(root);
+                if (outputPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
-                    var full = Path.Combine(root, fileName);
-                    if (File.Exists(full))
-                    {
-                        archive.CreateEntryFromFile(full, fileName, CompressionLevel.Optimal);
-                    }
+                    File.WriteAllBytes(outputPath, zipBytes);
+                    return;
                 }
 
-                foreach (var dirName in includeRoots)
-                {
-                    var fullDir = Path.Combine(root, dirName);
-                    if (!Directory.Exists(fullDir)) continue;
-
-                    foreach (var fullPath in Directory.GetFiles(fullDir, "*", SearchOption.AllDirectories))
-                    {
-                        var rel = Path.GetRelativePath(root, fullPath).Replace('\\', '/');
-                        archive.CreateEntryFromFile(fullPath, rel, CompressionLevel.Optimal);
-                    }
-                }
+                var encryption = new EncryptionService();
+                encryptedBytes = encryption.Encrypt(zipBytes, AppServices.Passphrase);
+                File.WriteAllBytes(outputPath, encryptedBytes);
             });
 
             await ShowSaveToastAsync($"Exported data: {Path.GetFileName(outputPath)}", 2500);
@@ -3338,6 +3339,336 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         catch
         {
             await ShowSaveToastAsync("Data export failed", 3000);
+        }
+        finally
+        {
+            if (zipBytes != null) CryptographicOperations.ZeroMemory(zipBytes);
+            if (encryptedBytes != null) CryptographicOperations.ZeroMemory(encryptedBytes);
+        }
+    }
+
+    private async Task ExportMigrationBundleAsync()
+    {
+        byte[]? zipBytes = null;
+        byte[]? encryptedBytes = null;
+
+        try
+        {
+            var window = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+            if (window == null)
+            {
+                await ShowSaveToastAsync("Unable to access file system", 2500);
+                return;
+            }
+
+            var file = await window.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+            {
+                Title = "Export Zer0Talk Migration Bundle",
+                SuggestedFileName = $"zer0talk-migration-{DateTime.UtcNow:yyyyMMdd-HHmmss}.ztmigrate",
+                FileTypeChoices = new[]
+                {
+                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Migration Bundle")
+                    {
+                        Patterns = new[] { "*.ztmigrate" }
+                    }
+                }
+            });
+
+            if (file == null) return;
+            var outputPath = file.Path.LocalPath;
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                await ShowSaveToastAsync("Invalid export destination", 2500);
+                return;
+            }
+
+            var root = AppDataPaths.Root;
+            if (!Directory.Exists(root))
+            {
+                await ShowSaveToastAsync("No app data found to export", 2500);
+                return;
+            }
+
+            var transferCode = GenerateTransferCode();
+
+            await Task.Run(() =>
+            {
+                if (File.Exists(outputPath)) File.Delete(outputPath);
+                zipBytes = CreateBackupZipBytes(root);
+                var encryption = new EncryptionService();
+                encryptedBytes = encryption.Encrypt(zipBytes, transferCode);
+                File.WriteAllBytes(outputPath, encryptedBytes);
+            });
+
+            await AppServices.Dialogs.ShowInfoAsync(
+                "Migration Bundle Created",
+                $"Bundle: {Path.GetFileName(outputPath)}\n\nTransfer code (required to import):\n{transferCode}\n\nKeep this code private. The receiving device will need it to restore this bundle.",
+                9000);
+        }
+        catch
+        {
+            await ShowSaveToastAsync("Migration bundle export failed", 3500);
+        }
+        finally
+        {
+            if (zipBytes != null) CryptographicOperations.ZeroMemory(zipBytes);
+            if (encryptedBytes != null) CryptographicOperations.ZeroMemory(encryptedBytes);
+        }
+    }
+
+    private static string GenerateTransferCode()
+    {
+        Span<byte> bytes = stackalloc byte[6];
+        RandomNumberGenerator.Fill(bytes);
+        return string.Create(14, bytes.ToArray(), static (span, data) =>
+        {
+            const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+            var chars = new char[12];
+            for (var i = 0; i < 12; i++)
+            {
+                chars[i] = alphabet[data[i % data.Length] % alphabet.Length];
+            }
+
+            span[0] = chars[0];
+            span[1] = chars[1];
+            span[2] = chars[2];
+            span[3] = chars[3];
+            span[4] = '-';
+            span[5] = chars[4];
+            span[6] = chars[5];
+            span[7] = chars[6];
+            span[8] = chars[7];
+            span[9] = '-';
+            span[10] = chars[8];
+            span[11] = chars[9];
+            span[12] = chars[10];
+            span[13] = chars[11];
+        });
+    }
+
+    private async Task ImportDataAsync()
+    {
+        byte[]? containerBytes = null;
+        byte[]? zipBytes = null;
+
+        try
+        {
+            var window = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+            if (window == null)
+            {
+                await ShowSaveToastAsync("Unable to access file system", 2500);
+                return;
+            }
+
+            var files = await window.StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+            {
+                Title = "Import Zer0Talk Backup",
+                AllowMultiple = false,
+                FileTypeFilter = new System.Collections.Generic.List<Avalonia.Platform.Storage.FilePickerFileType>
+                {
+                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Encrypted Backup") { Patterns = new[] { "*.ztbackup" } },
+                    new Avalonia.Platform.Storage.FilePickerFileType("ZIP Archive (legacy)") { Patterns = new[] { "*.zip" } },
+                    new Avalonia.Platform.Storage.FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+                }
+            });
+
+            if (files == null || files.Count == 0) return;
+
+            var selectedPath = files[0].Path.LocalPath;
+            if (string.IsNullOrWhiteSpace(selectedPath) || !File.Exists(selectedPath))
+            {
+                await ShowSaveToastAsync("Invalid backup file", 2500);
+                return;
+            }
+
+            var confirmed = await AppServices.Dialogs.ConfirmWarningAsync(
+                "Restore backup",
+                "This will overwrite local data in backup-managed folders (messages, outbox, themes, logs, security) and key data files. Continue?",
+                "Restore",
+                "Cancel");
+
+            if (!confirmed) return;
+
+            containerBytes = await Task.Run(() => File.ReadAllBytes(selectedPath));
+            if (selectedPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                zipBytes = containerBytes.ToArray();
+            }
+            else
+            {
+                var encryption = new EncryptionService();
+                try
+                {
+                    zipBytes = await Task.Run(() => encryption.Decrypt(containerBytes, AppServices.Passphrase));
+                }
+                catch (CryptographicException)
+                {
+                    var transferCode = await AppServices.Dialogs.PromptAsync(
+                        "Transfer Code Required",
+                        "");
+                    if (string.IsNullOrWhiteSpace(transferCode)) throw;
+                    zipBytes = await Task.Run(() => encryption.Decrypt(containerBytes, transferCode.Trim()));
+                }
+            }
+
+            await Task.Run(() => RestoreBackupZipBytes(AppDataPaths.Root, zipBytes));
+
+            await ShowSaveToastAsync("Backup restored. Restart Zer0Talk to fully reload data.", 4500);
+        }
+        catch (CryptographicException)
+        {
+            await ShowSaveToastAsync("Backup decrypt failed (wrong passphrase/transfer code or corrupt file)", 3500);
+        }
+        catch
+        {
+            await ShowSaveToastAsync("Backup restore failed", 3500);
+        }
+        finally
+        {
+            if (containerBytes != null) CryptographicOperations.ZeroMemory(containerBytes);
+            if (zipBytes != null) CryptographicOperations.ZeroMemory(zipBytes);
+        }
+    }
+
+    private static byte[] CreateBackupZipBytes(string root)
+    {
+        using var stream = new MemoryStream();
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var fileName in BackupIncludeFiles)
+            {
+                var full = Path.Combine(root, fileName);
+                if (File.Exists(full))
+                {
+                    archive.CreateEntryFromFile(full, fileName, CompressionLevel.Optimal);
+                }
+            }
+
+            foreach (var dirName in BackupIncludeRoots)
+            {
+                var fullDir = Path.Combine(root, dirName);
+                if (!Directory.Exists(fullDir)) continue;
+
+                foreach (var fullPath in Directory.GetFiles(fullDir, "*", SearchOption.AllDirectories))
+                {
+                    var rel = Path.GetRelativePath(root, fullPath).Replace('\\', '/');
+                    archive.CreateEntryFromFile(fullPath, rel, CompressionLevel.Optimal);
+                }
+            }
+
+            BackupArchiveFormat.WriteManifest(archive, AppInfo.Version);
+        }
+
+        return stream.ToArray();
+    }
+
+    private static void RestoreBackupZipBytes(string root, byte[] zipBytes)
+    {
+        var stagingRoot = Path.Combine(Path.GetTempPath(), $"zer0talk-restore-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(stagingRoot);
+
+        try
+        {
+            using var input = new MemoryStream(zipBytes, writable: false);
+            using var archive = new ZipArchive(input, ZipArchiveMode.Read);
+
+            if (BackupArchiveFormat.TryReadManifest(archive, out var manifest) && !BackupArchiveFormat.IsSupportedManifest(manifest))
+            {
+                throw new InvalidDataException("Unsupported backup format version.");
+            }
+
+            foreach (var entry in archive.Entries)
+            {
+                if (entry.Length == 0 && entry.FullName.EndsWith("/", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var normalized = BackupArchiveFormat.NormalizeEntryPath(entry.FullName);
+                if (string.IsNullOrWhiteSpace(normalized) || !BackupArchiveFormat.IsAllowedEntry(normalized))
+                {
+                    continue;
+                }
+
+                var stagedPath = Path.GetFullPath(Path.Combine(stagingRoot, normalized.Replace('/', Path.DirectorySeparatorChar)));
+                if (!stagedPath.StartsWith(stagingRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var stagedDir = Path.GetDirectoryName(stagedPath);
+                if (!string.IsNullOrWhiteSpace(stagedDir))
+                {
+                    Directory.CreateDirectory(stagedDir);
+                }
+
+                using var inStream = entry.Open();
+                using var outStream = File.Create(stagedPath);
+                inStream.CopyTo(outStream);
+            }
+
+            foreach (var fileName in BackupIncludeFiles)
+            {
+                var stagedFile = Path.Combine(stagingRoot, fileName);
+                if (!File.Exists(stagedFile)) continue;
+
+                var targetFile = Path.Combine(root, fileName);
+                var targetDir = Path.GetDirectoryName(targetFile);
+                if (!string.IsNullOrWhiteSpace(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
+
+                File.Copy(stagedFile, targetFile, overwrite: true);
+            }
+
+            foreach (var dirName in BackupIncludeRoots)
+            {
+                var stagedDir = Path.Combine(stagingRoot, dirName);
+                if (!Directory.Exists(stagedDir)) continue;
+
+                var targetDir = Path.Combine(root, dirName);
+                if (Directory.Exists(targetDir))
+                {
+                    Directory.Delete(targetDir, recursive: true);
+                }
+
+                CopyDirectoryRecursive(stagedDir, targetDir);
+            }
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(stagingRoot))
+                {
+                    Directory.Delete(stagingRoot, recursive: true);
+                }
+            }
+            catch { }
+        }
+    }
+
+    private static void CopyDirectoryRecursive(string sourceDir, string destDir)
+    {
+        Directory.CreateDirectory(destDir);
+
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            var fileName = Path.GetFileName(file);
+            var destFile = Path.Combine(destDir, fileName);
+            File.Copy(file, destFile, overwrite: true);
+        }
+
+        foreach (var dir in Directory.GetDirectories(sourceDir))
+        {
+            var name = Path.GetFileName(dir);
+            var nextDest = Path.Combine(destDir, name);
+            CopyDirectoryRecursive(dir, nextDest);
         }
     }
 

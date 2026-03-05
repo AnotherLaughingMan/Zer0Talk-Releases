@@ -55,7 +55,7 @@
                         <Border Grid.Row="0" Background="{DynamicResource App.SecondaryBackground}" BorderBrush="{DynamicResource App.Border}" BorderThickness="0,0,0,1" Padding="6,4">
                             <Grid ColumnDefinitions="32,36,180,*,50,68">
                                 <TextBlock Grid.Column="0" Text="☑" FontWeight="SemiBold" FontSize="11" Opacity="0.7" Margin="3,0,0,0"/>
-                                <TextBlock Grid.Column="1" Text="🌍" FontWeight="SemiBold" FontSize="11" Opacity="0.7" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="Flag" FontWeight="SemiBold" FontSize="11" Opacity="0.7" HorizontalAlignment="Center"/>
                                 <TextBlock Grid.Column="2" Text="UID" FontWeight="SemiBold" FontSize="11" Opacity="0.8" Margin="3,0,0,0"/>
                                 <TextBlock Grid.Column="3" Text="Public Key" FontWeight="SemiBold" FontSize="11" Opacity="0.8" Margin="3,0,0,0"/>
                                 <TextBlock Grid.Column="4" Text="Node" FontWeight="SemiBold" FontSize="11" Opacity="0.8" HorizontalAlignment="Center"/>
@@ -89,12 +89,15 @@
                                         <Grid ColumnDefinitions="32,36,180,*,50,68" Margin="6,3" HorizontalAlignment="Stretch">
                                             <CheckBox Grid.Column="0" IsChecked="{Binding $parent[ListBoxItem].IsSelected}" VerticalAlignment="Center" MinWidth="0" Padding="0" Margin="3,0,0,0"/>
 
-                                            <TextBlock Grid.Column="1"
-                                                       Text="{Binding CountryCode, FallbackValue='⚪'}"
-                                                       FontSize="18"
-                                                       VerticalAlignment="Center"
-                                                       HorizontalAlignment="Center"
-                                                       ToolTip.Tip="Region hint from IP (decorative)"/>
+                                              <Grid Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                  <Image Width="24" Height="16" Stretch="UniformToFill"
+                                                      Source="{Binding CountryCode, Converter={StaticResource CountryCodeToFlagBitmapConverter}}"
+                                                       IsVisible="{Binding CountryCode, Converter={StaticResource CountryCodeHasFlagConverter}}"
+                                                      ToolTip.Tip="Region hint from IP (decorative)"/>
+                                                  <TextBlock Text="🌍" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                           IsVisible="{Binding CountryCode, Converter={StaticResource CountryCodeHasNoFlagConverter}}"
+                                                       ToolTip.Tip="Region hint unavailable"/>
+                                              </Grid>
 
                                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="3,0,0,0">
                                                 <TextBlock Text="{Binding DisplayUID}"

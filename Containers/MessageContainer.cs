@@ -169,6 +169,38 @@ namespace Zer0Talk.Containers
             catch { return false; }
         }
 
+        public bool UpdateFlags(string peerUid, Guid messageId, bool isPinned, bool isStarred, bool isImportant, string passphrase)
+        {
+            try
+            {
+                var list = LoadMessages(peerUid, passphrase);
+                var idx = list.FindIndex(m => m.Id == messageId);
+                if (idx < 0) return false;
+                list[idx].IsPinned = isPinned;
+                list[idx].IsStarred = isStarred;
+                list[idx].IsImportant = isImportant;
+                var json = JsonSerializer.Serialize(list, SerializationDefaults.Compact);
+                _p2e.SaveFile(FileForPeer(peerUid), System.Text.Encoding.UTF8.GetBytes(json), passphrase);
+                return true;
+            }
+            catch { return false; }
+        }
+
+        public bool ApplyReaction(string peerUid, Guid messageId, string actorUid, string emoji, bool isAdd, string passphrase)
+        {
+            try
+            {
+                var list = LoadMessages(peerUid, passphrase);
+                var idx = list.FindIndex(m => m.Id == messageId);
+                if (idx < 0) return false;
+                list[idx].ApplyReaction(actorUid, emoji, isAdd);
+                var json = JsonSerializer.Serialize(list, SerializationDefaults.Compact);
+                _p2e.SaveFile(FileForPeer(peerUid), System.Text.Encoding.UTF8.GetBytes(json), passphrase);
+                return true;
+            }
+            catch { return false; }
+        }
+
         // Link a message to its simulated echo (pairing for retention co-delete)
         public bool UpdateRelated(string peerUid, Guid messageId, Guid relatedId, string passphrase)
         {

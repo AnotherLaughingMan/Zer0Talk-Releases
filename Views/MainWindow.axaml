@@ -41,6 +41,8 @@
         <util:StringNotNullOrEmptyConverter x:Key="StringNotNullOrEmptyConverter" />
         <util:FirstNonEmptyStringConverter x:Key="FirstNonEmptyStringConverter" />
         <util:WidthFractionConverter x:Key="ChatBubbleWidthConverter" Fraction="0.9" />
+        <util:WidthFractionConverter x:Key="ReactionPickerWidthConverter" Fraction="0.30" />
+        <util:WidthFractionConverter x:Key="ReactionPickerHeightConverter" Fraction="0.50" />
         <SolidColorBrush x:Key="MarkdownSyntaxBaseForeground" Color="#000000" />
         
         <!-- Additional converters for XAML bindings -->
@@ -48,6 +50,7 @@
         <util:PresenceEqualsToBoolConverter x:Key="PresenceEqualsToBoolConverter" />
         <util:VerificationShieldVisibilityConverter x:Key="VerificationShieldVisibilityConverter" />
         <util:InverseBoolConverter x:Key="InverseBoolConverter" />
+        <util:EmojiOnlyFontSizeConverter x:Key="EmojiOnlyFontSizeConverter" />
         <util:MessageSenderBrushConverter x:Key="MessageSenderBrushConverter" />
         <util:MessageIsFromContactConverter x:Key="MessageIsFromContactConverter" />
         <util:StringEqualsMultiConverter x:Key="StringEqualsMultiConverter" />
@@ -55,9 +58,11 @@
         <util:ByteArrayToBitmapConverter x:Key="ByteArrayToBitmapConverter" />
         <util:LastSeenTimestampVisibilityConverter x:Key="LastSeenTimestampVisibilityConverter" />
         <util:NotOrConverter x:Key="NotOrConverter" />
+        <util:OrMultiConverter x:Key="OrMultiConverter" />
         <util:PresenceToDisplayStringConverter x:Key="PresenceToDisplayStringConverter" />
         <util:DebugUiBadgeVisibilityConverter x:Key="DebugUiBadgeVisibilityConverter" />
         <util:StreamerModeNameConverter x:Key="StreamerModeNameConverter" />
+        <util:ReactionEmojiTooltipConverter x:Key="ReactionEmojiTooltipConverter" />
     </Window.Resources>
 
     <Window.Styles>
@@ -473,6 +478,23 @@
                                             </MenuItem.Icon>
                                         </MenuItem>
                                         <Separator/>
+                                        <MenuItem Header="Mute notifications"
+                                                  IsVisible="{Binding MuteNotifications, Converter={StaticResource InverseBoolConverter}}"
+                                                  Command="{Binding $parent[v:MainWindow].DataContext.ToggleContactMuteNotificationsCommand}"
+                                                  CommandParameter="{Binding UID}"/>
+                                        <MenuItem Header="Unmute notifications"
+                                                  IsVisible="{Binding MuteNotifications}"
+                                                  Command="{Binding $parent[v:MainWindow].DataContext.ToggleContactMuteNotificationsCommand}"
+                                                  CommandParameter="{Binding UID}"/>
+                                        <MenuItem Header="Mark as priority"
+                                                  IsVisible="{Binding PriorityNotifications, Converter={StaticResource InverseBoolConverter}}"
+                                                  Command="{Binding $parent[v:MainWindow].DataContext.ToggleContactPriorityNotificationsCommand}"
+                                                  CommandParameter="{Binding UID}"/>
+                                        <MenuItem Header="Remove priority"
+                                                  IsVisible="{Binding PriorityNotifications}"
+                                                  Command="{Binding $parent[v:MainWindow].DataContext.ToggleContactPriorityNotificationsCommand}"
+                                                  CommandParameter="{Binding UID}"/>
+                                        <Separator/>
                                         <!-- DEPRECATED: Mark as trusted (replaced by cryptographic verification) -->
                                         <!-- MenuItem Header="Mark as trusted" removed per design decision -->
                                         <!-- MenuItem Header="Remove trusted flag" removed per design decision -->
@@ -547,6 +569,9 @@
                                                 </TextBlock.Text>
                                             </TextBlock>
                                             <c:VerifiedBadge Width="16" Height="16" VerticalAlignment="Center">
+                                                <ToolTip.Tip>
+                                                    <Binding Path="$parent[v:MainWindow].DataContext.LocalizedVerifiedBadgeTooltip"/>
+                                                </ToolTip.Tip>
                                                 <c:VerifiedBadge.IsVisible>
                                                     <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
                                                         <Binding Path="PublicKeyVerified"/>
@@ -623,6 +648,9 @@
                                     </TextBlock.Text>
                                 </TextBlock>
                                 <c:VerifiedBadge Width="18" Height="18" VerticalAlignment="Center">
+                                    <ToolTip.Tip>
+                                        <Binding Path="LocalizedVerifiedBadgeTooltip"/>
+                                    </ToolTip.Tip>
                                     <c:VerifiedBadge.IsVisible>
                                         <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
                                             <Binding Path="SelectedContact.PublicKeyVerified"/>
@@ -638,7 +666,7 @@
                                           Data="M8,1 C9.5,3 9,4.6 9.4,6 C10.7,5.2 12,6.6 12,8.7 C12,11.1 10.2,13 8,13 C5.8,13 4,11.1 4,8.6 C4,7 4.9,5.8 6.2,5.1 C6.1,6.9 6.9,8.1 7.9,9.0 C8.8,9.9 9.6,9.4 9.6,8.1 C9.6,6.7 8.4,6.1 8,4.7 C7.6,3.4 7.9,2.2 8,1 Z"/>
                                 </Grid>
                             </Button>
-                            <Image Grid.Column="2" Width="16" Height="16" ToolTip.Tip="{Binding LocalizedChatEncrypted}" VerticalAlignment="Center" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
+                            <Image Grid.Column="2" Width="16" Height="16" ToolTip.Tip="{Binding LocalizedChatEncryptedTransport}" VerticalAlignment="Center" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
                         </Grid>
 
                         <Border CornerRadius="6" Padding="10,6" HorizontalAlignment="Stretch"
@@ -658,6 +686,28 @@
                         <Border Background="#DA7C19" CornerRadius="4" Padding="6,2" IsVisible="{Binding IsSelectedContactSimulated}" HorizontalAlignment="Left">
                             <TextBlock Text="{Binding LocalizedSimulatedContact}" FontSize="11" Foreground="White"/>
                         </Border>
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding MessageSearchQuery, Mode=TwoWay}"
+                                     Watermark="Search this conversation"
+                                     MinHeight="30"/>
+                            <Button Grid.Column="1" Classes="icon-button" Command="{Binding PreviousMessageSearchResultCommand}" ToolTip.Tip="Previous match">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE100;"/>
+                            </Button>
+                            <Button Grid.Column="2" Classes="icon-button" Command="{Binding NextMessageSearchResultCommand}" ToolTip.Tip="Next match">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE101;"/>
+                            </Button>
+                            <Button Grid.Column="3" Classes="icon-button" Command="{Binding ClearMessageSearchCommand}" ToolTip.Tip="Clear search">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE711;"/>
+                            </Button>
+                            <TextBlock Grid.Column="4" Text="{Binding MessageSearchStatus}" VerticalAlignment="Center" Opacity="0.75"/>
+                            <ComboBox Grid.Column="5" Width="154" SelectedIndex="{Binding MessageSpaceViewIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="All"/>
+                                <ComboBoxItem Content="Unread"/>
+                                <ComboBoxItem Content="Mentions/Important"/>
+                                <ComboBoxItem Content="Attachments"/>
+                            </ComboBox>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
@@ -686,8 +736,11 @@
                                     <Border Classes="message-container message-row"
                                             Padding="8"
                                             Margin="0,0,0,12">
-                                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                            <Border Width="40" Height="40" CornerRadius="20" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" VerticalAlignment="Top">
+                                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="12">
+                                            <Border Grid.Column="0" Width="4" CornerRadius="2" VerticalAlignment="Stretch" Margin="0,0,0,0"
+                                                    Background="{DynamicResource App.Accent}"
+                                                    IsVisible="{Binding IsSearchMatch}"/>
+                                            <Border Grid.Column="1" Width="40" Height="40" CornerRadius="20" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" VerticalAlignment="Top">
                                                 <Grid>
                                                     <TextBlock Classes="icon-mdl2" Text="&#xE77B;" HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.4"/>
                                                     <c:AvatarImage Stretch="UniformToFill">
@@ -700,7 +753,7 @@
                                                     </c:AvatarImage>
                                                 </Grid>
                                             </Border>
-                                            <Border Grid.Column="1" CornerRadius="0" Padding="0" Background="Transparent" BorderThickness="0" MaxWidth="{Binding $parent[v:MainWindow].((vm:MainWindowViewModel)DataContext).ChatViewportWidth, Converter={StaticResource ChatBubbleWidthConverter}}" HorizontalAlignment="Stretch">
+                                            <Border Grid.Column="2" CornerRadius="0" Padding="0" Background="Transparent" BorderThickness="0" MaxWidth="{Binding $parent[v:MainWindow].((vm:MainWindowViewModel)DataContext).ChatViewportWidth, Converter={StaticResource ChatBubbleWidthConverter}}" HorizontalAlignment="Stretch">
                                                 <StackPanel Spacing="6" SizeChanged="MessageContent_SizeChanged">
                                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
                                                         <TextBlock FontWeight="SemiBold" Opacity="0.95">
@@ -726,6 +779,9 @@
                                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                                             <TextBlock Classes="message-meta" FontSize="11" Opacity="0.65" Text="{Binding Timestamp}"/>
                                                             <TextBlock Classes="message-meta" FontSize="11" Opacity="0.55" Text="{Binding $parent[v:MainWindow].DataContext.LocalizedEdited}" IsVisible="{Binding IsEdited}"/>
+                                                            <TextBlock Classes="icon-mdl2" Text="&#xE718;" FontSize="11" Opacity="0.75" IsVisible="{Binding IsPinned}" ToolTip.Tip="Pinned"/>
+                                                            <TextBlock Classes="icon-mdl2" Text="&#xE734;" FontSize="11" Opacity="0.75" IsVisible="{Binding IsStarred}" ToolTip.Tip="Starred"/>
+                                                            <TextBlock FontSize="10" Text="Important" Opacity="0.78" IsVisible="{Binding IsImportant}"/>
                                                             
                                                             <!-- Dot indicator for incoming messages (messages we received) -->
                                                             <Grid Width="14" Height="14" VerticalAlignment="Center" ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedMessageReceived}">
@@ -737,8 +793,38 @@
                                                                 </Grid.IsVisible>
                                                                 <Ellipse Width="5" Height="5" Fill="{DynamicResource App.ForegroundSecondary}" />
                                                             </Grid>
+                                                            <Border CornerRadius="3" Padding="4,1" Background="{DynamicResource App.ItemSelected}" IsVisible="{Binding IsActiveSearchMatch}">
+                                                                <TextBlock FontSize="10" Text="Search match" Opacity="0.85"/>
+                                                            </Border>
                                                         </StackPanel>
                                                         <StackPanel Grid.Column="2" x:Name="MessageHoverBar" Classes="hover-actions" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
+                                                            <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
+                                                                    Classes="icon-button"
+                                                                    ToolTip.Tip="Reply"
+                                                                    Command="{Binding $parent[v:MainWindow].DataContext.ReplyToMessageCommand}"
+                                                                    CommandParameter="{Binding Id}">
+                                                                <TextBlock Classes="icon-mdl2" Text="&#xE248;"/>
+                                                            </Button>
+                                                            <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
+                                                                    Classes="icon-button"
+                                                                    ToolTip.Tip="Add reaction"
+                                                                    Click="ReactionPickerButton_Click">
+                                                                <TextBlock Classes="icon-mdl2" Text="&#xE11D;" FontSize="12"/>
+                                                            </Button>
+                                                            <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
+                                                                    Classes="icon-button"
+                                                                    ToolTip.Tip="Pin"
+                                                                    Command="{Binding $parent[v:MainWindow].DataContext.TogglePinMessageCommand}"
+                                                                    CommandParameter="{Binding Id}">
+                                                                <TextBlock Classes="icon-mdl2" Text="&#xE718;"/>
+                                                            </Button>
+                                                            <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
+                                                                    Classes="icon-button"
+                                                                    ToolTip.Tip="Star"
+                                                                    Command="{Binding $parent[v:MainWindow].DataContext.ToggleStarMessageCommand}"
+                                                                    CommandParameter="{Binding Id}">
+                                                                <TextBlock Classes="icon-mdl2" Text="&#xE734;"/>
+                                                            </Button>
                                                             <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
                                                                     Classes="icon-button"
                                                                     ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedEdit}"
@@ -767,14 +853,51 @@
                                                             </Button>
                                                         </StackPanel>
                                                     </Grid>
+                                                    <Border CornerRadius="4" Padding="8,4" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
+                                                            IsVisible="{Binding HasReplyMetadata}">
+                                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                                            <TextBlock Classes="icon-mdl2" Text="&#xE248;" Opacity="0.75"/>
+                                                            <TextBlock Text="{Binding ReplyToPreview}" TextTrimming="CharacterEllipsis" MaxWidth="560" Opacity="0.82"/>
+                                                        </StackPanel>
+                                                    </Border>
                                                     <Grid>
                                                         <cm:Zer0TalkMarkdownViewer Markdown="{Binding RenderedContent}"
+                                                                              IsEmojiOnly="{Binding IsEmojiOnly}"
                                                                               IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig}" />
                                                         <TextBlock Text="{Binding RenderedContent}"
                                                                    TextWrapping="Wrap"
                                                                    Margin="8"
+                                                                   FontSize="{Binding IsEmojiOnly, Converter={StaticResource EmojiOnlyFontSizeConverter}}"
                                                                    IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig, Converter={StaticResource InverseBoolConverter}}" />
                                                     </Grid>
+                                                    <ItemsControl ItemsSource="{Binding ReactionAggregates}"
+                                                                  IsVisible="{Binding HasReactions}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel Orientation="Horizontal" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="models:MessageReactionAggregate">
+                                                                <Border Background="{DynamicResource App.Surface}"
+                                                                        BorderBrush="{DynamicResource App.Border}"
+                                                                        BorderThickness="1"
+                                                                        CornerRadius="10"
+                                                                        Margin="0,2,6,0"
+                                                                    ToolTip.Tip="{Binding Emoji, Converter={StaticResource ReactionEmojiTooltipConverter}}"
+                                                                        Padding="8,2">
+                                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                        <Image Width="20" Height="14" Stretch="UniformToFill"
+                                                                               Source="{Binding Emoji, Converter={StaticResource FlagEmojiToFlagBitmapConverter}}"
+                                                                               IsVisible="{Binding Emoji, Converter={StaticResource FlagEmojiIsCountryFlagConverter}}"/>
+                                                                        <TextBlock Text="{Binding Emoji}"
+                                                                                   IsVisible="{Binding Emoji, Converter={StaticResource FlagEmojiIsNotCountryFlagConverter}}" />
+                                                                        <TextBlock Text="{Binding Count}" Opacity="0.8" />
+                                                                    </StackPanel>
+                                                                </Border>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
                                                     <Button Classes="message-link-preview"
                                                             Content="{Binding LinkPreview}"
                                                             Command="{Binding $parent[v:MainWindow].DataContext.OpenLinkCommand}"
@@ -871,6 +994,83 @@
                     </Grid>
                 </ScrollViewer>
 
+                <Popup x:Name="ReactionPickerPopup"
+                       Grid.Row="1"
+                       x:CompileBindings="False"
+                       Placement="AnchorAndGravity"
+                       PlacementConstraintAdjustment="None"
+                       IsLightDismissEnabled="True"
+                       Opened="ReactionPickerPopup_Opened"
+                       Closed="ReactionPickerPopup_Closed">
+                    <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="8" Padding="8">
+                        <ScrollViewer x:Name="ReactionPickerPopupScroll"
+                                      MaxHeight="{Binding #RootWindow.Bounds.Height, Converter={StaticResource ReactionPickerHeightConverter}}"
+                                      Width="420"
+                                      MaxWidth="420"
+                                      MinWidth="280"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="10">
+                                <TextBox x:Name="ReactionPickerSearchBox"
+                                         Text="{Binding #RootWindow.DataContext.ReactionEmojiSearchQuery, Mode=TwoWay}"
+                                         Watermark="Search emoji or category"
+                                         FontSize="16"
+                                         MinHeight="40"/>
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                    <ComboBox Grid.Column="0"
+                                              ItemsSource="{Binding #RootWindow.DataContext.FilteredReactionEmojiCategories}"
+                                              SelectedItem="{Binding #RootWindow.DataContext.SelectedReactionEmojiCategory, Mode=TwoWay}"
+                                              FontSize="15"
+                                              MinHeight="40">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding IconEmoji}" FontSize="18"/>
+                                                    <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <ComboBox Grid.Column="1"
+                                              ItemsSource="{Binding #RootWindow.DataContext.ReactionSkinToneOptions}"
+                                              SelectedItem="{Binding #RootWindow.DataContext.SelectedReactionSkinTone, Mode=TwoWay}"
+                                              FontSize="15"
+                                              MinHeight="40"/>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding #RootWindow.DataContext.VisibleReactionItems}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" ItemWidth="48" ItemHeight="48"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Classes="icon-button" Width="44" Height="44"
+                                                    ToolTip.Tip="{Binding Tooltip}"
+                                                    Click="ReactionPickerItem_Click"
+                                                    Command="{Binding #RootWindow.DataContext.ToggleReactionCommand}">
+                                                <Button.CommandParameter>
+                                                    <MultiBinding Converter="{StaticResource ReactionCommandParameterConverter}">
+                                                        <Binding Path="#RootWindow.DataContext.ReactionPickerTargetMessageId"/>
+                                                        <Binding Path="Value"/>
+                                                    </MultiBinding>
+                                                </Button.CommandParameter>
+                                                <Grid>
+                                                    <Image Width="24" Height="16" Stretch="UniformToFill"
+                                                           Source="{Binding FlagCode, Converter={StaticResource CountryCodeToFlagBitmapConverter}}"
+                                                           IsVisible="{Binding IsFlag}"/>
+                                                    <TextBlock Text="{Binding Value}" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               IsVisible="{Binding IsFlag, Converter={StaticResource InverseBoolConverter}}"/>
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Popup>
+
                 <Button x:Name="JumpToBottomButton"
                         Grid.Row="1"
                         HorizontalAlignment="Right"
@@ -889,32 +1089,51 @@
                 </Button>
 
                 <Border Grid.Row="2" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1 1 0 0" Background="{DynamicResource App.Background}">
-                    <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
-                            <Button Classes="icon-button" Click="BoldButton_Click" ToolTip.Tip="{Binding LocalizedBold}">
-                                <TextBlock Text="B" FontWeight="Bold" FontSize="13"/>
+                            <Button x:Name="ComposerMarkdownToggleButton"
+                                    Classes="icon-button"
+                                    Click="ToggleComposerMarkdownButtons_Click"
+                                    ToolTip.Tip="Hide markdown tools"
+                                    Focusable="False">
+                                <TextBlock x:Name="ComposerMarkdownToggleIcon" Classes="icon-mdl2" Text="&#xE76C;" FontSize="14"/>
                             </Button>
-                            <Button Classes="icon-button" Click="ItalicButton_Click" ToolTip.Tip="{Binding LocalizedItalic}">
-                                <TextBlock Text="I" FontStyle="Italic" FontSize="13"/>
-                            </Button>
-                            <Button Classes="icon-button" Click="UnderlineButton_Click" ToolTip.Tip="{Binding LocalizedUnderline}">
-                                <TextBlock Text="U" TextDecorations="Underline" FontSize="13"/>
-                            </Button>
-                            <Button Classes="icon-button" Click="StrikeButton_Click" ToolTip.Tip="{Binding LocalizedStrikeThrough}">
-                                <TextBlock Text="S" TextDecorations="Strikethrough" FontSize="13"/>
-                            </Button>
-                            <Button Classes="icon-button" Click="QuoteButton_Click" ToolTip.Tip="{Binding LocalizedQuote}">
-                                <TextBlock Text="&gt;" FontSize="13"/>
-                            </Button>
-                            <Button Classes="icon-button" Click="CodeButton_Click" ToolTip.Tip="{Binding LocalizedCode}">
-                                <TextBlock Text="&lt;/&gt;" FontFamily="Consolas" FontSize="11"/>
-                            </Button>
-                            <Button Classes="icon-button" Click="SpoilerButton_Click" ToolTip.Tip="{Binding LocalizedSpoiler}">
-                                <TextBlock Text="||" FontSize="13"/>
-                            </Button>
+                            <StackPanel x:Name="ComposerMarkdownButtonsPanel" Orientation="Horizontal" Spacing="6">
+                                <Button Classes="icon-button" Click="BoldButton_Click" ToolTip.Tip="{Binding LocalizedBold}" Focusable="False">
+                                    <TextBlock Text="B" FontWeight="Bold" FontSize="13"/>
+                                </Button>
+                                <Button Classes="icon-button" Click="ItalicButton_Click" ToolTip.Tip="{Binding LocalizedItalic}" Focusable="False">
+                                    <TextBlock Text="I" FontStyle="Italic" FontSize="13"/>
+                                </Button>
+                                <Button Classes="icon-button" Click="UnderlineButton_Click" ToolTip.Tip="Underline (++text++)" Focusable="False">
+                                    <TextBlock Text="U" TextDecorations="Underline" FontSize="13"/>
+                                </Button>
+                                <Button Classes="icon-button" Click="StrikeButton_Click" ToolTip.Tip="{Binding LocalizedStrikeThrough}" Focusable="False">
+                                    <TextBlock Text="S" TextDecorations="Strikethrough" FontSize="13"/>
+                                </Button>
+                                <Button Classes="icon-button" Click="QuoteButton_Click" ToolTip.Tip="{Binding LocalizedQuote}" Focusable="False">
+                                    <TextBlock Text="&gt;" FontSize="13"/>
+                                </Button>
+                                <Button Classes="icon-button" Click="CodeButton_Click" ToolTip.Tip="{Binding LocalizedCode}" Focusable="False">
+                                    <TextBlock Text="&lt;/&gt;" FontFamily="Consolas" FontSize="11"/>
+                                </Button>
+                                <Button Classes="icon-button" Click="SpoilerButton_Click" ToolTip.Tip="{Binding LocalizedSpoiler}" Focusable="False">
+                                    <TextBlock Text="||" FontSize="13"/>
+                                </Button>
+                            </StackPanel>
                         </StackPanel>
-                        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                            <Image Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center" ToolTip.Tip="{Binding LocalizedChatEncrypted}" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
+                        <Border Grid.Row="1" CornerRadius="4" Padding="8,6" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
+                                IsVisible="{Binding IsReplyMode}">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
+                                <TextBlock Grid.Column="0" Classes="icon-mdl2" Text="&#xE248;" Opacity="0.75"/>
+                                <TextBlock Grid.Column="1" Text="{Binding ReplyingToPreview}" TextTrimming="CharacterEllipsis" Opacity="0.86"/>
+                                <Button Grid.Column="2" Classes="icon-button" Command="{Binding CancelReplyCommand}" ToolTip.Tip="Cancel reply">
+                                    <TextBlock Classes="icon-mdl2" Text="&#xE711;"/>
+                                </Button>
+                            </Grid>
+                        </Border>
+                        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <Image Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center" ToolTip.Tip="{Binding LocalizedChatEncryptedTransport}" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
                             <TextBox Grid.Column="1"
                                      x:Name="MessageInput"
                                      Classes="chat-input"
@@ -928,8 +1147,8 @@
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      TextChanged="MessageInput_TextChanged"/>
-                            <Button Grid.Column="2" Classes="icon-button" Margin="8 0 0 0" Command="{Binding SendCommand}" ToolTip.Tip="{Binding LocalizedSendMessage}">
-                                <TextBlock Classes="icon-mdl2" Text="&#xE724;"/>
+                            <Button Grid.Column="2" x:Name="ComposerEmojiPickerButton" Classes="icon-button" Margin="8 0 0 0" Click="ComposerEmojiPickerButton_Click" ToolTip.Tip="Insert emoji" Opacity="0.5">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE76E;"/>
                             </Button>
                         </Grid>
                     </Grid>
@@ -944,6 +1163,77 @@
                        IsOpen="False">
                     <c:MarkdownToolbar x:Name="MarkdownFloatingToolbar"
                                        TargetTextBox="{Binding #MessageInput}"/>
+                </Popup>
+                
+                <!-- Composer Emoji Picker Popup (for inserting emojis into messages) -->
+                <Popup x:Name="ComposerEmojiPickerPopup"
+                       PlacementTarget="{Binding #ComposerEmojiPickerButton}"
+                       Placement="Top"
+                       x:CompileBindings="False"
+                       IsLightDismissEnabled="True"
+                       Opened="ComposerEmojiPickerPopup_Opened"
+                       Closed="ComposerEmojiPickerPopup_Closed">
+                    <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="8" Padding="8">
+                        <ScrollViewer x:Name="ComposerEmojiPickerPopupScroll"
+                                      MaxHeight="{Binding #RootWindow.Bounds.Height, Converter={StaticResource ReactionPickerHeightConverter}}"
+                                      Width="420"
+                                      MaxWidth="420"
+                                      MinWidth="280"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto">
+                            <StackPanel Spacing="10">
+                                <TextBox x:Name="ComposerEmojiPickerSearchBox"
+                                         Text="{Binding #RootWindow.DataContext.ComposerEmojiSearchQuery, Mode=TwoWay}"
+                                         Watermark="Search emoji or category"
+                                         FontSize="16"
+                                         MinHeight="40"/>
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                    <ComboBox Grid.Column="0"
+                                              ItemsSource="{Binding #RootWindow.DataContext.FilteredComposerEmojiCategories}"
+                                              SelectedItem="{Binding #RootWindow.DataContext.SelectedComposerEmojiCategory, Mode=TwoWay}"
+                                              FontSize="15"
+                                              MinHeight="40">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding IconEmoji}" FontSize="18"/>
+                                                    <TextBlock Text="{Binding DisplayName}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <ComboBox Grid.Column="1"
+                                              ItemsSource="{Binding #RootWindow.DataContext.ComposerSkinToneOptions}"
+                                              SelectedItem="{Binding #RootWindow.DataContext.SelectedComposerSkinTone, Mode=TwoWay}"
+                                              FontSize="15"
+                                              MinHeight="40"/>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding #RootWindow.DataContext.VisibleComposerEmojiItems}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" ItemWidth="48" ItemHeight="48"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Classes="icon-button" Width="44" Height="44"
+                                                    ToolTip.Tip="{Binding Tooltip}"
+                                                    Click="ComposerEmojiPickerItem_Click"
+                                                    CommandParameter="{Binding Value}">
+                                                <Grid>
+                                                    <Image Width="24" Height="16" Stretch="UniformToFill"
+                                                           Source="{Binding FlagCode, Converter={StaticResource CountryCodeToFlagBitmapConverter}}"
+                                                           IsVisible="{Binding IsFlag}"/>
+                                                    <TextBlock Text="{Binding Value}" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               IsVisible="{Binding IsFlag, Converter={StaticResource InverseBoolConverter}}"/>
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
                 </Popup>
             </Grid>
             <!-- Right-side Notification Center panel -->
@@ -1059,6 +1349,9 @@
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <!-- Verification shield in profile card -->
                                 <c:VerifiedBadge Width="16" Height="16" VerticalAlignment="Center">
+                                    <ToolTip.Tip>
+                                        <Binding Path="LocalizedVerifiedBadgeTooltip"/>
+                                    </ToolTip.Tip>
                                     <c:VerifiedBadge.IsVisible>
                                         <MultiBinding Converter="{StaticResource VerificationShieldVisibilityConverter}">
                                             <Binding Path="SelectedContact.PublicKeyVerified"/>
@@ -1080,7 +1373,7 @@
                             <!-- Identity Section -->
                             <StackPanel Spacing="8">
                                 <TextBlock Text="{Binding $parent[v:MainWindow].DataContext.LocalizedIdentityLabel}" FontWeight="SemiBold"/>
-                                <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
+                                <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding $parent[v:MainWindow].DataContext.LocalizedDisplayNameLabel}" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="0" Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock.Text>
@@ -1138,7 +1431,33 @@
                                             <TextBlock Classes="icon-mdl2" Text="&#xE8C8;"/>
                                         </Button>
                                     </StackPanel>
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding LocalizedFingerprintLabel}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding SelectedContactFingerprint}" TextWrapping="Wrap" FontFamily="Consolas"/>
+
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="{Binding LocalizedVerifiedOnLabel}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding SelectedContactVerifiedOnDisplay}" VerticalAlignment="Center"/>
                                 </Grid>
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding LocalizedIdentityVsEncryptionHint}" Opacity="0.72" TextWrapping="Wrap"/>
+
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding LocalizedVerificationHistoryLabel}" FontWeight="SemiBold"/>
+                                <ItemsControl ItemsSource="{Binding SelectedContactVerificationHistory}" IsVisible="{Binding HasSelectedContactVerificationHistory}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:VerificationHistoryEntry">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                                <TextBlock Grid.Column="0" Text="{Binding VerifiedAtLocalDisplay}" Opacity="0.75"/>
+                                                <StackPanel Grid.Column="1" Spacing="2">
+                                                    <TextBlock Text="{Binding Method}" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding Fingerprint}" FontFamily="Consolas" TextWrapping="Wrap" Opacity="0.85"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="{Binding LocalizedNoVerificationHistory}" Opacity="0.72" IsVisible="{Binding HasSelectedContactVerificationHistory, Converter={StaticResource InverseBoolConverter}}"/>
                             </StackPanel>
 
                             <!-- Separator -->
@@ -1169,12 +1488,27 @@
 
                     <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                         <Button Content="{Binding LocalizedVerify}" Click="StartVerification_Click">
+                            <Button.IsVisible>
+                                <MultiBinding Converter="{StaticResource NotOrConverter}">
+                                    <Binding Path="SelectedContact.IsVerified"/>
+                                    <Binding Path="SelectedContact.PublicKeyVerified"/>
+                                </MultiBinding>
+                            </Button.IsVisible>
                             <Button.IsEnabled>
                                 <MultiBinding Converter="{StaticResource NotOrConverter}">
                                     <Binding Path="SelectedContact.IsVerified"/>
                                     <Binding Path="SelectedContact.PublicKeyVerified"/>
                                 </MultiBinding>
                             </Button.IsEnabled>
+                        </Button>
+                        <!-- Reverify button: shows when contact is verified OR when they've been verified before (LastVerifiedUtc exists) -->
+                        <Button Content="{Binding LocalizedReverify}" Click="StartVerification_Click">
+                            <Button.IsVisible>
+                                <MultiBinding Converter="{StaticResource OrMultiConverter}">
+                                    <Binding Path="SelectedContact.IsVerified"/>
+                                    <Binding Path="SelectedContact.PublicKeyVerified"/>
+                                </MultiBinding>
+                            </Button.IsVisible>
                         </Button>
                         <Button Content="{Binding LocalizedClose}" Command="{Binding CloseFullProfileCommand}"/>
                     </StackPanel>

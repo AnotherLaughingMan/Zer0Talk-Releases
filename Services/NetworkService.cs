@@ -116,6 +116,7 @@ namespace Zer0Talk.Services
     private static readonly int AvatarGlobalMaxPerWindow = 15; // max avatars accepted across all peers per window
     // Inbound payload caps (defensive limits)
     private const int MaxChatBytes = 16 * 1024; // 16 KB per message
+    private const int MaxReactionEmojiBytes = 16; // enough for emoji + variation selector
     private const int MaxDisplayNameBytes = 128; // reasonable UI cap for display names
     private const int MaxPresenceToken = 8; // 'on','idle','dnd','inv'
     private const int MaxBioBytes = 512; // max UTF-8 bytes for bio payload
@@ -187,6 +188,7 @@ namespace Zer0Talk.Services
     public event Action<string, Guid, string>? ChatMessageReceived;
     public event Action<string, Guid, string>? ChatMessageEdited; // (peerUid, messageId, newContent)
     public event Action<string, Guid>? ChatMessageDeleted; // (peerUid, messageId)
+    public event Action<string, Guid, string, bool>? ChatMessageReactionReceived; // (peerUid, messageId, emoji, isAdd)
     public event Action<string, Guid>? ChatMessageEditAcked; // (peerUid, messageId)
     public event Action<string, Guid>? ChatMessageDeleteAcked; // (peerUid, messageId)
     // Raised when presence is received from a peer (uid, status)
@@ -1253,6 +1255,57 @@ namespace Zer0Talk.Services
             {
                 // Chat Received ACK: [0xB5][msgId(16)] - delivery tracking removed, ignored
             }
+            else if (data[0] == 0xB6)
+            {
+                // Reaction event (signed): [0xB6][eventId(16)][msgId(16)][op(1:add,0:remove)][emojiLen(1)][emojiUtf8][pubLen(1)=32][pub(32)][sigLen(1)=64][sig(64)]
+                int idx = 1;
+                if (data.Length < idx + 16 + 16 + 1 + 1 + 1 + 32 + 1 + 64) return Task.CompletedTask;
+
+                var eventIdBytes = new byte[16]; Buffer.BlockCopy(data, idx, eventIdBytes, 0, 16); idx += 16;
+                var eventId = new Guid(eventIdBytes);
+                if (!TryAcceptInboundFrameId(peerUid, 0xB6, eventId))
+                {
+                    Logger.Log($"Duplicate/replay reaction dropped from {Trim(peerUid)} event={eventId}");
+                    return Task.CompletedTask;
+                }
+
+                var messageIdBytes = new byte[16]; Buffer.BlockCopy(data, idx, messageIdBytes, 0, 16); idx += 16;
+                var messageId = new Guid(messageIdBytes);
+                var op = data[idx++];
+                var isAdd = op == 1;
+                var emojiLen = data[idx++];
+                if (emojiLen <= 0 || emojiLen > MaxReactionEmojiBytes || data.Length < idx + emojiLen + 1 + 32 + 1 + 64) return Task.CompletedTask;
+                var emojiBytes = data.AsSpan(idx, emojiLen).ToArray(); idx += emojiLen;
+                var emoji = Encoding.UTF8.GetString(emojiBytes).Trim();
+                if (string.IsNullOrWhiteSpace(emoji)) return Task.CompletedTask;
+                int pubLen = data[idx++]; if (pubLen != 32 || data.Length < idx + pubLen + 1 + 64) return Task.CompletedTask;
+                var pub = new byte[32]; Buffer.BlockCopy(data, idx, pub, 0, 32); idx += 32;
+                int sigLen = data[idx++]; if (sigLen != 64 || data.Length < idx + sigLen) return Task.CompletedTask;
+                var sig = new byte[64]; Buffer.BlockCopy(data, idx, sig, 0, 64);
+
+                var payloadToSign = new byte[16 + 16 + 1 + 1 + emojiBytes.Length];
+                int p = 0;
+                Buffer.BlockCopy(eventIdBytes, 0, payloadToSign, p, 16); p += 16;
+                Buffer.BlockCopy(messageIdBytes, 0, payloadToSign, p, 16); p += 16;
+                payloadToSign[p++] = op;
+                payloadToSign[p++] = (byte)emojiBytes.Length;
+                Buffer.BlockCopy(emojiBytes, 0, payloadToSign, p, emojiBytes.Length);
+
+                var claimed = IdentityService.ComputeUidFromPublicKey(pub);
+                if (!string.Equals(Trim(claimed), Trim(peerUid), StringComparison.OrdinalIgnoreCase))
+                {
+                    Logger.Log("Reaction spoof rejected: UID mismatch");
+                    EnforceKeyMismatchAndTerminate(peerUid, transport, $"Reaction signer UID mismatch: claimed {Trim(claimed)} != session {Trim(peerUid)}.", "Reaction key mismatch detected. Conversation cannot continue.");
+                    return Task.CompletedTask;
+                }
+                if (!IdentityService.Verify(payloadToSign, sig, pub))
+                {
+                    Logger.Log("Reaction bad signature");
+                    return Task.CompletedTask;
+                }
+
+                try { ChatMessageReactionReceived?.Invoke(Trim(peerUid), messageId, emoji, isAdd); } catch { }
+            }
             else if (data[0] == 0xC0)
             {
                 int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen + 32 + 64 + 1) return Task.CompletedTask;
@@ -2305,6 +2358,58 @@ namespace Zer0Talk.Services
                                 var mid = new Guid(gid);
                                 if (!string.IsNullOrEmpty(boundUid)) { try { ChatMessageDeleteAcked?.Invoke(boundUid, mid); } catch { } }
                             }
+                            else if (data[0] == 0xB6)
+                            {
+                                int idx2 = 1;
+                                if (data.Length < idx2 + 16 + 16 + 1 + 1 + 1 + 32 + 1 + 64) continue;
+                                if (string.IsNullOrEmpty(boundUid)) continue;
+
+                                var eventIdBytes = new byte[16]; Buffer.BlockCopy(data, idx2, eventIdBytes, 0, 16); idx2 += 16;
+                                var eventId = new Guid(eventIdBytes);
+                                if (!TryAcceptInboundFrameId(boundUid, 0xB6, eventId))
+                                {
+                                    Logger.Log($"Duplicate/replay reaction dropped from {boundUid} event={eventId}");
+                                    continue;
+                                }
+
+                                var messageIdBytes = new byte[16]; Buffer.BlockCopy(data, idx2, messageIdBytes, 0, 16); idx2 += 16;
+                                var messageId = new Guid(messageIdBytes);
+                                var op = data[idx2++];
+                                var isAdd = op == 1;
+                                var emojiLen = data[idx2++];
+                                if (emojiLen <= 0 || emojiLen > MaxReactionEmojiBytes || data.Length < idx2 + emojiLen + 1 + 32 + 1 + 64) continue;
+                                var emojiBytes = data.AsSpan(idx2, emojiLen).ToArray(); idx2 += emojiLen;
+                                var emoji = Encoding.UTF8.GetString(emojiBytes).Trim();
+                                if (string.IsNullOrWhiteSpace(emoji)) continue;
+
+                                int pl = data[idx2++]; if (pl != 32 || data.Length < idx2 + pl + 1 + 64) continue;
+                                var pub = new byte[32]; Buffer.BlockCopy(data, idx2, pub, 0, 32); idx2 += 32;
+                                int sl = data[idx2++]; if (sl != 64 || data.Length < idx2 + sl) continue;
+                                var sig = new byte[64]; Buffer.BlockCopy(data, idx2, sig, 0, 64);
+
+                                var payloadToSign = new byte[16 + 16 + 1 + 1 + emojiBytes.Length];
+                                int p = 0;
+                                Buffer.BlockCopy(eventIdBytes, 0, payloadToSign, p, 16); p += 16;
+                                Buffer.BlockCopy(messageIdBytes, 0, payloadToSign, p, 16); p += 16;
+                                payloadToSign[p++] = op;
+                                payloadToSign[p++] = (byte)emojiBytes.Length;
+                                Buffer.BlockCopy(emojiBytes, 0, payloadToSign, p, emojiBytes.Length);
+
+                                var claimed = IdentityService.ComputeUidFromPublicKey(pub);
+                                if (!string.Equals(Trim(claimed), boundUid, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    Logger.Log("Reaction spoof rejected: UID mismatch");
+                                    EnforceKeyMismatchAndTerminate(boundUid, transport, $"Reaction signer UID mismatch: claimed {Trim(claimed)} != session {boundUid}.", "Reaction key mismatch detected. Conversation cannot continue.", client: client);
+                                    break;
+                                }
+                                if (!IdentityService.Verify(payloadToSign, sig, pub))
+                                {
+                                    Logger.Log("Reaction bad signature");
+                                    continue;
+                                }
+
+                                try { ChatMessageReactionReceived?.Invoke(boundUid, messageId, emoji, isAdd); } catch { }
+                            }
                             else if (data[0] == 0xC0)
                             {
                                 int idx = 1; int nlen = data[idx++]; if (data.Length < idx + nlen + 32 + 64 + 1) continue;
@@ -3283,6 +3388,44 @@ namespace Zer0Talk.Services
             var sig = _identity.Sign(idb);
             var frame = new byte[1 + 16 + 1 + 32 + 1 + 64];
             int i = 0; frame[i++] = 0xB2; Buffer.BlockCopy(idb, 0, frame, i, 16); i += 16; frame[i++] = 32; Buffer.BlockCopy(_identity.PublicKey, 0, frame, i, 32); i += 32; frame[i++] = 64; Buffer.BlockCopy(sig, 0, frame, i, 64);
+            return TrySendEncryptedAsync(peerUid, frame, ct);
+        }
+
+        // Reaction event: signed toggle to recipient
+        public Task<bool> SendMessageReactionAsync(string peerUid, Guid messageId, string emoji, bool isAdd, CancellationToken ct)
+        {
+            var reaction = (emoji ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(reaction)) return Task.FromResult(false);
+
+            var emojiBytes = Encoding.UTF8.GetBytes(reaction);
+            if (emojiBytes.Length == 0 || emojiBytes.Length > MaxReactionEmojiBytes) return Task.FromResult(false);
+
+            var eventIdBytes = Guid.NewGuid().ToByteArray();
+            var messageIdBytes = messageId.ToByteArray();
+            var op = isAdd ? (byte)1 : (byte)0;
+
+            var payloadToSign = new byte[16 + 16 + 1 + 1 + emojiBytes.Length];
+            int p = 0;
+            Buffer.BlockCopy(eventIdBytes, 0, payloadToSign, p, 16); p += 16;
+            Buffer.BlockCopy(messageIdBytes, 0, payloadToSign, p, 16); p += 16;
+            payloadToSign[p++] = op;
+            payloadToSign[p++] = (byte)emojiBytes.Length;
+            Buffer.BlockCopy(emojiBytes, 0, payloadToSign, p, emojiBytes.Length);
+
+            var sig = _identity.Sign(payloadToSign);
+            var frame = new byte[1 + 16 + 16 + 1 + 1 + emojiBytes.Length + 1 + 32 + 1 + 64];
+            int i = 0;
+            frame[i++] = 0xB6;
+            Buffer.BlockCopy(eventIdBytes, 0, frame, i, 16); i += 16;
+            Buffer.BlockCopy(messageIdBytes, 0, frame, i, 16); i += 16;
+            frame[i++] = op;
+            frame[i++] = (byte)emojiBytes.Length;
+            Buffer.BlockCopy(emojiBytes, 0, frame, i, emojiBytes.Length); i += emojiBytes.Length;
+            frame[i++] = 32;
+            Buffer.BlockCopy(_identity.PublicKey, 0, frame, i, 32); i += 32;
+            frame[i++] = 64;
+            Buffer.BlockCopy(sig, 0, frame, i, 64);
+
             return TrySendEncryptedAsync(peerUid, frame, ct);
         }
 

@@ -447,6 +447,9 @@ public sealed class MarkdownRenderer
                 case "strikethrough":
                     span.TextDecorations = TextDecorations.Strikethrough;
                     break;
+                case "underline":
+                    span.TextDecorations = TextDecorations.Underline;
+                    break;
             }
 
             // Add child inlines

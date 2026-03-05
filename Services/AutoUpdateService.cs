@@ -21,9 +21,11 @@ public sealed class AutoUpdateService : IDisposable
     private readonly SemaphoreSlim _checkGate = new(1, 1);
     private bool _started;
     private bool _disposed;
+    private string? _lastNotifiedUpdateVersion;
 
     private const string BgIntervalKey = "AutoUpdate.PeriodicCheck";
     private const string UserAgent = "Zer0Talk-AutoUpdate/1.0";
+    private static readonly string[] InstallerNameHints = { "installer", "setup", "zer0talk" };
     private static readonly string[] TrustedUpdateHosts =
     {
         "github.com",
@@ -107,6 +109,7 @@ public sealed class AutoUpdateService : IDisposable
             {
                 if (userInitiated)
                 {
+                    PostUpdateNotice(NotificationType.Warning, "No update feed was available.");
                     await AppServices.Dialogs.ShowWarningAsync("Update Check", "No update feed was available.", 3500);
                 }
                 return;
@@ -119,15 +122,36 @@ public sealed class AutoUpdateService : IDisposable
             {
                 if (userInitiated)
                 {
+                    PostUpdateNotice(NotificationType.Update, $"You are up to date (v{AppInfo.Version}).", isPersistent: false);
                     await AppServices.Dialogs.ShowInfoAsync("Update Check", $"You are up to date (v{AppInfo.Version}).", 3000);
                 }
                 return;
             }
 
+            var autoInstallEnabled = settings.AutoUpdateEnabled;
+
             if (!userInitiated &&
+                !autoInstallEnabled &&
                 !string.IsNullOrWhiteSpace(settings.LastIgnoredUpdateVersion) &&
                 string.Equals(settings.LastIgnoredUpdateVersion, latest.Version, StringComparison.OrdinalIgnoreCase))
             {
+                return;
+            }
+
+            if (userInitiated || !string.Equals(_lastNotifiedUpdateVersion, latest.Version, StringComparison.OrdinalIgnoreCase))
+            {
+                var availableBody = $"Update available: {latest.Version} (current: {AppInfo.Version}).";
+                var availableDetails = string.IsNullOrWhiteSpace(latest.ReleaseNotesUrl)
+                    ? availableBody
+                    : $"{availableBody}\n\nRelease notes:\n{latest.ReleaseNotesUrl}";
+                PostUpdateNotice(NotificationType.Update, availableBody, availableDetails);
+                _lastNotifiedUpdateVersion = latest.Version;
+            }
+
+            if (autoInstallEnabled)
+            {
+                PostUpdateNotice(NotificationType.Update, $"Auto update is enabled. Downloading v{latest.Version} now...");
+                await InstallAndLaunchAsync(latest, settings, cancellationToken, userInitiated: false).ConfigureAwait(false);
                 return;
             }
 
@@ -148,49 +172,11 @@ public sealed class AutoUpdateService : IDisposable
             {
                 settings.LastIgnoredUpdateVersion = latest.Version;
                 TrySaveSettings();
+                PostUpdateNotice(NotificationType.Update, $"Update {latest.Version} postponed.", isPersistent: false);
                 return;
             }
 
-            var downloadedInstaller = await DownloadInstallerAsync(latest, cancellationToken).ConfigureAwait(false);
-            if (downloadedInstaller == null)
-            {
-                await AppServices.Dialogs.ShowErrorAsync("Update Failed", "Failed to download update installer.", 4000);
-                return;
-            }
-
-            if (!string.IsNullOrWhiteSpace(latest.Sha256) && !VerifySha256(downloadedInstaller, latest.Sha256))
-            {
-                TryDeleteFile(downloadedInstaller);
-                await AppServices.Dialogs.ShowErrorAsync("Update Failed", "Installer verification failed (SHA-256 mismatch).", 4500);
-                return;
-            }
-
-            if (!TryLaunchInstaller(downloadedInstaller))
-            {
-                await AppServices.Dialogs.ShowErrorAsync("Update Failed", "Could not launch installer.", 4000);
-                return;
-            }
-
-            settings.LastIgnoredUpdateVersion = null;
-            TrySaveSettings();
-
-            await AppServices.Dialogs.ShowInfoAsync("Updating", "Installer launched. Zer0Talk will now close.", 1600);
-
-            try
-            {
-                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                {
-                    try
-                    {
-                        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
-                        {
-                            desktop.Shutdown();
-                        }
-                    }
-                    catch { }
-                });
-            }
-            catch { }
+            await InstallAndLaunchAsync(latest, settings, cancellationToken, userInitiated: true).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -415,8 +401,10 @@ public sealed class AutoUpdateService : IDisposable
         foreach (var asset in assets.EnumerateArray())
         {
             var name = ReadString(asset, "name") ?? string.Empty;
-            if (!name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
-                name.IndexOf("Installer", StringComparison.OrdinalIgnoreCase) < 0)
+            var isInstallerExtension = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                || name.EndsWith(".msi", StringComparison.OrdinalIgnoreCase);
+            var looksLikeInstaller = InstallerNameHints.Any(h => name.IndexOf(h, StringComparison.OrdinalIgnoreCase) >= 0);
+            if (!isInstallerExtension || !looksLikeInstaller)
             {
                 continue;
             }
@@ -433,14 +421,14 @@ public sealed class AutoUpdateService : IDisposable
         return false;
     }
 
-    private async Task<string?> DownloadInstallerAsync(UpdateReleaseInfo release, CancellationToken cancellationToken)
+    private async Task<DownloadResult> DownloadInstallerAsync(UpdateReleaseInfo release, CancellationToken cancellationToken)
     {
         try
         {
             if (!IsTrustedHttpsUrl(release.InstallerUrl))
             {
                 Logger.Log($"AutoUpdate: download blocked for untrusted URL: {release.InstallerUrl}");
-                return null;
+                return DownloadResult.Fail("Installer URL is not trusted HTTPS.");
             }
 
             var fileName = GetSafeFileNameFromUrl(release.InstallerUrl);
@@ -448,34 +436,88 @@ public sealed class AutoUpdateService : IDisposable
             {
                 fileName = $"Zer0Talk-Installer-{DateTime.UtcNow:yyyyMMddHHmmss}.exe";
             }
+            else if (!fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                     !fileName.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
+            {
+                fileName += ".exe";
+            }
 
             var updateDir = AppDataPaths.Combine(".cache", "updates");
             Directory.CreateDirectory(updateDir);
             var targetPath = Path.Combine(updateDir, fileName);
 
-            using var response = await _httpClient.GetAsync(release.InstallerUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            Exception? lastException = null;
+            for (var attempt = 1; attempt <= 3; attempt++)
             {
-                return null;
+                try
+                {
+                    using var response = await _httpClient.GetAsync(release.InstallerUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        if (attempt == 3)
+                        {
+                            return DownloadResult.Fail($"Download request failed: {(int)response.StatusCode} {response.ReasonPhrase}");
+                        }
+
+                        await Task.Delay(TimeSpan.FromMilliseconds(1200), cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                    await using var dest = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.Read, 1024 * 64, useAsync: true);
+                    await source.CopyToAsync(dest, cancellationToken).ConfigureAwait(false);
+
+                    var info = new FileInfo(targetPath);
+                    if (!info.Exists || info.Length <= 0)
+                    {
+                        if (attempt == 3)
+                        {
+                            TryDeleteFile(targetPath);
+                            return DownloadResult.Fail("Downloaded installer was empty.");
+                        }
+
+                        TryDeleteFile(targetPath);
+                        await Task.Delay(TimeSpan.FromMilliseconds(1200), cancellationToken).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    if (!VerifyInstallerAuthenticode(targetPath))
+                    {
+                        // Allow unsigned prerelease installers for development channels.
+                        if (!release.Prerelease)
+                        {
+                            TryDeleteFile(targetPath);
+                            Logger.Log("AutoUpdate: installer blocked because Authenticode verification failed");
+                            return DownloadResult.Fail("Installer signature verification failed.");
+                        }
+
+                        Logger.Log("AutoUpdate: prerelease installer has no trusted Authenticode signature; allowing by policy");
+                    }
+
+                    return DownloadResult.Ok(targetPath);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                    if (attempt == 3)
+                    {
+                        break;
+                    }
+
+                    await Task.Delay(TimeSpan.FromMilliseconds(1200), cancellationToken).ConfigureAwait(false);
+                }
             }
 
-            await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            await using var dest = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.Read, 1024 * 64, useAsync: true);
-            await source.CopyToAsync(dest, cancellationToken).ConfigureAwait(false);
-
-            if (!VerifyInstallerAuthenticode(targetPath))
-            {
-                TryDeleteFile(targetPath);
-                Logger.Log("AutoUpdate: installer blocked because Authenticode verification failed");
-                return null;
-            }
-
-            return targetPath;
+            return DownloadResult.Fail(lastException?.Message ?? "Unknown download failure.");
         }
         catch (Exception ex)
         {
             Logger.Log($"AutoUpdate: download failed - {ex.Message}");
-            return null;
+            return DownloadResult.Fail(ex.Message);
         }
     }
 
@@ -549,7 +591,9 @@ public sealed class AutoUpdateService : IDisposable
             if (cmp < 0) return false;
         }
 
-        return string.Compare(remote, current, StringComparison.OrdinalIgnoreCase) > 0;
+        // Same normalized numeric version: do not auto-upgrade/downgrade between suffix variants
+        // (for example stable vs alpha/dev of the same base version).
+        return false;
     }
 
     private static string GetNumericVersionPrefix(string version)
@@ -715,5 +759,86 @@ public sealed class AutoUpdateService : IDisposable
         }
     }
 
+    private static void PostUpdateNotice(NotificationType type, string body, string? fullBody = null, bool isPersistent = true)
+    {
+        try
+        {
+            AppServices.Notifications.PostNotice(type, body, originUid: null, fullBody: fullBody ?? body, isPersistent: isPersistent);
+        }
+        catch { }
+    }
+
+    private static async Task ShowUpdateErrorAsync(string message, bool userInitiated)
+    {
+        PostUpdateNotice(NotificationType.Error, message);
+        if (userInitiated)
+        {
+            try { await AppServices.Dialogs.ShowErrorAsync("Update Failed", message, 4000); } catch { }
+        }
+    }
+
+    private static void RequestAppShutdown()
+    {
+        try
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                    {
+                        desktop.Shutdown();
+                    }
+                }
+                catch { }
+            });
+        }
+        catch { }
+    }
+
+    private async Task InstallAndLaunchAsync(UpdateReleaseInfo latest, AppSettings settings, CancellationToken cancellationToken, bool userInitiated)
+    {
+        var download = await DownloadInstallerAsync(latest, cancellationToken).ConfigureAwait(false);
+        if (!download.Success || string.IsNullOrWhiteSpace(download.Path))
+        {
+            var message = string.IsNullOrWhiteSpace(download.Error)
+                ? "Failed to download update installer."
+                : $"Failed to download update installer: {download.Error}";
+            await ShowUpdateErrorAsync(message, userInitiated).ConfigureAwait(false);
+            return;
+        }
+
+        var downloadedInstaller = download.Path;
+
+        if (!string.IsNullOrWhiteSpace(latest.Sha256) && !VerifySha256(downloadedInstaller, latest.Sha256))
+        {
+            TryDeleteFile(downloadedInstaller);
+            await ShowUpdateErrorAsync("Installer verification failed (SHA-256 mismatch).", userInitiated).ConfigureAwait(false);
+            return;
+        }
+
+        if (!TryLaunchInstaller(downloadedInstaller))
+        {
+            await ShowUpdateErrorAsync("Could not launch installer.", userInitiated).ConfigureAwait(false);
+            return;
+        }
+
+        settings.LastIgnoredUpdateVersion = null;
+        TrySaveSettings();
+        PostUpdateNotice(NotificationType.Update, $"Installer launched for v{latest.Version}. Zer0Talk will now close.");
+
+        if (userInitiated)
+        {
+            try { await AppServices.Dialogs.ShowInfoAsync("Updating", "Installer launched. Zer0Talk will now close.", 1600); } catch { }
+        }
+
+        RequestAppShutdown();
+    }
+
     private sealed record UpdateReleaseInfo(string Version, string InstallerUrl, string Sha256, string ReleaseNotesUrl, bool Prerelease);
+    private readonly record struct DownloadResult(bool Success, string? Path, string? Error)
+    {
+        public static DownloadResult Ok(string path) => new(true, path, null);
+        public static DownloadResult Fail(string error) => new(false, null, error);
+    }
 }

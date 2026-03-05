@@ -13,6 +13,7 @@
             <Button Classes="icon-button"
                     Click="BoldButton_Click"
                     ToolTip.Tip="Bold (Ctrl+B)"
+                    Focusable="False"
                     Width="32"
                     Height="32">
                 <TextBlock Text="B" FontWeight="Bold" FontSize="14"/>
@@ -22,15 +23,27 @@
             <Button Classes="icon-button"
                     Click="ItalicButton_Click"
                     ToolTip.Tip="Italic (Ctrl+I)"
+                    Focusable="False"
                     Width="32"
                     Height="32">
                 <TextBlock Text="I" FontStyle="Italic" FontSize="14"/>
+            </Button>
+
+            <!-- Underline Button -->
+            <Button Classes="icon-button"
+                    Click="UnderlineButton_Click"
+                    ToolTip.Tip="Underline (++text++)"
+                    Focusable="False"
+                    Width="32"
+                    Height="32">
+                <TextBlock Text="U" TextDecorations="Underline" FontSize="14"/>
             </Button>
             
             <!-- Strikethrough Button -->
             <Button Classes="icon-button"
                     Click="StrikeButton_Click"
                     ToolTip.Tip="Strikethrough (Ctrl+Shift+S)"
+                    Focusable="False"
                     Width="32"
                     Height="32">
                 <TextBlock Text="S" TextDecorations="Strikethrough" FontSize="14"/>
@@ -46,6 +59,7 @@
             <Button Classes="icon-button"
                     Click="CodeButton_Click"
                     ToolTip.Tip="Inline code (Ctrl+E)"
+                    Focusable="False"
                     Width="32"
                     Height="32">
                 <TextBlock Text="&lt;/&gt;" FontFamily="Consolas" FontSize="11"/>
@@ -55,6 +69,7 @@
             <Button Classes="icon-button"
                     Click="LinkButton_Click"
                     ToolTip.Tip="Insert link (Ctrl+K)"
+                    Focusable="False"
                     Width="32"
                     Height="32">
                 <TextBlock Text="🔗" FontSize="14"/>
@@ -70,6 +85,7 @@
             <Button Classes="icon-button"
                     Click="SpoilerButton_Click"
                     ToolTip.Tip="Spoiler"
+                    Focusable="False"
                     Width="32"
                     Height="32">
                 <TextBlock Text="||" FontSize="14"/>

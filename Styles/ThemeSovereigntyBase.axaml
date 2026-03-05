@@ -11,8 +11,9 @@
     <SolidColorBrush x:Key="App.ForegroundPrimary" Color="#FFFFFF"/>
   <SolidColorBrush x:Key="App.TitleBarForeground" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="App.Border" Color="#333333"/>
-    <!-- App.ItemHover removed - defined dynamically by ThemeEngine -->
-    <!-- App.ItemSelected removed - defined dynamically by ThemeEngine -->
+    <!-- Fallback list/contact states; themes may override via ColorOverrides. -->
+    <SolidColorBrush x:Key="App.ItemHover" Color="#2A2A2A"/>
+    <SolidColorBrush x:Key="App.ItemSelected" Color="#383838"/>
     <SolidColorBrush x:Key="App.SelectionBackground" Color="#3A3A3A"/>
     <SolidColorBrush x:Key="App.SelectionForeground" Color="#FFFFFF"/>
     <SolidColorBrush x:Key="App.ButtonBackground" Color="#252525"/>
@@ -54,6 +55,39 @@
   <Style Selector="ListBoxItem:selected, ListBoxItem:focus, ListBoxItem:selected:focus, ListBoxItem:focus-within, ListBoxItem:selected:not(:focus):not(:pointerover)">
     <Setter Property="Background" Value="{DynamicResource App.ItemSelected}"/>
     <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+
+  <!-- Contacts list: keep container transparent and apply themed state to contact card only. -->
+  <Style Selector="#ContactsList ListBoxItem /template/ Border">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:pointerover /template/ Border">
+    <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:selected /template/ Border">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:selected:focus /template/ Border">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="Transparent"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem">
+    <Setter Property="FocusAdorner" Value="{x:Null}"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem Border.contact-card">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:pointerover Border.contact-card">
+    <Setter Property="Background" Value="{DynamicResource App.ItemHover}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.AccentLight}"/>
+  </Style>
+  <Style Selector="#ContactsList ListBoxItem:selected Border.contact-card">
+    <Setter Property="Background" Value="{DynamicResource App.ItemSelected}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource App.Border}"/>
   </Style>
 
   <!-- ScrollBar minimal styling -->

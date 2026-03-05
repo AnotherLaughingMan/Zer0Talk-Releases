@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Media;
 using Avalonia.VisualTree;
+using Zer0Talk.Utilities;
 
 namespace Zer0Talk.Controls.Markdown
 {
@@ -41,6 +42,16 @@ namespace Zer0Talk.Controls.Markdown
             set => SetValue(MarkdownProperty, value);
         }
 
+        // Property to indicate if content is emoji-only (for full-size rendering)
+        public static readonly StyledProperty<bool> IsEmojiOnlyProperty =
+            AvaloniaProperty.Register<Zer0TalkMarkdownViewer, bool>(nameof(IsEmojiOnly), false, defaultBindingMode: BindingMode.OneWay);
+
+        public bool IsEmojiOnly
+        {
+            get => GetValue(IsEmojiOnlyProperty);
+            set => SetValue(IsEmojiOnlyProperty, value);
+        }
+
         public Zer0TalkMarkdownViewer()
         {
             // Initialize to an empty plain TextBlock
@@ -69,7 +80,7 @@ namespace Zer0Talk.Controls.Markdown
             base.OnPropertyChanged(change);
             try
             {
-                if (change.Property == MarkdownProperty)
+                if (change.Property == MarkdownProperty || change.Property == IsEmojiOnlyProperty)
                 {
                     // CRITICAL: Clear old content first to prevent "already has parent" errors
                     try
@@ -88,12 +99,20 @@ namespace Zer0Talk.Controls.Markdown
                     
                     // Debug logging to track rendering
                     var renderPreview = CreatePreview(text, 50);
-                    System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Rendering markdown: {renderPreview}...");
+                    System.Diagnostics.Debug.WriteLine($"[Zer0TalkMarkdownViewer] Rendering markdown: {renderPreview}... (IsEmojiOnly={IsEmojiOnly})");
 
                     // Empty text - show empty content
                     if (string.IsNullOrWhiteSpace(text))
                     {
                         Content = CreateFallbackTextBlock(string.Empty);
+                        return;
+                    }
+
+                    // EMOJI-ONLY RENDERING: Render at full size (72pt)
+                    if (IsEmojiOnly)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[Zer0TalkMarkdownViewer] Using emoji-only renderer (full size)");
+                        Content = CreateFallbackTextBlock(text, fontSize: 72d);
                         return;
                     }
 
@@ -440,9 +459,8 @@ namespace Zer0Talk.Controls.Markdown
     private static bool HasSpoilerMarkdown(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
-        
-        // Check for ||spoiler|| syntax
-    return text.Contains("||", StringComparison.Ordinal);
+
+        return SpoilerTokenizer.ContainsValidSpoiler(text);
     }
 
     // Check if text is header markdown (starts with #)
@@ -562,6 +580,12 @@ namespace Zer0Talk.Controls.Markdown
         {
             var trimmed = line.TrimStart();
             if (string.IsNullOrEmpty(trimmed)) continue;
+
+            if (SpoilerTokenizer.ContainsValidSpoiler(trimmed))
+            {
+                hasNormal = true;
+                continue;
+            }
             
             // Check for table separator line
             if (trimmed.Contains('|') && trimmed.Contains('-'))
@@ -662,6 +686,9 @@ namespace Zer0Talk.Controls.Markdown
                 {
                     switch (currentBlockType)
                     {
+                        case "spoiler":
+                            blockControl = RenderCustomSpoiler(blockText);
+                            break;
                         case "quote":
                             blockControl = RenderCustomQuote(blockText);
                             break;
@@ -757,8 +784,14 @@ namespace Zer0Talk.Controls.Markdown
                     }
                 }
                 
+                // Spoilers also use | characters; detect them before table heuristics.
+                if (SpoilerTokenizer.ContainsValidSpoiler(trimmed))
+                {
+                    lineType = "spoiler";
+                    System.Diagnostics.Debug.WriteLine("[MixedMarkdown] ✓ Detected spoiler line");
+                }
                 // Check for table (has | and either separator or consistent | pattern)
-                if (trimmed.Contains('|'))
+                else if (trimmed.Contains('|'))
                 {
                     System.Diagnostics.Debug.WriteLine($"[MixedMarkdown] Line contains |, checking table...");
                     
@@ -1009,6 +1042,8 @@ namespace Zer0Talk.Controls.Markdown
                         run.FontStyle = FontStyle.Italic;
                     else if (emph.Style == "bold")
                         run.FontWeight = FontWeight.Bold;
+                    else if (emph.Style == "underline")
+                        run.TextDecorations = TextDecorations.Underline;
                     
                     return run;
                 
@@ -1212,58 +1247,28 @@ namespace Zer0Talk.Controls.Markdown
             {
                 TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand)
             };
 
             var inlines = textBlock.Inlines;
             if (inlines == null) return CreateFallbackTextBlock(text);
 
-            var currentPos = 0;
-            var spoilerPattern = "||";
+            var isRevealed = false;
+            BuildSpoilerInlines(inlines, text, isRevealed);
 
-            while (currentPos < text.Length)
+            // Message-level spoiler toggle keeps baseline stable because spoiler segments are plain Runs.
+            textBlock.PointerPressed += (_, e) =>
             {
-                var spoilerStart = text.IndexOf(spoilerPattern, currentPos);
-                
-                if (spoilerStart == -1)
+                try
                 {
-                    // No more spoilers - add remaining text
-                    var remaining = text.Substring(currentPos);
-                    if (!string.IsNullOrEmpty(remaining))
-                    {
-                        AddFormattedText(inlines, remaining);
-                    }
-                    break;
+                    isRevealed = !isRevealed;
+                    inlines.Clear();
+                    BuildSpoilerInlines(inlines, text, isRevealed);
+                    e.Handled = true;
                 }
-
-                // Add text before spoiler
-                if (spoilerStart > currentPos)
-                {
-                    var beforeText = text.Substring(currentPos, spoilerStart - currentPos);
-                    AddFormattedText(inlines, beforeText);
-                }
-
-                // Find end of spoiler
-                var spoilerEnd = text.IndexOf(spoilerPattern, spoilerStart + 2);
-                if (spoilerEnd == -1)
-                {
-                    // Unclosed spoiler - treat as normal text
-                    var remaining = text.Substring(spoilerStart);
-                    AddFormattedText(inlines, remaining);
-                    break;
-                }
-
-                // Extract spoiler content
-                var spoilerText = text.Substring(spoilerStart + 2, spoilerEnd - spoilerStart - 2);
-                if (!string.IsNullOrEmpty(spoilerText))
-                {
-                    // Create spoiler inline element
-                    var spoilerInline = CreateSpoilerInline(spoilerText);
-                    inlines.Add(spoilerInline);
-                }
-
-                currentPos = spoilerEnd + 2;
-            }
+                catch { }
+            };
 
             return textBlock;
         }
@@ -1277,25 +1282,59 @@ namespace Zer0Talk.Controls.Markdown
     // Add formatted text (with bold, italic, etc.) to inline collection
     private void AddFormattedText(Avalonia.Controls.Documents.InlineCollection inlines, string text)
     {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
         try
         {
-            // Parse the text for inline formatting
-            var doc = _parser.Parse(text);
-            if (doc != null && doc.Blocks.Count > 0 && doc.Blocks[0] is Paragraph para)
+            // Preserve exact leading/trailing spacing around spoilers; markdown parsing can trim edge spaces.
+            var leadingCount = 0;
+            while (leadingCount < text.Length && (text[leadingCount] == ' ' || text[leadingCount] == '\t'))
             {
-                foreach (var inline in para.Inlines)
+                leadingCount++;
+            }
+
+            var trailingCount = 0;
+            var trailingIndex = text.Length - 1;
+            while (trailingIndex >= leadingCount && (text[trailingIndex] == ' ' || text[trailingIndex] == '\t'))
+            {
+                trailingCount++;
+                trailingIndex--;
+            }
+
+            if (leadingCount > 0)
+            {
+                inlines.Add(new Avalonia.Controls.Documents.Run { Text = text.Substring(0, leadingCount) });
+            }
+
+            var coreLength = text.Length - leadingCount - trailingCount;
+            var core = coreLength > 0 ? text.Substring(leadingCount, coreLength) : string.Empty;
+
+            if (!string.IsNullOrEmpty(core))
+            {
+                var doc = _parser.Parse(core);
+                if (doc != null && doc.Blocks.Count > 0 && doc.Blocks[0] is Paragraph para)
                 {
-                    var run = CreateInlineRun(inline);
-                    if (run != null)
+                    foreach (var inline in para.Inlines)
                     {
-                        inlines.Add(run);
+                        var run = CreateInlineRun(inline);
+                        if (run != null)
+                        {
+                            inlines.Add(run);
+                        }
                     }
                 }
+                else
+                {
+                    inlines.Add(new Avalonia.Controls.Documents.Run { Text = core });
+                }
             }
-            else
+
+            if (trailingCount > 0)
             {
-                // Fallback to plain text
-                inlines.Add(new Avalonia.Controls.Documents.Run { Text = text });
+                inlines.Add(new Avalonia.Controls.Documents.Run { Text = text.Substring(text.Length - trailingCount, trailingCount) });
             }
         }
         catch
@@ -1305,59 +1344,45 @@ namespace Zer0Talk.Controls.Markdown
         }
     }
 
-    // Create a clickable spoiler inline with black bar cover (toggleable)
-    private Avalonia.Controls.Documents.InlineUIContainer CreateSpoilerInline(string spoilerText)
+    private void BuildSpoilerInlines(Avalonia.Controls.Documents.InlineCollection inlines, string text, bool isRevealed)
     {
-        var spoilerBorder = new Border
+        foreach (var segment in SpoilerTokenizer.Tokenize(text))
         {
-            Background = new SolidColorBrush(Colors.Black),
-            Padding = new Thickness(4, 2),
-            CornerRadius = new CornerRadius(3),
-            Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
-            Child = new TextBlock
+            if (segment.IsSpoiler)
             {
-                Text = spoilerText,
-                Foreground = new SolidColorBrush(Colors.Black), // Hidden text
-                FontWeight = FontWeight.Normal
+                AddSpoilerRun(inlines, segment.Text, isRevealed);
+                continue;
             }
-        };
 
-        // Add tooltip
-        ToolTip.SetTip(spoilerBorder, "SPOILER! Click to Reveal!");
-        ToolTip.SetShowDelay(spoilerBorder, 200);
-
-        // Track revealed state
-        bool isRevealed = false;
-
-        // Click handler to toggle reveal/hide
-        spoilerBorder.PointerPressed += (sender, e) =>
-        {
-            if (sender is Border border && border.Child is TextBlock tb)
+            if (!string.IsNullOrEmpty(segment.Text))
             {
-                if (!isRevealed)
-                {
-                    // Reveal the spoiler
-                    tb.Foreground = new SolidColorBrush(Color.FromRgb(220, 220, 220));
-                    border.Background = new SolidColorBrush(Color.FromArgb(60, 68, 68, 68));
-                    ToolTip.SetTip(border, "Click to Hide");
-                    isRevealed = true;
-                }
-                else
-                {
-                    // Hide the spoiler again
-                    tb.Foreground = new SolidColorBrush(Colors.Black);
-                    border.Background = new SolidColorBrush(Colors.Black);
-                    ToolTip.SetTip(border, "SPOILER! Click to Reveal!");
-                    isRevealed = false;
-                }
+                AddFormattedText(inlines, segment.Text);
             }
+        }
+    }
+
+    private static void AddSpoilerRun(Avalonia.Controls.Documents.InlineCollection inlines, string spoilerText, bool isRevealed)
+    {
+        if (string.IsNullOrEmpty(spoilerText))
+        {
+            return;
+        }
+
+        // Keep spoilers as text inlines so baseline/line-height stays aligned with adjacent markdown runs.
+        var hiddenMask = new string('\u2588', spoilerText.Length);
+        var run = new Avalonia.Controls.Documents.Run
+        {
+            Text = isRevealed ? spoilerText : hiddenMask,
+            FontWeight = FontWeight.Normal,
+            Foreground = isRevealed
+                ? new SolidColorBrush(Color.FromRgb(220, 220, 220))
+                : new SolidColorBrush(Colors.Black),
+            Background = isRevealed
+                ? new SolidColorBrush(Color.FromArgb(60, 68, 68, 68))
+                : new SolidColorBrush(Colors.Black)
         };
 
-        // Wrap in InlineUIContainer
-        return new Avalonia.Controls.Documents.InlineUIContainer
-        {
-            Child = spoilerBorder
-        };
+        inlines.Add(run);
     }
 
     // Custom header renderer - bypasses Markdig to avoid Avalonia parent issues
@@ -1812,13 +1837,14 @@ namespace Zer0Talk.Controls.Markdown
     }
     
     // Helper: create a TextBlock for fallback rendering
-    private static TextBlock CreateFallbackTextBlock(string text)
+    private static TextBlock CreateFallbackTextBlock(string text, double fontSize = 16d)
             => new TextBlock
             {
                 Text = text,
                 TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                FontSize = fontSize
             };
     }
 }

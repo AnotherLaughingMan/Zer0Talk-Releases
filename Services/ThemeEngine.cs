@@ -38,6 +38,8 @@ namespace Zer0Talk.Services
     {
         // Event fired when custom themes are reloaded (e.g., after saving a new theme)
         public static event EventHandler? ThemesReloaded;
+        // Event fired whenever a theme is applied so open views can repaint cached visuals.
+        public static event EventHandler? ThemeApplied;
 
         // Phase control flag - determines engine behavior
         public enum EnginePhase
@@ -88,6 +90,15 @@ namespace Zer0Talk.Services
         private readonly IThemeResourceLoader _embeddedLoader;
         private string? _activeThemeId;
         private bool _fallbackActive;
+        private static readonly string[] CompatibilityColorKeys =
+        {
+            "App.ItemHover",
+            "App.ItemSelected",
+            "App.AccentLight",
+            "App.Border",
+            "SystemControlHighlightListLowBrush",
+            "SystemControlHighlightListAccentLowBrush"
+        };
 
         public ThemeEngine(ThemeService legacyService)
         {
@@ -123,7 +134,6 @@ namespace Zer0Talk.Services
                     if (!TrySetThemeHybrid(legacyTheme))
                     {
                         LogEngine($"Hybrid mode failed, falling back to legacy for {legacyTheme}");
-                        _fallbackActive = true;
                         // Clear system color overrides when falling back to pure legacy
                         ClearSystemColorOverrides();
                         _legacyService.SetTheme(legacyTheme);
@@ -137,8 +147,18 @@ namespace Zer0Talk.Services
                     _legacyService.SetTheme(legacyTheme);
                     break;
             }
+
+                    RaiseThemeApplied();
         }
 
+        private static void RaiseThemeApplied()
+        {
+            try
+            {
+                ThemeApplied?.Invoke(null, EventArgs.Empty);
+            }
+            catch { }
+        }
         /// <summary>
         /// Set theme by ID (engine theme name). Only works in Phase 2+.
         /// </summary>
@@ -159,7 +179,12 @@ namespace Zer0Talk.Services
             }
 
             _activeThemeId = themeId;
-            return ApplyEngineTheme(themeId);
+            var applied = ApplyEngineTheme(themeId);
+            if (applied)
+            {
+                RaiseThemeApplied();
+            }
+            return applied;
         }
 
         /// <summary>
@@ -305,7 +330,10 @@ namespace Zer0Talk.Services
                     "legacy-dark",
                     "legacy-light",
                     "legacy-sandy",
-                    "legacy-butter"
+                    "legacy-butter",
+                    "vscode-dark-plus",
+                    "vscode-light-plus",
+                    "vscode-monokai"
                 };
 
                 foreach (var themeId in builtInIds)
@@ -943,6 +971,13 @@ namespace Zer0Talk.Services
                 return false;
             }
 
+            var normalizeWarnings = new List<string>();
+            var injectedCompatibilityKeys = themeDef.EnsureCompatibilityColorOverrides(normalizeWarnings);
+            if (injectedCompatibilityKeys > 0)
+            {
+                LogEngine($"Theme '{themeDef.DisplayName}' compatibility normalization injected {injectedCompatibilityKeys} color keys");
+            }
+
             _engineThemes[themeDef.Id] = themeDef;
             LogEngine($"Registered theme: {themeDef.Id} (Name: {themeDef.DisplayName})");
             return true;
@@ -1016,6 +1051,98 @@ namespace Zer0Talk.Services
             }
             
             return themesPath;
+        }
+
+        /// <summary>
+        /// Normalize on-disk custom/imported theme files by injecting compatibility color keys when missing.
+        /// This upgrades older .zttheme files to work with newer list/contact selectors.
+        /// </summary>
+        public (int Scanned, int Updated, int Failed) NormalizeCustomThemesOnDisk()
+        {
+            var scanned = 0;
+            var updated = 0;
+            var failed = 0;
+
+            var directories = GetThemeSearchDirectories();
+            foreach (var themesDir in directories)
+            {
+                if (!System.IO.Directory.Exists(themesDir))
+                {
+                    continue;
+                }
+
+                string[] themeFiles;
+                try
+                {
+                    themeFiles = System.IO.Directory.GetFiles(themesDir, "*.zttheme", System.IO.SearchOption.TopDirectoryOnly);
+                }
+                catch (Exception ex)
+                {
+                    LogEngine($"NormalizeCustomThemesOnDisk: failed to enumerate {themesDir}: {ex.Message}");
+                    continue;
+                }
+
+                foreach (var filePath in themeFiles)
+                {
+                    scanned++;
+                    try
+                    {
+                        var json = System.IO.File.ReadAllText(filePath);
+                        if (!NeedsCompatibilityNormalization(json, out var missingKeys))
+                        {
+                            continue;
+                        }
+
+                        var theme = ThemeDefinition.LoadFromFile(filePath, out var warnings);
+                        var injected = theme.EnsureCompatibilityColorOverrides(warnings);
+                        theme.SaveToFile(filePath);
+                        updated++;
+
+                        LogEngine($"Normalized theme file {System.IO.Path.GetFileName(filePath)} (missing keys: {missingKeys}, injected: {injected})");
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        LogEngine($"NormalizeCustomThemesOnDisk: failed for {System.IO.Path.GetFileName(filePath)}: {ex.Message}");
+                    }
+                }
+            }
+
+            LogEngine($"NormalizeCustomThemesOnDisk complete: scanned={scanned}, updated={updated}, failed={failed}");
+            return (scanned, updated, failed);
+        }
+
+        private static bool NeedsCompatibilityNormalization(string json, out int missingKeys)
+        {
+            missingKeys = CompatibilityColorKeys.Length;
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (!doc.RootElement.TryGetProperty("colorOverrides", out var colorOverrides) ||
+                    colorOverrides.ValueKind != System.Text.Json.JsonValueKind.Object)
+                {
+                    return true;
+                }
+
+                missingKeys = 0;
+                foreach (var key in CompatibilityColorKeys)
+                {
+                    if (!colorOverrides.TryGetProperty(key, out var value) ||
+                        value.ValueKind != System.Text.Json.JsonValueKind.String ||
+                        string.IsNullOrWhiteSpace(value.GetString()))
+                    {
+                        missingKeys++;
+                    }
+                }
+
+                return missingKeys > 0;
+            }
+            catch
+            {
+                // If JSON cannot be parsed, attempt migration path through ThemeDefinition loader.
+                return true;
+            }
         }
 
         /// <summary>

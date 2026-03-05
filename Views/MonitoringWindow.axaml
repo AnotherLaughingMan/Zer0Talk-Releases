@@ -139,6 +139,10 @@
                                ToolTip.Tip="Connection success rates: Direct/NAT/Relay attempts and UID mismatch count"/>
                     <TextBlock Classes="app-trunc" Text="{Binding RelayHealthSummary}" FontSize="10" Opacity="0.7" TextTrimming="CharacterEllipsis"
                                ToolTip.Tip="Relay server health: endpoint status, latency, and success rate"/>
+                    <TextBlock Classes="app-trunc" Text="{Binding HealthScoreSummary}" FontSize="10" Opacity="0.85" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="Overall user-facing network health score"/>
+                    <TextBlock Classes="app-trunc" Text="{Binding ConnectionDoctorSummary}" FontSize="10" Opacity="0.78" TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="Actionable connection troubleshooting guidance"/>
                 </StackPanel>
         <!-- Status Legend: fixed, theme-independent styling for consistency across all themes -->
         <!-- Layout tweak: slightly reduced padding to save vertical space without changing style -->

@@ -1,0 +1,63 @@
+{
+  "id": "vscode-light-plus",
+  "displayName": "VS Code Light+",
+  "description": "VS Code-inspired light theme with clean contrast and blue highlights.",
+  "author": "Zer0Talk",
+  "version": "1.0.0",
+  "baseVariant": "Light",
+  "resourceDictionaries": [
+    "avares://Zer0Talk/Styles/LightThemeOverrides.axaml"
+  ],
+  "colorOverrides": {
+    "App.Background": "#FFFFFF",
+    "App.Surface": "#F8F8F8",
+    "App.CardBackground": "#F3F3F3",
+    "App.ForegroundPrimary": "#1F1F1F",
+    "App.ForegroundSecondary": "#5A5A5A",
+    "App.Border": "#D4D4D4",
+    "App.InputBorder": "#CFCFCF",
+    "App.Accent": "#005FB8",
+    "App.AccentLight": "#0078D4",
+    "App.SelectionBackground": "#ADD6FF",
+    "App.SelectionForeground": "#000000",
+    "App.ButtonBackground": "#F3F3F3",
+    "App.ButtonHover": "#EDEDED",
+    "App.ButtonPressed": "#E4E4E4",
+    "App.ChatSenderName": "#006A5F",
+    "App.ChatReceiverName": "#8A6A00",
+    "App.ContactName": "#333333",
+    "App.ContactNameActive": "#000000",
+    "App.ItemHover": "#ECECEC",
+    "App.ItemSelected": "#E2F0FF",
+    "StatusBar.Background": "#007ACC",
+    "StatusBar.Foreground": "#FFFFFF",
+    "StatusBar.ForegroundSecondary": "#D6ECFF",
+    "StatusBar.StreamerBadge": "#D32F2F",
+    "StatusBar.StreamerBadgeForeground": "#FFFFFF"
+  },
+  "gradients": {
+    "App.TitleBarBackground": {
+      "startColor": "#F8F8F8",
+      "endColor": "#EBEBEB",
+      "angle": 90.0,
+      "direction": null,
+      "colorStops": {}
+    }
+  },
+  "defaultFontFamily": null,
+  "defaultUiScale": 1.0,
+  "minAppVersion": null,
+  "isLegacyTheme": false,
+  "legacyThemeOption": null,
+  "allowsCustomization": false,
+  "isReadOnly": true,
+  "themeType": 0,
+  "tags": [
+    "built-in",
+    "vscode-inspired",
+    "light"
+  ],
+  "metadata": {},
+  "createdAt": "2026-02-28T00:00:00Z",
+  "modifiedAt": "2026-02-28T00:00:00Z"
+}
