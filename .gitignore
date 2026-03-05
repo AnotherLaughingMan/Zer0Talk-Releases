@@ -15,11 +15,6 @@ _trash/
 
 # InstallMe.Lite project files are tracked (build outputs still ignored via bin/obj rules)
 
-# Keep relay project local-only by default, but allow version/about metadata file.
-!Zer0Talk.RelayServer/
-Zer0Talk.RelayServer/**
-!Zer0Talk.RelayServer/RelayAppInfo.cs
-
 # Scripts folder - development/build scripts not needed in repo
 scripts/
 

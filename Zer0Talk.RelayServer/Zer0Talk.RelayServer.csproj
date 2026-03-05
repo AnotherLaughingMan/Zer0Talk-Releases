@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>Zer0Talk.RelayServer</AssemblyName>
+    <RootNamespace>Zer0Talk.RelayServer</RootNamespace>
+    <Nullable>enable</Nullable>
+    <Version>$(Zer0TalkVersion)</Version>
+    <AssemblyVersion>$(Zer0TalkVersion)</AssemblyVersion>
+    <FileVersion>$(Zer0TalkVersion)</FileVersion>
+    <InformationalVersion>$(Zer0TalkVersion)-$(Zer0TalkPrereleaseTag)</InformationalVersion>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>Assets\Icons\Zer0Talk_Relay_Multi.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.7" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.7" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.7" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\Icons\Zer0Talk_Relay.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Icons\Zer0Talk_Relay.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Icons\Zer0Talk_Relay_Force.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Icons\Zer0Talk_Relay_Multi.ico" CopyToOutputDirectory="PreserveNewest" />
+    <AvaloniaResource Include="Assets\Icons\Zer0Talk_Relay.png" />
+  </ItemGroup>
+
+</Project>

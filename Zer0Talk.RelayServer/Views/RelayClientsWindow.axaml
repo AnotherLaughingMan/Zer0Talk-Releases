@@ -1,0 +1,98 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:vm="clr-namespace:Zer0Talk.RelayServer.ViewModels"
+  xmlns:services="clr-namespace:Zer0Talk.RelayServer.Services"
+        x:Class="Zer0Talk.RelayServer.Views.RelayClientsWindow"
+  x:DataType="vm:RelayMainWindowViewModel"
+        Width="420"
+        Height="740"
+        MinWidth="360"
+        MinHeight="540"
+        Title="Connected Clients"
+        Background="#121212">
+  <Window.Styles>
+    <Style Selector="ListBox.fading-scrollbar /template/ ScrollViewer /template/ ScrollBar">
+      <Setter Property="Opacity" Value="0"/>
+      <Setter Property="Transitions">
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.3"/>
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox.fading-scrollbar:pointerover /template/ ScrollViewer /template/ ScrollBar">
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+  </Window.Styles>
+
+  <Panel>
+    <Border Background="#1A1A1A" Margin="16" Padding="14" CornerRadius="10" BorderBrush="#2B2B2B" BorderThickness="1">
+      <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <TextBlock Text="Connected Clients" FontSize="14" FontWeight="SemiBold" Foreground="#EDEDED" />
+          <Button Grid.Column="1"
+                  Click="CloseWindow_Click"
+                  ToolTip.Tip="Close clients window"
+                  Background="#2A2A2A"
+                  BorderThickness="0"
+                  CornerRadius="8"
+                  Foreground="#EDEDED"
+                  Width="36"
+                  Height="36"
+                  Padding="0"
+                  HorizontalContentAlignment="Center"
+                  VerticalContentAlignment="Center">
+            <TextBlock Text="&#xE711;" FontFamily="Segoe Fluent Icons" FontSize="14" />
+          </Button>
+        </Grid>
+
+        <TextBlock Grid.Row="1"
+                   Text="Privacy mode: entries are anonymized by default. Use handle-based blocking for abuse response."
+                   FontSize="12"
+                   Foreground="#8F8F8F"
+                   TextWrapping="Wrap" />
+
+        <ListBox Grid.Row="2"
+                 Classes="fading-scrollbar"
+                 x:CompileBindings="False"
+                 ItemsSource="{Binding Clients}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="services:RelayClientInfo">
+              <Border BorderBrush="#2C2C2C" BorderThickness="0,0,0,1" Padding="0,4,0,4">
+                <StackPanel Spacing="4">
+                  <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="6">
+                    <TextBlock Text="{Binding ModerationHandle}" FontWeight="SemiBold" Foreground="#F2F2F2" TextWrapping="NoWrap" />
+                    <Button Grid.Column="1"
+                            Click="BlockClient_Click"
+                            ToolTip.Tip="Block this client handle and disconnect matching sessions"
+                            Background="#3A1F1F" BorderBrush="#8A3E3E" BorderThickness="1" CornerRadius="6" Foreground="#FFD6D6"
+                            Width="64" Height="24" Padding="0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                      <TextBlock Text="Block" FontSize="10" FontWeight="SemiBold" />
+                    </Button>
+                  </Grid>
+                  <TextBlock Text="{Binding Uid}" FontFamily="Consolas" FontSize="11" Foreground="#A9D3FF" TextWrapping="NoWrap" />
+                  <TextBlock Text="{Binding PublicKey}" FontFamily="Consolas" FontSize="11" Foreground="#88D9C0" TextWrapping="NoWrap" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+        <Border IsVisible="{Binding IsCopyToastVisible}"
+            ZIndex="9"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+          Margin="16,16,16,0"
+            Background="#D9333333"
+            CornerRadius="8"
+            Padding="12,8"
+            BorderBrush="#66FFFFFF"
+            BorderThickness="1">
+      <TextBlock Text="{Binding CopyToastText}" Foreground="#F2F2F2" FontSize="12" FontWeight="SemiBold" />
+    </Border>
+  </Panel>
+</Window>

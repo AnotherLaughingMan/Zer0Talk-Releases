@@ -1,0 +1,406 @@
+<Window xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:vm="clr-namespace:Zer0Talk.RelayServer.ViewModels"
+  xmlns:services="clr-namespace:Zer0Talk.RelayServer.Services"
+  x:Class="Zer0Talk.RelayServer.Views.RelayMainWindow"
+  x:DataType="vm:RelayMainWindowViewModel"
+  Width="1100"
+  MinWidth="980"
+  Height="780"
+  MinHeight="720"
+  Title="Zer0Talk Relay"
+  Icon="avares://Zer0Talk.RelayServer/Assets/Icons/Zer0Talk_Relay.png">
+  <Design.DataContext>
+    <vm:RelayMainWindowViewModel />
+  </Design.DataContext>
+
+  <Window.Styles>
+    <Style Selector="Button.ux-smooth">
+      <Setter Property="Opacity" Value="0.95"/>
+      <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+      <Setter Property="RenderTransform" Value="scale(1)"/>
+      <Setter Property="Transitions">
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.14"/>
+          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14"/>
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Button.ux-smooth:pointerover">
+      <Setter Property="Opacity" Value="1"/>
+      <Setter Property="RenderTransform" Value="scale(1.03)"/>
+    </Style>
+    <Style Selector="Button.ux-smooth:pressed">
+      <Setter Property="Opacity" Value="0.9"/>
+      <Setter Property="RenderTransform" Value="scale(0.98)"/>
+    </Style>
+    <Style Selector="ListBox.fading-scrollbar /template/ ScrollViewer /template/ ScrollBar">
+      <Setter Property="Opacity" Value="0"/>
+      <Setter Property="Transitions">
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.3"/>
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox.fading-scrollbar:pointerover /template/ ScrollViewer /template/ ScrollBar">
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+  </Window.Styles>
+
+  <Panel>
+    <!-- Main content -->
+    <Grid RowDefinitions="Auto,*" Background="#121212">
+      <Border Background="#1B1B1B" Padding="16">
+        <Grid ColumnDefinitions="Auto,Auto,*" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Title}" FontSize="20" FontWeight="SemiBold" Foreground="#F2F2F2" />
+          <Border Grid.Column="1" Background="#FF8C1A" Margin="12,0,0,0" Padding="8,2" CornerRadius="4" VerticalAlignment="Center">
+            <TextBlock Text="{Binding TagText}" FontSize="11" FontWeight="Bold" Foreground="#1B1B1B" Margin="0,-1,0,0" />
+          </Border>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                <Button Classes="ux-smooth" Width="36" Height="36" Padding="0"
+                  Background="#2A2A2A" BorderThickness="0" CornerRadius="8"
+                    Command="{Binding OpenConfigGuideCommand}" ToolTip.Tip="Open relay configuration guide"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+              <Grid Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <PathIcon Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Foreground="#BDBDBD" Data="M12,2 C6.48,2 2,6.48 2,12 C2,17.52 6.48,22 12,22 C17.52,22 22,17.52 22,12 C22,6.48 17.52,2 12,2 Z M12,19 C11.17,19 10.5,18.33 10.5,17.5 C10.5,16.67 11.17,16 12,16 C12.83,16 13.5,16.67 13.5,17.5 C13.5,18.33 12.83,19 12,19 Z M13.2,13.2 C12.72,13.49 12.5,13.73 12.5,14.5 L11,14.5 C11,13.46 11.28,12.91 11.95,12.52 C12.62,12.13 13,11.75 13,11.15 C13,10.52 12.49,10 11.85,10 C11.21,10 10.7,10.52 10.7,11.15 L9.2,11.15 C9.2,9.69 10.38,8.5 11.85,8.5 C13.32,8.5 14.5,9.69 14.5,11.15 C14.5,12.2 13.92,12.76 13.2,13.2 Z" />
+              </Grid>
+            </Button>
+
+                <Button Classes="ux-smooth" Width="36" Height="36" Padding="0"
+                  Background="#2A2A2A" BorderThickness="0" CornerRadius="8"
+                    Command="{Binding OpenConfigCommand}" ToolTip.Tip="Open relay configuration file"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+              <Grid Width="24" Height="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <PathIcon Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Foreground="#6BB8FF" Data="M6,4 L14,4 L18,8 L18,20 L6,20 Z M14,4 L14,8 L18,8 M9,12 L15,12 M9,15 L13,15" />
+              </Grid>
+            </Button>
+
+                <Button Classes="ux-smooth" Command="{Binding OpenSettingsCommand}"
+                  Width="36" Height="36" Padding="0"
+                    Background="#2A2A2A" BorderThickness="0" CornerRadius="8"
+                    ToolTip.Tip="Open relay settings"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+              <PathIcon Width="16" Height="16" Foreground="#BDBDBD"
+                        Data="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" />
+            </Button>
+
+                <Button Classes="ux-smooth" Width="36" Height="36" Padding="0"
+                    Background="#2A2A2A" BorderThickness="0" CornerRadius="8"
+                  Command="{Binding ShowClientsWindowCommand}" ToolTip.Tip="Open connected clients"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+              <TextBlock Text="&#xE8A5;" FontFamily="Segoe Fluent Icons" FontSize="15" Foreground="#EDEDED"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Button>
+
+                <Button Classes="ux-smooth" Width="36" Height="36" Padding="0"
+                  Background="#2A2A2A" BorderThickness="0" CornerRadius="8"
+                    Command="{Binding OpenProbeAuditLogCommand}" ToolTip.Tip="Open probe audit window"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+              <TextBlock Text="&#xE7BA;" FontFamily="Segoe Fluent Icons" FontSize="15" Foreground="#EDEDED"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Grid Grid.Row="1" Margin="16" RowDefinitions="Auto,*" RowSpacing="14">
+      <Border Background="#1A1A1A" BorderBrush="#2B2B2B" BorderThickness="1" CornerRadius="10" Padding="10,8" HorizontalAlignment="Stretch">
+        <StackPanel Orientation="Horizontal" Spacing="16">
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Status:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="#F2F2F2" FontWeight="SemiBold" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Clients:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding RegisteredClients}" FontSize="12" Foreground="#4FC3F7" FontWeight="SemiBold" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Pending:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding PendingCount}" FontSize="12" Foreground="#F2F2F2" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Active:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding ActiveCount}" FontSize="12" Foreground="#F2F2F2" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Token:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding RelayToken}" FontSize="12" Foreground="#F2F2F2" FontFamily="Consolas" />
+                <Button Classes="ux-smooth" Width="26" Height="26" Padding="0"
+                    Command="{Binding CopyRelayTokenCommand}"
+                    ToolTip.Tip="Copy relay token"
+                    Background="#2A2A2A"
+                    BorderThickness="0"
+                  CornerRadius="8"
+                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+              <PathIcon Width="12" Height="12" Foreground="#EDEDED"
+                        Data="M8,3 L16,3 L16,13 L8,13 Z M5,6 L13,6 L13,16 L5,16 Z" />
+            </Button>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Offer:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding OfferCommands}" FontSize="12"
+                       Foreground="{Binding OfferAckAnomalyForeground}"
+                       FontWeight="{Binding OfferAckAnomalyFontWeight}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Poll:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding PollCommands}" FontSize="12" Foreground="#F2F2F2" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="WaitPoll:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding WaitPollCommands}" FontSize="12" Foreground="#F2F2F2" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Ack:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding AckCommands}" FontSize="12"
+                       Foreground="{Binding OfferAckAnomalyForeground}"
+                       FontWeight="{Binding OfferAckAnomalyFontWeight}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Offer→Ack:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding OfferAckRatioText}" FontSize="12"
+                       Foreground="{Binding OfferAckAnomalyForeground}"
+                       FontWeight="{Binding OfferAckAnomalyFontWeight}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="AckMiss:" FontSize="12" Foreground="#8F8F8F" />
+            <TextBlock Text="{Binding AckMisses}" FontSize="12"
+                       Foreground="{Binding AckMissForeground}"
+                       FontWeight="{Binding AckMissFontWeight}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <Border Grid.Row="1" Background="#1A1A1A" BorderBrush="#2B2B2B" BorderThickness="1" CornerRadius="10" Padding="16">
+        <Grid ColumnDefinitions="2.2*,1*" ColumnSpacing="16">
+          <Grid RowDefinitions="Auto,*" RowSpacing="10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBlock Text="Relay Console" FontSize="14" FontWeight="SemiBold" Foreground="#EDEDED" />
+              <TextBlock Grid.Column="1" Text="Live" FontSize="11" Foreground="#8FE6E6" VerticalAlignment="Center" />
+            </Grid>
+            <Border Grid.Row="1" Background="#101010" BorderBrush="#2B2B2B" BorderThickness="1" CornerRadius="10" Padding="10">
+              <Grid>
+                <ListBox x:Name="RelayConsoleList" Classes="fading-scrollbar" ItemsSource="{Binding Logs}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         SelectionMode="Single">
+                  <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel VerticalAlignment="Bottom" />
+                    </ItemsPanelTemplate>
+                  </ListBox.ItemsPanel>
+                </ListBox>
+
+                <Button x:Name="RelayConsoleJumpToLatestButton"
+                  Classes="ux-smooth"
+                        ToolTip.Tip="Jump to latest entries"
+                        IsVisible="False"
+                        Width="40"
+                        Height="40"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Bottom"
+                        Margin="0,0,12,12"
+                        Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="#2A2A2A"
+                        BorderThickness="0"
+                        CornerRadius="8"
+                        Foreground="#F2F2F2"
+                        Click="RelayConsoleJumpToLatest_Click">
+                  <TextBlock Text="&#xE70D;" FontFamily="Segoe Fluent Icons" FontSize="14" />
+                </Button>
+              </Grid>
+            </Border>
+          </Grid>
+
+          <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" RowSpacing="10">
+            <TextBlock Text="Actions" FontSize="14" FontWeight="SemiBold" Foreground="#EDEDED" />
+
+            <Border Grid.Row="1" Background="#151515" BorderBrush="#2B2B2B" BorderThickness="1" CornerRadius="10" Padding="10">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Classes="ux-smooth" Command="{Binding StartCommand}" Width="36" Height="36" Padding="0"
+                        Background="#2A2A2A" BorderThickness="0" CornerRadius="8" ToolTip.Tip="Start relay service"
+                        ToolTip.ShowOnDisabled="True"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                  <PathIcon Width="16" Height="16" Foreground="#4CAF50" Data="M7,5 L17,12 L7,19 Z" />
+                </Button>
+                <Button Classes="ux-smooth" Command="{Binding StopCommand}" Width="36" Height="36" Padding="0"
+                        Background="#2A2A2A" BorderThickness="0" CornerRadius="8" ToolTip.Tip="Stop relay service (confirmation required)"
+                        ToolTip.ShowOnDisabled="True"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                  <PathIcon Width="14" Height="14" Foreground="#F44336" Data="M6,6 L18,6 L18,18 L6,18 Z" />
+                </Button>
+                <Button Classes="ux-smooth" Command="{Binding RestartCommand}" Width="36" Height="36" Padding="0"
+                        Background="#2A2A2A" BorderThickness="0" CornerRadius="8" ToolTip.Tip="Restart relay service"
+                        ToolTip.ShowOnDisabled="True"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                  <TextBlock Text="&#xE72C;" FontFamily="Segoe Fluent Icons" FontSize="14" Foreground="#6BB8FF" />
+                </Button>
+                <Button Classes="ux-smooth" Command="{Binding PauseResumeCommand}" Width="36" Height="36" Padding="0"
+                        Background="#2A2A2A" BorderThickness="0" CornerRadius="8"
+                        ToolTip.Tip="{Binding PauseResumeTooltip}"
+                        ToolTip.ShowOnDisabled="True"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                  <PathIcon Width="16" Height="16" Foreground="#FF9800" Data="{Binding PauseResumePath}" />
+                </Button>
+                <Button Classes="ux-smooth" Command="{Binding DisconnectCommand}" Width="36" Height="36" Padding="0"
+                        Background="#2A2A2A" BorderThickness="0" CornerRadius="8"
+                        ToolTip.Tip="Disconnect selected active session"
+                        ToolTip.ShowOnDisabled="True"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                  <PathIcon Width="16" Height="16" Foreground="#FF6B6B" Data="M6,8 L8,6 L18,16 L16,18 Z M16,6 L18,8 L8,18 L6,16 Z" />
+                </Button>
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Background="#151515" BorderBrush="#2B2B2B" BorderThickness="1" CornerRadius="10" Padding="10">
+              <Grid RowDefinitions="Auto,*" RowSpacing="8">
+                <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="6">
+                    <TextBlock Text="Active Client Sessions" FontSize="12" Foreground="#BDBDBD" FontWeight="SemiBold" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="ux-smooth" Width="22" Height="22" Padding="0"
+                          Click="ShowActiveSessionsHelp_Click"
+                      ToolTip.Tip="Shows active client-to-client tunnels (not the relay host). Click for details."
+                          Background="#2A2A2A" BorderThickness="0" CornerRadius="11"
+                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                    <TextBlock Text="?" FontSize="12" FontWeight="Bold" Foreground="#EDEDED" />
+                  </Button>
+                </Grid>
+                <ListBox Grid.Row="1" Classes="fading-scrollbar" ItemsSource="{Binding Sessions}"
+                         SelectedItem="{Binding SelectedSession}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
+              </Grid>
+            </Border>
+          </Grid>
+        </Grid>
+      </Border>
+      </Grid>
+    </Grid>
+    <Border IsVisible="{Binding IsCopyToastVisible}"
+            ZIndex="9"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Margin="16,64,16,0"
+            Background="#D9333333"
+            CornerRadius="8"
+            Padding="12,8"
+            BorderBrush="#66FFFFFF"
+            BorderThickness="1">
+      <TextBlock Text="{Binding CopyToastText}" Foreground="#F2F2F2" FontSize="12" FontWeight="SemiBold" />
+    </Border>
+    <!-- Settings overlay -->
+    <Border IsVisible="{Binding Settings.IsVisible}" Background="#AA000000" ZIndex="10">
+      <Border Background="#1E1E1E" CornerRadius="12" Padding="24" MaxWidth="500" MaxHeight="520"
+              HorizontalAlignment="Center" VerticalAlignment="Center"
+              BorderBrush="#333" BorderThickness="1">
+        <StackPanel Spacing="20">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Relay Settings" FontSize="18" FontWeight="SemiBold" Foreground="#F2F2F2" />
+            <Button Grid.Column="1" Content="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="14"
+                    Command="{Binding Settings.CloseCommand}" Background="Transparent" BorderThickness="0"
+                    Foreground="#BDBDBD" Cursor="Hand" Padding="4" />
+          </Grid>
+
+          <!-- System Tray Section -->
+          <StackPanel Spacing="14">
+            <TextBlock Text="System Tray" FontWeight="SemiBold" FontSize="14" Foreground="#E0E0E0" />
+            <TextBlock Text="Configure how the relay behaves in your system tray." FontSize="12"
+                       Foreground="#8F8F8F" TextWrapping="Wrap" />
+
+            <!-- Show in System Tray -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <ToggleSwitch Grid.Column="0" IsChecked="{Binding Settings.ShowInSystemTray}" OnContent="" OffContent="" />
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="Show in system tray" FontWeight="Medium" Foreground="#E0E0E0" />
+                <TextBlock Text="Display the relay icon in the system tray area." FontSize="11"
+                           Foreground="#8F8F8F" TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
+
+            <!-- Minimize to Tray -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <ToggleSwitch Grid.Column="0" IsChecked="{Binding Settings.MinimizeToTray}" OnContent="" OffContent="" />
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="Minimize to tray" FontWeight="Medium" Foreground="#E0E0E0" />
+                <TextBlock Text="Close button hides the window to tray instead of exiting." FontSize="11"
+                           Foreground="#8F8F8F" TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
+
+            <!-- Start Minimized -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <ToggleSwitch Grid.Column="0" IsChecked="{Binding Settings.StartMinimized}" OnContent="" OffContent="" />
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="Start minimized" FontWeight="Medium" Foreground="#E0E0E0" />
+                <TextBlock Text="Launch the relay hidden in the system tray." FontSize="11"
+                           Foreground="#8F8F8F" TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+
+          <!-- Auto-Start Section -->
+          <StackPanel Spacing="14">
+            <TextBlock Text="Startup" FontWeight="SemiBold" FontSize="14" Foreground="#E0E0E0" />
+
+            <!-- Run on Startup -->
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <ToggleSwitch Grid.Column="0" IsChecked="{Binding Settings.RunOnStartup}" OnContent="" OffContent="" />
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="Run on Windows startup" FontWeight="Medium" Foreground="#E0E0E0" />
+                <TextBlock Text="Automatically start Zer0Talk Relay when Windows starts." FontSize="11"
+                           Foreground="#8F8F8F" TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+
+          <!-- General Section -->
+          <StackPanel Spacing="14">
+            <TextBlock Text="General" FontWeight="SemiBold" FontSize="14" Foreground="#E0E0E0" />
+
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              <ToggleSwitch Grid.Column="0" IsChecked="{Binding Settings.EnableSmoothScrolling}" OnContent="" OffContent="" />
+              <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="Enable smooth scrolling" FontWeight="Medium" Foreground="#E0E0E0" />
+                <TextBlock Text="Animate relay log auto-follow and jump-to-latest behavior." FontSize="11"
+                           Foreground="#8F8F8F" TextWrapping="Wrap" />
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+
+          <!-- Network Troubleshooter Section -->
+          <StackPanel Spacing="10">
+            <TextBlock Text="Network Troubleshooter" FontWeight="SemiBold" FontSize="14" Foreground="#E0E0E0" />
+            <TextBlock Text="Repairs Windows Firewall rules for relay TCP/UDP ports and restarts the listener." FontSize="11"
+                       Foreground="#8F8F8F" TextWrapping="Wrap" />
+            <Button Content="Run Network Troubleshooter"
+                    Command="{Binding Settings.RunFirewallTroubleshooterCommand}"
+                    HorizontalAlignment="Left"
+                    Padding="12,6"
+                    Background="#2A2A2A"
+                    Foreground="#F2F2F2"
+                    BorderBrush="#3A3A3A" />
+            <TextBlock Text="{Binding Settings.NetworkInfoMessage}"
+                       IsVisible="{Binding Settings.HasNetworkInfoMessage}"
+                       Foreground="#B8E6B8"
+                       FontSize="11"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Settings.NetworkErrorMessage}"
+                       IsVisible="{Binding Settings.HasNetworkErrorMessage}"
+                       Foreground="#FF9A9A"
+                       FontSize="11"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+
+          <!-- Save / Cancel -->
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+            <Button Content="Cancel" Command="{Binding Settings.CloseCommand}" Padding="16,8" />
+            <Button Content="Save" Command="{Binding Settings.SaveCommand}" Padding="16,8"
+                    Background="#FF8C1A" Foreground="#1B1B1B" FontWeight="SemiBold" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Panel>
+</Window>

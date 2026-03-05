@@ -1,0 +1,123 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Zer0Talk.RelayServer.ViewModels"
+        x:Class="Zer0Talk.RelayServer.Views.RelayProbeAuditWindow"
+        x:DataType="vm:RelayMainWindowViewModel"
+        Width="980"
+        Height="620"
+        MinWidth="760"
+        MinHeight="420"
+        Title="Probe Audit Log"
+        Background="#121212"
+        Icon="avares://Zer0Talk.RelayServer/Assets/Icons/Zer0Talk_Relay.png">
+  <Window.Styles>
+    <Style Selector="Button.ux-smooth">
+      <Setter Property="Opacity" Value="0.95"/>
+      <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+      <Setter Property="RenderTransform" Value="scale(1)"/>
+      <Setter Property="Transitions">
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.14"/>
+          <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.14"/>
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="Button.ux-smooth:pointerover">
+      <Setter Property="Opacity" Value="1"/>
+      <Setter Property="RenderTransform" Value="scale(1.03)"/>
+    </Style>
+    <Style Selector="Button.ux-smooth:pressed">
+      <Setter Property="Opacity" Value="0.9"/>
+      <Setter Property="RenderTransform" Value="scale(0.98)"/>
+    </Style>
+    <Style Selector="ListBox.fading-scrollbar /template/ ScrollViewer /template/ ScrollBar">
+      <Setter Property="Opacity" Value="0"/>
+      <Setter Property="Transitions">
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.3"/>
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="ListBox.fading-scrollbar:focus-within /template/ ScrollViewer /template/ ScrollBar">
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="ListBox.fading-scrollbar /template/ ScrollViewer:pointerover /template/ ScrollBar">
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="ListBox.fading-scrollbar /template/ ScrollViewer /template/ ScrollBar:pointerover">
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="ListBox.fading-scrollbar /template/ ScrollViewer /template/ ScrollBar:pressed">
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+    <Style Selector="ListBox.fading-scrollbar:pointerover /template/ ScrollViewer /template/ ScrollBar">
+      <Setter Property="Opacity" Value="1"/>
+    </Style>
+  </Window.Styles>
+
+  <Border Margin="16" Padding="14" CornerRadius="10" Background="#1A1A1A" BorderBrush="#2B2B2B" BorderThickness="1">
+    <Grid RowDefinitions="Auto,*" RowSpacing="10">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+        <TextBlock Text="Connection Probe &amp; Request Audit"
+                   FontSize="14"
+                   FontWeight="SemiBold"
+                   Foreground="#EDEDED"
+                   VerticalAlignment="Center" />
+        <Button Grid.Column="1"
+          Classes="ux-smooth"
+          Command="{Binding ClearProbeAuditLogCommand}"
+          ToolTip.Tip="Clear probe audit log"
+          Width="36"
+          Height="36"
+          Padding="0"
+          HorizontalContentAlignment="Center"
+          VerticalContentAlignment="Center"
+          Background="#2A2A2A"
+          BorderThickness="0"
+          CornerRadius="8"
+          Foreground="#F2F2F2">
+          <TextBlock Text="&#xE74D;" FontFamily="Segoe Fluent Icons" FontSize="14" />
+        </Button>
+      </Grid>
+
+      <Grid Grid.Row="1">
+        <Border Background="#101010" BorderBrush="#2B2B2B" BorderThickness="1" CornerRadius="10" Padding="10">
+          <ListBox x:Name="ProbeAuditList"
+                   Classes="fading-scrollbar"
+                   ItemsSource="{Binding ProbeAuditLineEntries}"
+                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:RelayProbeAuditLineEntry">
+                <TextBlock Text="{Binding Text}"
+                           FontFamily="Consolas"
+                           FontSize="11"
+                           Foreground="{Binding Foreground}"
+                           TextWrapping="NoWrap" />
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Border>
+
+        <Button x:Name="JumpToLatestButton"
+          Classes="ux-smooth"
+          ToolTip.Tip="Jump to latest entries"
+                IsVisible="False"
+          Width="40"
+          Height="40"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Margin="0,0,12,12"
+          Padding="0"
+          HorizontalContentAlignment="Center"
+          VerticalContentAlignment="Center"
+                Background="#2A2A2A"
+                BorderThickness="0"
+                CornerRadius="8"
+          Foreground="#F2F2F2">
+          <TextBlock Text="&#xE70D;" FontFamily="Segoe Fluent Icons" FontSize="14" />
+        </Button>
+      </Grid>
+    </Grid>
+  </Border>
+</Window>

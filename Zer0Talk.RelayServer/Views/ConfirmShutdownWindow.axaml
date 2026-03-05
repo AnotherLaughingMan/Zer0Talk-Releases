@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="Zer0Talk.RelayServer.Views.ConfirmShutdownWindow"
+        Width="420"
+        Height="180"
+        Title="Emergency Shutdown"
+        WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="*,Auto" Margin="16" RowSpacing="12">
+    <TextBlock Text="Stop the relay immediately? Active sessions will drop." TextWrapping="Wrap" />
+    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button Content="Stop Relay" IsDefault="True" Click="OnStopClick" />
+      <Button Content="Cancel" IsCancel="True" Click="OnCancelClick" />
+    </StackPanel>
+  </Grid>
+</Window>

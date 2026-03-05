@@ -41,7 +41,7 @@ jobs:
         run: dotnet build ${{ steps.target.outputs.solution }} -c Release --no-restore
 
       - name: Test
-        run: dotnet test .\Tests\Zer0Talk.Tests.csproj -c Debug --no-build --results-directory .\TestResults --logger "trx;LogFileName=tests.trx"
+        run: dotnet test .\Tests\Zer0Talk.Tests.csproj -c Debug --results-directory .\TestResults --logger "trx;LogFileName=tests.trx"
 
       - name: Guard new bare catches in critical paths
         if: github.event_name == 'pull_request'
