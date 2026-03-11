@@ -173,5 +173,6 @@ docs/*.md
 !docs/user-guide.md
 !docs/THEME-EDITOR-USER-GUIDE.md
 !docs/install-run-troubleshooting.md
+!docs/PRIVACY-POLICY.md
 
 checklist.md
