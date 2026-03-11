@@ -5,6 +5,8 @@
 **Effective Date:** September 28, 2025
 **Last Revised:** March 11, 2026
 
+> **See also:** [Disclaimer.md](Disclaimer.md) — supplementary disclaimers, user responsibility, and indemnification | [Privacy Policy](docs/PRIVACY-POLICY.md)
+
 ---
 
 ## 1. Definitions
@@ -87,4 +89,4 @@ This license is governed by and construed in accordance with the laws of the jur
 
 ## 11. Entire Agreement
 
-This license, together with the accompanying Disclaimer (`Disclaimer.md`) and Privacy Policy (`docs/PRIVACY-POLICY.md`), constitutes the entire agreement between You and the Author regarding the Software and supersedes all prior or contemporaneous representations, understandings, or agreements.
+This license, together with the accompanying [Disclaimer](Disclaimer.md) and [Privacy Policy](docs/PRIVACY-POLICY.md), constitutes the entire agreement between You and the Author regarding the Software and supersedes all prior or contemporaneous representations, understandings, or agreements.

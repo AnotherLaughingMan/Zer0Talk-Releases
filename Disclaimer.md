@@ -5,6 +5,8 @@
 **Effective Date:** September 28, 2025
 **Last Revised:** March 11, 2026
 
+> **See also:** [LICENSE.md](LICENSE.md) — the full terms governing permitted use, restrictions, and liability | [Privacy Policy](docs/PRIVACY-POLICY.md)
+
 ---
 
 ## 1. No Warranty
@@ -87,4 +89,4 @@ Any legal disputes arising from the use of Zer0Talk shall be governed by the law
 
 ## 11. Entire Agreement Reference
 
-This Disclaimer supplements and is incorporated into the Zer0Talk Proprietary License (`LICENSE.md`). Together with the Privacy Policy (`docs/PRIVACY-POLICY.md`), these documents constitute the complete legal terms governing your use of the Software.
+This Disclaimer supplements and is incorporated into the [Zer0Talk Proprietary License](LICENSE.md). Together with the [Privacy Policy](docs/PRIVACY-POLICY.md), these documents constitute the complete legal terms governing your use of the Software.
