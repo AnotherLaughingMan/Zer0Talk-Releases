@@ -30,6 +30,7 @@ Every contributor is expected to read, understand, and follow this document. It 
 18. [Security Requirements](#18-security-requirements)
 19. [Decisions and Policies](#19-decisions-and-policies)
 20. [Changelog Discipline](#20-changelog-discipline)
+21. [AI in the Development Workflow](#21-ai-in-the-development-workflow)
 
 ---
 
@@ -855,6 +856,36 @@ The 3D V-Cache die carries approximately **96 MB of L3 per CCD** versus ~32 MB o
 3. Security regressions fixed must use the prefix `Security audit remediation:` in the `### Fixed` entry.
 4. Relay reliability fixes use the prefix `Relay reliability remediation:`.
 5. Do not rewrite history. Past entries are immutable once released.
+
+---
+
+## 21. AI in the Development Workflow
+
+This project uses AI coding agents as an active part of the development workflow. This includes but is not limited to GitHub Copilot (with various underlying models including Claude, GPT, and others), and any other AI agent that proves useful. This is a deliberate choice, made transparently.
+
+**What AI agents do in this project:**
+
+- Implement features, refactors, and bug fixes under human direction
+- Read and navigate the codebase to gather context before making changes
+- Write, validate, and iterate on code until builds are clean
+- Update documentation (CHANGELOG, Developer Bible, audit docs) as work lands
+- Run builds and interpret compiler output
+- Commit and push to source control on instruction
+
+**What AI agents do not do:**
+
+- Make architectural decisions autonomously. The project owner directs all significant choices.
+- Bypass the build gate. Every change is validated with both Debug and Release builds before committing.
+- Touch cryptographic primitives without explicit review. Security-critical code is treated as highest-risk regardless of who writes the first draft.
+- Push breaking changes silently. Destructive or hard-to-reverse operations require explicit confirmation.
+
+**On transparency:**
+
+The use of AI tooling in this workflow is stated here openly. Contributors and users who have concerns are encouraged to review the output — the code, tests, documentation, and commit history — on its own merits. AI-assisted code is subject to the same standards as any other code in this repository: it must be correct, secure, and maintainable. Authorship of a line tells you nothing about its quality; reading it does.
+
+**AI in the product vs. AI in the workflow:**
+
+These are separate concerns. AI-assist *features inside Zer0Talk* remain deferred (see Section 19 — privacy trust model not yet defined). AI *as a development tool* for building Zer0Talk is already in use and will continue to be.
 
 ---
 
