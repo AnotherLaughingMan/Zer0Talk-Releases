@@ -2,6 +2,10 @@
 
 **Privacy-First, Decentralized Chat – No Servers, No Tracking, Just You and Your Contacts**
 
+[![Latest Release](https://img.shields.io/github/v/release/AnotherLaughingMan/Zer0Talk-Releases?label=latest%20release&style=flat-square&color=blueviolet)](https://github.com/AnotherLaughingMan/Zer0Talk-Releases/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue?style=flat-square)](https://github.com/AnotherLaughingMan/Zer0Talk-Releases/releases/latest)
+[![Status](https://img.shields.io/badge/status-Alpha-orange?style=flat-square)](https://github.com/AnotherLaughingMan/Zer0Talk-Releases/releases/latest)
+
 Zer0Talk is a fully decentralized messaging app designed for users who value true privacy. Built on peer-to-peer (P2P) technology, it ensures your conversations stay encrypted and local, with no central servers collecting your data. Whether you're chatting with friends or sharing sensitive information, Zer0Talk puts control back in your hands.
 
 This is an **alpha release** – it's functional but expect bugs and changes. Not for critical use yet!
