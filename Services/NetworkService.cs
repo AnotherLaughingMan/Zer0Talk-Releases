@@ -819,7 +819,44 @@ namespace Zer0Talk.Services
 
                 if (string.IsNullOrEmpty(response) || !response.StartsWith("PAIRED", StringComparison.OrdinalIgnoreCase))
                 {
-                    Logger.Log($"Relay pairing failed: {response ?? "null"}");
+                    // Log specific ERR codes so operators and users get actionable context.
+                    if (!string.IsNullOrEmpty(response))
+                    {
+                        if (response.StartsWith("ERR cooldown", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Logger.Log("Relay pairing rejected: session cooldown (brief delay between fast-reconnects). Waiting before retry.");
+                            try { await Task.Delay(3100, ct); } catch { }
+                        }
+                        else if (response.StartsWith("ERR rate-limit", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Logger.Log("Relay pairing rejected: rate limit reached for this IP. Waiting before retry.");
+                            try { await Task.Delay(3100, ct); } catch { }
+                        }
+                        else if (response.StartsWith("ERR blocked", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Logger.Log("Relay pairing rejected: this UID or IP has been blocked by the relay operator.");
+                        }
+                        else if (response.StartsWith("ERR capacity", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Logger.Log("Relay pairing rejected: relay is at full capacity. Try another relay.");
+                        }
+                        else if (response.StartsWith("ERR already-active", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Logger.Log("Relay pairing rejected: session already active on this relay.");
+                        }
+                        else if (response.StartsWith("ERR already-queued", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Logger.Log("Relay pairing rejected: this side is already queued. Waiting for peer.");
+                        }
+                        else
+                        {
+                            Logger.Log($"Relay pairing failed: {response}");
+                        }
+                    }
+                    else
+                    {
+                        Logger.Log("Relay pairing failed: no response received.");
+                    }
                     try { _diag.IncRelayFail(); } catch { }
                     SafeNetLog($"connect relay pair-fail | peer={peerUid} | response={response}");
                     try { relayClient.Close(); } catch { }

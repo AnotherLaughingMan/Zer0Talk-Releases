@@ -188,6 +188,8 @@ namespace Zer0Talk.Views.Controls
                     Margin = new Thickness(0, 4, 0, 0),
                     Padding = new Thickness(8),
                     CornerRadius = new CornerRadius(6),
+                    MaxWidth = 340,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
                     Background = this.TryFindResource("App.Surface", out var surf) ? (IBrush)surf! : Brushes.Transparent,
                     BorderBrush = this.TryFindResource("App.Border", out var br) ? (IBrush)br! : Brushes.Gray,
                     BorderThickness = new Thickness(1)

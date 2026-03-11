@@ -75,18 +75,18 @@
           <TextBlock Text="{Binding LocalizedAppearance}" FontWeight="SemiBold" FontSize="18"/>
           
           <!-- Theme Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedTheme}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedTheme}"/>
               <ComboBox x:Name="ThemeCombo" ItemsSource="{Binding ThemeItems}" SelectedIndex="{Binding ThemeIndex}" Width="180"
                         ToolTip.Tip="{Binding LocalizedThemeHelp}"/>
             </StackPanel>
           </Border>
 
           <!-- Font Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedFont}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedFont}"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedFamily}" VerticalAlignment="Center"/>
                 <TextBox Text="{Binding UiFontFamily}" Width="200" Watermark="{Binding LocalizedEnterFontFamilyName}"
@@ -100,12 +100,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Language Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left" BorderBrush="{DynamicResource App.Accent}" BorderThickness="2">
+          <Border Classes="general-card" BorderBrush="{DynamicResource App.Accent}" BorderThickness="2">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedLanguage}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedLanguage}"/>
               <ComboBox ItemsSource="{Binding AvailableLanguages}" SelectedItem="{Binding Language}" Width="200" HorizontalAlignment="Left"
                         ToolTip.Tip="{Binding LocalizedLanguageHelp}"/>
               <TextBlock Text="{Binding LocalizedAdditionalLanguagesMessage}" FontSize="11" Foreground="{DynamicResource App.SecondaryText}" Opacity="0.8"/>
@@ -476,9 +476,9 @@
                      TextWrapping="Wrap" Opacity="0.7" FontSize="12"/>
 
           <!-- Lock Hotkey -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedLockApplication}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedLockApplication}"/>
               <TextBlock Text="{Binding LocalizedLockApplicationHelp}" 
                          Opacity="0.7" FontSize="12"/>
               <Grid ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="8">
@@ -515,12 +515,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Clear Input Hotkey -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedClearMessageInput}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedClearMessageInput}"/>
               <TextBlock Text="{Binding LocalizedClearMessageInputHelp}" 
                          Opacity="0.7" FontSize="12"/>
               <Grid ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="8">
@@ -557,12 +557,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Streamer Mode Hotkey -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedStreamerModeHotkey}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedStreamerModeHotkey}"/>
               <TextBlock Text="{Binding LocalizedStreamerModeHotkeyHelp}" 
                          Opacity="0.7" FontSize="12"/>
               <Grid ColumnDefinitions="160,*" ColumnSpacing="12" RowDefinitions="Auto,Auto" RowSpacing="8">
@@ -598,9 +598,9 @@
             </StackPanel>
           </Border>
 
-          <Border CornerRadius="8" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card" Padding="12">
             <StackPanel Spacing="4">
-              <TextBlock Text="{Binding LocalizedHotkeyTips}" FontWeight="SemiBold" FontSize="13"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedHotkeyTips}"/>
               <TextBlock TextWrapping="Wrap" FontSize="12" Opacity="0.75"
                          Text="{Binding LocalizedHotkeyTipsText}"/>
             </StackPanel>
@@ -710,9 +710,9 @@
           <TextBlock Text="{Binding LocalizedPerformance}" FontWeight="SemiBold" FontSize="18"/>
           
           <!-- CPU Section (first) -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedCPU}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedCPU}"/>
               <!-- Enumerate CPU model and cache capabilities (model normal, details subtle) -->
               <TextBlock Text="{Binding CpuModel}"/>
               <TextBlock Text="{Binding VCacheInfo}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" IsVisible="{Binding IsAmdCpu}"/>
@@ -742,6 +742,10 @@
                                FontSize="12"/>
                   </Border>
                 </StackPanel>
+                <!-- Auto recommendation note -->
+                <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap">
+                  Leave on <Run FontWeight="SemiBold">Auto</Run> unless CCD detection is wrong for your CPU. Auto targets the 3D V-Cache die when present — Zer0Talk's encryption and messaging workloads are cache-intensive and benefit from the larger L3, making the V-Cache die the better choice over the higher-clocked non-V-Cache die.
+                </TextBlock>
                 <TextBlock Text="{Binding CcdAffinityNotice}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" IsVisible="{Binding CcdAffinityNoticeVisible}"/>
               </StackPanel>
               <!-- Intel P-Core Targeting (hidden on non-Intel CPUs) -->
@@ -749,51 +753,31 @@
                 <TextBlock Text="{Binding LocalizedIntelPCoreTargeting}" VerticalAlignment="Center"/>
                 <ToggleSwitch IsChecked="{Binding IntelPCoreTargeting}" ToolTip.Tip="{Binding LocalizedIntelPCoreTargetingHelp}"/>
               </StackPanel>
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="{Binding LocalizedEnforceRAMLimit}" VerticalAlignment="Center"/>
-                <ToggleSwitch IsChecked="{Binding EnforceRamLimit}" ToolTip.Tip="{Binding LocalizedEnforceRAMLimitHelp}"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding EnforceRamLimit}">
-                <TextBlock Text="{Binding LocalizedRAMLimit}" VerticalAlignment="Center"/>
-                <NumericUpDown Value="{Binding RamUsageLimitMb}" Minimum="0" Width="80" ShowButtonSpinner="False"
-                             ToolTip.Tip="{Binding LocalizedRamLimitHelp}"/>
-                <TextBlock Text="{Binding LocalizedMBUnlimited}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
-              </StackPanel>
             </StackPanel>
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- GPU Section (moved after CPU) -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedGPU}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedGPU}"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedEnableGPUAcceleration}" VerticalAlignment="Center"/>
                 <ToggleSwitch IsChecked="{Binding EnableGpuAcceleration}" ToolTip.Tip="{Binding LocalizedEnableGpuAccelerationHelp}"/>
               </StackPanel>
               <TextBlock Text="{Binding GpuTextNotice}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="{Binding LocalizedEnforceVRAMLimit}" VerticalAlignment="Center"/>
-                <ToggleSwitch IsChecked="{Binding EnforceVramLimit}" ToolTip.Tip="{Binding LocalizedEnforceVramLimitHelp}"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" Spacing="8" IsEnabled="{Binding EnforceVramLimit}">
-                <TextBlock Text="{Binding LocalizedVRAMLimit}" VerticalAlignment="Center"/>
-                <NumericUpDown Value="{Binding VramUsageLimitMb}" Minimum="0" Width="80" ShowButtonSpinner="False"
-                             ToolTip.Tip="{Binding LocalizedVramLimitHelp}"/>
-                <TextBlock Text="{Binding LocalizedMBUnlimited}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
-              </StackPanel>
             </StackPanel>
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Framerate Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedFramerate}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedFramerate}"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedFPSThrottle}" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding FpsThrottle}" Minimum="0" Maximum="300" Width="80" ShowButtonSpinner="False"
@@ -822,9 +806,9 @@
           <TextBlock Text="{Binding LocalizedAccessibilityTitle}" FontWeight="SemiBold" FontSize="18"/>
           
           <!-- OS-Level Accessibility Settings -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedAccessibilitySettings}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedAccessibilitySettings}"/>
               <TextBlock Text="{Binding LocalizedAccessibilityOSMessage}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
               <StackPanel Spacing="6" Margin="12,8,0,0">
                 <TextBlock FontSize="12" Foreground="{DynamicResource App.SecondaryText}">
@@ -848,12 +832,12 @@
 
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="720" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Keyboard Navigation Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedKeyboardNavigation}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedKeyboardNavigation}"/>
               <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
                 <ToggleSwitch Grid.Row="0" Grid.Column="0" IsChecked="{Binding ShowKeyboardFocus}" ToolTip.Tip="{Binding LocalizedShowKeyboardFocusHelp}"/>
                 <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LocalizedShowKeyboardFocusIndicators}" VerticalAlignment="Center"/>
@@ -891,12 +875,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="720" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Font Rendering Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedFontRendering}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedFontRendering}"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="{Binding LocalizedOSFontSmoothing}" VerticalAlignment="Center"/>
                 <TextBlock Text="{Binding OsFontSmoothingEnabled, StringFormat='{}{0}'}" VerticalAlignment="Center" FontWeight="SemiBold"/>
@@ -913,9 +897,9 @@
           <TextBlock Text="{Binding LocalizedDebugTools}" FontWeight="SemiBold" FontSize="18"/>
 
           <!-- Logging Toggle -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left" Background="{DynamicResource App.Surface}" BorderBrush="#FFA500" BorderThickness="2">
+          <Border Classes="general-card" BorderBrush="#FFA500" BorderThickness="2">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedLogging}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedLogging}"/>
               
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <TextBlock Text="{Binding LocalizedEnableLogging}" VerticalAlignment="Center"/>
@@ -934,9 +918,9 @@
             </StackPanel>
           </Border>
 
-          <Border CornerRadius="8" Padding="16" MaxWidth="720" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedLogMaintenance}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedLogMaintenance}"/>
 
               <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                 <TextBlock Text="{Binding LocalizedAutoTrimUILog}" VerticalAlignment="Center"/>
@@ -980,10 +964,12 @@
 
       <ScrollViewer x:Name="AboutPanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="{Binding LocalizedAbout}" FontWeight="SemiBold" FontSize="18"/>
+
           <!-- App Information -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedApplicationInformation}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedApplicationInformation}"/>
               <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" HorizontalAlignment="Stretch">
                 <TextBlock Text="{Binding LocalizedAboutName}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="{Binding AppName}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
@@ -1005,12 +991,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Framework Information -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedAboutFrameworkInfo}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedAboutFrameworkInfo}"/>
               <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" HorizontalAlignment="Stretch">
                 <TextBlock Text="{Binding LocalizedAboutAvaloniaUI}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="{Binding AvaloniaVersion}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium"/>
@@ -1021,12 +1007,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Links and Resources -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedAboutLinksResources}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedAboutLinksResources}"/>
               <Grid ColumnDefinitions="*,*" RowDefinitions="Auto" ColumnSpacing="8" RowSpacing="8">
                 <Button Grid.Row="0" Grid.Column="0" Content="{Binding LocalizedAboutDocumentation}" Command="{Binding OpenDocumentationCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
                 <Button Grid.Row="0" Grid.Column="1" Content="{Binding LocalizedAboutPrivacyPolicy}" Command="{Binding OpenPrivacyPolicyCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="12,8"/>
@@ -1035,12 +1021,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Acknowledgments -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedAboutAcknowledgments}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedAboutAcknowledgments}"/>
               <TextBlock Text="{Binding LocalizedAboutBuiltWithAvalonia}" TextWrapping="Wrap" Opacity="0.8"/>
               <TextBlock Text="{Binding LocalizedAboutSpecialThanks}" TextWrapping="Wrap" Opacity="0.8"/>
             </StackPanel>
@@ -1054,10 +1040,10 @@
           <TextBlock Text="{Binding LocalizedNetwork}" FontWeight="SemiBold" FontSize="18"/>
 
           <!-- Connection Settings -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedConnectionSettings}" FontWeight="SemiBold"/>
-              <TextBlock Text="This is the local port Zer0Talk listens on for incoming chat connections. Most users can keep the default." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedConnectionSettings}"/>
+              <TextBlock Text="This is the local port Zer0Talk listens on for incoming chat connections. Most users can keep the default." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               <Grid ColumnDefinitions="Auto,Auto,*" RowDefinitions="Auto" RowSpacing="8" ColumnSpacing="8">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Local chat port" VerticalAlignment="Center" Margin="0,0,4,0"/>
                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Port}" Width="120" HorizontalAlignment="Left" Watermark="26264"
@@ -1067,31 +1053,31 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Network Troubleshooter -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="10">
-              <TextBlock Text="Network Troubleshooter" FontWeight="SemiBold"/>
-              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820"
+              <TextBlock Classes="general-section-title" Text="Network Troubleshooter"/>
+              <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"
                          Text="If connections suddenly stop working on Windows, run this once to refresh firewall permissions for Zer0Talk."/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Content="Run Firewall Troubleshooter" Command="{Binding RunFirewallTroubleshooterCommand}"/>
                 <TextBlock Text="Admin permission required" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource App.SecondaryText}"/>
               </StackPanel>
-              <TextBlock Text="{Binding NetworkInfoMessage}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="820"/>
-              <TextBlock Text="{Binding NetworkErrorMessage}" FontSize="12" Foreground="{DynamicResource App.Warning}" TextWrapping="Wrap" MaxWidth="820"/>
+              <TextBlock Text="{Binding NetworkInfoMessage}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding NetworkErrorMessage}" FontSize="12" Foreground="{DynamicResource App.Warning}" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Relay Settings -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="Relay Connection" FontWeight="SemiBold" FontSize="16"/>
-              <TextBlock Text="Relays help when direct peer-to-peer connections fail. Most users only need to enable relay fallback and enter one relay address." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820"/>
+              <TextBlock Classes="general-section-title" Text="Relay Connection"/>
+              <TextBlock Text="Relays help when direct peer-to-peer connections fail. Most users only need to enable relay fallback and enter one relay address." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               <Grid ColumnDefinitions="230,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="12">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Use relay fallback" VerticalAlignment="Center"/>
                 <ToggleSwitch Grid.Row="0" Grid.Column="1" IsChecked="{Binding RelayFallbackEnabled}" Content="{Binding LocalizedEnableRelayFallback}"
@@ -1108,19 +1094,19 @@
                 <NumericUpDown Grid.Row="3" Grid.Column="1" Value="{Binding RelayDiscoveryTtlMinutes}" Minimum="1" Maximum="60" Width="120" ShowButtonSpinner="False" HorizontalAlignment="Left"/>
               </Grid>
               <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,4,0,0">
-                <TextBlock Text="Most users: turn relay fallback on, set one relay address, and leave the timeout values at default." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" MaxWidth="820"/>
+                <TextBlock Text="Most users: turn relay fallback on, set one relay address, and leave the timeout values at default." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
               </Border>
             </StackPanel>
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Saved Relay Endpoints -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="Saved Relay Endpoints (Optional)" FontWeight="SemiBold"/>
-              <TextBlock Text="Save extra relay addresses so you can switch quickly if your main relay is down. If you only use one relay, you can ignore this section." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="820"/>
+              <TextBlock Classes="general-section-title" Text="Saved Relay Endpoints (Optional)"/>
+              <TextBlock Text="Save extra relay addresses so you can switch quickly if your main relay is down. If you only use one relay, you can ignore this section." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBox Text="{Binding NewRelayServer}" Watermark="relay.example.com:443 or [IPv6]:443" Width="360"/>
                 <Button Content="{Binding LocalizedAdd}" Command="{Binding AddRelayServerCommand}"/>
@@ -1143,13 +1129,13 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- WAN Seed Bootstrap -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="560" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="WAN Seed Bootstrap (Advanced / Optional)" FontWeight="SemiBold"/>
-              <TextBlock Text="Seed nodes help first-time WAN discovery when no relay address is known yet. Most users should leave this empty unless support asks you to configure it." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="520"/>
+              <TextBlock Classes="general-section-title" Text="WAN Seed Bootstrap (Advanced / Optional)"/>
+              <TextBlock Text="Seed nodes help first-time WAN discovery when no relay address is known yet. Most users should leave this empty unless support asks you to configure it." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
               <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                 <TextBlock Text="Always use seed nodes" VerticalAlignment="Center" Width="220"/>
                 <ToggleSwitch IsChecked="{Binding ForceSeedBootstrap}" Content="On"/>
@@ -1176,13 +1162,13 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Discovered Peers moved to dedicated operational window (left rail) -->
-          <Border CornerRadius="8" Padding="16" Width="920" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="8">
-              <TextBlock Text="{Binding LocalizedDiscoveredPeers}" FontWeight="SemiBold"/>
-              <TextBlock Text="Use this window to see peers currently visible on your network and refresh the list when needed." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="860"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedDiscoveredPeers}"/>
+              <TextBlock Text="Use this window to see peers currently visible on your network and refresh the list when needed." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <Button Content="Open Discovered Peers" Click="OpenDiscoveredPeersWindow_Click"/>
                 <Button Command="{Binding RefreshPeersCommand}" Padding="8,4" ToolTip.Tip="Refresh Peer List" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="14" Content="&#xE72C;"/>
@@ -1191,13 +1177,13 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Network Adapters -->
-          <Border CornerRadius="8" Padding="16" Width="560" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="Network Adapters" FontWeight="SemiBold"/>
-              <TextBlock Text="Optional: change this only if you need Zer0Talk to prefer a different network adapter." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap" MaxWidth="520"/>
+              <TextBlock Classes="general-section-title" Text="Network Adapters"/>
+              <TextBlock Text="Optional: change this only if you need Zer0Talk to prefer a different network adapter." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
               <Grid ColumnDefinitions="360,Auto" ColumnSpacing="8">
                 <Border Grid.Column="0" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Height="200">
                   <ScrollViewer>
@@ -1237,12 +1223,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="860" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- IP Blocking Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="860" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="16">
-              <TextBlock Text="Bad-Actor IP Blocking" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Classes="general-section-title" Text="Bad-Actor IP Blocking"/>
               
               <!-- Status and Controls -->
               <StackPanel Spacing="8">
@@ -1345,7 +1331,7 @@
               </Grid>
               
               <!-- Information Text -->
-              <TextBlock TextWrapping="Wrap" FontSize="11" Opacity="0.75" MaxWidth="820">
+              <TextBlock TextWrapping="Wrap" FontSize="11" Opacity="0.75">
                 <Run Text="IP blocking helps protect against known bad actors and hostile infrastructure."/>
                 <LineBreak/>
                 <Run Text="• Individual IPs: Block specific IP addresses"/>
@@ -1366,21 +1352,23 @@
 
       <ScrollViewer x:Name="DangerPanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="{Binding LocalizedDangerZone}" FontWeight="SemiBold" FontSize="18"/>
+
           <!-- Account Deletion Warning -->
-          <Border CornerRadius="8" Padding="16" BorderBrush="Red" BorderThickness="1" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card" BorderBrush="Red" BorderThickness="1">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedDangerZoneTitle}" FontWeight="SemiBold" FontSize="16" Foreground="Red"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedDangerZoneTitle}" Foreground="Red"/>
               <TextBlock Text="{Binding LocalizedDangerZoneWarning}" TextWrapping="Wrap" Opacity="0.9"/>
             </StackPanel>
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Delete Account Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedDeleteAccount}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedDeleteAccount}"/>
               
               <!-- Information First - What will happen -->
               <StackPanel Spacing="4" Opacity="0.8">
@@ -1403,12 +1391,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Purge Messages Section -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedPurgeAllMessages}" FontWeight="SemiBold" FontSize="16" Foreground="#C0392B"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedPurgeAllMessages}" Foreground="#C0392B"/>
               
               <!-- Information First - What will happen -->
               <StackPanel Spacing="4" Opacity="0.8">
@@ -1430,12 +1418,12 @@
           </Border>
 
           <!-- ── Section Divider ── -->
-          <Border Height="1" Background="{DynamicResource App.Border}" Opacity="0.4" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,4"/>
+          <Border Classes="general-divider"/>
 
           <!-- Data Export -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedExportData}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedExportData}"/>
               <TextBlock Text="{Binding LocalizedExportDataDescription}" TextWrapping="Wrap" Opacity="0.8"/>
               <Button Content="{Binding LocalizedExportDataButton}" Command="{Binding ExportDataCommand}" HorizontalAlignment="Left" Padding="12,8"/>
 
@@ -1456,19 +1444,21 @@
 
       <ScrollViewer x:Name="LogoutPanel" IsVisible="False">
         <StackPanel Margin="8" Spacing="16">
+          <TextBlock Text="{Binding LocalizedLogOut}" FontWeight="SemiBold" FontSize="18"/>
+
           <!-- Logout Information -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedSignOut}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedSignOut}"/>
               <TextBlock Text="{Binding LocalizedSignOutDescription}" TextWrapping="Wrap" Opacity="0.8"/>
               <TextBlock Text="{Binding LocalizedDataRemains}" TextWrapping="Wrap" Opacity="0.8"/>
             </StackPanel>
           </Border>
 
           <!-- Current Session Info -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedCurrentSession}" FontWeight="SemiBold" FontSize="16"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedCurrentSession}"/>
               <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" HorizontalAlignment="Stretch">
                 <TextBlock Text="{Binding LocalizedSessionStatus}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <TextBlock Text="{Binding LocalizedActive}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="Medium" Foreground="Green"/>
@@ -1479,18 +1469,18 @@
           </Border>
 
           <!-- Sign Out Button -->
-          <Border CornerRadius="8" Padding="16" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Text="{Binding LocalizedReadyToSignOut}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedReadyToSignOut}"/>
               <TextBlock Text="{Binding LocalizedSignOutPrompt}" TextWrapping="Wrap" Opacity="0.8"/>
               <Button Content="{Binding LocalizedSignOutButton}" Command="{Binding LogoutCommand}" Background="{DynamicResource App.Accent}" Foreground="White" HorizontalAlignment="Left" Padding="12,8" FontWeight="Medium"/>
             </StackPanel>
           </Border>
 
           <!-- Security Note -->
-          <Border CornerRadius="8" Padding="16" BorderBrush="{DynamicResource App.BorderBrush}" BorderThickness="1" MaxWidth="680" HorizontalAlignment="Left">
+          <Border Classes="general-card">
             <StackPanel Spacing="8">
-              <TextBlock Text="{Binding LocalizedSecurityReminder}" FontWeight="SemiBold"/>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedSecurityReminder}"/>
               <TextBlock Text="{Binding LocalizedSecurityReminderText}" TextWrapping="Wrap" Opacity="0.8"/>
             </StackPanel>
           </Border>

@@ -786,6 +786,23 @@ These must never be violated:
 
 The client and relay server are separate binaries. They share `Directory.Build.props` for version alignment but have no shared runtime code. This separation is intentional: relay operators should not need the full client to run a relay.
 
+### AMD CPU CCD Affinity — Why V-Cache Is Preferred
+
+Zer0Talk exposes a **CCD Affinity** setting for AMD multi-CCD processors (Ryzen 7000X3D / 9000X3D series). The default is **Auto**, which detects the 3D V-Cache CCD at runtime and pins the process to it.
+
+**Why the V-Cache die is the better choice for Zer0Talk:**
+
+Zer0Talk's hot paths are dominated by work that is sensitive to L3 cache availability, not raw clock speed:
+
+- **XChaCha20-Poly1305** encryption/decryption — cipher state fits in L3; cache misses are the bottleneck
+- **X25519/Ed25519** key operations — elliptic-curve arithmetic benefits from keeping the working set resident
+- **Message indexing and contact lookups** — repeated reads of in-memory structures that reward a large L3
+- **UI rendering pipeline** — layout and composition passes reuse the same data structures repeatedly
+
+The 3D V-Cache die carries approximately **96 MB of L3 per CCD** versus ~32 MB on the non-V-Cache die. The non-V-Cache die has a modest clock advantage (~200–400 MHz higher boost), which helps single-thread latency but provides negligible gain when the workload is already L3-bound.
+
+**Design rule:** The `Auto` mode in `ApplyCcdAffinityImmediate()` intentionally selects the V-Cache CCD when detected. Do not change this default. If a future workload profile shifts toward single-thread latency rather than cache throughput, revisit with profiling data before altering the preference.
+
 ---
 
 ## 20. Changelog Discipline

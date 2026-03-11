@@ -22,7 +22,6 @@ public sealed class RelaySessionManager
     private readonly ConcurrentDictionary<string, DateTime> _recentFailures = new(StringComparer.OrdinalIgnoreCase);
     private readonly RelayConfig _config;
     private static readonly TimeSpan SessionCooldown = TimeSpan.FromSeconds(3);
-    private static readonly TimeSpan UnknownPendingTimeout = TimeSpan.FromSeconds(20);
 
     public RelaySessionManager(RelayConfig config)
     {
@@ -242,11 +241,11 @@ public sealed class RelaySessionManager
     private bool IsPendingExpired(RelayPending pending, DateTime now)
     {
         var age = now - pending.CreatedUtc;
-        var configuredTimeout = TimeSpan.FromSeconds(Math.Max(5, _config.PendingTimeoutSeconds));
-        var isUnknownSide = string.IsNullOrWhiteSpace(pending.Request.Uid);
-        var timeout = isUnknownSide && configuredTimeout > UnknownPendingTimeout
-            ? UnknownPendingTimeout
-            : configuredTimeout;
+        // Use the operator-configured timeout for all clients regardless of whether they include
+        // a UID. Phase-2 protocol sessions omit the UID but still need the full pending window;
+        // applying a shorter hard-coded cap would evict the first side before the client's own
+        // pair-wait timeout fires, causing silent pairing failures.
+        var timeout = TimeSpan.FromSeconds(Math.Max(5, _config.PendingTimeoutSeconds));
         return age >= timeout;
     }
 

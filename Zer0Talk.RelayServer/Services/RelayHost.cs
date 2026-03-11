@@ -1374,7 +1374,11 @@ public sealed class RelayHost
                 _rateLimiter.PruneStaleEntries();
                 ReportStats();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // Log but do not crash — cleanup must keep running even if one pass fails.
+                Log?.Invoke($"Relay cleanup error: {ex.GetType().Name}: {ex.Message}");
+            }
             try { await Task.Delay(TimeSpan.FromSeconds(5), ct); } catch { }
         }
     }
@@ -1666,7 +1670,17 @@ public sealed class RelayHost
     private static void ConfigureSocket(TcpClient client)
     {
         client.NoDelay = true;
-        try { client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true); } catch { }
+        try
+        {
+            var s = client.Client;
+            s.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+            // Shorten OS-level TCP keepalive timers from the Windows default (2 h idle) so that
+            // half-open sockets (remote crashed without sending FIN) are detected within ~60 s.
+            s.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 30);     // 30 s idle before first probe
+            s.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 10); // 10 s between probes
+            s.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3); // 3 probes → declare dead
+        }
+        catch { }
     }
 
     private bool AllowClient(TcpClient client)

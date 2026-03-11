@@ -87,7 +87,17 @@ namespace Zer0Talk.Services
                 var client = new System.Net.Sockets.TcpClient();
                 await client.ConnectAsync(relayHost, relayPort, ct);
                 try { client.NoDelay = true; } catch { }
-                try { client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true); } catch { }
+                try
+                {
+                    var s = client.Client;
+                    s.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                    // Shorten OS-level TCP keepalive timers from the Windows default (2 h idle) so
+                    // half-open sockets are detected within ~60 s, matching the 30 s app keepalive.
+                    s.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 30);
+                    s.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 10);
+                    s.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3);
+                }
+                catch { }
                 var ns = client.GetStream();
                 var relayRole = GetRelayRole(sourceUid, targetUid);
                 var hello = System.Text.Encoding.UTF8.GetBytes($"RELAY {sessionKey} {relayRole}\n");

@@ -41,6 +41,10 @@ Run this checklist before creating a release tag.
 - Verification history dialog: "View history" link on profile card opens a modal with full verification event details (replaces inline list).
 
 ### Updated
+- Settings panels (Appearance, Hotkeys, Debug, Performance, Accessibility, About, Network, Danger Zone, Logout) normalized to the `Settings > General` layout template: consistent `general-card` borders, `general-section-title` text style, and `general-divider` separators throughout. Panels that lacked a top-level section header (About, Danger Zone, Logout) now have one.
+- Settings > Performance: removed Enforce RAM Limit and Enforce VRAM Limit UI controls. These settings are too coarse to be reliably beneficial and risk degrading performance on most systems; the underlying ViewModel/settings fields are preserved for compatibility.
+- Settings > Performance > CPU: added guidance note to the CCD Affinity selector explaining that Auto is recommended for most users, and explaining that Zer0Talk's encryption/messaging workloads are cache-intensive so the 3D V-Cache die is the better target (which Auto already selects when detected).
+- Settings > Performance > Simulate CCD Configuration (Debug only): card now uses half-width layout (`MaxWidth=340`, left-aligned) to reduce visual footprint.
 - Manual `Check for Updates` now posts an immediate `Checking for updates...` notice before network resolution and explicitly reports `You are already up to date` when no newer version is found.
 - Client and Relay auto-follow/jump-to-latest flows now use eased smooth scrolling when enabled, with immediate snap fallback when disabled.
 - Client main chat canvas (`ChatScroll`) keeps native mouse-wheel behavior (including flywheel/fast-scroll mice) and uses smooth scrolling only for programmatic follow/jump transitions.
@@ -54,6 +58,10 @@ Run this checklist before creating a release tag.
 - Fluent `SelectionIndicator` and internal `Rectangle` elements hidden inside ContactsList `ListBoxItem` template across all themes via NeutralMetrics.
 
 ### Fixed
+- Relay audit: `UnknownPendingTimeout` (20 s hard-coded) was evicting Phase-2 protocol sessions (UID-less `RELAY <sessionKey>`) before the client's adaptive pair-wait timeout (up to 60 s) expired, causing silent pairing failures. Timeout now always uses the operator-configured `PendingTimeoutSeconds` for all clients.
+- Relay audit: client now logs specific, actionable messages for distinct relay `ERR` codes (`cooldown`, `rate-limit`, `blocked`, `capacity`, `already-active`, `already-queued`) instead of a single generic "Relay pairing failed" entry. `cooldown` and `rate-limit` responses also insert a 3.1 s back-off delay before returning to prevent immediate re-hammering.
+- Relay audit: `CleanupLoopAsync` now logs cleanup exceptions instead of silently swallowing them; cleanup loop continues running regardless.
+- Relay audit: TCP keepalive idle time, probe interval, and retry count now configured explicitly on all relay server and relay client sockets (30 s idle, 10 s interval, 3 retries) so half-open connections (remote crash without FIN) are detected in ≤60 s instead of the Windows OS default of 2 h.
 - Memory efficiency: bounded link preview cache growth with periodic TTL/size pruning to prevent long-session heap buildup from large numbers of unique preview URLs/images.
 - Relay memory efficiency: added stale-entry pruning in relay rate limiter state tables so scanner/high-churn keys do not accumulate indefinitely.
 - Relay memory efficiency: invite long-poll signal objects are now tracked with TTL and disposed during prune/UNREG/stop cleanup to prevent semaphore object buildup.
