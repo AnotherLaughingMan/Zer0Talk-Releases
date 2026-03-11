@@ -4,6 +4,8 @@
 **Last Audited:** 2026-03-10  
 **Status:** Living document. Treat with the same seriousness as production code.
 
+> **On AI tooling:** This project uses AI agents as part of its development workflow. This is not "vibe coding." Every decision — architectural, cryptographic, product, and policy — is made by the project owner. The AI is a tool, directed deliberately, the same way any other tool is. See [Section 21](#21-ai-in-the-development-workflow) for full disclosure.
+
 Every contributor is expected to read, understand, and follow this document. It defines what Zer0Talk is, why it exists, how it is built, and the principles that govern every decision made in this codebase.
 
 ---
@@ -861,6 +863,10 @@ The 3D V-Cache die carries approximately **96 MB of L3 per CCD** versus ~32 MB o
 
 ## 21. AI in the Development Workflow
 
+> **This is not "vibe coding."**
+>
+> Vibe coding is the practice of throwing prompts at an AI and shipping whatever comes out. That is not what happens here. The project owner directly directs the AI at every step: deciding what to build, what not to build, how it should work, what the security model is, and whether any given output is acceptable. The project owner also contributes directly — code where needed, all graphics, all sounds, all product and policy decisions. The AI executes under that direction. If the output is wrong, it gets corrected. If the approach is wrong, the AI is redirected. The human is in the loop at all times.
+
 This project uses AI coding agents as an active part of the development workflow. This includes but is not limited to GitHub Copilot (with various underlying models including Claude, GPT, and others), and any other AI agent that proves useful. This is a deliberate choice, made transparently.
 
 **What AI agents do in this project:**
@@ -872,12 +878,22 @@ This project uses AI coding agents as an active part of the development workflow
 - Run builds and interpret compiler output
 - Commit and push to source control on instruction
 
+**What the project owner contributes directly:**
+
+- All product and policy decisions (what gets built, what gets rejected, why)
+- All architectural decisions — including the entire security and cryptography model
+- All visual assets: graphics, icons, UI design, avatars, flags
+- All audio assets: sounds, notifications, audio integration
+- Code contributions where judgment, context, or security sensitivity demands direct authorship
+- Final review and approval of every change before it ships
+
 **What AI agents do not do:**
 
 - Make architectural decisions autonomously. The project owner directs all significant choices.
 - Bypass the build gate. Every change is validated with both Debug and Release builds before committing.
 - Touch cryptographic primitives without explicit review. Security-critical code is treated as highest-risk regardless of who writes the first draft.
 - Push breaking changes silently. Destructive or hard-to-reverse operations require explicit confirmation.
+- Decide what the product is. That is the project owner's call, always.
 
 **On transparency:**
 
