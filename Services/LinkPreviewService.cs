@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -21,6 +22,8 @@ namespace Zer0Talk.Services;
 public partial class LinkPreviewService : IDisposable
 {
     public static readonly TimeSpan PreviewCacheDuration = TimeSpan.FromHours(6);
+    private const int MaxPreviewCacheEntries = 256;
+    private const int CachePruneEveryWrites = 16;
     private const int MaxHtmlBytes = 256 * 1024;
     private const int MaxImageBytes = 256 * 1024;
 
@@ -57,6 +60,7 @@ public partial class LinkPreviewService : IDisposable
     private readonly ConcurrentDictionary<string, CachedPreview> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly HttpClient _httpClient;
     private readonly bool _disposeClient;
+    private int _cacheWritesSincePrune;
     private bool _disposed;
 
     public LinkPreviewService(HttpClient? httpClient = null)
@@ -101,9 +105,14 @@ public partial class LinkPreviewService : IDisposable
             return BuildRejectedShortUrlPreview(requestUri);
         }
 
-        if (_cache.TryGetValue(cacheKey, out var cached) && DateTime.UtcNow - cached.Timestamp <= PreviewCacheDuration)
+        if (_cache.TryGetValue(cacheKey, out var cached))
         {
-            return ClonePreview(cached.Preview);
+            if (DateTime.UtcNow - cached.Timestamp <= PreviewCacheDuration)
+            {
+                return ClonePreview(cached.Preview);
+            }
+
+            _cache.TryRemove(cacheKey, out _);
         }
 
         try
@@ -139,7 +148,7 @@ public partial class LinkPreviewService : IDisposable
             }
 
             preview.FetchedUtc = DateTime.UtcNow;
-            _cache[cacheKey] = new CachedPreview(ClonePreview(preview), DateTime.UtcNow);
+            CachePreview(cacheKey, preview);
             return preview;
         }
         catch (OperationCanceledException)
@@ -150,6 +159,56 @@ public partial class LinkPreviewService : IDisposable
         {
             try { ErrorLogger.LogException(ex, source: "LinkPreview.Fetch"); } catch { }
             return null;
+        }
+    }
+
+    private void CachePreview(string cacheKey, LinkPreview preview)
+    {
+        _cache[cacheKey] = new CachedPreview(ClonePreview(preview), DateTime.UtcNow);
+
+        var writes = Interlocked.Increment(ref _cacheWritesSincePrune);
+        if (writes < CachePruneEveryWrites)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _cacheWritesSincePrune, 0);
+        PruneCache();
+    }
+
+    private void PruneCache()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            foreach (var kv in _cache)
+            {
+                if ((now - kv.Value.Timestamp) > PreviewCacheDuration)
+                {
+                    _cache.TryRemove(kv.Key, out _);
+                }
+            }
+
+            var overflow = _cache.Count - MaxPreviewCacheEntries;
+            if (overflow <= 0)
+            {
+                return;
+            }
+
+            var oldestKeys = _cache
+                .OrderBy(kv => kv.Value.Timestamp)
+                .Take(overflow)
+                .Select(kv => kv.Key)
+                .ToList();
+
+            foreach (var key in oldestKeys)
+            {
+                _cache.TryRemove(key, out _);
+            }
+        }
+        catch
+        {
+            // Best-effort pruning only; preview fetch must keep working.
         }
     }
 

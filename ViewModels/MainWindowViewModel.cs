@@ -830,7 +830,15 @@ namespace Zer0Talk.ViewModels
             try
             {
                 ConnectedPeerCount = AppServices.Network.ActiveSessionCount;
-                Action<int> sessionCountHandler = count => { Avalonia.Threading.Dispatcher.UIThread.Post(() => ConnectedPeerCount = count); };
+                Action<int> sessionCountHandler = count =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        ConnectedPeerCount = count;
+                        RefreshContactMetadata();
+                        OnPropertyChanged(nameof(IsChatEncrypted));
+                    });
+                };
                 AppServices.Network.SessionCountChanged += sessionCountHandler;
                 _teardownActions.Add(() => AppServices.Network.SessionCountChanged -= sessionCountHandler);
             }

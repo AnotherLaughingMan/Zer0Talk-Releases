@@ -54,6 +54,9 @@ Run this checklist before creating a release tag.
 - Fluent `SelectionIndicator` and internal `Rectangle` elements hidden inside ContactsList `ListBoxItem` template across all themes via NeutralMetrics.
 
 ### Fixed
+- Memory efficiency: bounded link preview cache growth with periodic TTL/size pruning to prevent long-session heap buildup from large numbers of unique preview URLs/images.
+- Relay memory efficiency: added stale-entry pruning in relay rate limiter state tables so scanner/high-churn keys do not accumulate indefinitely.
+- Relay memory efficiency: invite long-poll signal objects are now tracked with TTL and disposed during prune/UNREG/stop cleanup to prevent semaphore object buildup.
 - Added explicit manual-update diagnostic breadcrumbs (`start`, `feed-unavailable`, `up-to-date`, `update-available`, `canceled`, `failed`) in `AutoUpdate` logs to make post-release updater triage faster.
 - Fixed wheel-scroll fighting on high-inertia mice by removing forced animated wheel interception from chat scrolling.
 - Fixed "Clear All Alerts" in Notification Center not clearing warnings and other alerts that have an origin UID (e.g. connection warnings).

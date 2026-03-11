@@ -49,7 +49,19 @@ namespace Zer0Talk.Models
         public string? LastKnownPublicKeyHex { get => _lastKnownPublicKeyHex; set { if (_lastKnownPublicKeyHex != value) { _lastKnownPublicKeyHex = value; OnPropertyChanged(nameof(LastKnownPublicKeyHex)); } } }
         // Persisted: last-known encrypted session state (for offline/placeholder UI only; live status comes from NetworkService)
         private bool _lastKnownEncrypted;
-        public bool LastKnownEncrypted { get => _lastKnownEncrypted; set { if (_lastKnownEncrypted != value) { _lastKnownEncrypted = value; OnPropertyChanged(nameof(LastKnownEncrypted)); } } }
+        public bool LastKnownEncrypted
+        {
+            get => _lastKnownEncrypted;
+            set
+            {
+                if (_lastKnownEncrypted != value)
+                {
+                    _lastKnownEncrypted = value;
+                    OnPropertyChanged(nameof(LastKnownEncrypted));
+                    OnPropertyChanged(nameof(IsEncryptionIndicatorVisible));
+                }
+            }
+        }
 
         // Persisted: when this contact was last identity-verified by trust ceremony.
         private System.DateTime? _lastVerifiedUtc;
@@ -103,7 +115,22 @@ namespace Zer0Talk.Models
     // Transient: connection mode (None, Direct, Relay)
     [JsonIgnore]
     private ConnectionMode _connectionMode = ConnectionMode.None;
-    public ConnectionMode ConnectionMode { get => _connectionMode; set { if (_connectionMode != value) { _connectionMode = value; OnPropertyChanged(nameof(ConnectionMode)); } } }
+    public ConnectionMode ConnectionMode
+    {
+        get => _connectionMode;
+        set
+        {
+            if (_connectionMode != value)
+            {
+                _connectionMode = value;
+                OnPropertyChanged(nameof(ConnectionMode));
+                OnPropertyChanged(nameof(IsEncryptionIndicatorVisible));
+            }
+        }
+    }
+
+    [JsonIgnore]
+    public bool IsEncryptionIndicatorVisible => _connectionMode != ConnectionMode.None || _lastKnownEncrypted;
 
     // Transient: peer's app version (set when identity is exchanged)
     [JsonIgnore]

@@ -618,7 +618,7 @@
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Presence, Converter={StaticResource PresenceToDisplayStringConverter}}" FontSize="12" Opacity="0.6"/>
                                                 <TextBlock Classes="icon-mdl2" Text="&#xE72E;" FontSize="12" Opacity="0.7"
-                                                           IsVisible="{Binding LastKnownEncrypted}"
+                                                           IsVisible="{Binding IsEncryptionIndicatorVisible}"
                                                            ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedEncrypted}"/>
                                                 <!-- Connection mode: direct (globe) or relay (sync) -->
                                                 <TextBlock Classes="icon-mdl2" Text="&#xE774;" FontSize="11" Opacity="0.55"

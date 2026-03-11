@@ -33,6 +33,7 @@ public sealed class RelayHost
     private readonly Dictionary<string, List<RendezvousInvite>> _invitesByTarget = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _inviteGate = new();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _inviteSignals = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTime> _inviteSignalLastSeenUtc = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentQueue<string> _probeAuditLogs = new();
     private readonly ConcurrentDictionary<string, DateTime> _blockedUids = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTime> _blockedIps = new(StringComparer.OrdinalIgnoreCase);
@@ -68,6 +69,7 @@ public sealed class RelayHost
 
     /// <summary>Don't redeliver same invite within 6 seconds.</summary>
     private static readonly TimeSpan InviteRedeliveryDelay = TimeSpan.FromSeconds(6);
+    private static readonly TimeSpan InviteSignalTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan FirstArrivalStreakWindow = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan FirstArrivalStateTtl = TimeSpan.FromMinutes(10);
     private const int ProbeAuditLimit = 2000;
@@ -173,6 +175,7 @@ public sealed class RelayHost
         _federationListener = null;
         _federationAcceptTask = null;
         _federationUsesMainPort = true;
+        ClearInviteSignals();
         IsRunning = false;
         _paused = false;
         Log?.Invoke("Relay stopped");
@@ -813,7 +816,7 @@ public sealed class RelayHost
         if (invites.Count == 0)
         {
             // Long-poll: wait for an invite to arrive
-            var signal = _inviteSignals.GetOrAdd(uid, _ => new SemaphoreSlim(0, int.MaxValue));
+            var signal = GetInviteSignal(uid);
             try { await signal.WaitAsync(waitMs, ct); } catch { }
             PruneInvites();
             invites = GetPendingInvites(uid, 8);
@@ -927,6 +930,8 @@ public sealed class RelayHost
         {
             _invitesByTarget.Remove(uid);
         }
+
+        RemoveInviteSignal(uid);
 
         Log?.Invoke($"UNREG: uid={uid} removed={removed}");
         ReportClients();
@@ -1042,7 +1047,7 @@ public sealed class RelayHost
                     inviteId = existing.InviteId;
 
                     // Signal waiting long-polls
-                    try { _inviteSignals.GetOrAdd(targetUid, _ => new SemaphoreSlim(0, int.MaxValue)).Release(); } catch { }
+                    try { GetInviteSignal(targetUid).Release(); } catch { }
                     return inviteId;
                 }
             }
@@ -1052,7 +1057,7 @@ public sealed class RelayHost
         }
 
         // Signal waiting long-polls
-        try { _inviteSignals.GetOrAdd(targetUid, _ => new SemaphoreSlim(0, int.MaxValue)).Release(); } catch { }
+        try { GetInviteSignal(targetUid).Release(); } catch { }
 
         PruneInvites();
         return inviteId;
@@ -1138,6 +1143,8 @@ public sealed class RelayHost
                 if (list.Count == 0) _invitesByTarget.Remove(key);
             }
         }
+
+        PruneInviteSignals();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1361,8 +1368,10 @@ public sealed class RelayHost
                 _sessions.CleanupExpiredPending();
                 PruneDirectory();
                 PruneInvites();
+                PruneInviteSignals();
                 PruneBlockedEntries();
                 PruneFirstArrivalStates();
+                _rateLimiter.PruneStaleEntries();
                 ReportStats();
             }
             catch { }
@@ -1595,6 +1604,59 @@ public sealed class RelayHost
                 }
             }
         }
+
+        RemoveInviteSignal(uid);
+    }
+
+    private SemaphoreSlim GetInviteSignal(string uid)
+    {
+        var signal = _inviteSignals.GetOrAdd(uid, _ => new SemaphoreSlim(0, int.MaxValue));
+        _inviteSignalLastSeenUtc[uid] = DateTime.UtcNow;
+        return signal;
+    }
+
+    private void RemoveInviteSignal(string uid)
+    {
+        if (string.IsNullOrWhiteSpace(uid)) return;
+        _inviteSignalLastSeenUtc.TryRemove(uid, out _);
+        if (_inviteSignals.TryRemove(uid, out var signal))
+        {
+            try { signal.Dispose(); } catch { }
+        }
+    }
+
+    private void PruneInviteSignals()
+    {
+        var cutoff = DateTime.UtcNow - InviteSignalTtl;
+        foreach (var entry in _inviteSignalLastSeenUtc)
+        {
+            if (entry.Value >= cutoff) continue;
+
+            var uid = entry.Key;
+            if (_directory.ContainsKey(uid)) continue;
+
+            var hasPendingInvites = false;
+            lock (_inviteGate)
+            {
+                hasPendingInvites = _invitesByTarget.TryGetValue(uid, out var list) && list.Count > 0;
+            }
+            if (hasPendingInvites) continue;
+
+            RemoveInviteSignal(uid);
+        }
+    }
+
+    private void ClearInviteSignals()
+    {
+        foreach (var entry in _inviteSignals)
+        {
+            if (_inviteSignals.TryRemove(entry.Key, out var signal))
+            {
+                try { signal.Dispose(); } catch { }
+            }
+        }
+
+        _inviteSignalLastSeenUtc.Clear();
     }
 
     // ═══════════════════════════════════════════════════════════════

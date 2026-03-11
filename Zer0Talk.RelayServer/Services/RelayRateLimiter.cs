@@ -29,6 +29,17 @@ public sealed class RelayRateLimiter
         return ShouldAllowCore(_authStates, uidOrTokenKey, _maxAuthenticatedPerMinute, out retryAfter);
     }
 
+    public int PruneStaleEntries()
+    {
+        var now = DateTime.UtcNow;
+        var staleBefore = now - (_window + _window + _banDuration + _banDuration);
+
+        var removed = 0;
+        removed += PruneStore(_states, staleBefore, now);
+        removed += PruneStore(_authStates, staleBefore, now);
+        return removed;
+    }
+
     private bool ShouldAllowCore(ConcurrentDictionary<string, RateState> store, string key, int limit, out TimeSpan? retryAfter)
     {
         retryAfter = null;
@@ -37,6 +48,8 @@ public sealed class RelayRateLimiter
 
         lock (state.Gate)
         {
+            state.LastSeenUtc = now;
+
             if (state.BanUntilUtc.HasValue && state.BanUntilUtc > now)
             {
                 retryAfter = state.BanUntilUtc.Value - now;
@@ -61,15 +74,46 @@ public sealed class RelayRateLimiter
         }
     }
 
+    private int PruneStore(ConcurrentDictionary<string, RateState> store, DateTime staleBefore, DateTime now)
+    {
+        var removed = 0;
+        foreach (var entry in store)
+        {
+            var state = entry.Value;
+            var remove = false;
+            lock (state.Gate)
+            {
+                if (state.BanUntilUtc.HasValue && state.BanUntilUtc > now)
+                {
+                    continue;
+                }
+
+                if (state.LastSeenUtc < staleBefore && (now - state.WindowStartUtc) > _window)
+                {
+                    remove = true;
+                }
+            }
+
+            if (remove && store.TryRemove(entry.Key, out _))
+            {
+                removed++;
+            }
+        }
+
+        return removed;
+    }
+
     private sealed class RateState
     {
         public RateState(DateTime now)
         {
             WindowStartUtc = now;
+            LastSeenUtc = now;
         }
 
         public object Gate { get; } = new();
         public DateTime WindowStartUtc { get; set; }
+        public DateTime LastSeenUtc { get; set; }
         public int Count { get; set; }
         public DateTime? BanUntilUtc { get; set; }
     }
