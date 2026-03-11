@@ -1,62 +1,90 @@
+# Zer0Talk Proprietary License v1.1
 
-## 🛡️ Zer0Talk Sovereign Software License v1.0
+**Copyright © 2025–2026 AnotherLaughingMan ("the Author"). All rights reserved.**
 
-**Effective Date:** [9/28/2025]  
-**Author:** AnotherLaughingMan  
-**Project:** Zer0Talk
-
----
-
-### 1. **License Grant**
-
-This software is licensed, not sold. The author grants no rights to use, copy, modify, distribute, or integrate this software except as explicitly stated below.
+**Effective Date:** September 28, 2025
+**Last Revised:** March 11, 2026
 
 ---
 
-### 2. **Permitted Use**
+## 1. Definitions
 
-You may:
-- View the source code for educational or archival purposes.
-- Run the software privately on your own hardware, without modification.
-
----
-
-### 3. **Prohibited Use**
-
-You may not:
-- Redistribute this software or any portion thereof, in source or binary form.
-- Modify, fork, or derive works from this software.
-- Use this software for commercial purposes, including but not limited to resale, SaaS, or monetized services.
-- Integrate this software into any platform, centralized service, or surveillance system.
-- Use this software to build or support moderation, censorship, or behavioral analytics tools.
-- Use this software for any unlawful, fraudulent, abusive, or otherwise illegal activity. Any such use may expose the end user to civil, criminal, or regulatory penalties under the laws of their own jurisdiction.
+- **"Software"** means the Zer0Talk application, relay server, installer, associated documentation, and all related files distributed by the Author.
+- **"You"** (or "Your") means the individual or organization exercising permissions granted by this license.
+- **"Personal Use"** means use by a natural person on hardware they own or control, solely for their own private, non-commercial communication.
 
 ---
 
-### 4. **Sensitive Nature of the Source**
+## 2. License Grant
 
-The source code of Zer0Talk is not publicly disclosed due to the sensitive nature of its design and functionality. 
-Its architecture is specifically engineered to prevent unauthorized surveillance, data retention, and external control mechanisms. 
-Making the source code openly available would increase the risk of exploitation, compromise the security measures in place, and potentially endanger the privacy and safety of its users. 
-Restricting access is a necessary measure to maintain the integrity and confidentiality of the software and its communication protocols.
+The Author grants You a limited, non-exclusive, non-transferable, revocable license to:
 
----
+- Download and install the Software on devices You personally own or control.
+- Run the Software for Personal Use only.
 
-### 5. **No Warranty**
-
-This software is provided “as is,” without warranty of any kind. The author disclaims all liability for any damages arising from use or misuse.
-By using this software, you agree that you are solely responsible for how you use it and for compliance with all applicable local, state, national, and international laws.
+No other rights are granted. This software is licensed, not sold.
 
 ---
 
-### 6. **Termination**
+## 3. Restrictions
 
-Any violation of this license immediately terminates your rights to use the software. Continued use after termination constitutes unauthorized access.
+You may **not**, without prior written consent from the Author:
+
+- Redistribute the Software or any portion of it, in original or modified form, by any means.
+- Modify, decompile, reverse engineer, disassemble, or derive works from the Software.
+- Use the Software for any commercial purpose, including but not limited to resale, SaaS offerings, or monetized services.
+- Host, operate, or expose the Software (including the relay server component) as a service for third parties without the Author's explicit written approval.
+- Integrate the Software into any centralized platform, surveillance system, behavioral analytics tool, or content moderation system.
+- Sub-license, sell, rent, lease, or otherwise transfer rights to the Software.
 
 ---
 
-### 7. **Governing Law and Jurisdiction**
+## 4. Closed Source
 
-This license shall be governed by and construed in accordance with the laws of the jurisdiction chosen by the Licensor, without regard to its conflict of law principles. Any dispute arising out of or relating to this license or the use of the software shall be subject to the exclusive jurisdiction of the courts located within that jurisdiction.
+The source code of Zer0Talk is not publicly disclosed. Its architecture is specifically engineered to prevent unauthorized surveillance, data retention, and external control mechanisms. The Author has determined that withholding the source is necessary to maintain the integrity and security of the Software and to protect its users.
 
-The rights granted herein are expressly limited to the terms stated in this license. No implied licenses, rights, or permissions are granted beyond those explicitly set forth. The Licensor retains all rights not expressly granted.
+This restriction does not affect your rights to use the Software as defined in Section 2.
+
+---
+
+## 5. Lawful Use Only
+
+You may not use the Software for any unlawful, fraudulent, abusive, or otherwise illegal activity. Such use is prohibited regardless of local law and may result in termination of your rights under this license. You are solely responsible for ensuring your use of the Software complies with all applicable laws in your jurisdiction.
+
+---
+
+## 6. No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. THE AUTHOR MAKES NO GUARANTEE THAT THE SOFTWARE WILL BE ERROR-FREE, SECURE, OR UNINTERRUPTED.
+
+USE OF THE SOFTWARE IS ENTIRELY AT YOUR OWN RISK.
+
+---
+
+## 7. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE AUTHOR SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF OR INABILITY TO USE THE SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+---
+
+## 8. Termination
+
+Your rights under this license terminate automatically and immediately if You breach any of its terms. Upon termination, You must cease all use of the Software and delete all copies in your possession. Sections 4 through 11 survive termination.
+
+---
+
+## 9. No Implied Rights
+
+All rights not expressly granted in this license are reserved by the Author. No implied licenses, permissions, or rights are granted under this license by estoppel, implication, or otherwise.
+
+---
+
+## 10. Governing Law
+
+This license is governed by and construed in accordance with the laws of the jurisdiction chosen by the Author, without regard to conflict of law principles. Any dispute arising from this license or the use of the Software is subject to the exclusive jurisdiction of the courts in that jurisdiction.
+
+---
+
+## 11. Entire Agreement
+
+This license, together with the accompanying Disclaimer (`Disclaimer.md`) and Privacy Policy (`docs/PRIVACY-POLICY.md`), constitutes the entire agreement between You and the Author regarding the Software and supersedes all prior or contemporaneous representations, understandings, or agreements.
