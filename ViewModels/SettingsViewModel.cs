@@ -3257,24 +3257,21 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void OpenPrivacyPolicy()
+    private async void OpenPrivacyPolicy()
     {
         try
         {
-            var candidates = new[]
-            {
-                Path.Combine(AppContext.BaseDirectory, "Disclaimer.md"),
-                Path.Combine(AppContext.BaseDirectory, "LICENSE.md")
-            };
-            var file = candidates.FirstOrDefault(File.Exists);
-            if (string.IsNullOrWhiteSpace(file))
-            {
-                _ = ShowSaveToastAsync("Privacy policy file not found", 2500);
-                return;
-            }
+            var window = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow
+                : null;
+            if (window == null) return;
 
-            OpenFileInShell(file);
-            _ = ShowSaveToastAsync("Opened privacy information", 1800);
+            var settings = _settings.Settings;
+            var dlg = new Views.PrivacyPolicyDialog(alreadyAccepted: settings.PrivacyPolicyAccepted, doNotShowChecked: settings.DoNotShowPrivacyAgain, mandatory: false);
+            await dlg.ShowDialog(window);
+            settings.PrivacyPolicyAccepted = settings.PrivacyPolicyAccepted || dlg.Accepted;
+            settings.DoNotShowPrivacyAgain = dlg.DoNotShowAgain;
+            try { _settings.Save(AppServices.Passphrase); } catch { }
         }
         catch
         {
@@ -5237,7 +5234,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             var logsDir = Utilities.LoggingPaths.LogsDirectory;
             if (!System.IO.Directory.Exists(logsDir))
             {
-                _ = ShowToastAsync("No logs directory found");
+                _ = ShowSaveToastAsync("No logs directory found");
                 return;
             }
 
@@ -5251,7 +5248,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 .ToArray();
             if (files.Length == 0)
             {
-                _ = ShowToastAsync("No log files to purge");
+                _ = ShowSaveToastAsync("No log files to purge");
                 return;
             }
 
@@ -5268,11 +5265,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 catch { /* Skip files that can't be deleted */ }
             }
             
-            _ = ShowToastAsync($"Purged {deletedCount} log file(s) ({bytesWiped:N0} bytes wiped)");
+            _ = ShowSaveToastAsync($"Purged {deletedCount} log file(s) ({bytesWiped:N0} bytes wiped)");
         }
         catch (Exception ex)
         {
-            _ = ShowToastAsync($"Failed to purge logs: {ex.Message}");
+            _ = ShowSaveToastAsync($"Failed to purge logs: {ex.Message}");
         }
     }
 

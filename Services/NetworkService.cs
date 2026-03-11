@@ -60,7 +60,7 @@ namespace Zer0Talk.Services
     private readonly object _timeoutTuningGate = new();
     private double _directSessionWaitMsEwma = 6000;
     private double _relayAckWaitMsEwma = 5000;
-    private double _relayPairWaitMsEwma = 45000;
+private double _relayPairWaitMsEwma = 20000;
 
     private static TimeSpan GetPresenceTimeout()
     {
@@ -672,14 +672,10 @@ namespace Zer0Talk.Services
                     catch { }
                 }
 
-                foreach (var relay in relayCandidates)
-                {
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    var ok = await TryConnectViaRelayEndpointAsync(peerUid, relay.Host, relay.Port, relay.Display, ct);
-                    sw.Stop();
-                    RecordRelayAttemptResult(relay.Host, relay.Port, ok, sw.Elapsed.TotalMilliseconds);
-                    if (ok) return true;
-                }
+                // Happy Eyeballs: try relay candidates with staggered parallel starts.
+                // Takes the first candidate to succeed; cancels the rest.
+                var ok = await ConnectToFirstRelayAsync(peerUid, relayCandidates, ct);
+                if (ok) return true;
 
                 if (round < relayRounds - 1)
                 {
@@ -688,6 +684,66 @@ namespace Zer0Talk.Services
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Happy Eyeballs relay selection: fires candidates with 250 ms staggered starts.
+        /// The first to return a successful session wins; the rest are cancelled.
+        /// </summary>
+        private async Task<bool> ConnectToFirstRelayAsync(
+            string peerUid,
+            List<(string Host, int Port, string Display)> candidates,
+            CancellationToken ct)
+        {
+            if (candidates.Count == 0) return false;
+
+            // Single candidate — no need for stagger overhead.
+            if (candidates.Count == 1)
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var ok = await TryConnectViaRelayEndpointAsync(peerUid, candidates[0].Host, candidates[0].Port, candidates[0].Display, ct);
+                sw.Stop();
+                RecordRelayAttemptResult(candidates[0].Host, candidates[0].Port, ok, sw.Elapsed.TotalMilliseconds);
+                return ok;
+            }
+
+            using var raceCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            var tcs = new System.Threading.Tasks.TaskCompletionSource<bool>(System.Threading.Tasks.TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var tasks = candidates.Select(async (relay, index) =>
+            {
+                // Stagger: wait 250 ms between each additional candidate attempt.
+                if (index > 0)
+                {
+                    try { await Task.Delay(250 * index, raceCts.Token); }
+                    catch (OperationCanceledException) { return; }
+                }
+
+                if (raceCts.IsCancellationRequested) return;
+
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                bool succeeded;
+                try
+                {
+                    succeeded = await TryConnectViaRelayEndpointAsync(peerUid, relay.Host, relay.Port, relay.Display, raceCts.Token);
+                }
+                catch
+                {
+                    succeeded = false;
+                }
+                sw.Stop();
+                RecordRelayAttemptResult(relay.Host, relay.Port, succeeded, sw.Elapsed.TotalMilliseconds);
+
+                if (succeeded)
+                {
+                    tcs.TrySetResult(true);
+                    raceCts.Cancel();
+                }
+            }).ToArray();
+
+            await Task.WhenAll(tasks);
+
+            return tcs.Task.IsCompletedSuccessfully && await tcs.Task;
         }
 
         private async Task<bool> TryConnectViaRelayEndpointAsync(string peerUid, string relayHost, int relayPort, string relayDisplay, CancellationToken ct)
@@ -2906,6 +2962,7 @@ namespace Zer0Talk.Services
             var matches = _discoveredRelays.Values
                 .Where(r => string.Equals(r.Token, token, StringComparison.Ordinal) && (now - r.LastSeenUtc) <= relayTtl)
                 .OrderBy(r => RelayDistanceScore(r.Host))
+                .ThenByDescending(r => GetRelayHealthScore(r.Host, r.Port))
                 .ThenByDescending(r => r.LastSeenUtc)
                 .ToList();
 

@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.IO;
 using System.Net.Sockets;
 using System.Threading;
@@ -35,14 +36,16 @@ public sealed class RelayForwarder
 
     private async Task CopyAsync(Stream source, Stream target, string direction, CancellationToken ct)
     {
-        var buffer = new byte[_bufferSize];
+        var buffer = ArrayPool<byte>.Shared.Rent(_bufferSize);
+        try
+        {
         ulong bytesTransferred = 0;
         while (!ct.IsCancellationRequested)
         {
             int read;
             try
             {
-                read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), ct);
+                read = await source.ReadAsync(buffer.AsMemory(0, _bufferSize), ct);
             }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
@@ -63,12 +66,19 @@ public sealed class RelayForwarder
             try
             {
                 await target.WriteAsync(buffer.AsMemory(0, read), ct);
-                await target.FlushAsync(ct);
+                // TCP_NODELAY is set on all relay sockets — flushing after every write is redundant
+                // (NetworkStream.WriteAsync already sends immediately). Calling FlushAsync here
+                // adds a syscall per frame with no throughput benefit.
             }
             catch (Exception ex) when (!ct.IsCancellationRequested)
             {
                 throw new IOException($"{direction} write failed after {bytesTransferred} bytes: {ex.Message}", ex);
             }
+        }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 }

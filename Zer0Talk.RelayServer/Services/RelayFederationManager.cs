@@ -19,6 +19,11 @@ public sealed class RelayFederationManager : IDisposable
     private readonly RelayConfig _config;
     private readonly ConcurrentDictionary<string, FederatedPeer> _peers = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, FederatedDirectoryEntry> _federatedDirectory = new(StringComparer.OrdinalIgnoreCase);
+    // Tracks last reconnect attempt time per peer host:port to throttle reconnect retries.
+    private readonly ConcurrentDictionary<string, DateTime> _reconnectThrottleByPeer = new(StringComparer.OrdinalIgnoreCase);
+    // Persistent TCP connections to federation peers — reused across health checks and dir-syncs.
+    private readonly ConcurrentDictionary<string, PersistentFederationConnection> _peerConnections = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan ReconnectThrottle = TimeSpan.FromSeconds(60);
     private CancellationTokenSource? _cts;
     private Task? _syncTask;
     private Task? _healthTask;
@@ -76,6 +81,13 @@ public sealed class RelayFederationManager : IDisposable
     {
         try { _cts?.Cancel(); } catch { }
 
+        // Dispose all persistent peer connections.
+        foreach (var conn in _peerConnections.Values)
+        {
+            try { conn.Dispose(); } catch { }
+        }
+        _peerConnections.Clear();
+
         _peers.Clear();
         Log?.Invoke("Federation stopped");
     }
@@ -83,6 +95,7 @@ public sealed class RelayFederationManager : IDisposable
     /// <summary>
     /// Look up a user across the federated relay network.
     /// Returns the user's host:port if found on any peer relay, or null if not found.
+    /// Queries all healthy peers in parallel and returns on the first positive result.
     /// </summary>
     public async Task<(string? host, int? port)> LookupUserFederatedAsync(string uid, CancellationToken ct = default)
     {
@@ -117,87 +130,31 @@ public sealed class RelayFederationManager : IDisposable
             return (null, null);
         }
 
-        var queriedAny = false;
-
-        // First pass: prefer healthy peers.
-        foreach (var peer in peers.Where(p => p.IsHealthy))
+        // Fan out queries to all healthy peers simultaneously; return on first hit.
+        var healthyPeers = peers.Where(p => p.IsHealthy).ToList();
+        if (healthyPeers.Count > 0)
         {
-            queriedAny = true;
-            try
+            IncLookupDiag("peer_query_attempt");
+            var result = await ParallelLookupAsync(healthyPeers, normalizedUid, ct);
+            if (result.host != null && result.port != null)
             {
-                for (var attempt = 1; attempt <= LookupAttemptsPerPeer; attempt++)
-                {
-                    IncLookupDiag("peer_query_attempt");
-                    var result = await QueryPeerForUserAsync(peer, normalizedUid, ct);
-                    if (result.Kind == PeerLookupKind.Found && result.Host != null && result.Port != null)
-                    {
-                        peer.ConsecutiveLookupFailures = 0;
-                        peer.ConsecutiveHealthFailures = 0;
-                        peer.IsHealthy = true;
-                        peer.LastSeenUtc = DateTime.UtcNow;
-
-                        _federatedDirectory[normalizedUid] = new FederatedDirectoryEntry(result.Host, result.Port.Value, DateTime.UtcNow);
-                        IncLookupDiag("peer_query_hit");
-                        return (result.Host, result.Port);
-                    }
-
-                    if (result.Kind == PeerLookupKind.Miss)
-                    {
-                        peer.ConsecutiveLookupFailures = 0;
-                        IncLookupDiag("peer_query_miss");
-                        break;
-                    }
-
-                    IncLookupDiag("peer_query_error");
-                    if (attempt < LookupAttemptsPerPeer)
-                    {
-                        try { await Task.Delay(120, ct); } catch { }
-                    }
-                }
-
-                peer.ConsecutiveLookupFailures++;
-                if (peer.ConsecutiveLookupFailures >= LookupFailuresBeforeUnhealthy)
-                {
-                    peer.IsHealthy = false;
-                    Log?.Invoke($"Federation peer degraded after lookup failures | peer={peer.Host}:{peer.Port} | failures={peer.ConsecutiveLookupFailures}");
-                }
-            }
-            catch (Exception ex)
-            {
-                IncLookupDiag("peer_query_exception");
-                peer.ConsecutiveLookupFailures++;
-                if (peer.ConsecutiveLookupFailures >= LookupFailuresBeforeUnhealthy)
-                {
-                    peer.IsHealthy = false;
-                }
-
-                Log?.Invoke($"Federation lookup error | peer={peer.Host}:{peer.Port} | failures={peer.ConsecutiveLookupFailures} | error={ex.Message}");
+                _federatedDirectory[normalizedUid] = new FederatedDirectoryEntry(result.host, result.port.Value, DateTime.UtcNow);
+                IncLookupDiag("peer_query_hit");
+                return result;
             }
         }
 
-        // Second pass: if no healthy peers responded, try unhealthy peers opportunistically.
-        if (!queriedAny || peers.All(p => !p.IsHealthy))
+        // Fallback: if no healthy peers found it, try unhealthy peers opportunistically.
+        var unhealthyPeers = peers.Where(p => !p.IsHealthy).ToList();
+        if (unhealthyPeers.Count > 0)
         {
             IncLookupDiag("fallback_unhealthy_scan");
-            foreach (var peer in peers)
+            var result = await ParallelLookupAsync(unhealthyPeers, normalizedUid, ct);
+            if (result.host != null && result.port != null)
             {
-                try
-                {
-                    IncLookupDiag("peer_query_attempt");
-                    var result = await QueryPeerForUserAsync(peer, normalizedUid, ct);
-                    if (result.Kind == PeerLookupKind.Found && result.Host != null && result.Port != null)
-                    {
-                        peer.ConsecutiveLookupFailures = 0;
-                        peer.ConsecutiveHealthFailures = 0;
-                        peer.IsHealthy = true;
-                        peer.LastSeenUtc = DateTime.UtcNow;
-
-                        _federatedDirectory[normalizedUid] = new FederatedDirectoryEntry(result.Host, result.Port.Value, DateTime.UtcNow);
-                        IncLookupDiag("peer_query_hit");
-                        return (result.Host, result.Port);
-                    }
-                }
-                catch { }
+                _federatedDirectory[normalizedUid] = new FederatedDirectoryEntry(result.host, result.port.Value, DateTime.UtcNow);
+                IncLookupDiag("peer_query_hit");
+                return result;
             }
         }
 
@@ -341,6 +298,193 @@ public sealed class RelayFederationManager : IDisposable
 
     private readonly record struct PeerLookupResult(PeerLookupKind Kind, string? Host, int? Port);
 
+    /// <summary>
+    /// Queries a list of peers in parallel. Returns the first positive result,
+    /// cancelling all outstanding queries as soon as one succeeds.
+    /// </summary>
+    private async Task<(string? host, int? port)> ParallelLookupAsync(IReadOnlyList<FederatedPeer> peers, string normalizedUid, CancellationToken ct)
+    {
+        if (peers.Count == 0) return (null, null);
+        if (peers.Count == 1)
+        {
+            try
+            {
+                var r = await QueryPeerForUserAsync(peers[0], normalizedUid, ct);
+                if (r.Kind == PeerLookupKind.Found && r.Host != null && r.Port != null)
+                {
+                    peers[0].IsHealthy = true;
+                    peers[0].ConsecutiveLookupFailures = 0;
+                    peers[0].LastSeenUtc = DateTime.UtcNow;
+                    return (r.Host, r.Port);
+                }
+            }
+            catch { }
+            return (null, null);
+        }
+
+        using var innerCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var tcs = new TaskCompletionSource<(string host, int port)>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var tasks = peers.Select(async peer =>
+        {
+            try
+            {
+                var r = await QueryPeerForUserAsync(peer, normalizedUid, innerCts.Token);
+                if (r.Kind == PeerLookupKind.Found && r.Host != null && r.Port != null)
+                {
+                    peer.IsHealthy = true;
+                    peer.ConsecutiveLookupFailures = 0;
+                    peer.LastSeenUtc = DateTime.UtcNow;
+                    tcs.TrySetResult((r.Host, r.Port.Value));
+                    innerCts.Cancel();
+                }
+                else if (r.Kind == PeerLookupKind.Miss)
+                {
+                    peer.ConsecutiveLookupFailures = 0;
+                }
+                else
+                {
+                    peer.ConsecutiveLookupFailures++;
+                    if (peer.ConsecutiveLookupFailures >= LookupFailuresBeforeUnhealthy)
+                        peer.IsHealthy = false;
+                }
+            }
+            catch
+            {
+                peer.ConsecutiveLookupFailures++;
+                if (peer.ConsecutiveLookupFailures >= LookupFailuresBeforeUnhealthy)
+                    peer.IsHealthy = false;
+            }
+        }).ToArray();
+
+        await Task.WhenAll(tasks);
+
+        if (tcs.Task.IsCompletedSuccessfully)
+        {
+            var result = await tcs.Task;
+            return (result.host, result.port);
+        }
+
+        return (null, null);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Cross-relay session bridging (Phase 3)
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Queries all healthy peer relays in parallel to find which relay holds the given pending session.
+    /// Returns the host and port of the peer relay, or null if not found.
+    /// </summary>
+    public async Task<(string? host, int? port)> QuerySessionAsync(string sessionKey, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(sessionKey)) return (null, null);
+
+        var peers = _peers.Values.Where(p => p.IsHealthy).ToList();
+        if (peers.Count == 0) return (null, null);
+
+        using var innerCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var tcs = new TaskCompletionSource<(string host, int port)>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var tasks = peers.Select(async peer =>
+        {
+            try
+            {
+                var response = await SendCommandAsync(peer.Host, peer.Port,
+                    BuildFederationCommand($"RELAY-SESSION-QUERY {sessionKey}"),
+                    TimeSpan.FromSeconds(4), innerCts.Token);
+
+                if (response != null && response.StartsWith("HAS", StringComparison.OrdinalIgnoreCase))
+                {
+                    tcs.TrySetResult((peer.Host, peer.Port));
+                    innerCts.Cancel();
+                }
+            }
+            catch { }
+        }).ToArray();
+
+        await Task.WhenAll(tasks);
+
+        if (tcs.Task.IsCompletedSuccessfully)
+        {
+            var result = await tcs.Task;
+            Log?.Invoke($"Federation session found | key={sessionKey[..Math.Min(8, sessionKey.Length)]}... | peer={result.host}:{result.port}");
+            return (result.host, result.port);
+        }
+
+        return (null, null);
+    }
+
+    /// <summary>
+    /// Opens a cross-relay bridge to the target relay for the specified session.
+    /// The returned TcpClient is connected with RELAY-BRIDGE handshake complete and ready for raw piping.
+    /// Caller is responsible for closing the TcpClient when done.
+    /// Returns null if the bridge could not be established.
+    /// </summary>
+    public async Task<TcpClient?> OpenBridgeAsync(string host, int port, string sessionKey, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(sessionKey)) return null;
+
+        TcpClient? client = null;
+        try
+        {
+            client = new TcpClient();
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
+
+            await client.ConnectAsync(host, port, cts.Token);
+            client.NoDelay = true;
+            var stream = client.GetStream();
+
+            var cmd = BuildFederationCommand($"RELAY-BRIDGE {sessionKey}") + "\n";
+            var bytes = Encoding.UTF8.GetBytes(cmd);
+            await stream.WriteAsync(bytes, cts.Token);
+            await stream.FlushAsync(cts.Token);
+
+            var response = await ReadLineAsync(stream, TimeSpan.FromSeconds(5), cts.Token);
+            if (response == null || !response.StartsWith("OK-BRIDGE", StringComparison.OrdinalIgnoreCase))
+            {
+                Log?.Invoke($"Federation bridge rejected | peer={host}:{port} | key={sessionKey[..Math.Min(8, sessionKey.Length)]}... | response={response ?? "(null)"}");
+                try { client.Close(); } catch { }
+                return null;
+            }
+
+            Log?.Invoke($"Federation bridge established | peer={host}:{port} | key={sessionKey[..Math.Min(8, sessionKey.Length)]}...");
+            return client;
+        }
+        catch (Exception ex)
+        {
+            Log?.Invoke($"Federation bridge error | peer={host}:{port} | error={ex.Message}");
+            try { client?.Close(); } catch { }
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Forwards a rendezvous OFFER to a federated peer relay on behalf of a client.
+    /// Used when the target UID is registered on a different relay than the source.
+    /// </summary>
+    public async Task<bool> ForwardOfferAsync(string host, int port, string targetUid, string sourceUid, string sessionKey, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(targetUid) || string.IsNullOrWhiteSpace(sourceUid) || string.IsNullOrWhiteSpace(sessionKey))
+            return false;
+
+        try
+        {
+            var cmd = BuildFederationCommand($"RELAY-OFFER {targetUid} {sourceUid} {sessionKey}");
+            var response = await SendCommandAsync(host, port, cmd, TimeSpan.FromSeconds(5), ct);
+            var ok = response != null && response.StartsWith("OK", StringComparison.OrdinalIgnoreCase);
+            if (ok)
+                Log?.Invoke($"Federation OFFER forwarded | peer={host}:{port} | src={sourceUid[..Math.Min(8, sourceUid.Length)]}... | dst={targetUid[..Math.Min(8, targetUid.Length)]}...");
+            return ok;
+        }
+        catch (Exception ex)
+        {
+            Log?.Invoke($"Federation OFFER forward error | peer={host}:{port} | error={ex.Message}");
+            return false;
+        }
+    }
+
     private async Task<PeerLookupResult> QueryPeerForUserAsync(FederatedPeer peer, string uid, CancellationToken ct)
     {
         var response = await SendCommandAsync(peer.Host, peer.Port, BuildFederationCommand($"RELAY-LOOKUP {uid}"), TimeSpan.FromSeconds(4), ct);
@@ -377,7 +521,8 @@ public sealed class RelayFederationManager : IDisposable
                 {
                     try
                     {
-                        var response = await SendCommandAsync(peer.Host, peer.Port, BuildFederationCommand("RELAY-HEALTH"), TimeSpan.FromSeconds(5), ct);
+                        var conn = GetOrCreatePeerConnection(peer);
+                        var response = await conn.SendAsync(BuildFederationCommand("RELAY-HEALTH"), TimeSpan.FromSeconds(5), ct);
                         if (response != null && response.StartsWith("HEALTH", StringComparison.OrdinalIgnoreCase))
                         {
                             peer.LastSeenUtc = DateTime.UtcNow;
@@ -396,6 +541,7 @@ public sealed class RelayFederationManager : IDisposable
                             if (peer.ConsecutiveHealthFailures >= HealthFailuresBeforeUnhealthy)
                             {
                                 peer.IsHealthy = false;
+                                TryScheduleReconnect(peer, ct);
                             }
                         }
                     }
@@ -405,6 +551,7 @@ public sealed class RelayFederationManager : IDisposable
                         if (peer.ConsecutiveHealthFailures >= HealthFailuresBeforeUnhealthy)
                         {
                             peer.IsHealthy = false;
+                            TryScheduleReconnect(peer, ct);
                         }
                     }
                 }
@@ -413,6 +560,33 @@ public sealed class RelayFederationManager : IDisposable
             }
             catch { }
         }
+    }
+
+    /// <summary>
+    /// Schedules a reconnect attempt to an unhealthy peer, rate-limited to once per 60 seconds.
+    /// </summary>
+    private void TryScheduleReconnect(FederatedPeer peer, CancellationToken ct)
+    {
+        var peerKey = $"{peer.Host}:{peer.Port}";
+        var now = DateTime.UtcNow;
+        if (_reconnectThrottleByPeer.TryGetValue(peerKey, out var lastAttempt) &&
+            (now - lastAttempt) < ReconnectThrottle)
+        {
+            return;
+        }
+
+        _reconnectThrottleByPeer[peerKey] = now;
+        Log?.Invoke($"Federation scheduling reconnect | peer={peerKey} | failures={peer.ConsecutiveHealthFailures}");
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var peerAddress = $"{peer.Host}:{peer.Port}";
+                await ConnectToPeerAsync(peerAddress, ct);
+            }
+            catch { }
+        }, ct);
     }
 
     private async Task DirectorySyncLoopAsync(CancellationToken ct)
@@ -445,7 +619,8 @@ public sealed class RelayFederationManager : IDisposable
 
     private async Task SyncDirectoryFromPeerAsync(FederatedPeer peer, CancellationToken ct)
     {
-        var response = await SendCommandAsync(peer.Host, peer.Port, BuildFederationCommand("RELAY-DIR-DUMP"), TimeSpan.FromSeconds(6), ct);
+        var conn = GetOrCreatePeerConnection(peer);
+        var response = await conn.SendAsync(BuildFederationCommand("RELAY-DIR-DUMP"), TimeSpan.FromSeconds(6), ct);
         if (string.IsNullOrWhiteSpace(response))
         {
             return;
@@ -595,10 +770,143 @@ public sealed class RelayFederationManager : IDisposable
         catch { }
     }
 
+    private PersistentFederationConnection GetOrCreatePeerConnection(FederatedPeer peer)
+    {
+        var key = $"{peer.Host}:{peer.Port}";
+        return _peerConnections.GetOrAdd(key, _ => new PersistentFederationConnection(peer.Host, peer.Port));
+    }
+
     public void Dispose()
     {
         Stop();
         _cts?.Dispose();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Persistent federation connection (reused across commands)
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// A long-lived TCP connection to a federation peer, protected by a semaphore.
+    /// Automatically reconnects when the underlying socket is detected dead.
+    /// Used for high-frequency background traffic (health checks, dir-syncs).
+    /// </summary>
+    private sealed class PersistentFederationConnection : IDisposable
+    {
+        private TcpClient? _client;
+        private NetworkStream? _stream;
+        private readonly SemaphoreSlim _gate = new(1, 1);
+        private readonly string _host;
+        private readonly int _port;
+        private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(10);
+
+        public PersistentFederationConnection(string host, int port)
+        {
+            _host = host;
+            _port = port;
+        }
+
+        public async Task<string?> SendAsync(string command, TimeSpan timeout, CancellationToken ct)
+        {
+            await _gate.WaitAsync(ct);
+            try
+            {
+                await EnsureConnectedAsync(ct);
+                if (_stream == null) return null;
+
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                cts.CancelAfter(timeout);
+
+                var bytes = Encoding.UTF8.GetBytes(command + "\n");
+                await _stream.WriteAsync(bytes, cts.Token);
+                await _stream.FlushAsync(cts.Token);
+
+                return await ReadLineInternalAsync(_stream, timeout, cts.Token);
+            }
+            catch
+            {
+                // Connection dead; tear down so next call reconnects.
+                TearDown();
+                return null;
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private async Task EnsureConnectedAsync(CancellationToken ct)
+        {
+            if (_client != null && IsAlive(_client)) return;
+            TearDown();
+
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(ConnectTimeout);
+
+            var client = new TcpClient();
+            await client.ConnectAsync(_host, _port, cts.Token);
+            client.NoDelay = true;
+            try
+            {
+                client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                client.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 30);
+                client.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 10);
+                client.Client.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3);
+            }
+            catch { }
+
+            _client = client;
+            _stream = client.GetStream();
+        }
+
+        private void TearDown()
+        {
+            try { _client?.Close(); } catch { }
+            _client = null;
+            _stream = null;
+        }
+
+        private static bool IsAlive(TcpClient client)
+        {
+            try
+            {
+                if (client.Client == null || !client.Connected) return false;
+                var closed = client.Client.Poll(0, SelectMode.SelectRead) && client.Client.Available == 0;
+                return !closed;
+            }
+            catch { return false; }
+        }
+
+        private static async Task<string?> ReadLineInternalAsync(NetworkStream stream, TimeSpan timeout, CancellationToken ct)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeout);
+
+            var buffer = new byte[1];
+            var builder = new StringBuilder();
+            try
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    var read = await stream.ReadAsync(buffer.AsMemory(0, 1), cts.Token);
+                    if (read <= 0) return null;
+
+                    var ch = (char)buffer[0];
+                    if (ch == '\n') break;
+                    if (ch != '\r') builder.Append(ch);
+                    if (builder.Length > 4096) return null;
+                }
+            }
+            catch { return null; }
+
+            return builder.ToString();
+        }
+
+        public void Dispose()
+        {
+            TearDown();
+            _gate.Dispose();
+        }
     }
 }
 

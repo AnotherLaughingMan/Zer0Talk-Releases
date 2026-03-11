@@ -40,9 +40,9 @@ Zer0Talk is a **private, end-to-end encrypted peer-to-peer messaging application
 **Core properties:**
 
 - **Keypair-based identity.** Each account is an Ed25519 keypair. Your UID is deterministically derived from your public key. There are no usernames or email addresses registered with any central authority.
-- **Zero knowledge at relay.** Optional relay infrastructure can be self-hosted. Even when relay is used, the relay sees encrypted ciphertext only. The ECDH handshake and session keys are established end-to-end.
+- **Blind relay, zero knowledge.** Optional relay infrastructure can be self-hosted. Relays are not servers in the traditional sense — they retain no data and serve no content. A relay only facilitates the initial TCP connection request and forwards an opaque encrypted byte stream. The ECDH handshake and session keys are established end-to-end, through the relay-forwarded stream. The relay is provably blind to all plaintext.
 - **All data encrypted at rest.** Every persistent file is encrypted using XChaCha20-Poly1305 with Argon2id key derivation. Nothing is stored in plaintext.
-- **Self-sovereign.** Users control their data directory, their keys, their relay, and their contacts. There is no account deletion form to fill out — you delete your `user.p2e` file.
+- **Self-sovereign.** Users control their data directory, their keys, their relay, and their contacts. Account deletion is performed via **Settings → Danger Zone → Delete Account**, which performs a secure multi-pass wipe of all identity and data files.
 - **Alpha stage.** The current version (`0.0.4.05-Alpha`) is pre-release. Breaking changes may occur between versions.
 
 ---
@@ -339,12 +339,22 @@ The relay falls back to port 8443 if no explicit relay port is configured.
 
 `NetworkService._sessionModes` tracks whether each active session is `Direct` or `Relay`. This is surfaced in the UI via contact card connection mode icons.
 
+### Relay Candidate Selection — Happy Eyeballs
+
+When connecting to a relay, `NetworkService.ConnectToFirstRelayAsync()` fires all candidates in parallel with a **250 ms stagger** between each attempt (applied in candidate order). The first TCP connection that completes wins; all others are cancelled. This mirrors the Happy Eyeballs algorithm (RFC 8305) applied to relay endpoints instead of IPv4/IPv6 races.
+
+Candidates are pre-sorted by:
+1. Health score descending (`GetRelayHealthScore` — EWMA of success rate / latency)
+2. Distance from the preferred relay ascending
+
+This means the healthiest, closest relay gets the first attempt, while slower candidates start with a small delay rather than being tried sequentially.
+
 ### EWMA Timing
 
 `NetworkService` tracks adaptive wait times using Exponential Weighted Moving Average (EWMA):
 - `_directSessionWaitMsEwma` (default 6 s)
 - `_relayAckWaitMsEwma` (default 5 s)
-- `_relayPairWaitMsEwma` (default 45 s)
+- `_relayPairWaitMsEwma` (default 20 s)
 
 These adapt based on observed relay/direct latency to avoid premature timeouts on slow networks.
 
@@ -442,6 +452,8 @@ Dead session detection: `RelaySession.IsConnected` checks `TcpClient.Connected` 
 
 Session outcomes (`PairOutcome`): `Paired`, `Queued`, `RejectedAlreadyQueued`, `RejectedCapacity`, `RejectedAlreadyActive`, `RejectedIncompatible`, `RejectedCooldown`.
 
+**Cross-relay bridging (federation):** When `QUEUED` is sent and federation is enabled, a background task waits 500 ms and then queries peer relays for the session key. If a peer relay has the counterpart waiting, the local relay atomically claims its pending session (`TryClaimForBridge`) and calls `OpenBridgeAsync` on the peer to establish a raw TCP bridge. Both clients receive `PAIRED` through their respective sockets and subsequent bytes are piped bidirectionally. The relay-to-relay TCP connection stays open for the duration of the session, then closes.
+
 ### Rate Limiting
 
 `RelayRateLimiter` tracks two stores: anonymous (by IP) and authenticated (by UID/token key). Anonymous limit: `MaxConnectionsPerMinute`. Authenticated limit: 6× the anonymous limit. Exceeded requests receive a `RATE-LIMITED <ms>` response. Bans are time-bounded (`BanSeconds`).
@@ -456,7 +468,34 @@ Optional server-to-server coordination (`EnableFederation = true`). Peer relays 
 - `AllowList`: only listed peers are accepted.
 - `OpenNetwork`: any peer relay can connect.
 
-Federation provides: directory synchronization (2-minute TTL), cross-relay session routing, peer health checks (30-second interval). Federation does **not** break end-to-end encryption — it only forwards opaque bytes and directory entries.
+Federation does **not** break end-to-end encryption — it only forwards opaque bytes and directory entries.
+
+#### Federation Protocol Commands
+
+All federation commands are sent over TCP and require a shared secret (`FederationSharedSecret` config field, if set). Commands are line-based ASCII, same as the client directory protocol.
+
+| Command | Description |
+|---|---|
+| `RELAY-HELLO <secret>` | Identity handshake — returns `OK-HELLO <token> <maxSessions> <activeSessions>` |
+| `RELAY-LOOKUP <uid> <secret>` | Look up a UID in the peer's directory — returns `PEER <uid> <host> <port> <age>` or `MISS` |
+| `RELAY-HEALTH <secret>` | Peer load stats — returns `HEALTH <load%> <pending> <active> <max>` |
+| `RELAY-DIR-DUMP <secret>` | Bulk directory sync — returns all registered UIDs as a semicolon-delimited list |
+| `RELAY-DISCONNECT <uid> <secret>` | Tell a peer to evict a UID from its local cache |
+| `RELAY-SESSION-QUERY <sessionKey> <secret>` | Check whether a session key has a pending client on the peer — returns `HAS <key>` or `MISS` |
+| `RELAY-BRIDGE <sessionKey> <secret>` | Claim the peer's pending session, pipe both streams together — returns `OK-BRIDGE` then raw TCP |
+| `RELAY-OFFER <targetUid> <sourceUid> <sessionKey> <secret>` | Forward a rendezvous invite to a peer serving the target UID — returns `OK <inviteId>` |
+
+#### Federation Optimizations
+
+- **Persistent inter-relay connections (`PersistentFederationConnection`):** Each peer relay has one long-lived TCP connection used for health checks and directory sync. The connection auto-reconnects on failure. This eliminates per-command TCP setup overhead.
+- **Parallel directory lookup (`ParallelLookupAsync`):** UID lookups fan out to all peers simultaneously; the first `PEER` response wins and all in-flight queries are cancelled. Replaces the prior sequential scan.
+- **Auto-reconnect with throttle:** If a peer fails 3+ consecutive health checks, a reconnect is scheduled (rate-limited to once per 60 s) rather than waiting for the next health-check cycle.
+- **Cross-relay session bridging:** Clients on different federated relays pair transparently. See Session Lifecycle above for the detailed flow.
+- **Federated OFFER forwarding:** When a client sends an OFFER for a UID that is not locally registered, the relay performs a federated lookup and forwards the invite to the relay hosting that UID via `RELAY-OFFER`.
+
+#### Federation health checks
+
+Health checks run every 30 seconds. A check sends `RELAY-HEALTH` to each peer. Three or more consecutive failures mark the peer as degraded and trigger the auto-reconnect path.
 
 ---
 

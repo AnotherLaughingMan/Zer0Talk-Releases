@@ -91,7 +91,7 @@ namespace Zer0Talk.Services
                             break;
                     }
 
-                    TryWriteUiVerboseLogThrottled("notices.presence.mode", PresenceDecisionLogInterval,
+                    TryWriteNetworkVerboseLogThrottled("notices.presence.mode", PresenceDecisionLogInterval,
                         () => $"{DateTime.Now:O} [Notices] Presence mode: {presenceMode} → audio={shouldPlayAudio}, toast={shouldShowToast}, center={shouldAddToCenter}, persistent={makePersistent}\n");
 
                     // Quiet hours: suppress non-priority/non-mention interruptions while still keeping inbox entries.
@@ -117,7 +117,7 @@ namespace Zer0Talk.Services
                     shouldPlayAudio = true;
                     shouldShowToast = false;
                     shouldAddToCenter = false;
-                    TryWriteUiVerboseLogThrottled("notices.presence.error", PresenceDecisionLogInterval,
+                    TryWriteNetworkVerboseLogThrottled("notices.presence.error", PresenceDecisionLogInterval,
                         () => $"{DateTime.Now:O} [Notices] Error checking presence: {ex.Message} → defaulting to Online behavior\n");
                 }
             }
@@ -205,7 +205,7 @@ namespace Zer0Talk.Services
                 {
                     conversationFocused = IsConversationFocused(updated.OriginUid);
                     appIsActive = IsMainWindowActive();
-                    TryWriteUiVerboseLogThrottled("notices.presence.decision", PresenceDecisionLogInterval,
+                    TryWriteNetworkVerboseLogThrottled("notices.presence.decision", PresenceDecisionLogInterval,
                         () => $"{DateTime.Now:O} [Notices] Presence={presenceMode}, focused={conversationFocused}, appActive={appIsActive}, toast={shouldShowToast}, audio={shouldPlayAudio}, center={shouldAddToCenter}, origin={updated.OriginUid}\n");
 
                     // Show toast only for Away/Idle when conversation is not focused

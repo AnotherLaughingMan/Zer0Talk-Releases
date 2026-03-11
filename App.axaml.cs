@@ -487,6 +487,35 @@ public partial class App : Application
             desktop.MainWindow = mw;
             mw.Show();
 
+            // First-run: show privacy policy dialog if the user has not dismissed it
+            try
+            {
+                var privSettings = AppServices.Settings.Settings;
+                bool willHideToTray = privSettings.StartMinimized && privSettings.ShowInSystemTray;
+                if (!privSettings.DoNotShowPrivacyAgain && !willHideToTray)
+                {
+                    EventHandler? onOpened = null;
+                    onOpened = async (_, __) =>
+                    {
+                        mw.Opened -= onOpened;
+                        try
+                        {
+                            var dlg = new Views.PrivacyPolicyDialog(alreadyAccepted: false, doNotShowChecked: false, mandatory: true);
+                            await dlg.ShowDialog(mw);
+                            if (dlg.Accepted)
+                            {
+                                privSettings.PrivacyPolicyAccepted = true;
+                                privSettings.DoNotShowPrivacyAgain = dlg.DoNotShowAgain;
+                                try { AppServices.Settings.Save(AppServices.Passphrase); } catch { }
+                            }
+                        }
+                        catch { }
+                    };
+                    mw.Opened += onOpened;
+                }
+            }
+            catch { }
+
             try
             {
                 var settings = AppServices.Settings.Settings;

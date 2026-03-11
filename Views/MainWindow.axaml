@@ -239,7 +239,7 @@
                     <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedLockLogout}" Click="Lock_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE7E8;"/>
                     </Button>
-                    <Separator/>
+                    <Border Width="1" Height="18" Background="{DynamicResource App.Border}" Opacity="0.5" VerticalAlignment="Center" Margin="2,0"/>
                     <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedMinimize}" Click="Minimize_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE921;"/>
                     </Button>

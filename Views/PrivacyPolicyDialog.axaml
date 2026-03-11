@@ -1,0 +1,138 @@
+<Window xmlns="https://github.com/avaloniaui"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  x:Class="Zer0Talk.Views.PrivacyPolicyDialog"
+  Width="700" Height="600" CanResize="False"
+  Title="Privacy Policy"
+  ExtendClientAreaToDecorationsHint="True"
+  ExtendClientAreaChromeHints="NoChrome"
+  ExtendClientAreaTitleBarHeightHint="32"
+  WindowStartupLocation="CenterOwner">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- Drag bar / title bar -->
+    <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1"
+            Background="{DynamicResource App.Background}" PointerPressed="DragBar_PointerPressed">
+      <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+        <TextBlock Text="Privacy Policy" FontSize="15" FontWeight="SemiBold"/>
+        <Button x:Name="TitleCloseButton" Grid.Column="1" Content="✕" Classes="icon-button" Click="TitleClose_Click"/>
+      </Grid>
+    </Border>
+
+    <!-- Scrollable policy body -->
+    <ScrollViewer Grid.Row="1" Background="{DynamicResource App.Background}" Padding="20,14">
+      <StackPanel Spacing="4" MaxWidth="640">
+
+        <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource App.ForegroundSecondary}" FontSize="12">
+          Zer0Talk is a private, end-to-end encrypted peer-to-peer messaging application. This policy explains what data is handled by the application and how.
+        </TextBlock>
+
+        <TextBlock TextWrapping="Wrap" FontWeight="SemiBold" FontSize="12" Margin="0,4,0,0">
+          Zer0Talk collects no data. There is no server that knows who you are, who you talk to, or what you say.
+        </TextBlock>
+
+        <!-- 1. Data Storage -->
+        <TextBlock FontWeight="SemiBold" FontSize="13" Margin="0,10,0,2">1. Data Storage</TextBlock>
+        <TextBlock TextWrapping="Wrap" FontSize="12">
+          All data is stored locally on your device only. Your account, contacts, messages, and settings are
+          encrypted files stored in your local app data folder. No data is uploaded to any cloud service or
+          third-party server. Everything is encrypted at rest using XChaCha20-Poly1305 with Argon2id key
+          derivation — nothing is stored in plaintext.
+        </TextBlock>
+
+        <!-- 2. Your Identity -->
+        <TextBlock FontWeight="SemiBold" FontSize="13" Margin="0,10,0,2">2. Your Identity</TextBlock>
+        <TextBlock TextWrapping="Wrap" FontSize="12">
+          Your identity is a keypair (Ed25519). Your unique ID is derived from your public key. No email address,
+          phone number, or real name is required or registered with any authority. There is no central account
+          registry. No one other than you holds your identity.
+        </TextBlock>
+
+        <!-- 3. Messaging -->
+        <TextBlock FontWeight="SemiBold" FontSize="13" Margin="0,10,0,2">3. Messaging</TextBlock>
+        <TextBlock TextWrapping="Wrap" FontSize="12">
+          All messages are end-to-end encrypted. Messages are encrypted before leaving your device and decrypted
+          only on the recipient's device. Session keys are established via ECDH (P-256) — a shared secret known
+          only to the two parties in the conversation. No message content, metadata, or delivery receipts are
+          stored on any server.
+        </TextBlock>
+
+        <!-- 4. Blind Relays -->
+        <TextBlock FontWeight="SemiBold" FontSize="13" Margin="0,10,0,2">4. Blind Relays</TextBlock>
+        <TextBlock TextWrapping="Wrap" FontSize="12">
+          When a direct connection is not possible, Zer0Talk can route through a blind relay. These are not
+          servers in the traditional sense — they do not serve content, store data, or have any knowledge of
+          what they are forwarding. A blind relay only facilitates the initial TCP connection request and then
+          forwards an opaque, encrypted byte stream between two peers. The relay sees only ciphertext, retains
+          nothing (no logs, no session records, no metadata), and cannot participate in or observe the
+          cryptographic handshake. All key exchange happens directly between the two clients. Blind relays can
+          be self-hosted.
+        </TextBlock>
+
+        <!-- 5. No Telemetry -->
+        <TextBlock FontWeight="SemiBold" FontSize="13" Margin="0,10,0,2">5. No Telemetry</TextBlock>
+        <TextBlock TextWrapping="Wrap" FontSize="12">
+          Zer0Talk does not collect analytics, crash reports, usage statistics, or telemetry of any kind. No data
+          is sent to the developer, any analytics platform, or any third party. Auto-update version checks query
+          the GitHub Releases API, disclosing your IP address to GitHub's servers and subject to GitHub's privacy
+          policy. No other identifying information is sent.
+        </TextBlock>
+
+        <!-- 6. Features Intentionally Absent -->
+        <TextBlock FontWeight="SemiBold" FontSize="13" Margin="0,10,0,2">6. Features Intentionally Absent</TextBlock>
+        <TextBlock TextWrapping="Wrap" FontSize="12">
+          File and image transfers are intentionally absent due to exploitation and reputation risk. AI-assist
+          features are deferred until a sound privacy trust model is defined. Cloud message backup is not
+          planned — it contradicts the zero-knowledge principle. Screen capture by third-party tools is opted out
+          by default using the Windows Content Protection API.
+        </TextBlock>
+
+        <!-- 7. Data Deletion -->
+        <TextBlock FontWeight="SemiBold" FontSize="13" Margin="0,10,0,2">7. Data Deletion</TextBlock>
+        <TextBlock TextWrapping="Wrap" FontSize="12">
+          To delete your account securely, use Settings → Danger Zone → Delete Account. This process
+          cryptographically wipes your keypair, identity, messages, and contacts. Manually deleting individual
+          files is not a secure deletion method — it may leave recoverable data on disk and bypass the
+          multi-pass secure erase performed by the in-app deletion process. The developer has no access to
+          your data and cannot fulfil data deletion requests on your behalf.
+        </TextBlock>
+
+        <!-- 8. Legal -->
+        <TextBlock FontWeight="SemiBold" FontSize="13" Margin="0,10,0,2">8. Legal Compliance</TextBlock>
+        <TextBlock TextWrapping="Wrap" FontSize="12">
+          Zer0Talk operates without access to user data. The developer cannot comply with subpoenas or governmental
+          requests for user data — there is nothing to produce. Users are solely responsible for complying with
+          all applicable local, national, and international laws when using Zer0Talk.
+        </TextBlock>
+
+        <!-- Full policy link -->
+        <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.ForegroundSecondary}" Margin="0,12,0,2">
+          The authoritative and most current version of this policy is maintained on GitHub:
+        </TextBlock>
+        <Button Content="View Full Policy on GitHub" Click="OpenGitHub_Click" HorizontalAlignment="Left" Margin="0,0,0,4"/>
+        <TextBlock FontSize="11" Foreground="{DynamicResource App.ForegroundSecondary}" TextWrapping="Wrap" Margin="0,0,0,12">
+          https://github.com/AnotherLaughingMan/Zer0Talk-Releases/blob/main/PRIVACY-POLICY.md
+        </TextBlock>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Footer: accept checkbox + Do Not Show Again + Close button -->
+    <Border Grid.Row="2" Padding="16,10" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 1 0 0"
+            Background="{DynamicResource App.Background}">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="6" VerticalAlignment="Center">
+          <CheckBox x:Name="AcceptCheckBox"
+                    Content="I have read and understand the Privacy Policy"
+                    IsCheckedChanged="AcceptCheckBox_Changed"/>
+          <CheckBox x:Name="DoNotShowCheckBox"
+                    Content="Do not show this dialog again"
+                    IsEnabled="False"/>
+        </StackPanel>
+        <Button x:Name="CloseButton" Grid.Column="1" Content="Close"
+                VerticalAlignment="Bottom" IsEnabled="False" Click="Close_Click"/>
+      </Grid>
+    </Border>
+
+  </Grid>
+</Window>

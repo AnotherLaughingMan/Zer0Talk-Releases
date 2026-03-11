@@ -27,6 +27,18 @@ Run this checklist before creating a release tag.
 ## [Unreleased]
 
 ### Added
+- **Cross-relay session bridging**: clients registered on different federated relay servers can now communicate transparently. When a session is queued and cannot be paired locally, the relay queries peer relays (RELAY-SESSION-QUERY), establishes a bidirectional TCP bridge (RELAY-BRIDGE), and pipes both clients' streams through it — end-to-end encryption is preserved.
+- **Federation OFFER forwarding**: when an OFFER targets a UID not registered on the local relay, the relay automatically forwards the invite to the peer relay hosting that UID via RELAY-OFFER. Invites follow the user across federation boundaries.
+- **Persistent inter-relay TCP connections**: relay federation health checks and directory sync now reuse a long-lived, auto-reconnecting TCP connection per peer relay (`PersistentFederationConnection`) instead of creating a new connection for every command, reducing federation overhead.
+- **Parallel federation directory lookup**: user lookups across federated peers now use a fan-out/race pattern (`ParallelLookupAsync`) — all peers are queried simultaneously and the first hit wins, replacing the previous sequential scan.
+- **Federation peer auto-reconnect**: when a federation peer fails 3+ consecutive health checks, the relay schedules a reconnect attempt (rate-limited to once per 60 s) rather than waiting for the next health-check cycle.
+- **Happy Eyeballs relay candidate selection** (client): when connecting to a relay, candidates are tried in parallel with a 250 ms stagger between each. The first successful connection wins and all others are cancelled, cutting median relay connection time on multi-relay deployments.
+- **Health score in relay token resolution** (client): relay candidates used for session token lookup are now sorted by health score (success rate / latency EWMA) in addition to distance, biasing resolution toward the healthiest relay.
+- **New relay federation protocol commands**: `RELAY-SESSION-QUERY` (check if a pending session exists on a peer), `RELAY-BRIDGE` (claim a pending session and install a raw-pipe bridge from the peer), `RELAY-OFFER` (forward a rendezvous invite across relay boundaries).
+- Privacy Policy dialog (`PrivacyPolicyDialog`): scrollable, in-app policy display with a "View Full Policy on GitHub" link, an "I have read and understand the Privacy Policy" acceptance checkbox (required before Close is enabled), and a "Do not show this dialog again" checkbox. Dialog is mandatory on first run (title-bar close and Escape blocked until accepted) and re-openable from Settings → About with full dismiss/re-accept control.
+- Privacy Policy document (`docs/PRIVACY-POLICY.md`): authoritative policy covering data storage, identity, messaging, relay zero-knowledge guarantees, no-telemetry stance, intentionally absent features, data deletion, and legal compliance. Matches the in-app dialog content exactly.
+- `AppSettings.PrivacyPolicyAccepted` and `AppSettings.DoNotShowPrivacyAgain` fields: persist first-run acceptance and do-not-show preference across sessions.
+- First-run privacy policy show hook in `App.axaml.cs` (`ShowMainWindow`): after main window opens, checks `DoNotShowPrivacyAgain`; if false and window is not hiding to tray, shows the mandatory dialog and saves the result.
 - Message delivery status indicators on outbound messages: clock (pending), single checkmark (sent), filled checkmark (delivered via peer `0xB5` ACK). Status persisted to disk and restored on conversation load.
 - `Settings > General` toggle: `Enable smooth scrolling` to control animated scrolling behavior in client log/chat surfaces.
 - Relay settings toggle: `Enable smooth scrolling` to control animated scrolling in Relay Console and Probe Audit views.
@@ -41,10 +53,18 @@ Run this checklist before creating a release tag.
 - Verification history dialog: "View history" link on profile card opens a modal with full verification event details (replaces inline list).
 
 ### Updated
+- **RelayForwarder buffer allocation**: relay pipe sessions now rent buffers from `ArrayPool<byte>.Shared` instead of allocating a new `byte[]` per session, eliminating per-session heap allocation and reducing GC pressure under load.
+- **RelayForwarder write path**: removed redundant `FlushAsync` calls from the copy loop; `TCP_NODELAY = true` is already set on all relay sockets, so explicit flushes were no-ops.
+- **Relay pair-wait EWMA** (client): initial relay pair-wait estimate lowered from 45 s to 20 s, cutting worst-case wait time on first relay connection.
+- Settings → About → Privacy Policy button now opens the in-app `PrivacyPolicyDialog` instead of shell-opening `Disclaimer.md`. The dialog persists the user's acceptance and "do not show again" preference to `AppSettings`.
+- Title bar drag-bar separator between the Logout button and the Minimize button replaced: the horizontal `<Separator/>` (which rendered incorrectly as a short horizontal bar) is now a `<Border Width="1" Height="18">` vertical rule, matching the visual intent.
 - Settings panels (Appearance, Hotkeys, Debug, Performance, Accessibility, About, Network, Danger Zone, Logout) normalized to the `Settings > General` layout template: consistent `general-card` borders, `general-section-title` text style, and `general-divider` separators throughout. Panels that lacked a top-level section header (About, Danger Zone, Logout) now have one.
 - Settings > Performance: removed Enforce RAM Limit and Enforce VRAM Limit UI controls. These settings are too coarse to be reliably beneficial and risk degrading performance on most systems; the underlying ViewModel/settings fields are preserved for compatibility.
 - Settings > Performance > CPU: added guidance note to the CCD Affinity selector explaining that Auto is recommended for most users, and explaining that Zer0Talk's encryption/messaging workloads are cache-intensive so the 3D V-Cache die is the better target (which Auto already selects when detected).
 - Settings > Performance > Simulate CCD Configuration (Debug only): card now uses half-width layout (`MaxWidth=340`, left-aligned) to reduce visual footprint.
+- Settings > Performance > CPU: card narrowed to `MaxWidth=480` — content fits comfortably and the guidance note wraps earlier at the smaller width.
+- Settings > Debug Tools > Log Maintenance: "Purge All Logs" now surfaces a settings-panel toast on success (`Purged N log file(s)`) and explicit failure (`Failed to purge logs: …`). Previously the toast was wired to an unbound property and silently discarded.
+- Logging: presence-mode, presence-error, and presence-decision diagnostic entries rerouted from `ui.log` to `network.log`. UI.log is now used exclusively for visual/interaction events; presence state is a network-layer concern.
 - Manual `Check for Updates` now posts an immediate `Checking for updates...` notice before network resolution and explicitly reports `You are already up to date` when no newer version is found.
 - Client and Relay auto-follow/jump-to-latest flows now use eased smooth scrolling when enabled, with immediate snap fallback when disabled.
 - Client main chat canvas (`ChatScroll`) keeps native mouse-wheel behavior (including flywheel/fast-scroll mice) and uses smooth scrolling only for programmatic follow/jump transitions.

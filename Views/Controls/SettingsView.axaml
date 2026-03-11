@@ -710,7 +710,7 @@
           <TextBlock Text="{Binding LocalizedPerformance}" FontWeight="SemiBold" FontSize="18"/>
           
           <!-- CPU Section (first) -->
-          <Border Classes="general-card">
+          <Border Classes="general-card" MaxWidth="480">
             <StackPanel Spacing="12">
               <TextBlock Classes="general-section-title" Text="{Binding LocalizedCPU}"/>
               <!-- Enumerate CPU model and cache capabilities (model normal, details subtle) -->

@@ -254,6 +254,41 @@ public sealed class RelaySessionManager
         try { client.Close(); } catch { }
     }
 
+    /// <summary>
+    /// Returns true if a pending (waiting) session with the given key exists on this relay.
+    /// Used by federation to check before initiating a cross-relay bridge.
+    /// </summary>
+    public bool HasPendingSession(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return false;
+        return _pending.ContainsKey(key);
+    }
+
+    /// <summary>
+    /// Atomically removes and returns a pending session for bridging.
+    /// The caller receives the pending client's stream for piping via a cross-relay bridge.
+    /// Returns false if the session is not pending (already paired locally, expired, or not found).
+    /// </summary>
+    public bool TryClaimForBridge(string key, out TcpClient? client, out NetworkStream? stream)
+    {
+        client = null;
+        stream = null;
+        if (string.IsNullOrWhiteSpace(key)) return false;
+
+        if (!_pending.TryRemove(key, out var pending)) return false;
+
+        // Verify the client is still alive before handing it over.
+        if (!RelaySession.IsClientConnected(pending.Client))
+        {
+            SafeClose(pending.Client);
+            return false;
+        }
+
+        client = pending.Client;
+        stream = pending.Stream;
+        return true;
+    }
+
     private sealed class RelayPending
     {
         public RelayPending(RelayRequest request, TcpClient client, NetworkStream stream, DateTime createdUtc)

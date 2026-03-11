@@ -204,4 +204,8 @@ public class AppSettings
 
     // Security: Message burning security level (false = Standard 3-pass, true = Enhanced 6-pass)
     public bool UseEnhancedMessageBurn { get; set; } = false; // Default to standard 3-pass for backward compatibility
+
+    // Privacy policy: first-run acceptance tracking
+    public bool PrivacyPolicyAccepted { get; set; } = false;
+    public bool DoNotShowPrivacyAgain { get; set; } = false;
 }

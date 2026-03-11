@@ -94,6 +94,31 @@ namespace Zer0Talk.Services
         TryWriteUiLogThrottled(key, minInterval, messageFactory);
     }
 
+    private void TryWriteNetworkLogThrottled(string key, TimeSpan minInterval, Func<string> messageFactory)
+    {
+        try
+        {
+            if (!Utilities.LoggingPaths.Enabled) return;
+            var now = DateTime.UtcNow;
+            lock (_uiLogThrottleLock)
+            {
+                if (_uiLogThrottleUtc.TryGetValue(key, out var lastUtc))
+                {
+                    if ((now - lastUtc) < minInterval) return;
+                }
+                _uiLogThrottleUtc[key] = now;
+            }
+            Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.Network, messageFactory());
+        }
+        catch { }
+    }
+
+    private void TryWriteNetworkVerboseLogThrottled(string key, TimeSpan minInterval, Func<string> messageFactory)
+    {
+        if (!VerboseUiLogs) return;
+        TryWriteNetworkLogThrottled(key, minInterval, messageFactory);
+    }
+
     private void QueueNoticesChanged()
     {
         if (Interlocked.Exchange(ref _noticesChangedQueued, 1) == 1) return;

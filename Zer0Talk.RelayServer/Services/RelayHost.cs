@@ -400,6 +400,38 @@ public sealed class RelayHost
                 }
                 ReportStats();
                 ReportSessions();
+                // If federation is available, probe peer relays asynchronously and bridge if the counterpart is waiting there.
+                if (_federation != null)
+                {
+                    var bridgeKey = request.SessionKey;
+                    _ = Task.Run(async () =>
+                    {
+                        // Small delay — give local pairing a chance first.
+                        try { await Task.Delay(500, ct); } catch { return; }
+                        if (!_sessions.HasPendingSession(bridgeKey)) return; // Already paired locally.
+                        var peerRelay = await _federation.QuerySessionAsync(bridgeKey, ct);
+                        if (peerRelay.host == null) return;
+                        if (!_sessions.TryClaimForBridge(bridgeKey, out var localClient, out var localStream)) return;
+                        var bridgeTcp = await _federation.OpenBridgeAsync(peerRelay.host, peerRelay.port!.Value, bridgeKey, ct);
+                        if (bridgeTcp == null) { try { localClient!.Close(); } catch { } return; }
+                        try { await WriteLineAsync(localStream!, "PAIRED", ct); }
+                        catch
+                        {
+                            try { localClient!.Close(); } catch { }
+                            try { bridgeTcp.Close(); } catch { }
+                            return;
+                        }
+                        Log?.Invoke($"Federation bridge connected (local-side) | key={bridgeKey} | peer={peerRelay.host}:{peerRelay.port}");
+                        ReportStats();
+                        try { await _forwarder.RunAsync(localStream!, bridgeTcp.GetStream(), ct); }
+                        catch (Exception ex) { Log?.Invoke($"Federation bridge ended | key={bridgeKey} | {ex.Message}"); }
+                        finally
+                        {
+                            try { localClient!.Close(); } catch { }
+                            try { bridgeTcp.Close(); } catch { }
+                        }
+                    }, ct);
+                }
                 return;
 
             case RelaySessionManager.PairOutcome.RejectedAlreadyQueued:
@@ -698,6 +730,21 @@ public sealed class RelayHost
 
         // Deduplicate: don't store duplicate offers for same source+session
         var inviteId = StoreInvite(targetUid, sourceUid, sessionKey);
+
+        // If the target is not locally registered and federation is available, forward the offer to the peer relay hosting that UID.
+        if (!_directory.ContainsKey(targetUid) && _federation != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var peer = await _federation.LookupUserFederatedAsync(targetUid, ct);
+                    if (!string.IsNullOrWhiteSpace(peer.host) && peer.port is > 0 and <= 65535)
+                        await _federation.ForwardOfferAsync(peer.host, peer.port.Value, targetUid, sourceUid, sessionKey, ct);
+                }
+                catch { }
+            }, ct);
+        }
 
         var sourceHandle = BuildModerationHandle(sourceUid);
         var targetHandle = BuildModerationHandle(targetUid);
@@ -1296,6 +1343,107 @@ public sealed class RelayHost
                 }
 
                 await WriteLineAsync(stream, removed ? "OK" : "MISS", ct);
+                SafeClose(client);
+                return true;
+            }
+
+            if (string.Equals(cmd, "RELAY-SESSION-QUERY", StringComparison.OrdinalIgnoreCase))
+            {
+                if (parts.Length < 2)
+                {
+                    await WriteLineAsync(stream, "ERR bad-relay-session-query", ct);
+                    SafeClose(client);
+                    return true;
+                }
+                var secret = parts[^1].Trim();
+                if (!IsFederationSecretOk(secret))
+                {
+                    RecordProbeAudit(client.Client.RemoteEndPoint as IPEndPoint, "Zer0Talk Relay", cmd, "Failure", "Invalid federation shared secret");
+                    await WriteLineAsync(stream, "ERR unauthorized", ct);
+                    SafeClose(client);
+                    return true;
+                }
+                var sessionKey = parts[1].Trim();
+                RecordProbeAudit(client.Client.RemoteEndPoint as IPEndPoint, "Zer0Talk Relay", cmd, "Accepted", "Federation session query accepted");
+                var hasPending = _sessions.HasPendingSession(sessionKey);
+                await WriteLineAsync(stream, hasPending ? $"HAS {sessionKey}" : "MISS", ct);
+                SafeClose(client);
+                return true;
+            }
+
+            if (string.Equals(cmd, "RELAY-BRIDGE", StringComparison.OrdinalIgnoreCase))
+            {
+                if (parts.Length < 2)
+                {
+                    await WriteLineAsync(stream, "ERR bad-relay-bridge", ct);
+                    SafeClose(client);
+                    return true;
+                }
+                var secret = parts[^1].Trim();
+                if (!IsFederationSecretOk(secret))
+                {
+                    RecordProbeAudit(client.Client.RemoteEndPoint as IPEndPoint, "Zer0Talk Relay", cmd, "Failure", "Invalid federation shared secret");
+                    await WriteLineAsync(stream, "ERR unauthorized", ct);
+                    SafeClose(client);
+                    return true;
+                }
+                var sessionKey = parts[1].Trim();
+                if (!_sessions.TryClaimForBridge(sessionKey, out var localClient, out var localStream))
+                {
+                    await WriteLineAsync(stream, "ERR miss", ct);
+                    SafeClose(client);
+                    return true;
+                }
+                // Confirm bridge to initiating relay, then notify the locally-waiting client.
+                await WriteLineAsync(stream, "OK-BRIDGE", ct);
+                try { await WriteLineAsync(localStream!, "PAIRED", ct); }
+                catch
+                {
+                    try { localClient!.Close(); } catch { }
+                    SafeClose(client);
+                    return true;
+                }
+                RecordProbeAudit(client.Client.RemoteEndPoint as IPEndPoint, "Zer0Talk Relay", cmd, "Accepted", "Federation bridge established");
+                Log?.Invoke($"Federation bridge active (remote-side) | key={sessionKey}");
+                // Pipe the two streams together in a background task; the task owns both connections.
+                _ = Task.Run(async () =>
+                {
+                    try { await _forwarder.RunAsync(localStream!, stream, ct); }
+                    catch { }
+                    finally
+                    {
+                        try { localClient!.Close(); } catch { }
+                        SafeClose(client);
+                    }
+                }, ct);
+                // Do NOT close client here — the background task owns it.
+                return true;
+            }
+
+            if (string.Equals(cmd, "RELAY-OFFER", StringComparison.OrdinalIgnoreCase))
+            {
+                // RELAY-OFFER <targetUid> <sourceUid> <sessionKey> <secret>
+                if (parts.Length < 4)
+                {
+                    await WriteLineAsync(stream, "ERR bad-relay-offer", ct);
+                    SafeClose(client);
+                    return true;
+                }
+                var secret = parts[^1].Trim();
+                if (!IsFederationSecretOk(secret))
+                {
+                    RecordProbeAudit(client.Client.RemoteEndPoint as IPEndPoint, "Zer0Talk Relay", cmd, "Failure", "Invalid federation shared secret");
+                    await WriteLineAsync(stream, "ERR unauthorized", ct);
+                    SafeClose(client);
+                    return true;
+                }
+                var targetUid = NormalizeUid(parts[1]);
+                var sourceUid = NormalizeUid(parts[2]);
+                var sessionKey = parts[3].Trim();
+                var inviteId = StoreInvite(targetUid, sourceUid, sessionKey);
+                RecordProbeAudit(client.Client.RemoteEndPoint as IPEndPoint, "Zer0Talk Relay", cmd, "Accepted", "Federation offer forwarded");
+                Log?.Invoke($"RELAY-OFFER stored via federation: invite={inviteId[..Math.Min(8, inviteId.Length)]}... dst={BuildModerationHandle(targetUid)}");
+                await WriteLineAsync(stream, $"OK {inviteId}", ct);
                 SafeClose(client);
                 return true;
             }
