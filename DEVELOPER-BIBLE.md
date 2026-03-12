@@ -427,34 +427,79 @@ Plaintext line-based ASCII over TCP. Commands send `\n`-terminated lines; the se
 | `ACK <inviteId>` | Acknowledge a received invite |
 | `RELAY <sessionKey>` | Request relay session pairing |
 | `UNREG <uid>` | Remove self from directory |
+| `RELAY-PEERS` | Request list of known peer relay addresses (gossip discovery) |
 
 Relay responses: `OK`, `ERR <reason>`, `QUEUED`, `PAIRED`, `INVITE <inviteId> <srcUid> <sessionKey>`, `INVITES [...]`, `NOT-FOUND`, `RATE-LIMITED <retryAfterMs>`.
 
 ---
 
-## 11. Relay Server
+## 11. Relay Server / Hosted Server
 
-`Zer0Talk.RelayServer` is a separate, independently deployable WinExe. It is optional. Users can run their own relay or use a community-provided one.
+`Zer0Talk.RelayServer` is a separate, independently deployable WinExe. It is optional. Users can run their own instance or connect to a community-provided one.
+
+The binary now serves **three distinct roles**, each behind its own feature flag:
+
+| Role | Feature Flag | Default Port | Purpose |
+|---|---|---|---|
+| **P2P Relay** | (always on) | 443 | Client-to-client session pairing and WAN directory (REG/LOOKUP/OFFER/POLL) |
+| **Relay Federation** | `EnableFederation` | 8443 | Relay-to-relay coordination (cross-relay session bridging, federated OFFER forwarding) |
+| **Hosted Server** | `EnableHosting` | 8444 | Persistent accounts, room lifecycle, encrypted message queuing |
+| **S2S Room Federation** | `EnableHosting` + `PeerHostedServers` | 8445 | Server-to-server room event routing between peer hosted servers |
+
+When all three modes are on, four TCP listeners run simultaneously. End-to-end encryption is preserved across all modes — the server never sees plaintext.
 
 ### Configuration (`relay-config.json`)
 
+`RelayConfigStore` loads from `%APPDATA%\Zer0TalkRelay\relay-config.json`. Missing fields are auto-defaulted and written back on startup.
+
 ```json
 {
+  // Core relay
   "Port": 443,
   "DiscoveryPort": 38384,
+  "AutoStart": true,
+  "DiscoveryEnabled": true,
+  "RelayAddressToken": "",
   "MaxPending": 256,
   "MaxSessions": 512,
   "PendingTimeoutSeconds": 60,
   "BufferSize": 16384,
   "MaxConnectionsPerMinute": 120,
   "BanSeconds": 120,
+  "ExposeSensitiveClientData": false,
+  "OperatorBlockSeconds": 1800,
+
+  // UI behavior
+  "ShowInSystemTray": true,
+  "MinimizeToTray": true,
+  "StartMinimized": false,
+  "RunOnStartup": false,
+  "EnableSmoothScrolling": true,
+
+  // Relay federation (server-to-server relay coordination)
   "EnableFederation": false,
   "FederationPort": 8443,
   "FederationTrustMode": "AllowList",
   "PeerRelays": [],
-  "ExposeSensitiveClientData": false
+  "MaxFederationPeers": 10,
+  "FederationSyncIntervalSeconds": 30,
+  "FederationSharedSecret": "",
+
+  // Hosted server (persistent accounts + rooms)
+  "EnableHosting": false,
+  "HostingPort": 8444,
+  "HostingS2SPort": 8445,
+  "HostingAddress": "",
+  "PeerHostedServers": [],
+  "MaxRegisteredUsers": 10000,
+  "MaxRoomsPerUser": 10,
+  "MaxMembersPerRoom": 12,
+  "RoomMessageQueueDepth": 200,
+  "DataDirectory": "relay-data"
 }
 ```
+
+`DataDirectory` is relative to `%APPDATA%\Zer0TalkRelay\`. The SQLite database is written to `<DataDirectory>/server.db`.
 
 ### Session Lifecycle
 
@@ -537,7 +582,93 @@ All federation commands are sent over TCP and require a shared secret (`Federati
 
 #### Federation health checks
 
-Health checks run every 30 seconds. A check sends `RELAY-HEALTH` to each peer. Three or more consecutive failures mark the peer as degraded and trigger the auto-reconnect path.
+Health checks run every 30 seconds (configurable via `FederationSyncIntervalSeconds`). A check sends `RELAY-HEALTH` to each peer. Three or more consecutive failures mark the peer as degraded and trigger the auto-reconnect path (rate-limited to once per 60 s).
+
+### Hosted Server Mode (`EnableHosting = true`)
+
+When hosting is enabled, `HostedServerHost` starts a separate listener on `HostingPort` (default 8444). This provides persistent accounts and room management on top of the P2P relay infrastructure.
+
+#### Authentication
+
+Every client connection to the hosted server begins with a challenge-response handshake:
+
+```
+Server → Client: CHALLENGE <hexNonce>
+Client → Server: ACCOUNT-REG <uid> <pubkeyHex> <sig-of-nonce>   ← first-time registration
+              OR ACCOUNT-AUTH <uid> <authToken>                  ← subsequent logins
+Server → Client: OK <authToken>   (ACCOUNT-REG)
+              OR OK               (ACCOUNT-AUTH)
+```
+
+`ACCOUNT-REG` verifies the Ed25519 signature over the nonce and stores the account in SQLite. `authToken` is returned to the client and cached with DPAPI encryption (`RoomKeyStore`). The nonce is recorded in `UsedNonces` to prevent replay attacks.
+
+#### Room Protocol Commands
+
+Post-authentication command loop on the hosted server port:
+
+| Command | Description |
+|---|---|
+| `ROOM-CREATE <name> <memberCap>` | Create room; caller becomes admin. Returns `OK <roomId>` |
+| `ROOM-INVITE <roomId> <targetUid> [targetHomeServer]` | Invite user; pushes `ROOM-INVITED` if online; routes via S2S if `targetHomeServer` given |
+| `ROOM-JOIN <roomId>` | Accept pending invite; triggers `ROOM-AWAITING-KEY` to admin |
+| `ROOM-LEAVE <roomId>` | Leave; broadcasts `ROOM-MEMBER-LEFT`; signals rekey |
+| `ROOM-MEMBERS <roomId>` | Get member list with roles and home servers |
+| `ROOM-KICK <roomId> <targetUid>` | Moderator+ only; broadcasts `ROOM-MEMBER-LEFT`; signals rekey |
+| `ROOM-BAN <roomId> <fingerprint>` | Admin only; bans by key fingerprint |
+| `ROOM-TRANSFER-ADMIN <roomId> <targetUid>` | Transfer admin role; broadcasts `ROOM-ADMIN-CHANGED` |
+| `ROOM-MSG <roomId> <ciphertextHex>` | Server-route encrypted message (only used when admin is offline) |
+| `PING` | Returns `PONG` |
+
+#### Server Push Events (server → client, any time)
+
+| Event | Trigger |
+|---|---|
+| `ROOM-INVITED <roomId> <inviterUid>` | Invited while connected |
+| `ROOM-MEMBER-JOINED <roomId> <uid>` | Member joined |
+| `ROOM-MEMBER-LEFT <roomId> <uid>` | Member left or was kicked |
+| `ROOM-ADMIN-ONLINE <roomId> <relayKey>` | Admin came online (P2P relay key for direct messaging) |
+| `ROOM-ADMIN-OFFLINE <roomId>` | Admin went offline (server-routing mode activates) |
+| `ROOM-AWAITING-KEY <roomId> <uid>` | New member joined; admin must send group key |
+| `ROOM-DELIVER <roomId> <senderUid> <ciphertextHex>` | Server-routed message fan-out |
+| `ROOM-REKEY <roomId>` | Group rekey required (kick/leave event) |
+| `ROOM-ADMIN-CHANGED <roomId> <newAdminUid>` | Admin transferred |
+
+#### Hybrid Routing Model
+
+Rooms operate in two modes determined by admin online status:
+
+- **P2P mode (admin online):** Admin broadcasts its relay session key (`ROOM-ADMIN-ONLINE <roomId> <relayKey>`). Members connect directly via the P2P relay. The server is not in the message path.
+- **Server-routing mode (admin offline):** Members send `ROOM-MSG` to the hosted server. The server fans out ciphertext to all online members as `ROOM-DELIVER` and queues up to `RoomMessageQueueDepth` (default 200) messages in an in-memory ring buffer. **Messages are never persisted to disk** — only in memory.
+
+#### SQLite Schema
+
+Database: `<DataDirectory>/server.db`. WAL mode, foreign keys enabled.
+
+| Table | Purpose |
+|---|---|
+| `Users` | Persistent accounts (`uid`, `public_key`, `auth_token`, `registered_at`, `last_seen`) |
+| `Rooms` | Room definitions (`room_id`, `display_name`, `admin_uid`, `home_server`, `member_cap`, `room_public_key`) |
+| `RoomMembers` | Membership + federation home server (`room_id`, `uid`, `role`, `home_server`, `joined_at`) |
+| `BannedFingerprints` | Per-room fingerprint bans (`room_id`, `fingerprint`, `banned_at`, `banned_by_uid`) |
+| `UsedNonces` | Replay protection for account registration |
+
+#### S2S Room Federation
+
+When `PeerHostedServers` is populated, `RoomFederationManager` establishes authenticated persistent TCP connections on `HostingS2SPort` (8445).
+
+Handshake:
+```
+Acceptor → Connector: S2S-CHALLENGE <hexNonce>
+Connector → Acceptor: S2S-HELLO <selfId> <HMAC-SHA256(FederationSharedSecret, nonce)>
+Acceptor → Connector: S2S-OK | S2S-ERR <reason>
+```
+
+Post-auth commands:
+- `S2S-NOTIFY <targetUid> <message>` — deliver room event to a locally-connected user
+- `S2S-ROOM-INVITE <targetUid> <roomId> <inviterUid>` — queue a cross-server room invite
+- `S2S-PING` / `S2S-PONG` — keepalive
+
+The `selfId` used in `S2S-HELLO` is `HostingAddress` (if set) or `RelayAddressToken`.
 
 ---
 
