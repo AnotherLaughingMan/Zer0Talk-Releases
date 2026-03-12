@@ -31,4 +31,16 @@ public sealed class RelayConfig
     public int MaxFederationPeers { get; set; } = 10;
     public int FederationSyncIntervalSeconds { get; set; } = 30;
     public string FederationSharedSecret { get; set; } = string.Empty; // Optional: for relay authentication
+
+    // Hosted Server settings (server-retained accounts + rooms)
+    public bool EnableHosting { get; set; } = false;
+    public int HostingPort { get; set; } = 8444;
+    public int HostingS2SPort { get; set; } = 8445;                     // Server-to-server room federation port
+    public string HostingAddress { get; set; } = string.Empty;          // Publicly reachable address for S2S (e.g. "relay.example.com")
+    public System.Collections.Generic.List<string> PeerHostedServers { get; set; } = new(); // "host:8445" per peer
+    public int MaxRegisteredUsers { get; set; } = 10_000;
+    public int MaxRoomsPerUser { get; set; } = 10;
+    public int MaxMembersPerRoom { get; set; } = 12;
+    public int RoomMessageQueueDepth { get; set; } = 200;
+    public string DataDirectory { get; set; } = "relay-data";
 }

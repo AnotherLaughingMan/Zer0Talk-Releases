@@ -106,33 +106,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch { }
 #endif
+        // Notification drop panel: attach popup placement to bell button after layout.
         try
         {
-            // Pre-layout collapse of notification-center column to prevent initial flash of an empty right panel.
-            var settings = AppServices.Settings.Settings;
-            if (settings.MainRightWidth is null or <= 0)
-            {
-                var grid = this.FindControl<Grid>("BodyGrid");
-                if (grid?.ColumnDefinitions is { Count: >= 6 })
-                {
-                    // Column indices: 0=nav,1=contacts,2=divider,3=chat,4=divider(chat/notifications),5=notifications
-                    var diagCol = grid.ColumnDefinitions[5];
-                    var dividerR = grid.ColumnDefinitions[4];
-                    // Capture original MinWidth once
-                    if (_rightColumnOriginalMinWidthDefinition is null)
-                        _rightColumnOriginalMinWidthDefinition = diagCol.MinWidth;
-                    // Collapse divider + notification-center column hard before first measure
-                    dividerR.Width = new GridLength(0);
-                    diagCol.MinWidth = 0;
-                    diagCol.Width = new GridLength(0);
-                    var rightRoot = this.FindControl<Border>("RightPanelRoot");
-                    if (rightRoot != null)
-                    {
-                        rightRoot.IsVisible = false;
-                        rightRoot.MinWidth = 0;
-                    }
-                }
-            }
+            var bellBtn = this.FindControl<Button>("NotificationBellButton");
+            var popup = this.FindControl<Popup>("NotificationDropPopup");
+            if (bellBtn != null && popup != null)
+                popup.PlacementTarget = bellBtn;
         }
         catch { }
         // Initialize trackers that depend on 'this'
@@ -167,6 +147,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             this.Opened += (_, __) => InitializeNotificationBellFlash();
             this.Activated += (_, __) => WriteUiCategory("[Window]", "Activated");
             this.Deactivated += (_, __) => WriteUiCategory("[Window]", "Deactivated");
+        }
+        catch { }
+        // Subscribe to room invites: show an actionable toast so the user can open the Rooms window
+        try
+        {
+            AppServices.Rooms.RoomInviteReceived += (roomId, inviterUid) =>
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+                {
+                    try
+                    {
+                        var accept = await AppServices.Dialogs.ConfirmAsync(
+                            "Room Invite",
+                            $"{inviterUid} has invited you to room:\n{roomId}\n\nOpen Rooms window to join?",
+                            "Open Rooms", "Later");
+                        if (accept)
+                            Zer0Talk.Services.WindowManager.ShowSingleton<RoomsWindow>();
+                    }
+                    catch { }
+                });
+            };
         }
         catch { }
         try
@@ -2028,8 +2029,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 double target = willCollapse ? 0.0 : Math.Max(_leftPanelLastWidth ?? (s2.MainLeftWidth ?? 280.0), 200.0);
                 if (willCollapse) _leftPanelLastWidth = current;
 
-                // Fast path: if this action would collapse the left AND right is already collapsed, collapse both instantly (no animation)
-                if (willCollapse && grid.ColumnDefinitions[5].Width.Value <= 0.1)
+                // Fast path: if collapsing left when already collapsed, collapse instantly (no animation)
+                if (willCollapse && contactsCol?.Width.Value <= 0.1)
                 {
                     CollapseBothInstant(grid);
                     if (leftRoot != null)
@@ -2305,9 +2306,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 {
                     AppServices.Settings.Settings.MainLeftWidth = currentLeft;
                 }
-                // Always persist right width as-is
-                // Right panel now resides at column index 5 (after two 1px divider columns)
-                AppServices.Settings.Settings.MainRightWidth = grid.ColumnDefinitions[5].Width.Value;
+                // Right panel is a popup now; no column width to persist.
             }
             _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
         }
@@ -2427,6 +2426,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private void SettingsMenu_ThemeEditor_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         ThemeEditor_Click(sender, e);
+    }
+
+    private void SettingsMenu_Rooms_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        Rooms_Click(sender, e);
+    }
+
+    private void Rooms_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        try { Zer0Talk.Services.WindowManager.ShowSingleton<RoomsWindow>(); } catch { }
     }
 
     private void ThemeEditor_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -4046,13 +4055,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try { _inviteToastCts?.Cancel(); }
         catch { }
         HideInviteToast();
-        try { 
-            // Open notifications panel to show pending invites
-            ToggleRightPanel_Click(sender, e);
-            ShowInvitesHost();
-            if (DataContext is MainWindowViewModel vm) { vm.RefreshHasPendingInvites(); }
-            RenderInvitesPanel();
-            AttachRightPanelEventHandlers();
+        try {
+            // Open notification drop panel and navigate to invites
+            var popup = this.FindControl<Popup>("NotificationDropPopup");
+            if (popup != null)
+            {
+                var bellBtn = this.FindControl<Button>("NotificationBellButton");
+                if (bellBtn != null) popup.PlacementTarget = bellBtn;
+                try { EnsureRightPanelHostsInitialized(); } catch { }
+                try { AttachRightPanelEventHandlers(); } catch { }
+                ShowInvitesHost();
+                UpdateNotifTabHighlight();
+                if (DataContext is MainWindowViewModel vm) { vm.RefreshHasPendingInvites(); }
+                RenderInvitesPanel();
+                popup.IsOpen = true;
+            }
         }
         catch { }
     }
@@ -4076,7 +4093,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
-    // Apply saved widths to side panels (0 width = hidden)
+    // Apply saved widths to side panels (left contacts panel only; right is now a popup)
     private void ApplyInitialPanelVisibility()
     {
         try
@@ -4085,18 +4102,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (grid?.ColumnDefinitions is { Count: >= 4 })
             {
                 var leftRoot = this.FindControl<Grid>("LeftPanelRoot");
-                var rightRoot = this.FindControl<Border>("RightPanelRoot");
                 var s2 = AppServices.Settings.Settings;
-                        var left = s2.MainLeftWidth ?? 280.0; // contacts default
-                        // Default notification center closed unless user previously opened (treat null or <=0 as collapsed)
-                        var rightStored = s2.MainRightWidth;
-                        var right = (rightStored is null || rightStored <= 0) ? 0.0 : rightStored.Value;
+                var left = s2.MainLeftWidth ?? 280.0;
                 var leftWidth = left > 0 ? left : 0.0;
                 var contactsCol = grid.ColumnDefinitions.Count >= 2 ? grid.ColumnDefinitions[1] : null;
                 var dividerL = grid.ColumnDefinitions.Count >= 3 ? grid.ColumnDefinitions[2] : null;
                 var chatCol = grid.ColumnDefinitions.Count >= 4 ? grid.ColumnDefinitions[3] : null;
-                var dividerR = grid.ColumnDefinitions.Count >= 5 ? grid.ColumnDefinitions[4] : null;
-                var diagCol = grid.ColumnDefinitions.Count >= 6 ? grid.ColumnDefinitions[5] : null;
 
                 if (contactsCol != null)
                 {
@@ -4109,49 +4120,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 {
                     dividerL.Width = (leftWidth <= 0.1) ? new GridLength(0) : new GridLength(1);
                 }
-                if (diagCol != null)
+                if (chatCol != null && leftWidth <= 0.1)
                 {
-                    if (_rightColumnOriginalMinWidthDefinition is null)
-                        _rightColumnOriginalMinWidthDefinition = diagCol.MinWidth;
-                    diagCol.Width = new GridLength(right <= 0 ? 0 : right, GridUnitType.Pixel);
-                    diagCol.MinWidth = (right <= 0.1) ? 0.0 : (_rightColumnOriginalMinWidthDefinition ?? diagCol.MinWidth);
-                }
-                if (dividerR != null)
-                {
-                    dividerR.Width = (right <= 0.1) ? new GridLength(0) : new GridLength(1);
-                }
-                if (chatCol != null)
-                {
-                    // Ensure chat expands to available space when any side is collapsed
-                    if (leftWidth <= 0.1 || right <= 0.1)
-                        chatCol.Width = new GridLength(1, GridUnitType.Star);
+                    chatCol.Width = new GridLength(1, GridUnitType.Star);
                 }
                 if (leftRoot != null)
                 {
                     if (_leftPanelOriginalMinWidth is null) _leftPanelOriginalMinWidth = leftRoot.MinWidth;
-                    leftRoot.IsVisible = leftWidth > 0; // hide when collapsed
+                    leftRoot.IsVisible = leftWidth > 0;
                     leftRoot.MinWidth = (leftWidth <= 0.1) ? 0.0 : (_leftPanelOriginalMinWidth ?? leftRoot.MinWidth);
-                }
-                if (rightRoot != null)
-                {
-                    rightRoot.IsVisible = (right > 0);
-                    rightRoot.MinWidth = (right > 0) ? 240 : 0;
-                }
-                if (right > 0.1)
-                {
-                    try { EnsureRightPanelHostsInitialized(); } catch { }
-                    try { AttachRightPanelEventHandlers(); } catch { }
-                    try { UpdateRightPanelHeaderAndControls(); } catch { }
-                }
-                else
-                {
-                    try { DetachRightPanelEventHandlers(); } catch { }
                 }
                 grid.InvalidateMeasure();
                 grid.InvalidateArrange();
-                _rightPanelLastWidth = right > 0 ? right : null;
                 _leftPanelLastWidth = (leftWidth > 0.1) ? leftWidth : null;
-                try { WriteSettingsLog($"[Restore] MainWindow: panels applied left={leftWidth:0} right={right:0}"); } catch { }
+                try { WriteSettingsLog($"[Restore] MainWindow: panels applied left={leftWidth:0}"); } catch { }
             }
         }
         catch { }
@@ -4176,70 +4158,97 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try { Close(); } catch { }
     }
 
+    // Kept for any remaining XAML/code references during refactor.
     private void ToggleRightPanel_Click(object? sender, RoutedEventArgs e)
+        => ToggleNotifDrop_Click(sender, e);
+
+    private void ToggleNotifDrop_Click(object? sender, RoutedEventArgs e)
     {
         try
         {
-            var s2 = AppServices.Settings.Settings;
-            var grid = this.FindControl<Grid>("BodyGrid");
-            var rightRoot = this.FindControl<Border>("RightPanelRoot");
-            var dividerChatDiag = grid?.ColumnDefinitions.Count >= 5 ? grid.ColumnDefinitions[4] : null;
-            if (grid?.ColumnDefinitions is { Count: >= 6 })
+            var popup = this.FindControl<Popup>("NotificationDropPopup");
+            if (popup == null) return;
+            if (popup.IsOpen)
             {
-                var diagCol = grid.ColumnDefinitions[5];
-                if (_rightColumnOriginalMinWidthDefinition is null)
-                    _rightColumnOriginalMinWidthDefinition = diagCol.MinWidth;
-                double current = diagCol.Width.Value;
-                bool willCollapse = current > 0.1;
-                double target = willCollapse ? 0.0 : _rightPanelLastWidth ?? (s2.MainRightWidth is double w && w > 0 ? w : 300.0);
-                if (willCollapse) _rightPanelLastWidth = current;
-
-                // Fast path: if this action would collapse the right AND left is already collapsed, collapse both instantly.
-                if (willCollapse && grid.ColumnDefinitions[1].Width.Value <= 0.1)
-                {
-                    CollapseBothInstant(grid);
-                    if (rightRoot != null)
-                    {
-                        rightRoot.IsVisible = false;
-                        rightRoot.MinWidth = 0;
-                    }
-                    try { DetachRightPanelEventHandlers(); } catch { }
-                    // Preserve previous width (don't overwrite with zero)
-                    _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
-                    return;
-                }
-
-                var anim = AnimateColumnWidth(diagCol, target);
-                if (dividerChatDiag != null)
-                    dividerChatDiag.Width = (target <= 0.1) ? new GridLength(0) : new GridLength(1);
-                if (target <= 0.1)
-                {
-                    diagCol.MinWidth = 0;
-                    grid.ColumnDefinitions[3].Width = new GridLength(1, GridUnitType.Star);
-                    try { DetachRightPanelEventHandlers(); } catch { }
-                }
-                else
-                {
-                    diagCol.MinWidth = _rightColumnOriginalMinWidthDefinition ?? diagCol.MinWidth;
-                }
-                if (rightRoot != null)
-                {
-                    rightRoot.IsVisible = target > 0;
-                    rightRoot.MinWidth = target > 0 ? 240 : 0;
-                    if (target > 0)
-                    {
-                        // Initialize hosts so subsequent rendering can safely assume they exist
-                        try { EnsureRightPanelHostsInitialized(); } catch { }
-                        try { AttachRightPanelEventHandlers(); } catch { }
-                    }
-                }
-                s2.MainRightWidth = target; // right side persisted directly like original logic
-                grid.InvalidateMeasure();
-                grid.InvalidateArrange();
-                _ = anim.ContinueWith(_ => Dispatcher.UIThread.Post(NormalizeCentralLayout));
-                try { WriteSettingsLog($"[Restore] MainWindow: ToggleRightPanel -> {target:0}"); } catch { }
+                popup.IsOpen = false;
+                try { DetachRightPanelEventHandlers(); } catch { }
             }
-            _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
+            else
+            {
+                var bellBtn = this.FindControl<Button>("NotificationBellButton");
+                if (bellBtn != null) popup.PlacementTarget = bellBtn;
+                try { EnsureRightPanelHostsInitialized(); } catch { }
+                try { AttachRightPanelEventHandlers(); } catch { }
+                try { RestoreRightPanelViewIfNeeded(); } catch { }
+                try { UpdateRightPanelHeaderAndControls(); } catch { }
+                popup.IsOpen = true;
+                // Render whichever panel is currently active now that popup is open.
+                try
+                {
+                    switch (_rightPanelView)
+                    {
+                        case RightPanelView.Invites:  RenderInvitesPanel(); break;
+                        case RightPanelView.Messages: RenderMessagesPanel(); break;
+                        case RightPanelView.Alerts:   RenderAlertsPanel(); break;
+                    }
+                }
+                catch { }
+            }
+        }
+        catch { }
+    }
+
+    private void CloseNotifDrop_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var popup = this.FindControl<Popup>("NotificationDropPopup");
+            if (popup != null) popup.IsOpen = false;
+            try { DetachRightPanelEventHandlers(); } catch { }
+        }
+        catch { }
+    }
+
+    private void NotifTabInvites_Click(object? sender, RoutedEventArgs e)
+    {
+        ShowInvitesHost();
+        try { RenderInvitesPanel(); } catch { }
+        UpdateNotifTabHighlight();
+    }
+
+    private void NotifTabMessages_Click(object? sender, RoutedEventArgs e)
+    {
+        ShowMessagesHost();
+        try { RenderMessagesPanel(); } catch { }
+        UpdateNotifTabHighlight();
+    }
+
+    private void NotifTabAlerts_Click(object? sender, RoutedEventArgs e)
+    {
+        ShowAlertsHost();
+        try { RenderAlertsPanel(); } catch { }
+        UpdateNotifTabHighlight();
+    }
+
+    private void UpdateNotifTabHighlight()
+    {
+        try
+        {
+            var tabInvites = this.FindControl<Button>("NotifTabInvites");
+            var tabMessages = this.FindControl<Button>("NotifTabMessages");
+            var tabAlerts = this.FindControl<Button>("NotifTabAlerts");
+            if (tabInvites != null)
+            {
+                tabInvites.Classes.Set("active", _rightPanelView == RightPanelView.Invites);
+            }
+            if (tabMessages != null)
+            {
+                tabMessages.Classes.Set("active", _rightPanelView == RightPanelView.Messages);
+            }
+            if (tabAlerts != null)
+            {
+                tabAlerts.Classes.Set("active", _rightPanelView == RightPanelView.Alerts);
+            }
         }
         catch { }
     }
@@ -4713,15 +4722,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
-    private void SettingsOverlay_Save_Click(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            SettingsProxy.SaveCommand.Execute(null);
-            // Stay on overlay as requested.
-        }
-        catch { }
-    }
     private void SettingsOverlay_Close_Click(object? sender, RoutedEventArgs e)
     {
         HideSettingsOverlayIfConfirmed();
@@ -4902,13 +4902,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void SetRightVisibility(bool visible)
     {
-        var grid = this.FindControl<Grid>("BodyGrid");
-        if (grid?.ColumnDefinitions is { Count: >= 4 })
+        try
         {
-            grid.ColumnDefinitions[5].Width = visible ? new GridLength(300, GridUnitType.Pixel) : new GridLength(0, GridUnitType.Pixel);
-            var rightRoot = this.FindControl<Border>("RightPanelRoot");
-            if (rightRoot != null) rightRoot.IsVisible = visible;
+            var popup = this.FindControl<Popup>("NotificationDropPopup");
+            if (popup != null) popup.IsOpen = visible;
         }
+        catch { }
     }
 
     private enum RightPanelView
@@ -4944,6 +4943,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
         catch { }
         try { UpdateRightPanelHeaderAndControls(); } catch { }
+        try { UpdateNotifTabHighlight(); } catch { }
     }
 
     private void RestoreRightPanelViewIfNeeded()
@@ -5063,48 +5063,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var rightRoot = this.FindControl<Border>("RightPanelRoot");
-            if (rightRoot == null) return;
+            var notifCard = this.FindControl<Border>("NotifDropCard");
+            if (notifCard == null) return;
 
             var invitesHost = this.FindControl<ScrollViewer>("InvitesHost");
             var messagesHost = this.FindControl<ScrollViewer>("MessagesHost");
             var alertsHost = this.FindControl<ScrollViewer>("AlertsHost");
-            var invitesStack = this.FindControl<StackPanel>("InvitesStack");
-            var messagesStack = this.FindControl<StackPanel>("MessagesStack");
-            var alertsStack = this.FindControl<StackPanel>("AlertsStack");
 
-            // If hosts are missing (e.g., XAML changed), create safe placeholders so callers don't NRE.
-            if (invitesHost == null || invitesStack == null)
-            {
-                var newInvitesStack = invitesStack ?? new StackPanel { Name = "InvitesStack", Margin = new Thickness(4), Spacing = 6 };
-                var newInvitesHost = invitesHost ?? new ScrollViewer { Name = "InvitesHost", VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = newInvitesStack };
-                // Attach to rightRoot if possible
-                if (rightRoot.Child is Grid g && !g.Children.Contains(newInvitesHost))
-                {
-                    Grid.SetRow(newInvitesHost, 2);
-                    g.Children.Add(newInvitesHost);
-                }
-            }
-            if (messagesHost == null || messagesStack == null)
-            {
-                var newMessagesStack = messagesStack ?? new StackPanel { Name = "MessagesStack", Margin = new Thickness(4), Spacing = 6 };
-                var newMessagesHost = messagesHost ?? new ScrollViewer { Name = "MessagesHost", VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = newMessagesStack };
-                if (rightRoot.Child is Grid g2 && !g2.Children.Contains(newMessagesHost))
-                {
-                    Grid.SetRow(newMessagesHost, 2);
-                    g2.Children.Add(newMessagesHost);
-                }
-            }
-            if (alertsHost == null || alertsStack == null)
-            {
-                var newAlertsStack = alertsStack ?? new StackPanel { Name = "AlertsStack", Margin = new Thickness(4), Spacing = 6 };
-                var newAlertsHost = alertsHost ?? new ScrollViewer { Name = "AlertsHost", VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = newAlertsStack };
-                if (rightRoot.Child is Grid g3 && !g3.Children.Contains(newAlertsHost))
-                {
-                    Grid.SetRow(newAlertsHost, 2);
-                    g3.Children.Add(newAlertsHost);
-                }
-            }
+            // Hosts are declared in XAML; nothing to create dynamically.
+            // This guard keeps callers safe if control tree is not yet built.
+            _ = invitesHost; _ = messagesHost; _ = alertsHost;
             RestoreRightPanelViewIfNeeded();
         }
         catch { }
@@ -5118,8 +5086,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private EventHandler<RoutedEventArgs>? _rejectAllInvitesHandler;
     private EventHandler<RoutedEventArgs>? _markAllMessagesHandler;
     private EventHandler<RoutedEventArgs>? _clearAllAlertsHandler;
-    private EventHandler<RoutedEventArgs>? _notifPrevHandler;
-    private EventHandler<RoutedEventArgs>? _notifNextHandler;
     private bool _rightPanelButtonsWired;
 
     private void AttachRightPanelEventHandlers()
@@ -5206,8 +5172,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     var rejectBtn = this.FindControl<Button>("RejectAllInvitesBtn");
                     var markAllBtn = this.FindControl<Button>("MarkAllMessagesBtn");
                     var clearAlertsBtn = this.FindControl<Button>("ClearAllAlertsBtn");
-                    var prevBtn = this.FindControl<Button>("NotifPrevBtn");
-                    var nextBtn = this.FindControl<Button>("NotifNextBtn");
                     if (rejectBtn != null)
                     {
                         _rejectAllInvitesHandler ??= new EventHandler<RoutedEventArgs>(RejectAllInvites_Click);
@@ -5223,73 +5187,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                         _clearAllAlertsHandler ??= new EventHandler<RoutedEventArgs>(ClearAllAlerts_Click);
                         clearAlertsBtn.Click += _clearAllAlertsHandler;
                     }
-                    if (prevBtn != null)
-                    {
-                        _notifPrevHandler ??= new EventHandler<RoutedEventArgs>(NotifPrev_Click);
-                        prevBtn.Click += _notifPrevHandler;
-                    }
-                    if (nextBtn != null)
-                    {
-                        _notifNextHandler ??= new EventHandler<RoutedEventArgs>(NotifNext_Click);
-                        nextBtn.Click += _notifNextHandler;
-                    }
                     _rightPanelButtonsWired = true;
                 }
                 catch { }
             }
             try { RestoreRightPanelViewIfNeeded(); } catch { }
+            try { UpdateNotifTabHighlight(); } catch { }
             try { RenderInvitesPanel(); } catch { }
         }
         catch { }
     }
 
-    private void NotifPrev_Click(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            // Cycle backward: Invites <- Alerts <- Messages <- Invites
-            switch (_rightPanelView)
-            {
-                case RightPanelView.Invites:
-                    ShowAlertsHost();
-                    try { RenderAlertsPanel(); } catch { }
-                    break;
-                case RightPanelView.Messages:
-                    ShowInvitesHost();
-                    try { RenderInvitesPanel(); } catch { }
-                    break;
-                case RightPanelView.Alerts:
-                    ShowMessagesHost();
-                    try { RenderMessagesPanel(); } catch { }
-                    break;
-            }
-        }
-        catch { }
-    }
-
-    private void NotifNext_Click(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            // Cycle forward: Invites -> Messages -> Alerts -> Invites
-            switch (_rightPanelView)
-            {
-                case RightPanelView.Invites:
-                    ShowMessagesHost();
-                    try { RenderMessagesPanel(); } catch { }
-                    break;
-                case RightPanelView.Messages:
-                    ShowAlertsHost();
-                    try { RenderAlertsPanel(); } catch { }
-                    break;
-                case RightPanelView.Alerts:
-                    ShowInvitesHost();
-                    try { RenderInvitesPanel(); } catch { }
-                    break;
-            }
-        }
-        catch { }
-    }
+    private void NotifPrev_Click(object? sender, RoutedEventArgs e) { /* Replaced by tab strip */ }
+    private void NotifNext_Click(object? sender, RoutedEventArgs e) { /* Replaced by tab strip */ }
 
     private void DetachRightPanelEventHandlers()
     {
@@ -5342,23 +5252,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     if (clearAlertsBtn != null && _clearAllAlertsHandler != null) clearAlertsBtn.Click -= _clearAllAlertsHandler;
                 }
                 catch { }
-                try
-                {
-                    var prevBtn = this.FindControl<Button>("NotifPrevBtn");
-                    if (prevBtn != null && _notifPrevHandler != null) prevBtn.Click -= _notifPrevHandler;
-                }
-                catch { }
-                try
-                {
-                    var nextBtn = this.FindControl<Button>("NotifNextBtn");
-                    if (nextBtn != null && _notifNextHandler != null) nextBtn.Click -= _notifNextHandler;
-                }
-                catch { }
                 _rejectAllInvitesHandler = null;
                 _markAllMessagesHandler = null;
                 _clearAllAlertsHandler = null;
-                _notifPrevHandler = null;
-                _notifNextHandler = null;
                 _rightPanelButtonsWired = false;
             }
         }
@@ -5460,8 +5356,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var rightRoot = this.FindControl<Border>("RightPanelRoot");
-            if (rightRoot?.IsVisible != true) return;
+            var popup = this.FindControl<Popup>("NotificationDropPopup");
+            if (popup?.IsOpen != true) return;
             // Always run UI mutations on UI thread
             Dispatcher.UIThread.Post(() =>
             {
@@ -5542,8 +5438,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var rightRoot = this.FindControl<Border>("RightPanelRoot");
-            if (rightRoot?.IsVisible != true) return;
+            var popup = this.FindControl<Popup>("NotificationDropPopup");
+            if (popup?.IsOpen != true) return;
             var noticesSnapshot = AppServices.Notifications.Notices?
                 .Where(n => n.IsMessage)
                 .ToList() ?? new List<NotificationService.NotificationItem>();
@@ -5710,12 +5606,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var rightRoot = this.FindControl<Border>("RightPanelRoot");
-            if (rightRoot?.IsVisible != true) return;
+            var popup = this.FindControl<Popup>("NotificationDropPopup");
+            if (popup?.IsOpen != true) return;
             var securitySnapshot = AppServices.Notifications.SecurityEvents?
                 .ToList() ?? new List<NotificationService.SecurityEventItem>();
             var noticesSnapshot = AppServices.Notifications.Notices?
-                .Where(n => !n.IsMessage && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase))
+                .Where(n => !n.IsMessage && !(n.Title?.Contains("Invite", StringComparison.OrdinalIgnoreCase) == true))
                 .ToList() ?? new List<NotificationService.NotificationItem>();
             Dispatcher.UIThread.Post(() =>
             {

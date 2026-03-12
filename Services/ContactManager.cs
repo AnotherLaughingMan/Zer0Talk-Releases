@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 using Zer0Talk.Containers;
 using System.Diagnostics;
@@ -250,6 +251,32 @@ namespace Zer0Talk.Services
             {
                 return false;
             }
+        }
+
+        public void SetPreferredRelay(string uid, string? relayAddress, string passphrase)
+        {
+            try
+            {
+                uid = NormalizeUid(uid);
+                var c = _contacts.FirstOrDefault(x => string.Equals(x.UID, uid, StringComparison.OrdinalIgnoreCase));
+                if (c == null) return;
+                var next = string.IsNullOrWhiteSpace(relayAddress) ? null : relayAddress.Trim();
+                if (string.Equals(c.PreferredRelay, next, StringComparison.OrdinalIgnoreCase)) return;
+                c.PreferredRelay = next;
+                Task.Run(() => Save(passphrase));
+            }
+            catch { }
+        }
+
+        public string? GetPreferredRelay(string uid)
+        {
+            try
+            {
+                uid = NormalizeUid(uid);
+                var c = _contacts.FirstOrDefault(x => string.Equals(x.UID, uid, StringComparison.OrdinalIgnoreCase));
+                return c?.PreferredRelay;
+            }
+            catch { return null; }
         }
 
         // [VERIFY] Transient: set PublicKeyVerified on a contact (not persisted) and notify UI

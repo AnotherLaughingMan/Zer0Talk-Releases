@@ -21,6 +21,10 @@ public sealed partial class WanDirectoryService
     private readonly ConcurrentDictionary<string, string> _authTokensByEndpoint = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan RegisterInterval = TimeSpan.FromSeconds(45);
 
+    // Relay addresses discovered via RELAY-PEERS gossip from connected relays
+    private readonly HashSet<string> _discoveredRelayPeers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _discoveredRelayPeersLock = new();
+
     public WanDirectoryService(SettingsService settings, IdentityService identity, NetworkService network, NatTraversalService nat)
     {
         _settings = settings;
@@ -67,12 +71,31 @@ public sealed partial class WanDirectoryService
             {
                 _registeredUid = uid;
                 _lastRegisterUtc = now;
+                _ = Task.Run(() => FetchAndMergeRelayPeersAsync(CancellationToken.None), CancellationToken.None);
                 return true;
             }
         }
         catch { }
 
         return false;
+    }
+
+    private async Task FetchAndMergeRelayPeersAsync(CancellationToken ct)
+    {
+        try
+        {
+            foreach (var endpoint in GetCandidateRelayEndpoints())
+            {
+                var peers = await TryFetchRelayPeersAsync(endpoint.Host, endpoint.Port, ct).ConfigureAwait(false);
+                if (peers.Count == 0) continue;
+                lock (_discoveredRelayPeersLock)
+                {
+                    foreach (var peer in peers)
+                        _discoveredRelayPeers.Add(peer);
+                }
+            }
+        }
+        catch { }
     }
 
     public async Task<LookupResult?> LookupPeerAsync(string uid, CancellationToken ct)

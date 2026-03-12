@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.NetworkInformation;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,6 +27,8 @@ public sealed class RelayHost
     private readonly RelayForwarder _forwarder;
     private readonly RelayRateLimiter _rateLimiter;
     private readonly RelayFederationManager? _federation;
+    private HostedServerHost? _hostedServer;
+    private RoomFederationManager? _roomFederation;
 
     // ── Directory: uid → registration entry ──
     private readonly ConcurrentDictionary<string, DirectoryEntry> _directory = new(StringComparer.OrdinalIgnoreCase);
@@ -86,6 +90,38 @@ public sealed class RelayHost
             _federation = new RelayFederationManager(config);
             _federation.Log += msg => Log?.Invoke($"[Federation] {msg}");
             _federation.StatsChanged += stats => Log?.Invoke($"[Federation] peers={stats.HealthyPeers}/{stats.TotalPeers} cache={stats.CachedDirectoryEntries}");
+        }
+
+        if (config.EnableHosting)
+        {
+            var db = new ServerDatabase(RelayConfigStore.GetDataDirectoryPath(config));
+
+            // s2sAddress is what peers use to route messages back to this server.
+            // If HostingAddress already contains a port ("host:port"), use it as-is.
+            // If it's only a host/IP, append HostingS2SPort.
+            // If not set at all, fall back to localhost (LAN-only mode).
+            string s2sAddress;
+            if (string.IsNullOrWhiteSpace(config.HostingAddress))
+            {
+                s2sAddress = $"localhost:{config.HostingS2SPort}";
+            }
+            else if (config.HostingAddress.Contains(':'))
+            {
+                s2sAddress = config.HostingAddress;   // already "host:port"
+            }
+            else
+            {
+                s2sAddress = $"{config.HostingAddress}:{config.HostingS2SPort}";
+            }
+
+            if (config.PeerHostedServers.Count > 0)
+            {
+                _roomFederation = new RoomFederationManager(config);
+                _roomFederation.Log += msg => Log?.Invoke($"[S2S] {msg}");
+            }
+
+            _hostedServer = new HostedServerHost(config, db, s2sAddress, _roomFederation);
+            _hostedServer.Log += msg => Log?.Invoke($"[Hosting] {msg}");
         }
     }
 
@@ -155,6 +191,13 @@ public sealed class RelayHost
         }
 
         try { _federation?.Start(); } catch (Exception ex) { Log?.Invoke($"Federation start failed: {ex.Message}"); }
+
+        if (_hostedServer != null)
+        {
+            try { _roomFederation?.Start(); } catch (Exception ex) { Log?.Invoke($"S2S federation start failed: {ex.Message}"); }
+            _ = _hostedServer.StartAsync(_cts.Token);
+        }
+
         _ = AcceptLoopAsync(_cts.Token);
         _ = CleanupLoopAsync(_cts.Token);
         ReportStats();
@@ -165,6 +208,8 @@ public sealed class RelayHost
     public void Stop()
     {
         if (!IsRunning) return;
+        try { _hostedServer?.Stop(); } catch { }
+        try { _roomFederation?.Stop(); } catch { }
         try { _federation?.Stop(); } catch { }
         try { _cts?.Cancel(); } catch { }
         try { _listener?.Stop(); } catch { }
@@ -175,6 +220,14 @@ public sealed class RelayHost
         _federationListener = null;
         _federationAcceptTask = null;
         _federationUsesMainPort = true;
+        // Clear all in-memory state so restart sees a clean slate
+        _sessions.Reset();
+        _directory.Clear();
+        lock (_inviteGate) { _invitesByTarget.Clear(); }
+        _firstArrivalBySession.Clear();
+        _blockedUids.Clear();
+        _blockedIps.Clear();
+        while (_probeAuditLogs.TryDequeue(out _)) { }
         ClearInviteSignals();
         IsRunning = false;
         _paused = false;
@@ -240,9 +293,35 @@ public sealed class RelayHost
         var disconnected = _sessions.DisconnectSessionsForUid(matchedUid);
 
         Log?.Invoke($"Operator block applied handle={moderationHandle} duration={blockFor.TotalSeconds:F0}s disconnected={disconnected}");
+        WriteModerationAuditEntry("block", moderationHandle, matchedUid, $"duration={blockFor.TotalSeconds:F0}s disconnected={disconnected}", GetModerationAuditLogPath());
         ReportClients();
         ReportSessions();
         return true;
+    }
+
+    private string GetModerationAuditLogPath()
+    {
+        return Path.Combine(RelayConfigStore.GetDataDirectoryPath(_config), "moderation-audit.jsonl");
+    }
+
+    private static void WriteModerationAuditEntry(string action, string handle, string uid, string detail, string logPath)
+    {
+        try
+        {
+            var entry = new
+            {
+                ts = DateTime.UtcNow.ToString("o"),
+                action,
+                handle,
+                uid_fingerprint = BuildFingerprint(uid, 12),
+                detail
+            };
+            var line = JsonSerializer.Serialize(entry) + Environment.NewLine;
+            var dir = Path.GetDirectoryName(logPath);
+            if (!string.IsNullOrWhiteSpace(dir)) Directory.CreateDirectory(dir);
+            File.AppendAllText(logPath, line);
+        }
+        catch { }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -549,6 +628,7 @@ public sealed class RelayHost
                 case "WAITPOLL":
                 case "ACK":
                 case "UNREG":
+                case "RELAY-PEERS":
                     RecordProbeAudit(remoteEp, "Zer0Talk Client", cmd, "Accepted", "Recognized directory/rendezvous command");
                     break;
                 default:         return false;
@@ -563,6 +643,7 @@ public sealed class RelayHost
                 "WAITPOLL" => await HandleWaitPollAsync(parts, client, stream, ct),
                 "ACK" => await HandleAckAsync(parts, client, stream, ct),
                 "UNREG" => await HandleUnregAsync(parts, client, stream, ct),
+                "RELAY-PEERS" => await HandleRelayPeersAsync(client, stream, ct),
                 _ => false
             };
         }
@@ -734,16 +815,20 @@ public sealed class RelayHost
         // If the target is not locally registered and federation is available, forward the offer to the peer relay hosting that UID.
         if (!_directory.ContainsKey(targetUid) && _federation != null)
         {
-            _ = Task.Run(async () =>
+            try
             {
-                try
+                var peer = await _federation.LookupUserFederatedAsync(targetUid, ct);
+                if (!string.IsNullOrWhiteSpace(peer.host) && peer.port is > 0 and <= 65535)
                 {
-                    var peer = await _federation.LookupUserFederatedAsync(targetUid, ct);
-                    if (!string.IsNullOrWhiteSpace(peer.host) && peer.port is > 0 and <= 65535)
-                        await _federation.ForwardOfferAsync(peer.host, peer.port.Value, targetUid, sourceUid, sessionKey, ct);
+                    var forwarded = await _federation.ForwardOfferAsync(peer.host, peer.port.Value, targetUid, sourceUid, sessionKey, ct);
+                    if (!forwarded)
+                        Log?.Invoke($"OFFER federated forward failed | peer={peer.host}:{peer.port}");
                 }
-                catch { }
-            }, ct);
+            }
+            catch (Exception ex)
+            {
+                Log?.Invoke($"OFFER federated forward error | {ex.Message}");
+            }
         }
 
         var sourceHandle = BuildModerationHandle(sourceUid);
@@ -751,6 +836,24 @@ public sealed class RelayHost
         var sessionFingerprint = BuildFingerprint(sessionKey, 8);
         Log?.Invoke($"OFFER stored: invite={inviteId[..Math.Min(8, inviteId.Length)]}... src={sourceHandle} dst={targetHandle} session={sessionFingerprint}");
         await WriteLineAsync(stream, $"OK {inviteId}", ct);
+        SafeClose(client);
+        return true;
+    }
+
+    // ── RELAY-PEERS ── returns federation peer relay addresses for gossip
+    private async Task<bool> HandleRelayPeersAsync(TcpClient client, NetworkStream stream, CancellationToken ct)
+    {
+        try
+        {
+            var peers = _config.PeerRelays ?? new System.Collections.Generic.List<string>();
+            foreach (var peer in peers)
+            {
+                if (!string.IsNullOrWhiteSpace(peer))
+                    await WriteLineAsync(stream, $"PEER {peer.Trim()}", ct);
+            }
+            await WriteLineAsync(stream, "END", ct);
+        }
+        catch { }
         SafeClose(client);
         return true;
     }

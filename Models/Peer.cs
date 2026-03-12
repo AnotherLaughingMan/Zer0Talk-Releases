@@ -245,9 +245,59 @@ namespace Zer0Talk.Models
             }
         }
 
+        // [UI] True when this peer's address is a private/LAN IP. Not persisted.
+        [System.Text.Json.Serialization.JsonIgnore]
+        private bool _isLan;
+        public bool IsLan
+        {
+            get => _isLan;
+            set
+            {
+                if (_isLan != value)
+                {
+                    _isLan = value;
+                    OnPropertyChanged(nameof(IsLan));
+                }
+            }
+        }
+
+        // [UI] Transient connection mode label for display ("Direct", "Relay", "—"). Not persisted.
+        [System.Text.Json.Serialization.JsonIgnore]
+        private string _modeLabel = string.Empty;
+        public string ModeLabel
+        {
+            get => _modeLabel;
+            set
+            {
+                if (_modeLabel != value)
+                {
+                    _modeLabel = value;
+                    OnPropertyChanged(nameof(ModeLabel));
+                }
+            }
+        }
+
         public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
         private void OnPropertyChanged(string propertyName)
             => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
+
+        // [UI] Transient session byte counters for display. Not persisted.
+        [System.Text.Json.Serialization.JsonIgnore]
+        private long _bytesIn;
+        public long BytesIn
+        {
+            get => _bytesIn;
+            set { if (_bytesIn != value) { _bytesIn = value; OnPropertyChanged(nameof(BytesIn)); } }
+        }
+
+        [System.Text.Json.Serialization.JsonIgnore]
+        private long _bytesOut;
+        public long BytesOut
+        {
+            get => _bytesOut;
+            set { if (_bytesOut != value) { _bytesOut = value; OnPropertyChanged(nameof(BytesOut)); } }
+        }
+
         // Additional peer properties
     }
 }

@@ -149,6 +149,29 @@ public sealed class RelaySessionManager
         return false;
     }
 
+    /// <summary>
+    /// Close and remove all active + pending sessions, and clear the cooldown map.
+    /// Called on relay Stop() so a clean restart sees empty state.
+    /// </summary>
+    public void Reset()
+    {
+        // Close and drain active sessions
+        foreach (var entry in _active)
+        {
+            if (_active.TryRemove(entry.Key, out var session))
+                try { session.Close(); } catch { }
+        }
+
+        // Close and drain pending
+        foreach (var entry in _pending)
+        {
+            if (_pending.TryRemove(entry.Key, out var pending))
+                try { SafeClose(pending.Client); } catch { }
+        }
+
+        _recentFailures.Clear();
+    }
+
     public int DisconnectSessionsForUid(string uid)
     {
         if (string.IsNullOrWhiteSpace(uid)) return 0;

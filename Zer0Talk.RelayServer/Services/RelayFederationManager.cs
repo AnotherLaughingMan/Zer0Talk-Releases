@@ -38,10 +38,9 @@ public sealed class RelayFederationManager : IDisposable
 
     private static readonly TimeSpan FederatedDirectoryCacheTtl = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan PeerHealthCheckInterval = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan DirectorySyncInterval = TimeSpan.FromSeconds(60);
+    private TimeSpan DirectorySyncInterval => TimeSpan.FromSeconds(Math.Max(10, _config.FederationSyncIntervalSeconds));
     private const int HealthFailuresBeforeUnhealthy = 3;
     private const int LookupFailuresBeforeUnhealthy = 6;
-    private const int LookupAttemptsPerPeer = 2;
     private const int DisconnectNotifyAttemptsPerPeer = 3;
 
     public RelayFederationManager(RelayConfig config)
@@ -278,6 +277,12 @@ public sealed class RelayFederationManager : IDisposable
                 LastSeenUtc = DateTime.UtcNow,
                 IsHealthy = true
             };
+
+            if (_peers.Count >= _config.MaxFederationPeers)
+            {
+                Log?.Invoke($"Federation peer cap reached ({_config.MaxFederationPeers}) | rejecting={host}:{port}");
+                return;
+            }
 
             _peers[peerToken] = peer;
             Log?.Invoke($"Federation peer connected | token={peerToken} | capacity={peerCapacity}");

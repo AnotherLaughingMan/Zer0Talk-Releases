@@ -14,15 +14,20 @@ namespace Zer0Talk.Views;
 
 public partial class DiscoveredPeersWindow : Window
 {
-    private readonly Avalonia.Threading.DispatcherTimer _autoRefreshTimer = new()
+    // 2-second tick to keep Bytes In/Out counts live during active sessions.
+    private readonly Avalonia.Threading.DispatcherTimer _liveTimer = new()
     {
         Interval = TimeSpan.FromSeconds(2)
     };
 
+    private DiscoveredPeersViewModel? _vm;
+
     public DiscoveredPeersWindow()
     {
         InitializeComponent();
-        _autoRefreshTimer.Tick += AutoRefreshTimer_Tick;
+        _vm = new DiscoveredPeersViewModel();
+        DataContext = _vm;
+        _liveTimer.Tick += LiveTimer_Tick;
     }
 
     protected override void OnOpened(EventArgs e)
@@ -30,11 +35,8 @@ public partial class DiscoveredPeersWindow : Window
         base.OnOpened(e);
         try
         {
-            if (DataContext is NetworkViewModel vm)
-            {
-                vm.RefreshPeersRealtime();
-            }
-            _autoRefreshTimer.Start();
+            _vm?.Attach();
+            _liveTimer.Start();
         }
         catch { }
     }
@@ -43,22 +45,17 @@ public partial class DiscoveredPeersWindow : Window
     {
         try
         {
-            _autoRefreshTimer.Stop();
-            _autoRefreshTimer.Tick -= AutoRefreshTimer_Tick;
+            _liveTimer.Stop();
+            _liveTimer.Tick -= LiveTimer_Tick;
+            _vm?.Detach();
         }
         catch { }
         base.OnClosed(e);
     }
 
-    private void AutoRefreshTimer_Tick(object? sender, EventArgs e)
+    private void LiveTimer_Tick(object? sender, EventArgs e)
     {
-        try
-        {
-            if (DataContext is not NetworkViewModel vm) return;
-            if (!vm.AutoRefreshPeers) return;
-            vm.RefreshPeersRealtime();
-        }
-        catch { }
+        try { _vm?.Refresh(); } catch { }
     }
 
     private void DragBar_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -73,10 +70,8 @@ public partial class DiscoveredPeersWindow : Window
                 if (c is TextBox || c.FindAncestorOfType<TextBox>() != null) return;
                 if (c is ComboBox || c.FindAncestorOfType<ComboBox>() != null) return;
             }
-                if (WindowDragHelper.TryBeginMoveDrag(this, e))
-                {
-                    e.Handled = true;
-                }
+            if (WindowDragHelper.TryBeginMoveDrag(this, e))
+                e.Handled = true;
         }
         catch { }
     }
@@ -90,18 +85,12 @@ public partial class DiscoveredPeersWindow : Window
     {
         try
         {
-            if (sender is not ListBox listBox) return;
-            if (DataContext is not NetworkViewModel vm) return;
-
+            if (sender is not ListBox listBox || _vm == null) return;
             var selected = new List<Peer>();
             if (listBox.SelectedItems != null)
-            {
                 foreach (var item in listBox.SelectedItems)
-                {
                     if (item is Peer peer) selected.Add(peer);
-                }
-            }
-            vm.SelectedPeers = selected;
+            _vm.SelectedPeers = selected;
         }
         catch { }
     }

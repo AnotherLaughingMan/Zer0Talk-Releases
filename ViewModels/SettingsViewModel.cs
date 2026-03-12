@@ -128,9 +128,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private double _baseChatVolume;
     private bool _suppressDirtyCheck = true;
     private bool _hasUnsavedChanges;
-    private bool _unsavedWarningVisible;
-    private string _unsavedWarningText = "You Have Unsaved Changes";
-    private const string UnsavedChangesMessage = "You Have Unsaved Changes";
     private static readonly System.Collections.Generic.HashSet<string> DirtyTrackedProperties = new(System.StringComparer.Ordinal)
     {
         nameof(DisplayName),
@@ -205,6 +202,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         }
     }
     private System.Threading.CancellationTokenSource? _saveToastCts;
+    private System.Threading.Timer? _autoSaveTimer;
     public bool HasUnsavedChanges
     {
         get => _hasUnsavedChanges;
@@ -213,31 +211,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_hasUnsavedChanges == value) return;
             _hasUnsavedChanges = value;
             OnPropertyChanged();
-            UpdateUnsavedWarningVisual();
-        }
-    }
-    public bool UnsavedWarningVisible
-    {
-        get => _unsavedWarningVisible;
-        private set
-        {
-            if (_unsavedWarningVisible != value)
-            {
-                _unsavedWarningVisible = value;
-                OnPropertyChanged();
-            }
-        }
-    }
-    public string UnsavedWarningText
-    {
-        get => _unsavedWarningText;
-        private set
-        {
-            if (!string.Equals(_unsavedWarningText, value, StringComparison.Ordinal))
-            {
-                _unsavedWarningText = value;
-                OnPropertyChanged();
-            }
         }
     }
     private bool _disposed;
@@ -277,7 +250,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             var token = cts.Token;
-            UnsavedWarningVisible = false;
             // Force retrigger by toggling visibility off first
             SaveToastVisible = false;
             SaveToastText = message;
@@ -320,6 +292,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         try { NetworkVm.PropertyChanged -= OnNetworkVmPropertyChanged; } catch { }
         try { NetworkVm.SavedRelayServers.CollectionChanged -= OnSavedRelayServersChanged; } catch { }
         DismissSaveToast();
+        try { _autoSaveTimer?.Dispose(); _autoSaveTimer = null; } catch { }
         GC.SuppressFinalize(this);
     }
 
@@ -3917,21 +3890,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
             // Refresh baseline (including theme now)
             CaptureBaseline();
-            if (showToast)
+            // Apply deferred passphrase clear (must run after settings are persisted)
+            if (string.Equals(passphraseAction, "cleared", StringComparison.Ordinal))
             {
-                if (string.Equals(passphraseAction, "cleared", StringComparison.Ordinal))
-                {
-                    try { AppServices.Passphrase = string.Empty; } catch { }
-                    await ShowSaveToastAsync("Passphrase cleared (Save Passphrase is off)");
-                }
-                else if (string.Equals(passphraseAction, "retained", StringComparison.Ordinal))
-                {
-                    await ShowSaveToastAsync("Passphrase retained (Save Passphrase is on)");
-                }
-                else
-                {
-                    await ShowSaveToastAsync("Changes Saved");
-                }
+                try { AppServices.Passphrase = string.Empty; } catch { }
             }
             if (close)
             {
@@ -4046,6 +4008,24 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private void UpdateUnsavedChangesState()
     {
         HasUnsavedChanges = ComputeHasUnsavedChanges();
+        if (HasUnsavedChanges)
+            ScheduleAutoSave();
+    }
+
+    private void ScheduleAutoSave()
+    {
+        // Debounce: reset the timer on every change; fires 700 ms after the last change.
+        _autoSaveTimer?.Dispose();
+        _autoSaveTimer = new System.Threading.Timer(_ =>
+        {
+            _autoSaveTimer?.Dispose();
+            _autoSaveTimer = null;
+            if (!HasUnsavedChanges) return;
+            Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+            {
+                try { await SaveAsync(showToast: false, close: false).ConfigureAwait(false); } catch { }
+            });
+        }, null, 700, System.Threading.Timeout.Infinite);
     }
 
     private bool ComputeHasUnsavedChanges()
@@ -4123,20 +4103,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         catch
         {
             return string.Empty;
-        }
-    }
-
-    private void UpdateUnsavedWarningVisual()
-    {
-        if (_hasUnsavedChanges)
-        {
-            UnsavedWarningText = UnsavedChangesMessage;
-            UnsavedWarningVisible = true;
-            DismissSaveToast();
-        }
-        else
-        {
-            UnsavedWarningVisible = false;
         }
     }
 
@@ -5358,6 +5324,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand AddRelayServerCommand => NetworkVm.AddRelayServerCommand;
     public ICommand RemoveRelayServerCommand => NetworkVm.RemoveRelayServerCommand;
     public ICommand UseRelayServerCommand => NetworkVm.UseRelayServerCommand;
+    public ICommand UseDefaultRelayCommand => NetworkVm.UseDefaultRelayCommand;
+    public System.Collections.ObjectModel.ObservableCollection<DefaultRelayEntry> DefaultRelays => NetworkVm.DefaultRelays;
     public ICommand AddWanSeedNodeCommand => NetworkVm.AddWanSeedNodeCommand;
     public ICommand RemoveWanSeedNodeCommand => NetworkVm.RemoveWanSeedNodeCommand;
     public ICommand UseWanSeedNodeCommand => NetworkVm.UseWanSeedNodeCommand;
@@ -6938,6 +6906,8 @@ internal sealed class LockServiceSingleton
     public void LockNow() => Service.Lock();
 }
 
+public record DefaultRelayEntry(string Name, string Address);
+
 public class NetworkViewModel : INotifyPropertyChanged
 {
     private readonly SettingsService _settings;
@@ -6981,6 +6951,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         AddRelayServerCommand = new RelayCommand(_ => AddRelayServer(), _ => IsValidRelayEntry(NewRelayServer));
         RemoveRelayServerCommand = new RelayCommand(entry => { if (entry is string relay) RemoveRelayServer(relay); });
         UseRelayServerCommand = new RelayCommand(entry => { if (entry is string relay) RelayServer = relay; });
+        UseDefaultRelayCommand = new RelayCommand(entry => { if (entry is DefaultRelayEntry r) RelayServer = r.Address; });
         AddWanSeedNodeCommand = new RelayCommand(_ => AddWanSeedNode(), _ => IsValidRelayEntry(NewWanSeedNode));
         RemoveWanSeedNodeCommand = new RelayCommand(entry => { if (entry is string seed) RemoveWanSeedNode(seed); });
         UseWanSeedNodeCommand = new RelayCommand(entry => { if (entry is string seed) RelayServer = seed; });
@@ -6999,6 +6970,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         RefreshIpLists();
         RefreshRelayServers();
         RefreshWanSeedNodes();
+        LoadDefaultRelays();
 
         LoadAdapters();
         MoveAdapterUpCommand = new RelayCommand(_ => MoveAdapter(-1), _ => SelectedAdapter != null);
@@ -7162,6 +7134,8 @@ public class NetworkViewModel : INotifyPropertyChanged
         }
     }
 
+    public System.Collections.ObjectModel.ObservableCollection<DefaultRelayEntry> DefaultRelays { get; } = new();
+
     private string _newRelayServer = string.Empty;
     public string NewRelayServer
     {
@@ -7286,6 +7260,7 @@ public class NetworkViewModel : INotifyPropertyChanged
     public ICommand AddRelayServerCommand { get; }
     public ICommand RemoveRelayServerCommand { get; }
     public ICommand UseRelayServerCommand { get; }
+    public ICommand UseDefaultRelayCommand { get; }
     public ICommand AddWanSeedNodeCommand { get; }
     public ICommand RemoveWanSeedNodeCommand { get; }
     public ICommand UseWanSeedNodeCommand { get; }
@@ -7455,10 +7430,6 @@ public class NetworkViewModel : INotifyPropertyChanged
     private Action? _uiThrottled;
     private Action? _uiPulseHandler;
 
-    private bool _saveToastVisible;
-    public bool SaveToastVisible { get => _saveToastVisible; set { _saveToastVisible = value; OnPropertyChanged(); } }
-    private string _saveToastText = "";
-    public string SaveToastText { get => _saveToastText; set { _saveToastText = value; OnPropertyChanged(); } }
     private async System.Threading.Tasks.Task SaveAsync(bool showToast, bool close)
     {
         try
@@ -7499,10 +7470,6 @@ public class NetworkViewModel : INotifyPropertyChanged
             {
                 InfoMessage = "If prompted, allow Zer0Talk through Windows Firewall for inbound connections.";
             }
-            if (showToast)
-            {
-                await ShowNetworkSaveToastAsync();
-            }
             if (close)
             {
                 CloseRequested?.Invoke(this, EventArgs.Empty);
@@ -7513,18 +7480,6 @@ public class NetworkViewModel : INotifyPropertyChanged
             Logger.Log($"Network save error: {ex.Message}");
             ErrorMessage = "Failed to save network settings.";
         }
-    }
-
-    private async System.Threading.Tasks.Task ShowNetworkSaveToastAsync()
-    {
-        try
-        {
-            SaveToastText = "Settings saved";
-            SaveToastVisible = true;
-            await System.Threading.Tasks.Task.Delay(1500);
-            SaveToastVisible = false;
-        }
-        catch { }
     }
 
     private async System.Threading.Tasks.Task RunFirewallTroubleshooterAsync()
@@ -7851,6 +7806,16 @@ public class NetworkViewModel : INotifyPropertyChanged
             var normalizedUid = NormalizeUid(peer.UID);
             var isRealContact = realContactUids.Contains(normalizedUid);
             peer.IsBlocked = blockedSet.Contains(NormalizeUid(peer.UID));
+            peer.IsLan = IsLanAddress(peer.Address);
+            peer.ModeLabel = Zer0Talk.Services.AppServices.Network.GetConnectionMode(normalizedUid) switch
+            {
+                Models.ConnectionMode.Direct => "Direct",
+                Models.ConnectionMode.Relay => "Relay",
+                _ => "—"
+            };
+            var (bytesIn, bytesOut) = Zer0Talk.Services.AppServices.Network.GetSessionBytes(normalizedUid);
+            peer.BytesIn = bytesIn;
+            peer.BytesOut = bytesOut;
             
             // Update LastSeenOnline if peer appears online.
             if (IsPeerOnline(peer))
@@ -7892,6 +7857,11 @@ public class NetworkViewModel : INotifyPropertyChanged
     public void RefreshPeersRealtime()
     {
         try { Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshLists()); } catch { }
+    }
+
+    public void RefreshListsDirect()
+    {
+        try { RefreshLists(); } catch { }
     }
     
     // Check if a peer UID corresponds to a simulated contact (should not appear in discovered peers)
@@ -8029,6 +7999,21 @@ public class NetworkViewModel : INotifyPropertyChanged
             }
         }
         return -1;
+    }
+
+    private static bool IsLanAddress(string? address)
+    {
+        if (string.IsNullOrWhiteSpace(address)) return false;
+        var host = address.Contains(':') ? address.Split(':')[0] : address;
+        if (!System.Net.IPAddress.TryParse(host, out var ip)) return false;
+        if (System.Net.IPAddress.IsLoopback(ip)) return true;
+        var b = ip.GetAddressBytes();
+        if (b.Length != 4) return false;
+        if (b[0] == 10) return true;
+        if (b[0] == 172 && b[1] >= 16 && b[1] <= 31) return true;
+        if (b[0] == 192 && b[1] == 168) return true;
+        if (b[0] == 169 && b[1] == 254) return true; // link-local
+        return false;
     }
 
     private static string GetCountryCodeFromIp(string ipAddress)
@@ -8251,6 +8236,27 @@ public class NetworkViewModel : INotifyPropertyChanged
         {
             SavedRelayServers = new System.Collections.ObjectModel.ObservableCollection<string>();
         }
+    }
+
+    private void LoadDefaultRelays()
+    {
+        try
+        {
+            var asm = System.Reflection.Assembly.GetExecutingAssembly();
+            using var stream = asm.GetManifestResourceStream("Zer0Talk.Assets.Data.default-relays.json");
+            if (stream == null) return;
+            using var reader = new StreamReader(stream);
+            var json = reader.ReadToEnd();
+            var entries = System.Text.Json.JsonSerializer.Deserialize<DefaultRelayEntry[]>(json,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (entries == null) return;
+            foreach (var e in entries)
+            {
+                if (!string.IsNullOrWhiteSpace(e.Name) && !string.IsNullOrWhiteSpace(e.Address))
+                    DefaultRelays.Add(e);
+            }
+        }
+        catch { }
     }
 
     private void RefreshWanSeedNodes()

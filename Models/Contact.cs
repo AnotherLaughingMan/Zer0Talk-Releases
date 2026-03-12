@@ -77,6 +77,10 @@ namespace Zer0Talk.Models
 
         private bool _priorityNotifications;
         public bool PriorityNotifications { get => _priorityNotifications; set { if (_priorityNotifications != value) { _priorityNotifications = value; OnPropertyChanged(nameof(PriorityNotifications)); } } }
+
+        // Preferred relay for this contact (persisted). When set, this relay is tried first when connecting.
+        private string? _preferredRelay;
+        public string? PreferredRelay { get => _preferredRelay; set { if (_preferredRelay != value) { _preferredRelay = value; OnPropertyChanged(nameof(PreferredRelay)); } } }
     // Transient presence indicator used by UI badges
     // Default to Offline until a presence is observed or a direct session is active
     [JsonIgnore]

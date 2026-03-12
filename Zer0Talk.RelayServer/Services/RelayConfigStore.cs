@@ -76,6 +76,19 @@ public static class RelayConfigStore
         return Path.Combine(root, "Zer0TalkRelay", "relay-config-guide.md");
     }
 
+    /// <summary>
+    /// Returns the absolute path for the server data directory.
+    /// If DataDirectory is a relative path, it is anchored to %APPDATA%\Zer0TalkRelay\.
+    /// </summary>
+    public static string GetDataDirectoryPath(RelayConfig config)
+    {
+        var dataDir = config.DataDirectory;
+        if (string.IsNullOrWhiteSpace(dataDir)) dataDir = "relay-data";
+        if (Path.IsPathRooted(dataDir)) return dataDir;
+        var root = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        return Path.Combine(root, "Zer0TalkRelay", dataDir);
+    }
+
     private static bool EnsureDefaults(RelayConfig config)
     {
         var changed = false;
@@ -164,6 +177,54 @@ public static class RelayConfigStore
             changed = true;
         }
 
+        if (config.HostingPort is < 1 or > 65535)
+        {
+            config.HostingPort = 8444;
+            changed = true;
+        }
+
+        if (config.HostingS2SPort is < 1 or > 65535)
+        {
+            config.HostingS2SPort = 8445;
+            changed = true;
+        }
+
+        if (config.PeerHostedServers == null)
+        {
+            config.PeerHostedServers = new System.Collections.Generic.List<string>();
+            changed = true;
+        }
+
+        if (config.MaxRegisteredUsers <= 0)
+        {
+            config.MaxRegisteredUsers = 10_000;
+            changed = true;
+        }
+
+        if (config.MaxRoomsPerUser <= 0)
+        {
+            config.MaxRoomsPerUser = 10;
+            changed = true;
+        }
+
+        if (config.MaxMembersPerRoom <= 0)
+        {
+            config.MaxMembersPerRoom = 12;
+            changed = true;
+        }
+
+        if (config.RoomMessageQueueDepth <= 0)
+        {
+            config.RoomMessageQueueDepth = 200;
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(config.DataDirectory))
+        {
+            config.DataDirectory = "relay-data";
+            changed = true;
+        }
+
         if (!IsValidRelayToken(config.RelayAddressToken))
         {
             config.RelayAddressToken = GenerateRelayToken(16);
@@ -187,7 +248,12 @@ public static class RelayConfigStore
             !root.TryGetProperty("PeerRelays", out _) ||
             !root.TryGetProperty("MaxFederationPeers", out _) ||
             !root.TryGetProperty("FederationSyncIntervalSeconds", out _) ||
-            !root.TryGetProperty("FederationSharedSecret", out _);
+            !root.TryGetProperty("FederationSharedSecret", out _) ||
+            !root.TryGetProperty("EnableHosting", out _) ||
+            !root.TryGetProperty("HostingPort", out _) ||
+            !root.TryGetProperty("HostingS2SPort", out _) ||
+            !root.TryGetProperty("PeerHostedServers", out _) ||
+            !root.TryGetProperty("DataDirectory", out _);
     }
 
     private static bool IsValidRelayToken(string? token)

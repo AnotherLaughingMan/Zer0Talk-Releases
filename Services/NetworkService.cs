@@ -628,7 +628,9 @@ private double _relayPairWaitMsEwma = 20000;
                 return false;
             }
 
-            var relayCandidates = BuildRelayCandidates(s);
+            string? contactPreferredRelay = null;
+            try { contactPreferredRelay = AppServices.Contacts.GetPreferredRelay(Trim(peerUid)); } catch { }
+            var relayCandidates = BuildRelayCandidates(s, contactPreferredRelay);
             if (relayCandidates.Count == 0)
             {
                 SafeNetLog($"connect relay skipped | peer={peerUid} | reason=invalid-endpoint");
@@ -775,7 +777,9 @@ private double _relayPairWaitMsEwma = 20000;
                 var s = AppServices.Settings.Settings;
                 if (!s.RelayFallbackEnabled) return false;
 
-                var relayCandidates = BuildRelayCandidates(s);
+                string? invitePreferredRelay = null;
+                try { invitePreferredRelay = AppServices.Contacts.GetPreferredRelay(normalizedSource); } catch { }
+                var relayCandidates = BuildRelayCandidates(s, invitePreferredRelay);
                 if (relayCandidates.Count == 0) return false;
 
                 foreach (var relay in relayCandidates)
@@ -1008,6 +1012,8 @@ private double _relayPairWaitMsEwma = 20000;
                 try { Zer0Talk.Services.AppServices.Contacts.SetLastKnownEncrypted(Trim(peerUid), true, Zer0Talk.Services.AppServices.Passphrase); } catch { }
                 try { _diag.IncRelaySuccess(); } catch { }
                 SafeNetLog($"connect relay success | peer={peerUid} | server={relayDisplay}");
+                // Record the successful relay for this contact so future connections prefer it.
+                try { AppServices.Contacts.SetPreferredRelay(Trim(peerUid), relayDisplay, AppServices.Passphrase); } catch { }
 
                 // Create a session-lifetime cancellation token independent of connection timeout
                 var sessionCts = new CancellationTokenSource();
@@ -1908,7 +1914,9 @@ private double _relayPairWaitMsEwma = 20000;
                     try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=disabled"); } catch { }
                     return false;
                 }
-                var relayCandidates = BuildRelayCandidates(s);
+                string? autoPreferredRelay = null;
+                try { autoPreferredRelay = AppServices.Contacts.GetPreferredRelay(uid); } catch { }
+                var relayCandidates = BuildRelayCandidates(s, autoPreferredRelay);
                 if (relayCandidates.Count == 0)
                 {
                     outcome = "skipped-invalid-relay-endpoint";
@@ -3092,7 +3100,7 @@ private double _relayPairWaitMsEwma = 20000;
             catch { }
         }
 
-        private List<(string Host, int Port, string Display)> BuildRelayCandidates(AppSettings s)
+        private List<(string Host, int Port, string Display)> BuildRelayCandidates(AppSettings s, string? preferredRelay = null)
         {
             var candidates = new List<(string Host, int Port, string Display)>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -3134,6 +3142,24 @@ private double _relayPairWaitMsEwma = 20000;
                     .OrderByDescending(c => GetRelayHealthScore(c.Host, c.Port))
                     .ThenBy(c => RelayDistanceScore(c.Host))
                     .ToList();
+            }
+
+            // Contact-preferred relay: boost to front of list so it is tried first.
+            if (!string.IsNullOrWhiteSpace(preferredRelay) && TryResolveRelayEndpoint(preferredRelay, out var prefHost, out var prefPort))
+            {
+                var prefKey = BuildRelayHealthKey(prefHost, prefPort);
+                var idx = candidates.FindIndex(c => string.Equals(BuildRelayHealthKey(c.Host, c.Port), prefKey, StringComparison.OrdinalIgnoreCase));
+                if (idx > 0)
+                {
+                    var preferred = candidates[idx];
+                    candidates.RemoveAt(idx);
+                    candidates.Insert(0, preferred);
+                }
+                else if (idx < 0)
+                {
+                    // The preferred relay isn't in the list yet — insert it at the front.
+                    candidates.Insert(0, (prefHost, prefPort, preferredRelay.Trim()));
+                }
             }
 
             return candidates;
@@ -3621,6 +3647,33 @@ private double _relayPairWaitMsEwma = 20000;
         {
             var key = Trim(peerUid);
             return _sessionModes.TryGetValue(key, out var mode) ? mode : Models.ConnectionMode.None;
+        }
+
+        public (long BytesIn, long BytesOut) GetSessionBytes(string peerUid)
+        {
+            var key = Trim(peerUid);
+            Utilities.AeadTransport? tr = null;
+            if (_sessions.TryGetValue(key, out tr)) {}
+            else if (_sessions.TryGetValue("usr-" + key, out tr)) {}
+            else
+            {
+                var alt = key.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) ? key[4..] : "usr-" + key;
+                _sessions.TryGetValue(alt, out tr);
+            }
+            return tr != null ? (tr.TotalBytesRead, tr.TotalBytesWritten) : (0L, 0L);
+        }
+
+        /// <summary>Returns the sum of all plaintext bytes read and written across every active session.
+        /// Covers all connection modes (direct, relay, NAT-traversal) regardless of direction.</summary>
+        public (long TotalIn, long TotalOut) GetAllSessionBytesSnapshot()
+        {
+            long totalIn = 0, totalOut = 0;
+            foreach (var tr in _sessions.Values)
+            {
+                totalIn  += tr.TotalBytesRead;
+                totalOut += tr.TotalBytesWritten;
+            }
+            return (totalIn, totalOut);
         }
 
         public string? GetPeerVersion(string peerUid)

@@ -289,6 +289,14 @@ public sealed partial class WanDirectoryService
 
         IEnumerable<string> configured = explicitEndpoints.Concat(seedEndpoints);
 
+        // Append gossip-discovered peers (fetched via RELAY-PEERS from already-known relays)
+        IEnumerable<string> discovered;
+        lock (_discoveredRelayPeersLock)
+        {
+            discovered = _discoveredRelayPeers.ToList();
+        }
+        configured = configured.Concat(discovered);
+
         foreach (var endpoint in configured)
         {
             if (string.IsNullOrWhiteSpace(endpoint)) continue;
@@ -322,6 +330,33 @@ public sealed partial class WanDirectoryService
         {
             return Array.Empty<string>();
         }
+    }
+
+    private async Task<IReadOnlyList<string>> TryFetchRelayPeersAsync(string host, int port, CancellationToken ct)
+    {
+        var result = new List<string>();
+        try
+        {
+            using var tcp = new System.Net.Sockets.TcpClient();
+            using var linkCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            linkCts.CancelAfter(TimeSpan.FromSeconds(5));
+            await tcp.ConnectAsync(host, port, linkCts.Token).ConfigureAwait(false);
+            using var stream = tcp.GetStream();
+            var line = System.Text.Encoding.UTF8.GetBytes("RELAY-PEERS\n");
+            await stream.WriteAsync(line.AsMemory(), linkCts.Token).ConfigureAwait(false);
+            while (true)
+            {
+                var response = await ReadLineAsync(stream, TimeSpan.FromSeconds(5), linkCts.Token).ConfigureAwait(false);
+                if (response == null || response.StartsWith("END", StringComparison.OrdinalIgnoreCase)) break;
+                if (response.StartsWith("PEER ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var addr = response.Substring(5).Trim();
+                    if (!string.IsNullOrWhiteSpace(addr)) result.Add(addr);
+                }
+            }
+        }
+        catch { }
+        return result;
     }
 
     private static bool TryParseEndpoint(string input, out string host, out int port)

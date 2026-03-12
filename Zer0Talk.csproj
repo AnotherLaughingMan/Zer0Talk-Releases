@@ -110,6 +110,8 @@
     <AvaloniaResource Include="Assets\Icons\Status\DND.ico" />
     <!-- Default IP Block List -->
     <EmbeddedResource Include="Assets\Security\default-ip-blocklist.txt" />
+    <!-- Default community relay list -->
+    <EmbeddedResource Include="Assets\Data\default-relays.json" />
   </ItemGroup><!-- Diagnostic target: list all AvaloniaResource items actually seen by MSBuild.
        Helps identify phantom ThemeSovereignty.axaml inclusion source. -->
   <Target Name="DumpAvaloniaResources" Condition="'$(DumpAvaloniaResources)' == 'true'" BeforeTargets="CoreCompile">

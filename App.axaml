@@ -107,5 +107,6 @@
         <util:FlagEmojiIsNotCountryFlagConverter x:Key="FlagEmojiIsNotCountryFlagConverter" />
         <util:CountryCodeHasFlagConverter x:Key="CountryCodeHasFlagConverter" />
         <util:CountryCodeHasNoFlagConverter x:Key="CountryCodeHasNoFlagConverter" />
+        <util:BytesFormatter x:Key="BytesFormatter" />
     </Application.Resources>
 </Application>

@@ -323,24 +323,33 @@ The app listens on the configured TCP port (default 26264). If a peer's address 
 
 `NatTraversalService` attempts UPnP/PCP port mapping through the router. If a mapping is obtained, the external IP:port is registered with the WAN directory (relay server LOOKUP/REG protocol). The mapping is periodically verified with a hairpin test.
 
-UPnP state machine (`MappingState`): `Idle → Discovering → GatewayDiscovered → Mapping → Mapped → Verified` (or failure paths `Failed`, `NoGatway`, `HairpinFailed`).
+UPnP state machine (`MappingState`): `Idle → Discovering → GatewayDiscovered → Mapping → Mapped → Verified` (or failure paths `Failed`, `NoGateway`, `HairpinFailed`).
 
 ### Tier 3 — Relay Fallback
 
-If direct and NAT both fail, the relay is used. The protocol is:
+If direct and NAT both fail, the relay is used. The full end-to-end protocol is:
 
-1. Client A sends `OFFER <sourceUid> <sessionKey>` to the relay directory.
-2. Client B polls with `POLL <targetUid>` or `WAITPOLL <targetUid>` (long-poll variant).
-3. On match, both clients receive the sessionKey and connect to the relay with `RELAY <sessionKey>`.
-4. Relay responds `QUEUED\n` to the first connector, `PAIRED\n` to both when the second arrives.
-5. **ECDH handshake begins only after receiving `PAIRED`.** This is non-negotiable — starting before pairing is confirmed is a protocol violation.
-6. The relay forwards bytes bidirectionally with no interpretation.
+1. Client A calls `TryOfferRendezvousAsync()`, which sends `OFFER <sourceUid> <sessionKey>` to the relay directory. The call retries **up to 3 times** (2-second delay between each attempt). If all retries fail the relay connection is abandoned.
+2. Client B receives the invite via `POLL <targetUid>` or `WAITPOLL <targetUid>` (long-poll variant).
+3. Both clients independently connect to the relay and send `RELAY <sessionKey>`.
+4. The relay responds `QUEUED\n` to whichever client arrives first. **That client blocks and waits for `PAIRED\n` — it does not begin ECDH yet.**
+5. When the second client arrives, the relay sends `PAIRED\n` to **both** clients simultaneously.
+6. **ECDH handshake begins only after receiving `PAIRED`.** This is non-negotiable — starting before pairing is confirmed is a protocol invariant violation.
+7. The relay forwards bytes bidirectionally with no interpretation. The relay is blind to all plaintext.
+
+Error responses from the relay (`ERR <reason>\n`) cause structured log entries. Specific handling:
+- `ERR cooldown` / `ERR rate-limit` → wait 3.1 s then allow retry
+- `ERR blocked` / `ERR capacity` / `ERR already-active` / `ERR already-queued` → log and abort
 
 The relay falls back to port 8443 if no explicit relay port is configured.
 
+### OFFER Retry Logic
+
+`WanDirectoryService.TryOfferRendezvousAsync()` retries an OFFER up to **3 times** with a **2-second delay** between attempts. Each attempt logs `"OFFER delivered to {endpoint} on attempt X/3"` or `"OFFER attempt X/3 failed: {exception}"`. The first successful attempt returns immediately; if all three fail, false is returned and relay fallback is abandoned.
+
 ### Connection Mode Tracking
 
-`NetworkService._sessionModes` tracks whether each active session is `Direct` or `Relay`. This is surfaced in the UI via contact card connection mode icons.
+`NetworkService._sessionModes` tracks whether each active session is `Direct`, `NAT`, or `Relay`. This is surfaced in the UI via contact card connection mode icons and summarised in the monitoring window connection-stats view.
 
 ### Relay Candidate Selection — Happy Eyeballs
 
@@ -352,14 +361,23 @@ Candidates are pre-sorted by:
 
 This means the healthiest, closest relay gets the first attempt, while slower candidates start with a small delay rather than being tried sequentially.
 
-### EWMA Timing
+### EWMA Adaptive Timeouts
 
-`NetworkService` tracks adaptive wait times using Exponential Weighted Moving Average (EWMA):
-- `_directSessionWaitMsEwma` (default 6 s)
-- `_relayAckWaitMsEwma` (default 5 s)
-- `_relayPairWaitMsEwma` (default 20 s)
+`NetworkService` tracks adaptive wait times using Exponential Weighted Moving Average (EWMA, α = 0.25). Each value adapts after every observed connection so timeouts shrink on fast networks and expand on slow ones:
 
-These adapt based on observed relay/direct latency to avoid premature timeouts on slow networks.
+| Field | Default | What it gates |
+|---|---|---|
+| `_directSessionWaitMsEwma` | 6 000 ms | Time to see an inbound direct session appear in `_sessions` after a connect attempt |
+| `_relayAckWaitMsEwma` | 5 000 ms | Time from TCP connect to the relay's `QUEUED` or `PAIRED` acknowledgment |
+| `_relayPairWaitMsEwma` | 20 000 ms | Time from receiving `QUEUED` until `PAIRED` arrives (peer arrival latency) |
+
+Updated via `ObserveRelayAckWait()` and `ObserveRelayPairWait()` called on every successful or timed-out relay connection.
+
+### Keepalive Frames
+
+After a session is established — for **both relay and direct connections** — a background task sends an **empty (zero-byte) frame every 30 seconds**. If the write fails, the session `CancellationToken` is cancelled immediately, tearing down the session. This prevents ghost sessions (TCP connections that appear open but are silently dead due to NAT expiration or network interruption) from accumulating in the active session table.
+
+The 30-second interval is intentionally shorter than typical NAT TCP mapping lifetimes (60–300 s), ensuring dead paths are detected well before the mapping expires.
 
 ---
 
@@ -393,7 +411,7 @@ The nonce for each frame is `txBase (16 bytes) || counter (8 bytes)` = 24 bytes 
 | `0xBA` | Pin/Star | Both | Pin or star a message |
 | `0xBC` | Version | Both | App version exchange |
 | `0xE0` | Security Alert | Both | Alert frame (key mismatch, etc.) |
-| (empty) | Keepalive | Both | Zero-byte frame sent every 30 s to detect dead TCP |
+| (empty) | Keepalive | Both | Zero-byte frame sent every 30 s on both relay and direct sessions. If the write fails, the session CancellationToken is cancelled immediately, tearing down the session. Prevents ghost sessions from accumulating after silent TCP drops. |
 
 ### WAN Directory Protocol (via relay server)
 
@@ -444,16 +462,37 @@ Relay responses: `OK`, `ERR <reason>`, `QUEUED`, `PAIRED`, `INVITE <inviteId> <s
 Client A arrives with RELAY <key>
   → RelaySessionManager.TryPairOrQueue()
   → if no peer: RelayPending created, "QUEUED\n" sent to Client A
+  → Client A blocks waiting for "PAIRED\n" (up to _relayPairWaitMsEwma, default 20 s)
 
 Client B arrives with RELAY <key>
   → RelaySessionManager.TryPairOrQueue()
-  → Pending found: RelaySession created, "PAIRED\n" sent to BOTH A and B
+  → Pending found: RelaySession created
+  → "PAIRED\n" sent to BOTH A and B simultaneously
+  → Both clients unblock and begin ECDH handshake
   → RelayForwarder.StartForwardingAsync() — bidirectional byte copy
 ```
 
-Dead session detection: `RelaySession.IsConnected` checks `TcpClient.Connected` on both sides. Disconnected sessions are replaced immediately, not after a stale timeout.
+**Protocol invariant:** `PAIRED` must be sent to both sides before the forwarder starts. The relay guarantees this ordering. Clients must not send any ECDH bytes until `PAIRED` is received.
+
+**Dead session detection:** `RelaySession.IsConnected` checks `TcpClient.Connected` on both sides. If a new client arrives with the same session key and `IsConnected` is false, the dead session is evicted immediately — no waiting. Pending (un-paired) sessions are also evicted if their TCP is dead **or** they are older than **2 seconds**, allowing the incoming client to take their place.
 
 Session outcomes (`PairOutcome`): `Paired`, `Queued`, `RejectedAlreadyQueued`, `RejectedCapacity`, `RejectedAlreadyActive`, `RejectedIncompatible`, `RejectedCooldown`.
+
+### Relay Acknowledgment Protocol
+
+The relay sends control lines over the raw TCP stream before forwarding begins:
+
+| Message | Sent to | Meaning |
+|---|---|---|
+| `QUEUED\n` | First-arriving client | Registered; waiting for peer to arrive |
+| `PAIRED\n` | Both clients | Peer arrived; begin ECDH handshake |
+| `ERR <reason>\n` | Requesting client | Request rejected (see reasons below) |
+
+Known `ERR` reasons: `already-active`, `already-queued`, `cooldown`, `rate-limit`, `blocked`, `capacity`.
+
+Client-side handling:
+- `cooldown` / `rate-limit` → wait 3.1 s before retry
+- `blocked` / `capacity` / `already-active` / `already-queued` → log and abort (no retry)
 
 **Cross-relay bridging (federation):** When `QUEUED` is sent and federation is enabled, a background task waits 500 ms and then queries peer relays for the session key. If a peer relay has the counterpart waiting, the local relay atomically claims its pending session (`TryClaimForBridge`) and calls `OpenBridgeAsync` on the peer to establish a raw TCP bridge. Both clients receive `PAIRED` through their respective sockets and subsequent bytes are piped bidirectionally. The relay-to-relay TCP connection stays open for the duration of the session, then closes.
 
@@ -816,9 +855,10 @@ These are binding decisions made by the project owner. Proposals to change them 
 
 These must never be violated:
 
-1. **ECDH handshake starts only after relay sends `PAIRED`.** Starting before is a bug that breaks the security model.
-2. **Relay operators never see plaintext.** Session keys derived inside the ECDH are end-to-end between clients.
+1. **ECDH handshake starts only after relay sends `PAIRED`.** Clients receiving `QUEUED` must block and wait for a subsequent `PAIRED`. Sending ECDH bytes before `PAIRED` desynchronises both sides — the relay has not yet connected them. This invariant is enforced in code inside `TryConnectViaRelaySessionAsync`; it is not merely a convention.
+2. **Relay operators never see plaintext.** ECDH is performed over the relay-forwarded TCP stream. The relay pipes opaque bytes. Session keys are derived end-to-end between clients.
 3. **UID is derived from public key.** It cannot be chosen arbitrarily. Changing the derivation algorithm breaks compatibility.
+4. **Active sessions must send keepalive frames.** All relay and direct sessions run a 30-second keepalive loop. Suppressing keepalives allows ghost sessions to accumulate, blocking new connections from the same peer.
 
 ### Version Compatibility
 

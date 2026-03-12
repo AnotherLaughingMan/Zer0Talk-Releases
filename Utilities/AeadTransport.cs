@@ -24,6 +24,13 @@ namespace Zer0Talk.Utilities
         private readonly SemaphoreSlim _writeLock = new(1, 1);
         private const int MaxCipherLen = 1024 * 1024; // 1 MB defensive cap
         private bool _disposed;
+        private long _totalBytesWritten;
+        private long _totalBytesRead;
+
+        /// <summary>Total plaintext bytes written (excluding framing/encryption overhead).</summary>
+        public long TotalBytesWritten => System.Threading.Interlocked.Read(ref _totalBytesWritten);
+        /// <summary>Total plaintext bytes read (excluding framing/encryption overhead).</summary>
+        public long TotalBytesRead => System.Threading.Interlocked.Read(ref _totalBytesRead);
 
         public AeadTransport(System.IO.Stream stream, byte[] txKey, byte[] rxKey, byte[] txBase, byte[] rxBase)
         {
@@ -63,6 +70,7 @@ namespace Zer0Talk.Utilities
                 await _stream.WriteAsync(header.AsMemory(), ct);
                 await _stream.WriteAsync(cipher.AsMemory(), ct);
                 await _stream.FlushAsync(ct);
+                System.Threading.Interlocked.Add(ref _totalBytesWritten, plain.Length);
                 
                 EncChatLog($"AeadTransport.WriteAsync: Encrypted frame neque porro quisquam est qui dolorem");
                 EncChatLog($"AeadTransport.WriteAsync: *** PLAINTEXT WAS ENCRYPTED - ipsum quia dolor sit amet ***");
@@ -91,6 +99,7 @@ namespace Zer0Talk.Utilities
             var nonce = BuildNonce(_rxBase, counter);
             var plain = SecretAeadXChaCha20Poly1305.Decrypt(cipher, nonce, _rxKey, aad);
             _lastRxCounter = counter;
+            System.Threading.Interlocked.Add(ref _totalBytesRead, plain.Length);
             return plain;
         }
 

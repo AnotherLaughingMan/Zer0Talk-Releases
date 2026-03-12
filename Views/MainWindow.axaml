@@ -166,6 +166,26 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource App.Accent}" />
         </Style>
+
+        <!-- Notification drop panel tab buttons -->
+        <Style Selector="Button.notif-tab">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource App.ForegroundSecondary}" />
+            <Setter Property="CornerRadius" Value="0" />
+        </Style>
+        <Style Selector="Button.notif-tab:pointerover">
+            <Setter Property="Background" Value="{DynamicResource App.ItemHover}" />
+            <Setter Property="Foreground" Value="{DynamicResource App.ForegroundPrimary}" />
+        </Style>
+        <Style Selector="Button.notif-tab.active">
+            <Setter Property="BorderBrush" Value="{DynamicResource App.Accent}" />
+            <Setter Property="Foreground" Value="{DynamicResource App.Accent}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource App.Surface}">
@@ -226,7 +246,7 @@
                     <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedToggleContacts}" Click="ToggleLeftPanel_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE700;"/>
                     </Button>
-                    <Button x:Name="NotificationBellButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedOpenNotifications}" Click="ToggleRightPanel_Click">
+                    <Button x:Name="NotificationBellButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedOpenNotifications}" Click="ToggleNotifDrop_Click">
                         <!-- Bell glyph with compact red-dot badge to mirror nav rail -->
                         <Grid Width="20" Height="20">
                             <Path x:Name="NotificationBellIcon" Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource App.ForegroundPrimary}" IsHitTestVisible="False"
@@ -262,13 +282,9 @@
                 <ColumnDefinition Width="1"/>
                 <!-- Chat star occupies remaining space -->
                 <ColumnDefinition Width="*" MinWidth="360"/>
-                <!-- Divider column (chat/notifications) -->
-                <ColumnDefinition Width="1"/>
-                <ColumnDefinition Width="260" MinWidth="220"/>
             </Grid.ColumnDefinitions>
             <!-- Vertical dividers -->
             <Border Grid.Column="2" Background="{DynamicResource App.Border}" IsHitTestVisible="False"/>
-            <Border Grid.Column="4" Background="{DynamicResource App.Border}" IsHitTestVisible="False"/>
             <!-- Nav rail: always visible -->
     <Border x:Name="NavRail" Grid.Column="0" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 0" Background="{DynamicResource App.Surface}">
                 <Border.Styles>
@@ -288,6 +304,9 @@
                     <StackPanel Grid.Row="0" Spacing="6" HorizontalAlignment="Center">
                         <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedHome}" Click="Home_Click">
                             <TextBlock Classes="icon-mdl2" Text="&#xE80F;" FontSize="26"/>
+                        </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="Rooms &amp; Server" Click="Rooms_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE716;" FontSize="26"/>
                         </Button>
                         <Button x:Name="LogsButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedLogs}" Click="Logs_Click" IsVisible="False">
                             <TextBlock Classes="icon-mdl2" Text="&#xE8A5;" FontSize="26"/>
@@ -342,6 +361,15 @@
                                             <Grid ColumnDefinitions="20,*,20" MinWidth="124">
                                                 <TextBlock Grid.Column="0" Classes="icon-mdl2" Text="&#xE790;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                                 <TextBlock Grid.Column="1" Text="Theme Editor" HorizontalAlignment="Center" TextAlignment="Center"/>
+                                            </Grid>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                    <Separator/>
+                                    <MenuItem Click="SettingsMenu_Rooms_Click">
+                                        <MenuItem.Header>
+                                            <Grid ColumnDefinitions="20,*,20" MinWidth="124">
+                                                <TextBlock Grid.Column="0" Classes="icon-mdl2" Text="&#xE716;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="Rooms &amp; Server" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             </Grid>
                                         </MenuItem.Header>
                                     </MenuItem>
@@ -1311,50 +1339,98 @@
                 </Popup>
             </Grid>
             <!-- Right-side Notification Center panel -->
-            <Border x:Name="RightPanelRoot" Grid.Column="5" Padding="8" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" MinWidth="220" IsVisible="False">
+            <!-- Slide-in invite toast (top-right) -->
+            <!-- Close BodyGrid before overlays to keep hierarchy balanced -->
+        </Grid>
+
+        <!-- Notification Drop Panel Popup (Discord-style dropdown from bell) -->
+        <Popup x:Name="NotificationDropPopup"
+               Grid.Row="0" Grid.RowSpan="3"
+               PlacementMode="AnchorAndGravity"
+               PlacementAnchor="BottomRight"
+               PlacementGravity="BottomLeft"
+               IsLightDismissEnabled="True"
+               IsOpen="False">
+            <Border x:Name="NotifDropCard"
+                    Width="340"
+                    Height="480"
+                    Background="{DynamicResource App.Surface}"
+                    BorderBrush="{DynamicResource App.Border}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    BoxShadow="0 4 24 0 #44000000">
                 <Grid RowDefinitions="Auto,Auto,*">
-                    <!-- Header: arrows + title + toolbar actions -->
-                    <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <Button x:Name="NotifPrevBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedPrevious}" Width="28" Height="28">
-                                <TextBlock Classes="icon-mdl2" Text="&#xE100;"/>
-                            </Button>
-                            <Button x:Name="NotifNextBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedNext}" Width="28" Height="28">
-                                <TextBlock Classes="icon-mdl2" Text="&#xE101;"/>
-                            </Button>
-                        </StackPanel>
-                        <TextBlock x:Name="NotificationsTitle" Grid.Column="1" Text="{Binding LocalizedPendingInvites}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                            <Button x:Name="RejectAllInvitesBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedClearInvites}" IsVisible="True">
+
+                    <!-- Drop panel header -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="12,10,8,6">
+                        <TextBlock x:Name="NotificationsTitle"
+                                   Text="{Binding LocalizedPendingInvites}"
+                                   FontWeight="SemiBold"
+                                   FontSize="14"
+                                   VerticalAlignment="Center"/>
+                        <!-- Toolbar: action button (context-sensitive) + close -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                            <Button x:Name="RejectAllInvitesBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedClearInvites}" Width="28" Height="28" IsVisible="True">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE74D;"/>
                             </Button>
-                            <Button x:Name="MarkAllMessagesBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedMarkAllRead}" IsVisible="True">
+                            <Button x:Name="MarkAllMessagesBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedMarkAllRead}" Width="28" Height="28" IsVisible="False">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE8C3;"/>
                             </Button>
-                            <Button x:Name="ClearAllAlertsBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedClearAllAlerts}" IsVisible="False">
+                            <Button x:Name="ClearAllAlertsBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedClearAllAlerts}" Width="28" Height="28" IsVisible="False">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE74D;"/>
                             </Button>
-                            <Button x:Name="CloseNotificationsBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedClose}" Click="ToggleRightPanel_Click">
+                            <Button x:Name="CloseNotificationsBtn" Classes="icon-button" ToolTip.Tip="{Binding LocalizedClose}" Width="28" Height="28" Click="CloseNotifDrop_Click">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE711;"/>
                             </Button>
                         </StackPanel>
                     </Grid>
 
-                    <!-- Tab-like content hosts (we'll use simple visibility switching via code-behind) -->
+                    <!-- Section tab strip -->
+                    <Border Grid.Row="1" BorderBrush="{DynamicResource App.Border}" BorderThickness="0,0,0,1">
+                        <StackPanel Orientation="Horizontal" Margin="8,0">
+                            <Button x:Name="NotifTabInvites"
+                                    Classes="notif-tab"
+                                    Click="NotifTabInvites_Click"
+                                    ToolTip.Tip="{Binding LocalizedPendingInvites}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Classes="icon-mdl2" Text="&#xE7C5;"/>
+                                    <TextBlock Text="{Binding LocalizedPendingInvites}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="NotifTabMessages"
+                                    Classes="notif-tab"
+                                    Click="NotifTabMessages_Click"
+                                    ToolTip.Tip="{Binding LocalizedMessages}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Classes="icon-mdl2" Text="&#xE8BD;"/>
+                                    <TextBlock Text="{Binding LocalizedMessages}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="NotifTabAlerts"
+                                    Classes="notif-tab"
+                                    Click="NotifTabAlerts_Click"
+                                    ToolTip.Tip="{Binding LocalizedAlerts}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Classes="icon-mdl2" Text="&#xE7BA;"/>
+                                    <TextBlock Text="{Binding LocalizedAlerts}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Content hosts -->
                     <ScrollViewer x:Name="InvitesHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="True">
-                        <StackPanel x:Name="InvitesStack" Margin="4" Spacing="6" />
+                        <StackPanel x:Name="InvitesStack" Margin="8,6" Spacing="6" />
                     </ScrollViewer>
                     <ScrollViewer x:Name="MessagesHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="False">
-                        <StackPanel x:Name="MessagesStack" Margin="4" Spacing="6" />
+                        <StackPanel x:Name="MessagesStack" Margin="8,6" Spacing="6" />
                     </ScrollViewer>
                     <ScrollViewer x:Name="AlertsHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="False">
-                        <StackPanel x:Name="AlertsStack" Margin="4" Spacing="6" />
+                        <StackPanel x:Name="AlertsStack" Margin="8,6" Spacing="6" />
                     </ScrollViewer>
                 </Grid>
             </Border>
-            <!-- Slide-in invite toast (top-right) -->
-            <!-- Close BodyGrid before overlays to keep hierarchy balanced -->
-        </Grid>
+        </Popup>
 
         <!-- Status Bar -->
         <Border Grid.Row="2" Background="{DynamicResource StatusBar.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="0,1,0,0" Padding="6,3" Height="26">
@@ -1604,9 +1680,6 @@
                     <ContentControl x:Name="InlineSettingsHost"/>
                     <!-- Floating icon buttons (top-right), consistent with app button metrics -->
                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,12,0">
-                        <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedSave}" Click="SettingsOverlay_Save_Click">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE74E;"/>
-                        </Button>
                         <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedCloseEsc}" Click="SettingsOverlay_Close_Click">
                             <TextBlock Classes="icon-mdl2" Text="&#xE711;"/>
                         </Button>

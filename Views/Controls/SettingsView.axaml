@@ -1073,6 +1073,32 @@
           <!-- ── Section Divider ── -->
           <Border Classes="general-divider"/>
 
+          <!-- Community Relay List -->
+          <Border Classes="general-card">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="general-section-title" Text="Community Relays"/>
+              <TextBlock Text="Quick-start relay addresses maintained by the Zer0Talk community. Click Use to set one as your primary relay." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
+              <ItemsControl ItemsSource="{Binding DefaultRelays}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,3">
+                      <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"/>
+                        <TextBlock Text="{Binding Address}" FontSize="11" Foreground="{DynamicResource App.SecondaryText}"/>
+                      </StackPanel>
+                      <Button Grid.Column="1" Margin="12,0,0,0" Content="Use"
+                              Command="{Binding $parent[UserControl].DataContext.UseDefaultRelayCommand}"
+                              CommandParameter="{Binding}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <!-- ── Section Divider ── -->
+          <Border Classes="general-divider"/>
+
           <!-- Relay Settings -->
           <Border Classes="general-card">
             <StackPanel Spacing="12">
@@ -1488,16 +1514,6 @@
       </ScrollViewer>
       <Grid Grid.Column="0" Grid.ColumnSpan="3" IsHitTestVisible="False" Panel.ZIndex="5">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,12,0,0" Spacing="6">
-          <Border IsVisible="{Binding UnsavedWarningVisible}"
-                  Background="{DynamicResource App.Surface}"
-                  BorderBrush="{DynamicResource DangerButtonBackgroundColor}"
-                  BorderThickness="1"
-                  CornerRadius="8"
-                  Padding="12,6"
-                  MaxWidth="360"
-                  Opacity="0.95">
-            <TextBlock Text="{Binding UnsavedWarningText}" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-          </Border>
           <Border IsVisible="{Binding SaveToastVisible}"
                   Background="{DynamicResource App.Surface}"
                   BorderBrush="{DynamicResource App.Accent}"

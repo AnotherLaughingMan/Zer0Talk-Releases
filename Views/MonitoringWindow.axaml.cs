@@ -22,6 +22,7 @@ public partial class MonitoringWindow : Window, IDisposable
     private int _intervalMs;
     private System.Collections.Generic.Dictionary<int, (long In, long Out, DateTime AtUtc)> _lastTotals = new();
     private System.Collections.Generic.Dictionary<int, (double In, double Out)> _smoothedRates = new();
+    private (long In, long Out, DateTime AtUtc) _lastSessionTotals;
     private bool _skipNextRateSample = true;
     private System.Threading.CancellationTokenSource? _cts;
     // Flag to stop UI updates during teardown to avoid contention and crashes
@@ -59,6 +60,7 @@ public partial class MonitoringWindow : Window, IDisposable
                 // Reset deltas so next tick computes clean rates at the new cadence
                 _lastTotals.Clear();
                 _smoothedRates.Clear();
+                _lastSessionTotals = default;
                 _skipNextRateSample = true;
                 // Restart background loop with new interval
                 RestartLoop();
@@ -307,6 +309,30 @@ public partial class MonitoringWindow : Window, IDisposable
                 rates[port] = (din / elapsedSeconds, dout / elapsedSeconds);
                 _lastTotals[port] = (tot.TotalIn, tot.TotalOut, sampleAtUtc);
             }
+
+            // Session-level throughput: AeadTransport byte counters cover ALL active sessions
+            // regardless of connection direction (inbound, outbound, relay). CountingStream /
+            // port-stats only see inbound listener connections; this fills the gap for relay and
+            // outbound sessions so the graph always reflects actual peer traffic.
+            var sessNow = AppServices.Network.GetAllSessionBytesSnapshot();
+            if (_lastSessionTotals.AtUtc != default)
+            {
+                var sessElapsed = (sampleAtUtc - _lastSessionTotals.AtUtc).TotalSeconds;
+                if (sessElapsed >= 0.05)
+                {
+                    var sessIn  = (double)Math.Max(0, sessNow.TotalIn  - _lastSessionTotals.In)  / sessElapsed;
+                    var sessOut = (double)Math.Max(0, sessNow.TotalOut - _lastSessionTotals.Out) / sessElapsed;
+                    // Merge under the TCP (listening port) key: take the higher of port-stats vs
+                    // session-stats so we never under-report traffic.
+                    if (AppServices.Network.ListeningPort is int sessLp)
+                    {
+                        rates.TryGetValue(sessLp, out var curVal);
+                        rates[sessLp] = (Math.Max(curVal.In, sessIn), Math.Max(curVal.Out, sessOut));
+                    }
+                }
+            }
+            _lastSessionTotals = (sessNow.TotalIn, sessNow.TotalOut, sampleAtUtc);
+
             if (_skipNextRateSample)
             {
                 _skipNextRateSample = false;
