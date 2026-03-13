@@ -141,8 +141,7 @@ namespace Zer0Talk.Services
                     break;
 
                 case EnginePhase.FullEngine:
-                    // Phase 3: Use new system exclusively (not implemented)
-                    LogEngine("FullEngine phase not yet implemented");
+                    // FullEngine phase retired — HybridMode is the production path.
                     ClearSystemColorOverrides();
                     _legacyService.SetTheme(legacyTheme);
                     break;

@@ -20,8 +20,8 @@
     </Border>
 
     <!-- Scrollable policy body -->
-    <ScrollViewer Grid.Row="1" Background="{DynamicResource App.Background}" Padding="20,14">
-      <StackPanel Spacing="4" MaxWidth="640">
+    <ScrollViewer Grid.Row="1" Background="{DynamicResource App.Background}" Padding="20,14,20,0">
+      <StackPanel Spacing="4" MaxWidth="640" Margin="0,0,0,48">
 
         <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource App.ForegroundSecondary}" FontSize="12">
           Zer0Talk is a private, end-to-end encrypted peer-to-peer messaging application. This policy explains what data is handled by the application and how.
@@ -110,8 +110,8 @@
           The authoritative and most current version of this policy is maintained on GitHub:
         </TextBlock>
         <Button Content="View Full Policy on GitHub" Click="OpenGitHub_Click" HorizontalAlignment="Left" Margin="0,0,0,4"/>
-        <TextBlock FontSize="11" Foreground="{DynamicResource App.ForegroundSecondary}" TextWrapping="Wrap" Margin="0,0,0,12">
-          https://github.com/AnotherLaughingMan/Zer0Talk-Releases/blob/main/PRIVACY-POLICY.md
+        <TextBlock FontSize="11" Foreground="{DynamicResource App.ForegroundSecondary}" TextWrapping="Wrap" Margin="0,0,0,24">
+          https://github.com/AnotherLaughingMan/Zer0Talk-Releases/blob/main/docs/PRIVACY-POLICY.md
         </TextBlock>
 
       </StackPanel>

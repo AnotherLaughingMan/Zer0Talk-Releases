@@ -289,8 +289,16 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         _disposed = true;
         try { AppServices.LogMaintenance.MaintenanceCompleted -= OnLogMaintenanceCompleted; } catch { }
         try { Services.AppServices.Localization.LanguageChanged -= OnLanguageChanged; } catch { }
-        try { NetworkVm.PropertyChanged -= OnNetworkVmPropertyChanged; } catch { }
-        try { NetworkVm.SavedRelayServers.CollectionChanged -= OnSavedRelayServersChanged; } catch { }
+        try
+        {
+            if (_networkVm != null)
+            {
+                _networkVm.PropertyChanged -= OnNetworkVmPropertyChanged;
+                _networkVm.SavedRelayServers.CollectionChanged -= OnSavedRelayServersChanged;
+                _networkVm.Dispose();
+            }
+        }
+        catch { }
         DismissSaveToast();
         try { _autoSaveTimer?.Dispose(); _autoSaveTimer = null; } catch { }
         GC.SuppressFinalize(this);
@@ -5342,7 +5350,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string NewWanSeedNode { get => NetworkVm.NewWanSeedNode; set => NetworkVm.NewWanSeedNode = value; }
     public string NetworkInfoMessage => NetworkVm.InfoMessage;
     public string NetworkErrorMessage => NetworkVm.ErrorMessage;
-    public string NewBlockedPeer { get; set; } = string.Empty; // TODO: Implement in NetworkViewModel
+    public string NewBlockedPeer { get => NetworkVm.NewBlockedPeer; set => NetworkVm.NewBlockedPeer = value; }
 
     // Network collections exposed from NetworkViewModel
     public System.Collections.ObjectModel.ObservableCollection<string> SavedRelayServers => NetworkVm.SavedRelayServers;
@@ -5406,6 +5414,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand UseWanSeedNodeCommand => NetworkVm.UseWanSeedNodeCommand;
     public ICommand BlockPeerCommand => NetworkVm.BlockPeerCommand;
     public ICommand UnblockPeerCommand => NetworkVm.UnblockPeerCommand;
+    public ICommand AddBlockedPeerCommand => NetworkVm.AddBlockedPeerCommand;
     public ICommand BlockSelectedPeersCommand => NetworkVm.BlockSelectedPeersCommand;
     public ICommand UnblockSelectedPeersCommand => NetworkVm.UnblockSelectedPeersCommand;
     public ICommand ClearAllBlocksCommand => NetworkVm.ClearAllBlocksCommand;
@@ -7011,6 +7020,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         CancelCommand = new RelayCommand(_ => { DiscardNetworkChanges(); CloseRequested?.Invoke(this, EventArgs.Empty); });
         BlockPeerCommand = new RelayCommand(p => { if (p is string uid) { _peerManager.Block(uid); RefreshLists(); } });
         UnblockPeerCommand = new RelayCommand(p => { if (p is string uid) ConfirmUnblock(uid); });
+        AddBlockedPeerCommand = new RelayCommand(_ => AddBlockedPeer(), _ => !string.IsNullOrWhiteSpace(NewBlockedPeer));
         BlockSelectedPeersCommand = new RelayCommand(_ => BlockSelectedPeers());
         UnblockSelectedPeersCommand = new RelayCommand(_ => UnblockSelectedPeers());
         RemoveSelectedTestPeersCommand = new RelayCommand(_ => RemoveSelectedTestPeers());
@@ -7065,17 +7075,23 @@ public class NetworkViewModel : INotifyPropertyChanged
             {
                 try { Avalonia.Threading.Dispatcher.UIThread.Post(() => NotifyNetworkStatus()); } catch { }
             });
+            _refreshListsThrottled = AppServices.Updates.GetUiThrottled("NetworkViewModel.RefreshLists.throttle", 500, () =>
+            {
+                try { Avalonia.Threading.Dispatcher.UIThread.Post(RefreshLists); } catch { }
+            });
             AppServices.Events.NatChanged += () => _uiThrottled?.Invoke();
             AppServices.Events.NetworkListeningChanged += (_, __) => _uiThrottled?.Invoke();
-            AppServices.Events.PeersChanged += () => { 
-                try { Zer0Talk.Utilities.Logger.Log("[NetworkViewModel] PeersChanged event received"); } catch { }
-                _uiThrottled?.Invoke(); 
-                Avalonia.Threading.Dispatcher.UIThread.Post(() => {
-                    try { Zer0Talk.Utilities.Logger.Log("[NetworkViewModel] RefreshLists called from PeersChanged"); } catch { }
-                    RefreshLists();
-                }); 
+            AppServices.Events.PeersChanged += _peersChangedHandler = () =>
+            {
+                _uiThrottled?.Invoke();
+                _refreshListsThrottled?.Invoke();
             };
-            _uiPulseHandler = () => { _uiThrottled?.Invoke(); RefreshDiscoveredRelays(); };
+            _uiPulseHandler = () =>
+            {
+                _uiThrottled?.Invoke();
+                var now = System.DateTime.UtcNow;
+                if ((now - _lastRelayRefresh).TotalSeconds >= 5) { _lastRelayRefresh = now; RefreshDiscoveredRelays(); }
+            };
             AppServices.Events.UiPulse += _uiPulseHandler;
             try { AppServices.Nat.Changed += () => _uiThrottled?.Invoke(); } catch { }
         }
@@ -7410,6 +7426,7 @@ public class NetworkViewModel : INotifyPropertyChanged
     public ICommand CloseApplyCommand { get; }
     public ICommand BlockPeerCommand { get; }
     public ICommand UnblockPeerCommand { get; }
+    public ICommand AddBlockedPeerCommand { get; }
     public ICommand BlockSelectedPeersCommand { get; }
     public ICommand UnblockSelectedPeersCommand { get; }
     public ICommand RemoveSelectedTestPeersCommand { get; }
@@ -7467,6 +7484,9 @@ public class NetworkViewModel : INotifyPropertyChanged
     public System.Collections.ObjectModel.ObservableCollection<IpEntryWithCountry> BadActorIps { get => _badActorIps; private set { _badActorIps = value; OnPropertyChanged(); } }
     public IpEntryWithCountry? SelectedBadActorIp { get; set; }
     
+    private string _newBlockedPeer = string.Empty;
+    public string NewBlockedPeer { get => _newBlockedPeer; set { _newBlockedPeer = value; OnPropertyChanged(); (AddBlockedPeerCommand as RelayCommand)?.RaiseCanExecuteChanged(); } }
+
     private string _newBadActorIp = string.Empty;
     public string NewBadActorIp { get => _newBadActorIp; set { _newBadActorIp = value; OnPropertyChanged(); (AddBadActorIpCommand as RelayCommand)?.RaiseCanExecuteChanged(); } }
     
@@ -7591,6 +7611,9 @@ public class NetworkViewModel : INotifyPropertyChanged
     public event EventHandler? CloseRequested;
     private Action? _uiThrottled;
     private Action? _uiPulseHandler;
+    private Action? _peersChangedHandler;
+    private Action? _refreshListsThrottled;
+    private System.DateTime _lastRelayRefresh = System.DateTime.MinValue;
 
     private async System.Threading.Tasks.Task SaveAsync(bool showToast, bool close)
     {
@@ -7934,7 +7957,6 @@ public class NetworkViewModel : INotifyPropertyChanged
 
     private void RefreshLists()
     {
-        try { Zer0Talk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Found {_peerManager.Peers.Count} peers"); } catch { }
         var allPeers = _peerManager.Peers.ToList();
         var now = System.DateTime.UtcNow;
 
@@ -7960,8 +7982,6 @@ public class NetworkViewModel : INotifyPropertyChanged
             .ThenByDescending(IsPeerOnline)
             .ThenBy(p => NormalizeUid(p.UID), StringComparer.OrdinalIgnoreCase)
             .ToList();
-        try { Zer0Talk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Filtered to {peers.Count} visible peers (from {allPeers.Count})"); } catch { }
-        
         // Set IsBlocked property on each peer and assign country codes from IP address with caching
         foreach (var peer in peers)
         {
@@ -8013,7 +8033,6 @@ public class NetworkViewModel : INotifyPropertyChanged
         
         SyncDiscoveredPeers(peers);
         BlockedPeers = new System.Collections.ObjectModel.ObservableCollection<string>(blocked);
-        try { Zer0Talk.Utilities.Logger.Log($"[NetworkViewModel] RefreshLists: Updated UI with {peers.Count} discovered peers"); } catch { }
     }
 
     public void RefreshPeersRealtime()
@@ -8637,6 +8656,23 @@ public class NetworkViewModel : INotifyPropertyChanged
 
     #region IP Blocking Methods
 
+    private void AddBlockedPeer()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(NewBlockedPeer)) return;
+            var uid = NewBlockedPeer.Trim();
+            _peerManager.Block(uid);
+            NewBlockedPeer = string.Empty;
+            RefreshLists();
+            Zer0Talk.Utilities.Logger.Log($"[PEER-BLOCK] Blocked peer via Settings UI: {uid}");
+        }
+        catch (Exception ex)
+        {
+            _ = AppServices.Dialogs.ShowInfoAsync("Block Peer Error", ex.Message);
+        }
+    }
+
     private void AddBadActorIp()
     {
         try
@@ -8876,10 +8912,12 @@ public class NetworkViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
-    // Best-effort cleanup (when VM is swapped) to avoid rare leaks if long-lived
-    ~NetworkViewModel()
+    // Best-effort cleanup to release event subscriptions deterministically.
+    public void Dispose()
     {
+        try { if (_peersChangedHandler != null) AppServices.Events.PeersChanged -= _peersChangedHandler; } catch { }
         try { if (_uiPulseHandler != null) AppServices.Events.UiPulse -= _uiPulseHandler; } catch { }
         try { AppServices.Updates.UnregisterUi("NetworkViewModel.UI.throttle"); } catch { }
+        try { AppServices.Updates.UnregisterUi("NetworkViewModel.RefreshLists.throttle"); } catch { }
     }
 }

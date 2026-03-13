@@ -99,7 +99,8 @@ namespace Zer0Talk.Services
                 {
                     try
                     {
-                        using var lookupCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        // 12s window: each relay read allows 8s for federated lookup + overhead for sequential relay iteration.
+                        using var lookupCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
                         var lookup = await AppServices.WanDirectory.LookupPeerAsync(uid, lookupCts.Token);
                         if (lookup != null)
                         {

@@ -11,6 +11,10 @@ namespace Zer0Talk.Services
 {
     public class OutboxService
     {
+        // Fired (peerUid-trimmed, messageId) when a queued chat message is successfully sent via DrainAsync.
+        // Subscribers (e.g. MainWindowViewModel) should update DeliveryStatus from Pending → Sent.
+        public static event Action<string, Guid>? MessageSentFromOutbox;
+
         private readonly OutboxContainer _store = new();
         private readonly ConcurrentDictionary<string, bool> _draining = new(StringComparer.OrdinalIgnoreCase);
 
@@ -145,7 +149,11 @@ namespace Zer0Talk.Services
                     item.LastAttemptUtc = DateTime.UtcNow;
                     if (ok)
                     {
+                        var sentId = item.Id != Guid.Empty ? item.Id : (item.Message?.Id ?? Guid.Empty);
                         _store.Remove(peerUid, item.Id, passphrase);
+                        // Notify status subscribers that this chat message is now Sent
+                        if ((item.Operation ?? "Chat") == "Chat" && sentId != Guid.Empty)
+                            try { MessageSentFromOutbox?.Invoke(peerUid, sentId); } catch { }
                     }
                     else
                     {

@@ -183,4 +183,23 @@
   <Style Selector="CheckBox:disabled /template/ TextBlock#Glyph">
     <Setter Property="Opacity" Value="0.55"/>
   </Style>
+
+  <!-- Glowing pulsing unread dot — upper-right corner of contact cards -->
+  <Style Selector="Border.unread-dot">
+    <!-- Accent-coloured glow halo -->
+    <Setter Property="BoxShadow" Value="0 0 8 3 #995C82FF"/>
+    <Style.Animations>
+      <Animation Duration="0:0:1.4" IterationCount="Infinite">
+        <KeyFrame Cue="0%">
+          <Setter Property="Opacity" Value="1.0"/>
+        </KeyFrame>
+        <KeyFrame Cue="50%">
+          <Setter Property="Opacity" Value="0.3"/>
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="Opacity" Value="1.0"/>
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
 </Styles>

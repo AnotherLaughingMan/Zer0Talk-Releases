@@ -275,7 +275,13 @@ public sealed class MarkdownParser
                     var text = literal.Content.ToString();
                     if (!string.IsNullOrEmpty(text))
                     {
-                        inlines.Add(new TextInline { Text = text });
+                        foreach (var segment in Zer0Talk.Utilities.SpoilerTokenizer.Tokenize(text))
+                        {
+                            if (segment.IsSpoiler)
+                                inlines.Add(new SpoilerInline { Text = segment.Text });
+                            else if (!string.IsNullOrEmpty(segment.Text))
+                                inlines.Add(new TextInline { Text = segment.Text });
+                        }
                     }
                     break;
 
@@ -323,18 +329,6 @@ public sealed class MarkdownParser
                     }
                     break;
 
-                case HtmlInline html:
-                    // Security: HTML disabled, but handle spoiler syntax ||text||
-                    var htmlText = html.Tag;
-                    if (htmlText.StartsWith("||") && htmlText.EndsWith("||") && htmlText.Length > 4)
-                    {
-                        var spoilerText = htmlText.Substring(2, htmlText.Length - 4);
-                        // Represent spoilers as regular text for now
-                        // TODO: Add proper spoiler support to RenderModel
-                        inlines.Add(new TextInline { Text = spoilerText });
-                    }
-                    // Otherwise skip HTML content
-                    break;
 
                 case ContainerInline container:
                     // Process nested inlines recursively
@@ -419,8 +413,7 @@ public sealed class MarkdownParser
             return null;
         }
 
-        // For images, we'll represent them as links with a special prefix
-        // TODO: Add proper Image support to RenderModel if needed
+        // Product policy: no image rendering. Images render as 🖼️ links (no file/attachment transfers).
         if (link.IsImage)
         {
             // Prepend image indicator

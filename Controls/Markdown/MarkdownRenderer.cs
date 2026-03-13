@@ -157,7 +157,65 @@ public sealed class MarkdownRenderer
             textBlock.Text = string.Empty;
         }
 
+        // Wire spoiler toggle if the paragraph contains any spoiler runs.
+        WireSpoilerToggle(textBlock, paragraph.Inlines);
+
         return textBlock;
+    }
+
+    /// <summary>
+    /// If any SpoilerInline nodes are present, attach a PointerPressed handler on
+    /// the TextBlock that toggles hidden/revealed state for every spoiler Run.
+    /// </summary>
+    private void WireSpoilerToggle(TextBlock textBlock, List<InlineNode>? inlines)
+    {
+        if (inlines == null || !ContainsSpoiler(inlines)) return;
+
+        textBlock.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
+
+        var revealed = false;
+        textBlock.PointerPressed += (_, e) =>
+        {
+            try
+            {
+                revealed = !revealed;
+                textBlock.Inlines!.Clear();
+                foreach (var inline in inlines)
+                    RenderInlineWithReveal(inline, textBlock.Inlines!, revealed);
+                e.Handled = true;
+            }
+            catch { }
+        };
+    }
+
+    private void RenderInlineWithReveal(InlineNode inline, InlineCollection inlines, bool revealed)
+    {
+        if (inline is SpoilerInline spoiler && !string.IsNullOrEmpty(spoiler.Text))
+        {
+            var mask = new string('\u2588', spoiler.Text.Length);
+            inlines.Add(new Run
+            {
+                Text = revealed ? spoiler.Text : mask,
+                Foreground = revealed
+                    ? new SolidColorBrush(Color.FromRgb(220, 220, 220))
+                    : new SolidColorBrush(Colors.Black),
+                Background = revealed
+                    ? new SolidColorBrush(Color.FromArgb(60, 68, 68, 68))
+                    : new SolidColorBrush(Colors.Black)
+            });
+            return;
+        }
+        RenderInline(inline, inlines);
+    }
+
+    private static bool ContainsSpoiler(List<InlineNode> inlines)
+    {
+        foreach (var n in inlines)
+        {
+            if (n is SpoilerInline) return true;
+            if (n is Emphasis em && ContainsSpoiler(em.Inlines)) return true;
+        }
+        return false;
     }
 
     private TextBlock RenderHeading(Heading heading)
@@ -413,6 +471,19 @@ public sealed class MarkdownRenderer
                     if (linkInline != null)
                     {
                         inlines.Add(linkInline);
+                    }
+                    break;
+
+                case SpoilerInline spoiler:
+                    if (!string.IsNullOrEmpty(spoiler.Text))
+                    {
+                        var hiddenMask = new string('\u2588', spoiler.Text.Length);
+                        inlines.Add(new Run
+                        {
+                            Text = hiddenMask,
+                            Foreground = new SolidColorBrush(Colors.Black),
+                            Background = new SolidColorBrush(Colors.Black)
+                        });
                     }
                     break;
             }

@@ -257,3 +257,22 @@ public sealed class Link : InlineNode
 
     public override string ToString() => $"Link(Url=\"{Url}\", Inlines={Inlines.Count})";
 }
+
+/// <summary>Spoiler inline node — text hidden until revealed by the user.</summary>
+public sealed class SpoilerInline : InlineNode
+{
+    public override string Type => "spoiler";
+
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = string.Empty;
+
+    public override bool Equals(RenderNode? other)
+    {
+        if (other is not SpoilerInline spoiler) return false;
+        return Text == spoiler.Text;
+    }
+
+    public override int GetHashCode() => HashCode.Combine(Type, Text);
+
+    public override string ToString() => $"Spoiler(\"{Text}\")";
+}

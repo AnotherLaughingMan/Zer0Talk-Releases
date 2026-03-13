@@ -66,6 +66,8 @@
         <util:DeliveryStatusToGlyphConverter x:Key="DeliveryStatusToGlyphConverter" />
         <util:DeliveryStatusVisibleConverter x:Key="DeliveryStatusVisibleConverter" />
         <util:DeliveryStatusToTooltipConverter x:Key="DeliveryStatusToTooltipConverter" />
+        <util:DeliveryStatusIsReadConverter x:Key="DeliveryStatusIsReadConverter" />
+        <util:DeliveryStatusIsNotReadConverter x:Key="DeliveryStatusIsNotReadConverter" />
         <util:VersionMismatchTooltipConverter x:Key="VersionMismatchTooltipConverter" />
     </Window.Resources>
 
@@ -477,7 +479,8 @@
                   <Border Classes="contact-indicator" Width="3" CornerRadius="1.5"
                           VerticalAlignment="Stretch" Margin="0,4"
                           HorizontalAlignment="Left"/>
-                  <Border Classes="contact-card" Grid.Column="1"
+                  <Panel Grid.Column="1">
+                  <Border Classes="contact-card"
                     Padding="10,8"
                     BorderThickness="1"
                                     ContextRequested="ContactCard_ContextRequested"
@@ -664,16 +667,16 @@
                                                 </MultiBinding>
                                             </TextBlock.IsVisible>
                                         </TextBlock>
-                                        <!-- Unread message badge -->
-                                        <Border Background="{DynamicResource App.Accent}" CornerRadius="9" MinWidth="18" Height="18"
-                                                Padding="5,0" HorizontalAlignment="Right"
-                                                IsVisible="{Binding HasUnread}">
-                                            <TextBlock Text="{Binding UnreadCount}" Foreground="White" FontSize="11"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="SemiBold"/>
-                                        </Border>
                                     </StackPanel>
                                 </Grid>
                             </Border>
+                  <!-- Glowing unread dot — overlaid in the upper-right corner of the card -->
+                  <Border Classes="unread-dot" Width="10" Height="10" CornerRadius="5"
+                          Background="{DynamicResource App.Accent}"
+                          HorizontalAlignment="Right" VerticalAlignment="Top"
+                          Margin="0,6,6,0"
+                          IsVisible="{Binding HasUnread}"/>
+                  </Panel>
                 </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -685,7 +688,7 @@
             <Grid x:Name="ChatArea" Grid.Column="3" RowDefinitions="Auto,*,Auto" MinWidth="340" Background="{DynamicResource App.Background}">
                 <Border Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.Background}">
                     <StackPanel Orientation="Vertical" Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto,Auto" VerticalAlignment="Center">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <TextBlock FontSize="16" FontWeight="SemiBold">
                                     <TextBlock.Text>
@@ -716,13 +719,19 @@
                                     </c:VerifiedBadge.IsVisible>
                                 </c:VerifiedBadge>
                             </StackPanel>
-                            <Button Grid.Column="1" Width="28" Height="28" Margin="0,0,8,0" Classes="icon-button" Command="{Binding BurnConversationCommand}" ToolTip.Tip="{Binding LocalizedBurnConversation}">
+                            <Button x:Name="ChatSearchBtn" Grid.Column="1" Width="28" Height="28" Margin="0,0,4,0" Classes="icon-button" Click="ChatSearchBtn_Click" ToolTip.Tip="Search">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE721;" FontSize="14"/>
+                            </Button>
+                            <Button x:Name="ChatPinBtn" Grid.Column="2" Width="28" Height="28" Margin="0,0,4,0" Classes="icon-button" Click="ChatPinBtn_Click" ToolTip.Tip="Pinned Messages">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE718;" FontSize="14"/>
+                            </Button>
+                            <Button Grid.Column="3" Width="28" Height="28" Margin="0,0,8,0" Classes="icon-button" Command="{Binding BurnConversationCommand}" ToolTip.Tip="{Binding LocalizedBurnConversation}">
                                 <Grid Width="16" Height="16">
                                     <Path Fill="{DynamicResource App.Accent}" StrokeThickness="0" Stretch="Uniform"
                                           Data="M8,1 C9.5,3 9,4.6 9.4,6 C10.7,5.2 12,6.6 12,8.7 C12,11.1 10.2,13 8,13 C5.8,13 4,11.1 4,8.6 C4,7 4.9,5.8 6.2,5.1 C6.1,6.9 6.9,8.1 7.9,9.0 C8.8,9.9 9.6,9.4 9.6,8.1 C9.6,6.7 8.4,6.1 8,4.7 C7.6,3.4 7.9,2.2 8,1 Z"/>
                                 </Grid>
                             </Button>
-                            <Image Grid.Column="2" Width="16" Height="16" ToolTip.Tip="{Binding LocalizedChatEncryptedTransport}" VerticalAlignment="Center" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
+                            <Image Grid.Column="4" Width="16" Height="16" ToolTip.Tip="{Binding LocalizedChatEncryptedTransport}" VerticalAlignment="Center" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
                         </Grid>
 
                         <Border CornerRadius="6" Padding="10,6" HorizontalAlignment="Stretch"
@@ -742,7 +751,7 @@
                         <Border Background="#DA7C19" CornerRadius="4" Padding="6,2" IsVisible="{Binding IsSelectedContactSimulated}" HorizontalAlignment="Left">
                             <TextBlock Text="{Binding LocalizedSimulatedContact}" FontSize="11" Foreground="White"/>
                         </Border>
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center" IsVisible="False">
                             <TextBox Grid.Column="0"
                                      Text="{Binding MessageSearchQuery, Mode=TwoWay}"
                                      Watermark="Search this conversation"
@@ -766,6 +775,96 @@
                         </Grid>
                     </StackPanel>
                 </Border>
+
+                <!-- Search Drop Panel -->
+                <Popup x:Name="ChatSearchPopup"
+                       Grid.Row="0" Grid.RowSpan="2"
+                       PlacementMode="AnchorAndGravity"
+                       PlacementAnchor="BottomRight"
+                       PlacementGravity="BottomLeft"
+                       IsLightDismissEnabled="True"
+                       IsOpen="False">
+                    <Border MinWidth="420"
+                            Background="{DynamicResource App.Surface}"
+                            BorderBrush="{DynamicResource App.Border}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            BoxShadow="0 4 24 0 #44000000"
+                            Padding="12">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                                <TextBox Grid.Column="0"
+                                         Text="{Binding MessageSearchQuery, Mode=TwoWay}"
+                                         Watermark="Search this conversation"
+                                         MinHeight="30"/>
+                                <Button Grid.Column="1" Classes="icon-button" Command="{Binding PreviousMessageSearchResultCommand}" ToolTip.Tip="Previous match">
+                                    <TextBlock Classes="icon-mdl2" Text="&#xE100;"/>
+                                </Button>
+                                <Button Grid.Column="2" Classes="icon-button" Command="{Binding NextMessageSearchResultCommand}" ToolTip.Tip="Next match">
+                                    <TextBlock Classes="icon-mdl2" Text="&#xE101;"/>
+                                </Button>
+                                <Button Grid.Column="3" Classes="icon-button" Command="{Binding ClearMessageSearchCommand}" ToolTip.Tip="Clear search">
+                                    <TextBlock Classes="icon-mdl2" Text="&#xE711;"/>
+                                </Button>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="{Binding MessageSearchStatus}" VerticalAlignment="Center" Opacity="0.75"/>
+                                <ComboBox Width="154" SelectedIndex="{Binding MessageSpaceViewIndex, Mode=TwoWay}">
+                                    <ComboBoxItem Content="All"/>
+                                    <ComboBoxItem Content="Unread"/>
+                                    <ComboBoxItem Content="Mentions/Important"/>
+                                    <ComboBoxItem Content="Attachments"/>
+                                </ComboBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <!-- Pinned Messages Drop Panel -->
+                <Popup x:Name="PinnedDropPopup"
+                       Grid.Row="0" Grid.RowSpan="2"
+                       PlacementMode="AnchorAndGravity"
+                       PlacementAnchor="BottomRight"
+                       PlacementGravity="BottomLeft"
+                       IsLightDismissEnabled="True"
+                       IsOpen="False">
+                    <Border Width="360"
+                            Background="{DynamicResource App.Surface}"
+                            BorderBrush="{DynamicResource App.Border}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            BoxShadow="0 4 24 0 #44000000">
+                        <Grid RowDefinitions="Auto,*" MaxHeight="320">
+                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,8,8,6" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE718;" Classes="icon-mdl2" VerticalAlignment="Center" FontSize="12" Opacity="0.75"/>
+                                <TextBlock Grid.Column="1" Text="Pinned Messages" FontWeight="SemiBold" FontSize="13" Margin="6,0"/>
+                                <Button Grid.Column="2" Classes="icon-button" Width="26" Height="26"
+                                        Click="ClosePinnedDrop_Click" ToolTip.Tip="Close">
+                                    <TextBlock Classes="icon-mdl2" Text="&#xE711;" FontSize="11"/>
+                                </Button>
+                            </Grid>
+                            <ScrollViewer Grid.Row="1" MaxHeight="264" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding PinnedMessages}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:Message">
+                                            <Grid ColumnDefinitions="*,Auto" Margin="12,4" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Content}" TextTrimming="CharacterEllipsis"
+                                                           MaxLines="1" FontSize="13" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="1" Classes="icon-button"
+                                                        Width="22" Height="22" MinWidth="22" MinHeight="22"
+                                                        ToolTip.Tip="Unpin"
+                                                        Command="{Binding $parent[v:MainWindow].DataContext.TogglePinMessageCommand}"
+                                                        CommandParameter="{Binding Id}">
+                                                    <TextBlock Classes="icon-mdl2" Text="&#xE77A;" FontSize="11"/>
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Popup>
 
                 <ScrollViewer Grid.Row="1" x:Name="ChatScroll" ScrollChanged="ChatScroll_ScrollChanged" SizeChanged="ChatScroll_SizeChanged">
                     <Grid RowDefinitions="Auto,Auto">
@@ -836,7 +935,11 @@
                                                             <TextBlock Classes="message-meta" FontSize="11" Opacity="0.65" Text="{Binding Timestamp}"/>
                                                             <TextBlock Classes="message-meta" FontSize="11" Opacity="0.55" Text="{Binding $parent[v:MainWindow].DataContext.LocalizedEdited}" IsVisible="{Binding IsEdited}"/>
                                                             <TextBlock Classes="icon-mdl2" Text="&#xE718;" FontSize="11" Opacity="0.75" IsVisible="{Binding IsPinned}" ToolTip.Tip="Pinned"/>
-                                                            <TextBlock Classes="icon-mdl2" Text="&#xE734;" FontSize="11" Opacity="0.75" IsVisible="{Binding IsStarred}" ToolTip.Tip="Starred"/>
+                                                            <TextBlock Classes="icon-mdl2" Text="&#xE734;" FontSize="13" Foreground="#FFD700" IsVisible="{Binding IsStarred}" ToolTip.Tip="Starred">
+                                                                <TextBlock.Effect>
+                                                                    <DropShadowEffect Color="#FFD700" BlurRadius="8" OffsetX="0" OffsetY="0" Opacity="0.9"/>
+                                                                </TextBlock.Effect>
+                                                            </TextBlock>
                                                             <TextBlock FontSize="10" Text="Important" Opacity="0.78" IsVisible="{Binding IsImportant}"/>
                                                             <Border CornerRadius="3" Padding="4,1" Background="{DynamicResource App.ItemSelected}" IsVisible="{Binding IsActiveSearchMatch}">
                                                                 <TextBlock FontSize="10" Text="Search match" Opacity="0.85"/>
@@ -858,14 +961,14 @@
                                                             </Button>
                                                             <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
                                                                     Classes="icon-button"
-                                                                    ToolTip.Tip="Pin"
+                                                                    ToolTip.Tip="Pin / Unpin"
                                                                     Command="{Binding $parent[v:MainWindow].DataContext.TogglePinMessageCommand}"
                                                                     CommandParameter="{Binding Id}">
                                                                 <TextBlock Classes="icon-mdl2" Text="&#xE718;"/>
                                                             </Button>
                                                             <Button Width="24" Height="24" MinWidth="24" MinHeight="24" IsTabStop="False"
                                                                     Classes="icon-button"
-                                                                    ToolTip.Tip="Star"
+                                                                    ToolTip.Tip="Star / Unstar"
                                                                     Command="{Binding $parent[v:MainWindow].DataContext.ToggleStarMessageCommand}"
                                                                     CommandParameter="{Binding Id}">
                                                                 <TextBlock Classes="icon-mdl2" Text="&#xE734;"/>
@@ -1028,17 +1131,24 @@
                                                         </StackPanel>
                                                         <!-- Delivery status: outbound = clock/check/double-check; inbound = down-arrow -->
                                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                            <!-- Outbound: delivery status icon -->
-                                                            <TextBlock Classes="icon-mdl2" FontSize="12" Opacity="0.55"
-                                                                       Text="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusToGlyphConverter}}"
-                                                                       ToolTip.Tip="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusToTooltipConverter}}">
-                                                                <TextBlock.IsVisible>
+                                                            <!-- Outbound: Pending/Sent/Delivered (gray) | Read (accent double-check) -->
+                                                            <Panel ToolTip.Tip="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusToTooltipConverter}}">
+                                                                <Panel.IsVisible>
                                                                     <MultiBinding Converter="{StaticResource DeliveryStatusVisibleConverter}">
                                                                         <Binding Path="SenderUID" />
                                                                         <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUidFull" />
                                                                     </MultiBinding>
-                                                                </TextBlock.IsVisible>
-                                                            </TextBlock>
+                                                                </Panel.IsVisible>
+                                                                <!-- Pending / Sent / Delivered: gray glyph -->
+                                                                <TextBlock Classes="icon-mdl2" FontSize="12" Opacity="0.55"
+                                                                           Text="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusToGlyphConverter}}"
+                                                                           IsVisible="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusIsNotReadConverter}}"/>
+                                                                <!-- Read: accent-colored double-check -->
+                                                                <TextBlock Classes="icon-mdl2" FontSize="12"
+                                                                           Text="&#xE73E;&#xE73E;"
+                                                                           Foreground="{DynamicResource App.Accent}"
+                                                                           IsVisible="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusIsReadConverter}}"/>
+                                                            </Panel>
                                                             <!-- Inbound: received indicator (down-arrow) -->
                                                             <TextBlock Classes="icon-mdl2" Text="&#xE896;" FontSize="12" Opacity="0.4"
                                                                        ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedMessageReceived}">
@@ -1340,7 +1450,7 @@
                IsLightDismissEnabled="True"
                IsOpen="False">
             <Border x:Name="NotifDropCard"
-                    Width="340"
+                    Width="420"
                     Height="480"
                     Background="{DynamicResource App.Surface}"
                     BorderBrush="{DynamicResource App.Border}"
@@ -1407,14 +1517,14 @@
                     </Border>
 
                     <!-- Content hosts -->
-                    <ScrollViewer x:Name="InvitesHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="True">
-                        <StackPanel x:Name="InvitesStack" Margin="8,6" Spacing="6" />
+                    <ScrollViewer x:Name="InvitesHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" IsVisible="True">
+                        <StackPanel x:Name="InvitesStack" Margin="8,6" Spacing="6" HorizontalAlignment="Stretch"/>
                     </ScrollViewer>
-                    <ScrollViewer x:Name="MessagesHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="False">
-                        <StackPanel x:Name="MessagesStack" Margin="8,6" Spacing="6" />
+                    <ScrollViewer x:Name="MessagesHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" IsVisible="False">
+                        <StackPanel x:Name="MessagesStack" Margin="8,6" Spacing="6" HorizontalAlignment="Stretch"/>
                     </ScrollViewer>
-                    <ScrollViewer x:Name="AlertsHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" IsVisible="False">
-                        <StackPanel x:Name="AlertsStack" Margin="8,6" Spacing="6" />
+                    <ScrollViewer x:Name="AlertsHost" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" IsVisible="False">
+                        <StackPanel x:Name="AlertsStack" Margin="8,6" Spacing="6" HorizontalAlignment="Stretch"/>
                     </ScrollViewer>
                 </Grid>
             </Border>

@@ -691,6 +691,7 @@ namespace Zer0Talk.ViewModels
     public ICommand CancelReplyCommand { get; }
     public ICommand TogglePinMessageCommand { get; }
     public ICommand ToggleStarMessageCommand { get; }
+    public ICommand TogglePinnedPanelCommand { get; }
     public ICommand ToggleReactionCommand { get; }
     public ICommand ToggleThumbsUpReactionCommand { get; }
     public ICommand ToggleHeartReactionCommand { get; }
@@ -703,6 +704,11 @@ namespace Zer0Talk.ViewModels
 
         private bool _hasPendingInvites;
         public bool HasPendingInvites { get => _hasPendingInvites; private set { if (_hasPendingInvites != value) { _hasPendingInvites = value; OnPropertyChanged(); } } }
+
+        private bool _isPinnedPanelOpen;
+        public bool IsPinnedPanelOpen { get => _isPinnedPanelOpen; set { if (_isPinnedPanelOpen != value) { _isPinnedPanelOpen = value; OnPropertyChanged(); } } }
+        public IReadOnlyList<Message> PinnedMessages { get; private set; } = new List<Message>();
+        public bool HasPinnedMessages => PinnedMessages.Count > 0;
 
         // Aggregated notification badge (invites + notices) shown in nav rail
         private int _notificationCount;
@@ -801,7 +807,7 @@ namespace Zer0Talk.ViewModels
             catch { }
             try
             {
-                Action noticesChanged = () => { Avalonia.Threading.Dispatcher.UIThread.Post(() => { RefreshHasPendingInvites(); }); };
+                Action noticesChanged = () => { Avalonia.Threading.Dispatcher.UIThread.Post(() => { RefreshHasPendingInvites(); RefreshContactMetadata(); }); };
                 AppServices.Notifications.NoticesChanged += noticesChanged;
                 _teardownActions.Add(() => AppServices.Notifications.NoticesChanged -= noticesChanged);
             }
@@ -1016,6 +1022,8 @@ namespace Zer0Talk.ViewModels
 
             CancelReplyCommand = new RelayCommand(_ => ClearReplyState(), _ => IsReplyMode);
 
+            TogglePinnedPanelCommand = new RelayCommand(_ => IsPinnedPanelOpen = !IsPinnedPanelOpen);
+
             TogglePinMessageCommand = new RelayCommand(p =>
             {
                 if (p is not Guid messageId) return;
@@ -1023,6 +1031,7 @@ namespace Zer0Talk.ViewModels
                 if (message == null) return;
                 message.IsPinned = !message.IsPinned;
                 PersistMessageFlags(message);
+                RefreshPinnedMessages();
                 RebuildTimeline();
             });
 
@@ -1309,6 +1318,63 @@ namespace Zer0Talk.ViewModels
                 };
                 AppServices.Network.ChatMessageDeliveryAcked += deliveryAckedHandler;
                 _teardownActions.Add(() => AppServices.Network.ChatMessageDeliveryAcked -= deliveryAckedHandler);
+            }
+            catch { }
+
+            // Subscribe to read receipts (0xB7) — advance outbound message status to Read
+            try
+            {
+                Action<string, Guid> readReceiptHandler = (peerUid, messageId) =>
+                {
+                    try
+                    {
+                        var normalized = TrimUidPrefix(peerUid);
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            foreach (var msg in Messages)
+                            {
+                                if (msg.Id == messageId && msg.DeliveryStatus != Models.MessageDeliveryStatus.Read)
+                                {
+                                    msg.DeliveryStatus = Models.MessageDeliveryStatus.Read;
+                                    break;
+                                }
+                            }
+                        });
+                        try { _messagesStore.UpdateDeliveryStatus(normalized, messageId, Models.MessageDeliveryStatus.Read, AppServices.Passphrase); } catch { }
+                    }
+                    catch { }
+                };
+                AppServices.Network.ChatMessageReadReceiptReceived += readReceiptHandler;
+                _teardownActions.Add(() => AppServices.Network.ChatMessageReadReceiptReceived -= readReceiptHandler);
+            }
+            catch { }
+
+            // Subscribe to outbox drain completions — advance outbound message status from Pending → Sent.
+            // Fires when a previously-queued message is successfully transmitted after the peer comes online.
+            try
+            {
+                Action<string, Guid> outboxSentHandler = (peerUid, messageId) =>
+                {
+                    try
+                    {
+                        var normalized = TrimUidPrefix(peerUid);
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            foreach (var msg in Messages)
+                            {
+                                if (msg.Id == messageId && msg.DeliveryStatus == Models.MessageDeliveryStatus.Pending)
+                                {
+                                    msg.DeliveryStatus = Models.MessageDeliveryStatus.Sent;
+                                    break;
+                                }
+                            }
+                        });
+                        try { _messagesStore.UpdateDeliveryStatus(normalized, messageId, Models.MessageDeliveryStatus.Sent, AppServices.Passphrase); } catch { }
+                    }
+                    catch { }
+                };
+                Services.OutboxService.MessageSentFromOutbox += outboxSentHandler;
+                _teardownActions.Add(() => Services.OutboxService.MessageSentFromOutbox -= outboxSentHandler);
             }
             catch { }
 
@@ -2648,6 +2714,14 @@ namespace Zer0Talk.ViewModels
             {
                 AppendMessageToTimeline(message);
             }
+            RefreshPinnedMessages();
+        }
+
+        private void RefreshPinnedMessages()
+        {
+            PinnedMessages = Messages.Where(m => m.IsPinned).OrderBy(m => m.Timestamp).ToList();
+            OnPropertyChanged(nameof(PinnedMessages));
+            OnPropertyChanged(nameof(HasPinnedMessages));
         }
 
         private void AppendMessageToTimeline(Message message)
@@ -4003,6 +4077,25 @@ namespace Zer0Talk.ViewModels
                 MarkMessagesAsRead();
                 // Clear notifications for this conversation
                 try { AppServices.Notifications.MarkConversationMessageNoticesRead(peerUid); } catch { }
+                // Send read receipts for all incoming messages from this peer (best-effort, only when connected)
+                try
+                {
+                    var incomingIds = list
+                        .Where(m => string.Equals(TrimUidPrefix(m.SenderUID ?? string.Empty), peerUid, StringComparison.OrdinalIgnoreCase) && m.Id != Guid.Empty)
+                        .Select(m => m.Id)
+                        .ToList();
+                    if (incomingIds.Count > 0)
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            foreach (var id in incomingIds)
+                            {
+                                try { await AppServices.Network.SendReadReceiptAsync(peerUid, id); } catch { }
+                            }
+                        });
+                    }
+                }
+                catch { }
             }
             catch (Exception ex)
             {

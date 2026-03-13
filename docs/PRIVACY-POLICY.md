@@ -5,7 +5,7 @@
 **Author:** AnotherLaughingMan
 
 The authoritative copy of this document is maintained at:  
-https://github.com/AnotherLaughingMan/Zer0Talk-Releases/blob/main/PRIVACY-POLICY.md
+https://github.com/AnotherLaughingMan/Zer0Talk-Releases/blob/main/docs/PRIVACY-POLICY.md
 
 ---
 
@@ -88,7 +88,7 @@ Users are solely responsible for complying with all applicable local, national, 
 ## 9. Changes to This Policy
 
 This policy may be updated in future versions of Zer0Talk. The authoritative and most current version is maintained at:  
-https://github.com/AnotherLaughingMan/Zer0Talk-Releases/blob/main/PRIVACY-POLICY.md
+https://github.com/AnotherLaughingMan/Zer0Talk-Releases/blob/main/docs/PRIVACY-POLICY.md
 
 Material changes will be surfaced via the in-app update notification system.
 

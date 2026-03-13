@@ -1998,7 +1998,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var grid = this.FindControl<Grid>("BodyGrid");
             var leftRoot = this.FindControl<Grid>("LeftPanelRoot");
             var dividerContactsChat = grid?.ColumnDefinitions.Count >= 3 ? grid.ColumnDefinitions[2] : null;
-            if (grid?.ColumnDefinitions is { Count: >= 6 })
+            if (grid?.ColumnDefinitions is { Count: >= 4 })
             {
                 var contactsCol = grid.ColumnDefinitions[1];
                 if (_leftColumnOriginalMinWidthDefinition is null)
@@ -2007,21 +2007,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 bool willCollapse = current > 0.1;
                 double target = willCollapse ? 0.0 : Math.Max(_leftPanelLastWidth ?? (s2.MainLeftWidth ?? 280.0), 200.0);
                 if (willCollapse) _leftPanelLastWidth = current;
-
-                // Fast path: if collapsing left when already collapsed, collapse instantly (no animation)
-                if (willCollapse && contactsCol?.Width.Value <= 0.1)
-                {
-                    CollapseBothInstant(grid);
-                    if (leftRoot != null)
-                    {
-                        if (_leftPanelOriginalMinWidth is null) _leftPanelOriginalMinWidth = leftRoot.MinWidth;
-                        leftRoot.IsVisible = false;
-                        leftRoot.MinWidth = 0;
-                    }
-                    // Preserve previously saved width (do not overwrite with zero)
-                    _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
-                    return;
-                }
 
                 var anim = AnimateColumnWidth(contactsCol, target);
                 if (dividerContactsChat != null)
@@ -4178,6 +4163,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    private void ChatSearchBtn_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var popup = this.FindControl<Popup>("ChatSearchPopup");
+            if (popup == null) return;
+            popup.PlacementTarget = this.FindControl<Button>("ChatSearchBtn");
+            popup.IsOpen = !popup.IsOpen;
+        }
+        catch { }
+    }
+
+    private void ChatPinBtn_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var popup = this.FindControl<Popup>("PinnedDropPopup");
+            if (popup == null) return;
+            popup.PlacementTarget = this.FindControl<Button>("ChatPinBtn");
+            popup.IsOpen = !popup.IsOpen;
+        }
+        catch { }
+    }
+
+    private void ClosePinnedDrop_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var popup = this.FindControl<Popup>("PinnedDropPopup");
+            if (popup != null) popup.IsOpen = false;
+        }
+        catch { }
+    }
+
     private void NotifTabInvites_Click(object? sender, RoutedEventArgs e)
     {
         ShowInvitesHost();
@@ -4252,17 +4271,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (grid.ColumnDefinitions.Count < 6) return;
+            if (grid.ColumnDefinitions.Count < 4) return;
             var contactsCol = grid.ColumnDefinitions[1];
             var dividerL = grid.ColumnDefinitions[2];
             var chatCol = grid.ColumnDefinitions[3];
-            var dividerR = grid.ColumnDefinitions[4];
-            var diagCol = grid.ColumnDefinitions[5];
-            contactsCol.MinWidth = 0; diagCol.MinWidth = 0;
+            contactsCol.MinWidth = 0;
             contactsCol.Width = new GridLength(0);
-            diagCol.Width = new GridLength(0);
             dividerL.Width = new GridLength(0);
-            dividerR.Width = new GridLength(0);
             chatCol.Width = new GridLength(1, GridUnitType.Star);
             grid.InvalidateMeasure();
             grid.InvalidateArrange();
@@ -4313,30 +4328,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var grid = this.FindControl<Grid>("BodyGrid");
-            if (grid?.ColumnDefinitions is not { Count: >= 6 }) return;
+            if (grid?.ColumnDefinitions is not { Count: >= 4 }) return;
             var contacts = grid.ColumnDefinitions[1];
             var dividerL = grid.ColumnDefinitions[2];
             var chat = grid.ColumnDefinitions[3];
-            var dividerR = grid.ColumnDefinitions[4];
-            var diag = grid.ColumnDefinitions[5];
             bool leftHidden = contacts.Width.Value <= 0.1;
-            bool rightHidden = diag.Width.Value <= 0.1;
             // Ensure min widths not forcing layout when collapsed
             if (leftHidden) contacts.MinWidth = 0; else if (_leftColumnOriginalMinWidthDefinition is not null) contacts.MinWidth = _leftColumnOriginalMinWidthDefinition.Value;
-            if (rightHidden) diag.MinWidth = 0; else if (_rightColumnOriginalMinWidthDefinition is not null) diag.MinWidth = _rightColumnOriginalMinWidthDefinition.Value;
             if (leftHidden) dividerL.Width = new GridLength(0, GridUnitType.Pixel);
-            if (rightHidden) dividerR.Width = new GridLength(0, GridUnitType.Pixel);
-            if (leftHidden && rightHidden)
+            if (leftHidden)
             {
                 // Force chat to star and clear any pixel residue.
                 if (chat.Width.IsAbsolute || chat.Width.IsAuto)
                     chat.Width = new GridLength(1, GridUnitType.Star);
-                // Remove any inadvertent max width constraints on the chat root grid
-                var chatRoot = chat is not null ? this.GetVisualDescendants().OfType<Grid>().FirstOrDefault(g => g.Name == null && Grid.GetColumn(g) == 3) : null;
-                if (chatRoot != null && double.IsNaN(chatRoot.MaxWidth) == false && chatRoot.MaxWidth < 2000)
-                {
-                    chatRoot.MaxWidth = double.PositiveInfinity;
-                }
             }
             grid.InvalidateMeasure();
             grid.InvalidateArrange();
@@ -5388,7 +5392,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                         row.Children.Add(accept); row.Children.Add(reject);
                         // Use blue border to match contact invite toast notifications
                         var blueBorder = new SolidColorBrush(Color.FromArgb(255, 33, 150, 243));
-                        invitesStack.Children.Add(new Border { Padding = new Thickness(6), Background = (IBrush?)Application.Current?.FindResource("App.Surface"), BorderBrush = blueBorder, BorderThickness = new Thickness(2), CornerRadius = new CornerRadius(6), Child = row });
+                        invitesStack.Children.Add(new Border { HorizontalAlignment = HorizontalAlignment.Stretch, MinWidth = 300, Padding = new Thickness(6), Background = (IBrush?)Application.Current?.FindResource("App.Surface"), BorderBrush = blueBorder, BorderThickness = new Thickness(2), CornerRadius = new CornerRadius(6), Child = row });
                     }
                     if (invites.Count == 0)
                     {
@@ -5425,13 +5429,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                         .ThenByDescending(n => n.IsUnread)
                         .ThenByDescending(n => n.Utc)
                         .ToList();
+                    var vm = DataContext as MainWindowViewModel;
                     foreach (var notice in notices)
                     {
                         messagesStack.Children.Add(BuildNotificationMessageEntry(notice));
                     }
-                    if (notices.Count == 0)
+                    // Starred messages from current conversation
+                    var starred = vm?.Messages.Where(m => m.IsStarred).OrderByDescending(m => m.Timestamp).ToList();
+                    if (starred?.Count > 0)
                     {
-                        var vm = DataContext as MainWindowViewModel;
+                        if (notices.Count > 0)
+                            messagesStack.Children.Add(BuildSectionSeparator("Starred"));
+                        foreach (var msg in starred)
+                            messagesStack.Children.Add(BuildStarredMessageEntry(msg, vm!));
+                    }
+                    if (notices.Count == 0 && (starred == null || starred.Count == 0))
+                    {
                         var emptyText = vm?.LocalizedNoRecentMessages ?? "No recent messages.";
                         messagesStack.Children.Add(new TextBlock { Text = emptyText, Opacity = 0.7 });
                     }
@@ -5444,40 +5457,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private Control BuildNotificationMessageEntry(NotificationService.NotificationItem notice)
     {
-        var button = new Button
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Margin = new Thickness(0, 0, 0, 6),
-            Padding = new Thickness(0),
-            Tag = notice,
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0)
-        };
-        button.Click += NotificationMessage_Click;
-
         var accentBrush = (IBrush?)Application.Current?.FindResource("App.Accent") ?? Brushes.DodgerBlue;
         var surfaceBrush = (IBrush?)Application.Current?.FindResource("App.Surface") ?? Brushes.Transparent;
-        var borderBrush = (IBrush?)Application.Current?.FindResource("App.Border") ?? Brushes.Gray;
-
-        var root = new Grid { ColumnDefinitions = new ColumnDefinitions("4,*") };
-
-        var indicator = new Border
-        {
-            Background = notice.IsUnread ? accentBrush : Brushes.Transparent,
-            CornerRadius = new CornerRadius(2)
-        };
-        Grid.SetColumn(indicator, 0);
-
-        var contentBorder = new Border
-        {
-            Padding = new Thickness(8),
-            Background = surfaceBrush,
-            BorderBrush = borderBrush,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6)
-        };
-        Grid.SetColumn(contentBorder, 1);
 
         var contentStack = new StackPanel { Spacing = 4 };
 
@@ -5562,15 +5543,161 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         });
         contentStack.Children.Add(metaPanel);
 
-        contentBorder.Child = contentStack;
-        root.Children.Add(indicator);
-        root.Children.Add(contentBorder);
-
-        button.Content = root;
-        return button;
+        var card = new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Margin = new Thickness(0, 0, 0, 6),
+            Padding = new Thickness(8),
+            Background = surfaceBrush,
+            BorderBrush = notice.IsUnread ? accentBrush : Brushes.Transparent,
+            BorderThickness = new Thickness(4, 0, 0, 0),
+            CornerRadius = new CornerRadius(4),
+            Child = contentStack
+        };
+        card.PointerPressed += (_, e) =>
+        {
+            if (e.GetCurrentPoint(card).Properties.IsLeftButtonPressed)
+            {
+                if (!string.IsNullOrWhiteSpace(notice.OriginUid) && DataContext is MainWindowViewModel vm)
+                    vm.FocusConversation(notice.OriginUid);
+                var targetId = notice.MessageId ?? notice.Id;
+                if (targetId != Guid.Empty)
+                    try { AppServices.Notifications.MarkMessageNoticeRead(targetId); } catch { }
+            }
+        };
+        return card;
     }
 
-    // Render the Alerts host contents from the notification service snapshot (non-message notifications).
+    private Control BuildSectionSeparator(string label)
+    {
+        var border = new Border
+        {
+            Margin = new Thickness(0, 8, 0, 4),
+            BorderBrush = (IBrush?)Application.Current?.FindResource("App.Border") ?? Brushes.Gray,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(0, 0, 0, 4)
+        };
+        border.Child = new TextBlock
+        {
+            Text = label,
+            FontSize = 11,
+            FontWeight = FontWeight.SemiBold,
+            Opacity = 0.65
+        };
+        return border;
+    }
+
+    private Control BuildStarredMessageEntry(Message msg, MainWindowViewModel vm)
+    {
+        var starYellow = new SolidColorBrush(Color.Parse("#FFD700"));
+        var surfaceBrush = (IBrush?)Application.Current?.FindResource("App.Surface") ?? Brushes.Transparent;
+
+        var contentStack = new StackPanel { Spacing = 4 };
+
+        // Title row: glowing star + sender label
+        var titleRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 6 };
+        var starGlyph = new TextBlock
+        {
+            Text = "\uE734",
+            FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+            FontSize = 14,
+            Foreground = starYellow,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        starGlyph.Effect = new Avalonia.Media.DropShadowEffect
+        {
+            Color = Colors.Gold,
+            BlurRadius = 8,
+            OffsetX = 0,
+            OffsetY = 0,
+            Opacity = 0.9
+        };
+        var isOwn = string.Equals(msg.SenderUID, vm.LoggedInUidFull, StringComparison.OrdinalIgnoreCase);
+        var senderLabel = new TextBlock
+        {
+            Text = isOwn ? "You" : TrimUidPrefix(msg.SenderUID ?? string.Empty),
+            FontWeight = FontWeight.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(senderLabel, 1);
+        var unstarBtn = new Button
+        {
+            Width = 22, Height = 22,
+            MinWidth = 22, MinHeight = 22,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        unstarBtn.Classes.Add("icon-button");
+        ToolTip.SetTip(unstarBtn, "Unstar");
+        unstarBtn.Content = new TextBlock
+        {
+            Text = "\uE8D9",
+            FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
+            FontSize = 11
+        };
+        unstarBtn.Click += (_, _) =>
+        {
+            vm.ToggleStarMessageCommand.Execute(msg.Id);
+            RenderMessagesPanel();
+        };
+        Grid.SetColumn(unstarBtn, 2);
+        titleRow.Children.Add(starGlyph);
+        titleRow.Children.Add(senderLabel);
+        titleRow.Children.Add(unstarBtn);
+        contentStack.Children.Add(titleRow);
+
+        // Body: message content trimmed
+        var body = msg.Content ?? string.Empty;
+        if (body.Length > 120) body = body.Substring(0, 120) + "\u2026";
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            contentStack.Children.Add(new TextBlock
+            {
+                Text = body,
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.85
+            });
+        }
+
+        // Timestamp
+        contentStack.Children.Add(new TextBlock
+        {
+            Text = msg.Timestamp.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture),
+            FontSize = 11,
+            Opacity = 0.6
+        });
+
+        var card = new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Margin = new Thickness(0, 0, 0, 4),
+            Padding = new Thickness(8),
+            Background = surfaceBrush,
+            BorderBrush = starYellow,
+            BorderThickness = new Thickness(4, 0, 0, 0),
+            CornerRadius = new CornerRadius(4),
+            Child = contentStack
+        };
+        card.PointerPressed += (_, e) =>
+        {
+            if (e.GetCurrentPoint(card).Properties.IsLeftButtonPressed)
+            {
+                var targetUid = string.Equals(msg.SenderUID, vm.LoggedInUidFull, StringComparison.OrdinalIgnoreCase)
+                    ? msg.RecipientUID
+                    : msg.SenderUID;
+                if (!string.IsNullOrWhiteSpace(targetUid))
+                {
+                    var contact = vm.Contacts.FirstOrDefault(c =>
+                        string.Equals(c.UID, targetUid, StringComparison.OrdinalIgnoreCase));
+                    if (contact != null) vm.SelectedContact = contact;
+                }
+                var popup = this.FindControl<Popup>("NotificationDropPopup");
+                if (popup != null) popup.IsOpen = false;
+            }
+        };
+        return card;
+    }
     private void RenderAlertsPanel()
     {
         try
@@ -5660,6 +5787,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         var contentBorder = new Border
         {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            MinWidth = 300,
             Padding = new Thickness(10),
             Background = surfaceBrush,
             BorderBrush = borderBrush,
@@ -5854,6 +5983,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         var contentBorder = new Border
         {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            MinWidth = 300,
             Padding = new Thickness(10),
             Background = surfaceBrush,
             BorderBrush = borderBrush,

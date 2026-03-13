@@ -239,6 +239,13 @@ public sealed class DiscoveredPeersViewModel : INotifyPropertyChanged
                     if (existIdx >= 0) Peers.Move(existIdx, i);
                     else Peers.Insert(i, t);
                 }
+                else if (!ReferenceEquals(Peers[i], t))
+                {
+                    // Same UID but different object reference — swap in the current object so that
+                    // any INPC notifications fired on it by Refresh() are seen by the UI binding.
+                    Peers[i] = t;
+                }
+                // else: same UID, same reference → do nothing; properties already updated via INPC.
             }
             else
             {

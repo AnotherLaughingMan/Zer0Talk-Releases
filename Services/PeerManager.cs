@@ -47,7 +47,9 @@ namespace Zer0Talk.Services
                 map[norm] = e;
             }
 
-            // [DEDUP] Merge incoming peers (filtered). Latest discovery updates Address/Port/Status; IsTrusted is preserved.
+            // [DEDUP] Merge incoming peers (filtered). Update existing objects IN-PLACE to preserve
+            // object references held by ObservableCollections in UI ViewModels. Replacing with a new
+            // object causes stale references in the collection, silently dropping INPC notifications.
             foreach (var p in peers)
             {
                 var norm = NormalizeUid(p.UID);
@@ -55,18 +57,19 @@ namespace Zer0Talk.Services
                 p.UID = norm; // normalize incoming
                 if (map.TryGetValue(norm, out var prev))
                 {
-                    // Preserve local-only trust; prefer most recent network info and non-null status.
-                    p.IsTrusted = prev.IsTrusted || p.IsTrusted;
-                    if (string.IsNullOrWhiteSpace(p.Address)) p.Address = prev.Address;
-                    if (p.Port == 0) p.Port = prev.Port;
-                    p.Status ??= prev.Status;
-                    // [VERIFY] Preserve any known public key and verification result when merging (UI-only).
-                    if (p.PublicKey == null && prev.PublicKey != null)
+                    // Update the EXISTING object in-place rather than replacing it.
+                    // This preserves object identity so ObservableCollection bindings stay live.
+                    prev.IsTrusted = prev.IsTrusted || p.IsTrusted;
+                    if (!string.IsNullOrWhiteSpace(p.Address)) prev.Address = p.Address;
+                    if (p.Port != 0) prev.Port = p.Port;
+                    if (!string.IsNullOrWhiteSpace(p.Status)) prev.Status = p.Status;
+                    // [VERIFY] Propagate a newly discovered public key; never overwrite a known good key with null.
+                    if (p.PublicKey != null && p.PublicKey.Length > 0)
                     {
-                        p.PublicKey = prev.PublicKey;
-                        p.PublicKeyVerified = prev.PublicKeyVerified;
+                        prev.PublicKey = p.PublicKey;
+                        prev.PublicKeyVerified = p.PublicKeyVerified;
                     }
-                    map[norm] = p;
+                    // Intentionally NOT doing map[norm] = p — keep prev to preserve object identity.
                 }
                 else
                 {

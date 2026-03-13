@@ -1382,6 +1382,51 @@
             </StackPanel>
           </Border>
 
+          <!-- ── Section Divider ── -->
+          <Border Classes="general-divider"/>
+
+          <!-- Blocked Users Section -->
+          <Border Classes="general-card">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="general-section-title" Text="Blocked Users"/>
+              <TextBlock Text="Block specific peers by UID. Blocked peers cannot connect or send you messages." TextWrapping="Wrap" Opacity="0.8"/>
+
+              <!-- Add Blocked Peer Row -->
+              <StackPanel Spacing="8">
+                <TextBlock Text="Block by UID" FontWeight="Medium"/>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                  <TextBox Grid.Column="0" Text="{Binding NewBlockedPeer}" Watermark="Peer UID to block" VerticalAlignment="Center"/>
+                  <Button Grid.Column="1" Content="Block" Command="{Binding AddBlockedPeerCommand}" VerticalAlignment="Center"/>
+                </Grid>
+              </StackPanel>
+
+              <!-- Blocked Peers List -->
+              <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Grid.Column="0" Text="Blocked Peers" FontWeight="Medium" VerticalAlignment="Center"/>
+                  <Button Grid.Column="1" Content="Clear All" Command="{Binding ClearAllBlocksCommand}"
+                          FontSize="11" Padding="6,2" VerticalAlignment="Center"
+                          ToolTip.Tip="Remove all blocked peers."/>
+                </Grid>
+                <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="6" Height="140">
+                  <ScrollViewer>
+                    <ListBox ItemsSource="{Binding BlockedPeers}" SelectedItem="{Binding SelectedBlockedPeer}" BorderThickness="0" Background="Transparent">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate>
+                          <Grid ColumnDefinitions="*,Auto" Margin="4,2">
+                            <TextBlock Grid.Column="0" Text="{Binding}" VerticalAlignment="Center" FontFamily="Consolas" FontSize="11"/>
+                            <Button Grid.Column="1" Content="✕" Command="{Binding $parent[UserControl].DataContext.UnblockPeerCommand}"
+                                    CommandParameter="{Binding}" Width="20" Height="20" FontSize="10" Padding="0"/>
+                          </Grid>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </ScrollViewer>
+                </Border>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
         </StackPanel>
       </ScrollViewer>
 

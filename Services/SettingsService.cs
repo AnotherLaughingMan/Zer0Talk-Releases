@@ -4,7 +4,6 @@
     - Persists window states (size/pos, Topmost) and theme choice.
 */
 // TODO[ANCHOR]: SettingsService - Load/Save encrypted settings container
-// TODO[REVIEW]: Notify user when auto-reset happened due to decrypt mismatch
 using System;
 using System.IO;
 using System.Runtime.InteropServices;

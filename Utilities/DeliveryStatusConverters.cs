@@ -8,7 +8,7 @@ namespace Zer0Talk.Utilities
 {
     /// <summary>
     /// Returns an MDL2 glyph string for outbound message delivery status.
-    /// Pending = clock (E823), Sent = single check (E8FB), Delivered = double check (E73E).
+    /// Pending = clock, Sent = single check, Delivered = double check, Read = double check (same glyph — colour distinguishes them via separate TextBlock).
     /// Returns empty string for None (incoming messages).
     /// </summary>
     public sealed class DeliveryStatusToGlyphConverter : IValueConverter
@@ -20,9 +20,10 @@ namespace Zer0Talk.Utilities
 
             return status switch
             {
-                MessageDeliveryStatus.Pending => "\uE823",   // Clock
-                MessageDeliveryStatus.Sent => "\uE8FB",      // Accept (single check)
-                MessageDeliveryStatus.Delivered => "\uE73E",  // CheckMark (filled check)
+                MessageDeliveryStatus.Pending => "\uE823",           // Clock
+                MessageDeliveryStatus.Sent => "\uE8FB",              // Accept (single check)
+                MessageDeliveryStatus.Delivered => "\uE73E\uE73E",   // Two checkmarks (gray)
+                MessageDeliveryStatus.Read => "\uE73E\uE73E",        // Two checkmarks (accent — rendered by Read TextBlock)
                 _ => string.Empty
             };
         }
@@ -76,6 +77,7 @@ namespace Zer0Talk.Utilities
                 MessageDeliveryStatus.Pending => Services.AppServices.Localization.GetString("MainWindow.DeliveryPending", "Sending..."),
                 MessageDeliveryStatus.Sent => Services.AppServices.Localization.GetString("MainWindow.DeliverySent", "Sent"),
                 MessageDeliveryStatus.Delivered => Services.AppServices.Localization.GetString("MainWindow.DeliveryDelivered", "Delivered"),
+                MessageDeliveryStatus.Read => Services.AppServices.Localization.GetString("MainWindow.DeliveryRead", "Read"),
                 _ => null
             };
         }
@@ -83,4 +85,35 @@ namespace Zer0Talk.Utilities
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
             => throw new NotSupportedException();
     }
+
+    /// <summary>
+    /// Returns true only when status is Read. Used to show the accent-coloured double-check TextBlock.
+    /// </summary>
+    public sealed class DeliveryStatusIsReadConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => value is MessageDeliveryStatus.Read;
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// Returns true when status is a known outbound status but NOT Read.
+    /// Used to show the gray glyph TextBlock (Pending / Sent / Delivered).
+    /// </summary>
+    public sealed class DeliveryStatusIsNotReadConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            if (value is not MessageDeliveryStatus status) return false;
+            return status == MessageDeliveryStatus.Pending
+                || status == MessageDeliveryStatus.Sent
+                || status == MessageDeliveryStatus.Delivered;
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
 }
+

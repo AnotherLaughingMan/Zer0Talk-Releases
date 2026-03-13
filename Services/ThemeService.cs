@@ -3,7 +3,6 @@
     - Reads persisted theme from settings after unlock.
 */
 // TODO[ANCHOR]: ThemeService - Switch and apply app themes at runtime
-// TODO[REVIEW]: Consider persisting per-window theme overrides if requested
 using System;
 using System.Linq;
 using System.IO;

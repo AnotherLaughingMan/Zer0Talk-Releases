@@ -86,7 +86,7 @@ namespace Zer0Talk.Views
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = "https://github.com/AnotherLaughingMan/Zer0Talk-Releases/blob/main/PRIVACY-POLICY.md",
+                    FileName = "https://github.com/AnotherLaughingMan/Zer0Talk-Releases/blob/main/docs/PRIVACY-POLICY.md",
                     UseShellExecute = true
                 });
             }

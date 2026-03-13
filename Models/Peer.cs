@@ -282,8 +282,9 @@ namespace Zer0Talk.Models
             => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(propertyName));
 
         // [UI] Transient session byte counters for display. Not persisted.
+        // Default -1 = no session ("—"); 0 = session exists but no data yet ("0 B"); >0 = formatted bytes.
         [System.Text.Json.Serialization.JsonIgnore]
-        private long _bytesIn;
+        private long _bytesIn = -1L;
         public long BytesIn
         {
             get => _bytesIn;
@@ -291,7 +292,7 @@ namespace Zer0Talk.Models
         }
 
         [System.Text.Json.Serialization.JsonIgnore]
-        private long _bytesOut;
+        private long _bytesOut = -1L;
         public long BytesOut
         {
             get => _bytesOut;

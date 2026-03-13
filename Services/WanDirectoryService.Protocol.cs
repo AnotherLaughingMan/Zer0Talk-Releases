@@ -65,7 +65,9 @@ public sealed partial class WanDirectoryService
             await stream.WriteAsync(bytes.AsMemory(0, bytes.Length), ct).ConfigureAwait(false);
             await stream.FlushAsync(ct).ConfigureAwait(false);
 
-            var resp = await ReadLineAsync(stream, TimeSpan.FromSeconds(4), ct).ConfigureAwait(false);
+            // 8-second read window gives the relay enough time to complete a federated
+            // lookup (which itself fans out per-peer queries with a 4-second timeout each).
+            var resp = await ReadLineAsync(stream, TimeSpan.FromSeconds(8), ct).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(resp) || string.Equals(resp, "MISS", StringComparison.OrdinalIgnoreCase))
             {
                 return null;
@@ -282,12 +284,14 @@ public sealed partial class WanDirectoryService
             .Where(x => !string.IsNullOrWhiteSpace(x))
             .Select(x => x.Trim());
 
-        if (!settings.ForceSeedBootstrap && explicitEndpoints.Count > 0)
-        {
-            // Keep explicit endpoints first; seeds are appended as fallback.
-        }
-
-        IEnumerable<string> configured = explicitEndpoints.Concat(seedEndpoints);
+        // Include seed nodes when the user has forced them (toggle "Always use seed nodes"),
+        // or when no explicit relay is configured (safe bootstrap fallback).
+        // When ForceSeedBootstrap=false and explicit relays are present, seeds are omitted
+        // so the user's chosen relay is the sole candidate (seed nodes as emergency only).
+        var includeSeedNodes = settings.ForceSeedBootstrap || explicitEndpoints.Count == 0;
+        IEnumerable<string> configured = includeSeedNodes
+            ? explicitEndpoints.Concat(seedEndpoints)
+            : (IEnumerable<string>)explicitEndpoints;
 
         // Append gossip-discovered peers (fetched via RELAY-PEERS from already-known relays)
         IEnumerable<string> discovered;

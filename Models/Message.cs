@@ -111,7 +111,7 @@ namespace Zer0Talk.Models
         // Pairing for simulated loopback: links outbound and echo for delivery state mirroring
         public Guid? RelatedMessageId { get; set; }
         // Additional message properties
-        // TODO: Markdown and URL rendering support (scaffold later)
+        // LinkPreview: populated by LinkPreviewService; display driven by HasLinkPreview.
         private LinkPreview? _linkPreview;
         public LinkPreview? LinkPreview
         {

@@ -194,6 +194,7 @@ private double _relayPairWaitMsEwma = 20000;
     public event Action<string, Guid>? ChatMessageEditAcked; // (peerUid, messageId)
     public event Action<string, Guid>? ChatMessageDeleteAcked; // (peerUid, messageId)
     public event Action<string, Guid>? ChatMessageDeliveryAcked; // (peerUid, messageId)
+    public event Action<string, Guid>? ChatMessageReadReceiptReceived; // (peerUid, messageId) — peer opened the conversation
     // Raised when presence is received from a peer (uid, status)
     public event Action<string, string>? PresenceReceived;
 
@@ -1377,6 +1378,15 @@ private double _relayPairWaitMsEwma = 20000;
                 Logger.Log($"Delivery ACK from {Trim(peerUid)} id={msgId5}");
                 try { ChatMessageDeliveryAcked?.Invoke(Trim(peerUid), msgId5); } catch { }
             }
+            else if (data[0] == 0xB7)
+            {
+                // Read receipt: [0xB7][msgId(16)] — peer has opened and read the conversation
+                int idx = 1; if (data.Length < idx + 16) return Task.CompletedTask;
+                var guidBytes7 = new byte[16]; Buffer.BlockCopy(data, idx, guidBytes7, 0, 16);
+                var msgId7 = new Guid(guidBytes7);
+                Logger.Log($"Read receipt from {Trim(peerUid)} id={msgId7}");
+                try { ChatMessageReadReceiptReceived?.Invoke(Trim(peerUid), msgId7); } catch { }
+            }
             else if (data[0] == 0xB6)
             {
                 // Reaction event (signed): [0xB6][eventId(16)][msgId(16)][op(1:add,0:remove)][emojiLen(1)][emojiUtf8][pubLen(1)=32][pub(32)][sigLen(1)=64][sig(64)]
@@ -1954,7 +1964,8 @@ private double _relayPairWaitMsEwma = 20000;
                 {
                     mode = "wan-lookup+relay-fallback";
                     using var lookupCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    lookupCts.CancelAfter(TimeSpan.FromSeconds(5));
+                    // 12s window: each relay read allows 8s for federated lookup + overhead for sequential relay iteration.
+                    lookupCts.CancelAfter(TimeSpan.FromSeconds(12));
                     var lookup = await AppServices.WanDirectory.LookupPeerAsync(uid, lookupCts.Token).ConfigureAwait(false);
                     if (lookup != null && !string.IsNullOrWhiteSpace(lookup.Host) && lookup.Port > 0)
                     {
@@ -2601,6 +2612,22 @@ private double _relayPairWaitMsEwma = 20000;
                                 }
 
                                 try { ChatMessageReactionReceived?.Invoke(boundUid, messageId, emoji, isAdd); } catch { }
+                            }
+                            else if (data[0] == 0xB5)
+                            {
+                                // Delivery ACK via relay: [0xB5][msgId(16)]
+                                int idx2 = 1; if (data.Length < idx2 + 16) continue;
+                                var gid = new byte[16]; Buffer.BlockCopy(data, idx2, gid, 0, 16);
+                                var mid = new Guid(gid);
+                                if (!string.IsNullOrEmpty(boundUid)) { try { ChatMessageDeliveryAcked?.Invoke(boundUid, mid); } catch { } }
+                            }
+                            else if (data[0] == 0xB7)
+                            {
+                                // Read receipt via relay: [0xB7][msgId(16)]
+                                int idx2 = 1; if (data.Length < idx2 + 16) continue;
+                                var gid = new byte[16]; Buffer.BlockCopy(data, idx2, gid, 0, 16);
+                                var mid = new Guid(gid);
+                                if (!string.IsNullOrEmpty(boundUid)) { try { ChatMessageReadReceiptReceived?.Invoke(boundUid, mid); } catch { } }
                             }
                             else if (data[0] == 0xC0)
                             {
@@ -3650,6 +3677,15 @@ private double _relayPairWaitMsEwma = 20000;
             return TrySendEncryptedAsync(peerUid, frame, ct);
         }
 
+        // Read receipt: [0xB7][msgId(16)] — tells sender we have opened and read their message
+        public Task<bool> SendReadReceiptAsync(string peerUid, Guid messageId, CancellationToken ct = default)
+        {
+            var frame = new byte[1 + 16];
+            frame[0] = 0xB7;
+            messageId.TryWriteBytes(frame.AsSpan(1));
+            return TrySendEncryptedAsync(Trim(peerUid), frame, ct);
+        }
+
     private async Task<bool> TrySendEncryptedAsync(string peerUid, byte[] frame, CancellationToken ct)
         {
             // Block check: Refuse to send messages to blocked peers
@@ -3748,7 +3784,9 @@ private double _relayPairWaitMsEwma = 20000;
                 var alt = key.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) ? key[4..] : "usr-" + key;
                 _sessions.TryGetValue(alt, out tr);
             }
-            return tr != null ? (tr.TotalBytesRead, tr.TotalBytesWritten) : (0L, 0L);
+            // Return (-1, -1) when no session exists so callers can distinguish
+            // "no session" (→ displays as "—") from "session with 0 bytes" (→ "0 B").
+            return tr != null ? (tr.TotalBytesRead, tr.TotalBytesWritten) : (-1L, -1L);
         }
 
         /// <summary>Returns the sum of all plaintext bytes read and written across every active session.
