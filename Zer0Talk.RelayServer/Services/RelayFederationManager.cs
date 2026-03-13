@@ -27,6 +27,10 @@ public sealed class RelayFederationManager : IDisposable
     private CancellationTokenSource? _cts;
     private Task? _syncTask;
     private Task? _healthTask;
+    private Task? _gossipTask;
+    private static readonly TimeSpan MeshGossipInterval = TimeSpan.FromMinutes(5);
+    // Rate-limiter for auto-connecting to mesh-discovered peers (max 1 new connection per 2 seconds)
+    private readonly SemaphoreSlim _meshConnectGate = new(1, 1);
     private readonly ConcurrentDictionary<string, long> _lookupDiag = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _lastLookupDiagLogUtc = DateTime.MinValue;
 
@@ -71,6 +75,8 @@ public sealed class RelayFederationManager : IDisposable
         // Start background tasks
         _healthTask = Task.Run(async () => await HealthCheckLoopAsync(_cts.Token));
         _syncTask = Task.Run(async () => await DirectorySyncLoopAsync(_cts.Token));
+        if (_config.MeshDiscoveryEnabled)
+            _gossipTask = Task.Run(async () => await MeshGossipLoopAsync(_cts.Token));
     }
 
     /// <summary>
@@ -287,10 +293,81 @@ public sealed class RelayFederationManager : IDisposable
             _peers[peerToken] = peer;
             Log?.Invoke($"Federation peer connected | token={peerToken} | capacity={peerCapacity}");
             ReportStats();
+
+            // Fetch mesh peers from newly connected relay and auto-connect to any unknown ones.
+            if (_config.MeshDiscoveryEnabled && _cts != null)
+                _ = Task.Run(() => FetchAndMergeMeshPeersFromAsync(host, port, _cts.Token));
         }
         catch (Exception ex)
         {
             Log?.Invoke($"Federation connect error | peer={peerAddress} | error={ex.Message}");
+        }
+    }
+
+    /// <summary>Returns "host:port" strings for all currently healthy federation peers.</summary>
+    public IReadOnlyList<string> GetKnownPeerAddresses()
+        => _peers.Values.Where(p => p.IsHealthy).Select(p => $"{p.Host}:{p.Port}").ToList();
+
+    private async Task FetchAndMergeMeshPeersFromAsync(string host, int port, CancellationToken ct)
+    {
+        try
+        {
+            var response = await SendCommandAsync(host, port,
+                BuildFederationCommand("RELAY-MESH-PEERS"),
+                TimeSpan.FromSeconds(10), ct);
+
+            if (string.IsNullOrWhiteSpace(response) ||
+                !response.StartsWith("MESH-PEERS", StringComparison.OrdinalIgnoreCase)) return;
+
+            var entries = response.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (entries.Length < 2) return;
+
+            var newPeers = new List<string>();
+            for (var i = 1; i < entries.Length; i++)
+            {
+                var addr = entries[i].Trim();
+                if (string.IsNullOrWhiteSpace(addr) ||
+                    string.Equals(addr, "NONE", StringComparison.OrdinalIgnoreCase)) continue;
+
+                // Avoid reflexive connections (self) and already-known peers.
+                if (!_peerConnections.ContainsKey(addr))
+                    newPeers.Add(addr);
+            }
+
+            foreach (var peerAddr in newPeers)
+            {
+                if (_peers.Count >= _config.MaxFederationPeers) break;
+                // Rate-limit: at most one new mesh-discovered connection at a time, 2s apart.
+                await _meshConnectGate.WaitAsync(ct);
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(2000, ct);
+                        await ConnectToPeerAsync(peerAddr, ct);
+                    }
+                    finally { _meshConnectGate.Release(); }
+                }, ct);
+            }
+        }
+        catch { }
+    }
+
+    private async Task MeshGossipLoopAsync(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(MeshGossipInterval, ct);
+
+                foreach (var peer in _peers.Values.Where(p => p.IsHealthy).ToList())
+                {
+                    try { await FetchAndMergeMeshPeersFromAsync(peer.Host, peer.Port, ct); }
+                    catch { }
+                }
+            }
+            catch { }
         }
     }
 

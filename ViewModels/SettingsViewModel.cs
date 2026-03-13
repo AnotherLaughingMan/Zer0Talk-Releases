@@ -5253,8 +5253,81 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
     // Network functionality - delegate to NetworkViewModel instance
     private NetworkViewModel? _networkVm;
-    private NetworkViewModel NetworkVm => _networkVm ??= new NetworkViewModel();
-    
+    private NetworkViewModel NetworkVm
+    {
+        get
+        {
+            if (_networkVm == null)
+            {
+                _networkVm = new NetworkViewModel();
+                _networkVm.DiscoveredRelays.CollectionChanged += (_, _) => ApplyRelayFilter();
+            }
+            return _networkVm;
+        }
+    }
+
+    // ── Detected-relay source filter (All / Config / LAN / WAN) ─────────────
+    private string _relaySourceFilter = "All";
+    private readonly System.Collections.ObjectModel.ObservableCollection<DiscoveredRelayInfo> _filteredRelays = new();
+    public System.Collections.ObjectModel.ObservableCollection<DiscoveredRelayInfo> FilteredDiscoveredRelays => _filteredRelays;
+
+    private static readonly string[] RelayFilterValues = { "All", "Config", "LAN", "WAN" };
+
+    public int RelayFilterIndex
+    {
+        get
+        {
+            var idx = System.Array.IndexOf(RelayFilterValues, _relaySourceFilter);
+            return idx < 0 ? 0 : idx;
+        }
+        set
+        {
+            var filter = (value >= 0 && value < RelayFilterValues.Length)
+                ? RelayFilterValues[value] : "All";
+            if (_relaySourceFilter == filter) return;
+            _relaySourceFilter = filter;
+            OnPropertyChanged(nameof(RelayFilterIndex));
+            ApplyRelayFilter();
+        }
+    }
+
+    private void ApplyRelayFilter()
+    {
+        try
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                var source = NetworkVm.DiscoveredRelays;
+                var filtered = _relaySourceFilter == "All"
+                    ? source.ToList()
+                    : source.Where(e => e.Source == _relaySourceFilter).ToList();
+
+                // Diff-sync to avoid flicker
+                var desiredEps = new System.Collections.Generic.HashSet<string>(
+                    filtered.Select(e => e.Endpoint), StringComparer.OrdinalIgnoreCase);
+                for (int i = _filteredRelays.Count - 1; i >= 0; i--)
+                    if (!desiredEps.Contains(_filteredRelays[i].Endpoint))
+                        _filteredRelays.RemoveAt(i);
+                for (int i = 0; i < filtered.Count; i++)
+                {
+                    var want = filtered[i];
+                    if (i < _filteredRelays.Count)
+                    {
+                        if (!string.Equals(_filteredRelays[i].Endpoint, want.Endpoint, StringComparison.OrdinalIgnoreCase)
+                            || !string.Equals(_filteredRelays[i].Source, want.Source, StringComparison.Ordinal))
+                            _filteredRelays[i] = want;
+                    }
+                    else
+                    {
+                        _filteredRelays.Add(want);
+                    }
+                }
+                OnPropertyChanged(nameof(HasDiscoveredRelays));
+            });
+        }
+        catch { }
+    }
+
     // Network properties exposed from NetworkViewModel
     public int Port { get => NetworkVm.Port; set => NetworkVm.PortText = value.ToString(System.Globalization.CultureInfo.InvariantCulture); }
     public bool MajorNode { get => NetworkVm.MajorNode; set => NetworkVm.MajorNode = value; }
@@ -5326,6 +5399,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand UseRelayServerCommand => NetworkVm.UseRelayServerCommand;
     public ICommand UseDefaultRelayCommand => NetworkVm.UseDefaultRelayCommand;
     public System.Collections.ObjectModel.ObservableCollection<DefaultRelayEntry> DefaultRelays => NetworkVm.DefaultRelays;
+    public System.Collections.ObjectModel.ObservableCollection<DiscoveredRelayInfo> DiscoveredRelays => NetworkVm.DiscoveredRelays;
+    public bool HasDiscoveredRelays => _filteredRelays.Count > 0;
     public ICommand AddWanSeedNodeCommand => NetworkVm.AddWanSeedNodeCommand;
     public ICommand RemoveWanSeedNodeCommand => NetworkVm.RemoveWanSeedNodeCommand;
     public ICommand UseWanSeedNodeCommand => NetworkVm.UseWanSeedNodeCommand;
@@ -6907,6 +6982,7 @@ internal sealed class LockServiceSingleton
 }
 
 public record DefaultRelayEntry(string Name, string Address);
+public record DiscoveredRelayInfo(string Display, string Endpoint, string Source);
 
 public class NetworkViewModel : INotifyPropertyChanged
 {
@@ -6971,6 +7047,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         RefreshRelayServers();
         RefreshWanSeedNodes();
         LoadDefaultRelays();
+        RefreshDiscoveredRelays();
 
         LoadAdapters();
         MoveAdapterUpCommand = new RelayCommand(_ => MoveAdapter(-1), _ => SelectedAdapter != null);
@@ -6998,7 +7075,7 @@ public class NetworkViewModel : INotifyPropertyChanged
                     RefreshLists();
                 }); 
             };
-            _uiPulseHandler = () => _uiThrottled?.Invoke();
+            _uiPulseHandler = () => { _uiThrottled?.Invoke(); RefreshDiscoveredRelays(); };
             AppServices.Events.UiPulse += _uiPulseHandler;
             try { AppServices.Nat.Changed += () => _uiThrottled?.Invoke(); } catch { }
         }
@@ -7135,6 +7212,91 @@ public class NetworkViewModel : INotifyPropertyChanged
     }
 
     public System.Collections.ObjectModel.ObservableCollection<DefaultRelayEntry> DefaultRelays { get; } = new();
+    public System.Collections.ObjectModel.ObservableCollection<DiscoveredRelayInfo> DiscoveredRelays { get; } = new();
+
+    public void RefreshDiscoveredRelays()
+    {
+        try
+        {
+            var entries = new System.Collections.Generic.List<DiscoveredRelayInfo>();
+
+            // Configured relays — show the user-entered DNS name / address with "Config" badge
+            var configuredEndpoints = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var s = _settings.Settings;
+                var configured = new System.Collections.Generic.List<string>();
+                if (!string.IsNullOrWhiteSpace(s.RelayServer)) configured.Add(s.RelayServer.Trim());
+                foreach (var r in s.SavedRelayServers ?? new System.Collections.Generic.List<string>())
+                    if (!string.IsNullOrWhiteSpace(r)) configured.Add(r.Trim());
+                foreach (var addr in configured.Distinct(StringComparer.OrdinalIgnoreCase))
+                {
+                    entries.Add(new DiscoveredRelayInfo(addr, addr, "Config"));
+                    configuredEndpoints.Add(addr);
+                }
+            }
+            catch { }
+
+            // LAN-beacon relays — virtual adapter IPs already filtered by GetLanDiscoveredRelays()
+            var lanEndpoints = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (var r in AppServices.Network.GetLanDiscoveredRelays())
+                {
+                    if (configuredEndpoints.Contains(r.Endpoint)) continue;
+                    var display = !string.IsNullOrWhiteSpace(r.Token) && !string.Equals(r.Token, r.Endpoint, StringComparison.OrdinalIgnoreCase)
+                        ? $"{r.Token} ({r.Endpoint})"
+                        : r.Endpoint;
+                    entries.Add(new DiscoveredRelayInfo(display, r.Endpoint, "LAN"));
+                    lanEndpoints.Add(r.Endpoint);
+                }
+            }
+            catch { }
+
+            // Gossip/WAN relays
+            try
+            {
+                foreach (var ep in AppServices.WanDirectory.GetGossipDiscoveredRelays())
+                {
+                    if (!configuredEndpoints.Contains(ep) && !lanEndpoints.Contains(ep))
+                        entries.Add(new DiscoveredRelayInfo(ep, ep, "WAN"));
+                }
+            }
+            catch { }
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                // Diff-sync: avoid Clear()+re-add flicker by only mutating what changed.
+                // Remove stale entries.
+                var desired = new System.Collections.Generic.HashSet<string>(
+                    entries.Select(e => e.Endpoint), StringComparer.OrdinalIgnoreCase);
+                for (int i = DiscoveredRelays.Count - 1; i >= 0; i--)
+                {
+                    if (!desired.Contains(DiscoveredRelays[i].Endpoint))
+                        DiscoveredRelays.RemoveAt(i);
+                }
+                // Add or update entries in order.
+                for (int i = 0; i < entries.Count; i++)
+                {
+                    var want = entries[i];
+                    if (i < DiscoveredRelays.Count)
+                    {
+                        if (!string.Equals(DiscoveredRelays[i].Endpoint, want.Endpoint, StringComparison.OrdinalIgnoreCase)
+                            || !string.Equals(DiscoveredRelays[i].Source, want.Source, StringComparison.Ordinal))
+                            DiscoveredRelays[i] = want;
+                    }
+                    else
+                    {
+                        DiscoveredRelays.Add(want);
+                    }
+                }
+                OnPropertyChanged(nameof(HasDiscoveredRelays));
+            });
+        }
+        catch { }
+    }
+
+    public bool HasDiscoveredRelays => DiscoveredRelays.Count > 0;
 
     private string _newRelayServer = string.Empty;
     public string NewRelayServer

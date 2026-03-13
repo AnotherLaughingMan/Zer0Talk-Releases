@@ -177,48 +177,6 @@ public static class RelayConfigStore
             changed = true;
         }
 
-        if (config.HostingPort is < 1 or > 65535)
-        {
-            config.HostingPort = 8444;
-            changed = true;
-        }
-
-        if (config.HostingS2SPort is < 1 or > 65535)
-        {
-            config.HostingS2SPort = 8445;
-            changed = true;
-        }
-
-        if (config.PeerHostedServers == null)
-        {
-            config.PeerHostedServers = new System.Collections.Generic.List<string>();
-            changed = true;
-        }
-
-        if (config.MaxRegisteredUsers <= 0)
-        {
-            config.MaxRegisteredUsers = 10_000;
-            changed = true;
-        }
-
-        if (config.MaxRoomsPerUser <= 0)
-        {
-            config.MaxRoomsPerUser = 10;
-            changed = true;
-        }
-
-        if (config.MaxMembersPerRoom <= 0)
-        {
-            config.MaxMembersPerRoom = 12;
-            changed = true;
-        }
-
-        if (config.RoomMessageQueueDepth <= 0)
-        {
-            config.RoomMessageQueueDepth = 200;
-            changed = true;
-        }
-
         if (string.IsNullOrWhiteSpace(config.DataDirectory))
         {
             config.DataDirectory = "relay-data";
@@ -249,10 +207,6 @@ public static class RelayConfigStore
             !root.TryGetProperty("MaxFederationPeers", out _) ||
             !root.TryGetProperty("FederationSyncIntervalSeconds", out _) ||
             !root.TryGetProperty("FederationSharedSecret", out _) ||
-            !root.TryGetProperty("EnableHosting", out _) ||
-            !root.TryGetProperty("HostingPort", out _) ||
-            !root.TryGetProperty("HostingS2SPort", out _) ||
-            !root.TryGetProperty("PeerHostedServers", out _) ||
             !root.TryGetProperty("DataDirectory", out _);
     }
 

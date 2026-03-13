@@ -149,27 +149,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             this.Deactivated += (_, __) => WriteUiCategory("[Window]", "Deactivated");
         }
         catch { }
-        // Subscribe to room invites: show an actionable toast so the user can open the Rooms window
-        try
-        {
-            AppServices.Rooms.RoomInviteReceived += (roomId, inviterUid) =>
-            {
-                Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
-                {
-                    try
-                    {
-                        var accept = await AppServices.Dialogs.ConfirmAsync(
-                            "Room Invite",
-                            $"{inviterUid} has invited you to room:\n{roomId}\n\nOpen Rooms window to join?",
-                            "Open Rooms", "Later");
-                        if (accept)
-                            Zer0Talk.Services.WindowManager.ShowSingleton<RoomsWindow>();
-                    }
-                    catch { }
-                });
-            };
-        }
-        catch { }
         try
         {
             _themeAppliedHandler = (_, __) =>
@@ -2426,16 +2405,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private void SettingsMenu_ThemeEditor_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         ThemeEditor_Click(sender, e);
-    }
-
-    private void SettingsMenu_Rooms_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        Rooms_Click(sender, e);
-    }
-
-    private void Rooms_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        try { Zer0Talk.Services.WindowManager.ShowSingleton<RoomsWindow>(); } catch { }
     }
 
     private void ThemeEditor_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

@@ -766,7 +766,12 @@ private double _relayPairWaitMsEwma = 20000;
             return string.Compare(local, peer, StringComparison.OrdinalIgnoreCase) < 0;
         }
 
-        public async Task<bool> TryConnectViaRelayInviteAsync(string sourceUid, string sessionKey, CancellationToken ct)
+        /// <param name="inviteSourceRelay">
+        /// The relay endpoint that delivered the POLL/WAITPOLL invite (e.g. "zer0talk.duckdns.org:443").
+        /// When supplied, this relay is boosted to the front of the candidate list because Client A is
+        /// already queued there — connecting to the same relay is necessary to complete the pairing.
+        /// </param>
+        public async Task<bool> TryConnectViaRelayInviteAsync(string sourceUid, string sessionKey, string? inviteSourceRelay, CancellationToken ct)
         {
             try
             {
@@ -777,19 +782,21 @@ private double _relayPairWaitMsEwma = 20000;
                 var s = AppServices.Settings.Settings;
                 if (!s.RelayFallbackEnabled) return false;
 
-                string? invitePreferredRelay = null;
-                try { invitePreferredRelay = AppServices.Contacts.GetPreferredRelay(normalizedSource); } catch { }
-                var relayCandidates = BuildRelayCandidates(s, invitePreferredRelay);
+                // Prefer the relay that delivered the invite — Client A is queued there and both sides
+                // must connect to the same relay to complete pairing.  Fall back to the contact's
+                // previously-successful relay if the invite source is unknown.
+                string? preferredRelay = inviteSourceRelay?.Trim();
+                if (string.IsNullOrWhiteSpace(preferredRelay))
+                {
+                    try { preferredRelay = AppServices.Contacts.GetPreferredRelay(normalizedSource); } catch { }
+                }
+
+                var relayCandidates = BuildRelayCandidates(s, preferredRelay);
                 if (relayCandidates.Count == 0) return false;
 
-                foreach (var relay in relayCandidates)
-                {
-                    var sw = System.Diagnostics.Stopwatch.StartNew();
-                    var ok = await TryConnectViaRelaySessionAsync(normalizedSource, sessionKey, relay.Host, relay.Port, relay.Display, ct);
-                    sw.Stop();
-                    RecordRelayAttemptResult(relay.Host, relay.Port, ok, sw.Elapsed.TotalMilliseconds);
-                    if (ok) return true;
-                }
+                // Use Happy Eyeballs so the invite-source relay gets a 250 ms head-start while
+                // fallback relays race in parallel — first to pair wins.
+                return await ConnectToFirstRelayAsync(normalizedSource, relayCandidates, ct);
             }
             catch { }
 
@@ -902,11 +909,18 @@ private double _relayPairWaitMsEwma = 20000;
                         }
                         else if (response.StartsWith("ERR already-active", StringComparison.OrdinalIgnoreCase))
                         {
-                            Logger.Log("Relay pairing rejected: session already active on this relay.");
+                            // The relay has a live (or just-expiring) session for this key.
+                            // Wait long enough for the relay to detect dead TCP via IsConnected
+                            // before the outer retry loop comes back around.
+                            Logger.Log("Relay pairing rejected: session already active on this relay. Waiting for it to clear...");
+                            try { await Task.Delay(3100, ct); } catch { }
                         }
                         else if (response.StartsWith("ERR already-queued", StringComparison.OrdinalIgnoreCase))
                         {
+                            // Our side is already waiting on this relay — the peer just needs to
+                            // arrive. Don't bail out; the outer retry loop will re-attempt.
                             Logger.Log("Relay pairing rejected: this side is already queued. Waiting for peer.");
+                            try { await Task.Delay(2000, ct); } catch { }
                         }
                         else
                         {
@@ -941,6 +955,7 @@ private double _relayPairWaitMsEwma = 20000;
                         Logger.Log($"Relay handshake read error: {reason} (got {actual} / expected {expected} bytes)");
                         try { _diag.IncHandshakeFail(reason); } catch { }
                         SafeNetLog($"connect relay handshake-fail | peer={peerUid} | reason={reason}");
+                        try { relayClient.Close(); } catch { }
                         return false;
                     }
                     peerPub = payload;
@@ -950,6 +965,7 @@ private double _relayPairWaitMsEwma = 20000;
                     Logger.Log("Relay handshake read error: timeout");
                     try { _diag.IncHandshakeFail("timeout"); } catch { }
                     SafeNetLog($"connect relay handshake-timeout | peer={peerUid}");
+                    try { relayClient.Close(); } catch { }
                     return false;
                 }
                 catch (Exception ex)
@@ -957,19 +973,16 @@ private double _relayPairWaitMsEwma = 20000;
                     Logger.Log($"Relay handshake read error: {ex.Message}");
                     try { _diag.IncHandshakeFail(ex.Message); } catch { }
                     SafeNetLog($"connect relay handshake-ex | peer={peerUid} | {ex.Message}");
+                    try { relayClient.Close(); } catch { }
                     return false;
                 }
 
                 using var peerKey = ECDiffieHellman.Create();
                 peerKey.ImportSubjectPublicKeyInfo(peerPub, out _);
-                var derivedUid = IdentityService.ComputeUidFromPublicKey(peerPub);
-                if (!string.Equals(Trim(peerUid), Trim(derivedUid), StringComparison.OrdinalIgnoreCase))
-                {
-                    Logger.Log($"Relay handshake UID mismatch: claimed={peerUid} derived={derivedUid}");
-                    try { _diag.IncHandshakeFail("uid-mismatch"); } catch { }
-                    SafeNetLog($"connect relay uid-mismatch | peer={peerUid} | derived={derivedUid}");
-                    return false;
-                }
+                // Do not treat ECDH-derived UID as identity on the relay path — the ECDH key is
+                // ephemeral (fresh per session for PFS) and its hash will never match the peer's
+                // long-term identity UID. Identity is verified after the session is established via
+                // the 0xA1 identity-announce frame, consistent with the direct-connection path.
 
                 var secret = dh.DeriveKeyMaterial(peerKey.PublicKey);
                 var info = Encoding.UTF8.GetBytes("Zer0Talk-session");
@@ -1760,6 +1773,73 @@ private double _relayPairWaitMsEwma = 20000;
                 }
             }
             catch { }
+        }
+
+        public readonly struct LanRelayEntry
+        {
+            public string Endpoint { get; init; }  // host:port
+            public string Token    { get; init; }  // beacon-advertised name/token
+        }
+
+        /// <summary>
+        /// Returns LAN-beacon-discovered relays, filtering out link-local (169.254.x.x)
+        /// and virtual adapter IPs (Hyper-V, VMware, etc.).
+        /// </summary>
+        public IReadOnlyList<LanRelayEntry> GetLanDiscoveredRelays()
+        {
+            try
+            {
+                var virtualIps = GetVirtualAdapterIps();
+                var seen = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var result = new System.Collections.Generic.List<LanRelayEntry>();
+                foreach (var r in _discoveredRelays.Values.OrderByDescending(r => r.LastSeenUtc))
+                {
+                    if (IsLinkLocalOrVirtualIp(r.Host, virtualIps)) continue;
+                    var ep = $"{r.Host}:{r.Port}";
+                    if (seen.Add(ep))
+                        result.Add(new LanRelayEntry { Endpoint = ep, Token = r.Token });
+                }
+                return result;
+            }
+            catch { return Array.Empty<LanRelayEntry>(); }
+        }
+
+        private static bool IsLinkLocalOrVirtualIp(string host,
+            System.Collections.Generic.HashSet<string> virtualIps)
+        {
+            if (virtualIps.Contains(host)) return true;
+            if (IPAddress.TryParse(host, out var ip))
+            {
+                if (ip.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    var b = ip.GetAddressBytes();
+                    if (b[0] == 169 && b[1] == 254) return true; // APIPA / link-local
+                }
+                if (ip.IsIPv6LinkLocal) return true;
+            }
+            return false;
+        }
+
+        private static System.Collections.Generic.HashSet<string> GetVirtualAdapterIps()
+        {
+            var result = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    var isVirtual =
+                        ni.Description.IndexOf("VMware",   StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        ni.Description.IndexOf("Hyper-V",  StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        ni.Description.IndexOf("Virtual",  StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        ni.Name.IndexOf("vEthernet",       StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        ni.Name.IndexOf("Loopback",        StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (!isVirtual) continue;
+                    foreach (var ua in ni.GetIPProperties().UnicastAddresses)
+                        result.Add(ua.Address.ToString());
+                }
+            }
+            catch { }
+            return result;
         }
 
         // [AUTO-CONNECT] Attempt to connect to known peers with endpoints to establish sessions for identity/verification
@@ -3134,6 +3214,14 @@ private double _relayPairWaitMsEwma = 20000;
             foreach (var seed in s.WanSeedNodes ?? new List<string>())
             {
                 AddCandidate(seed);
+            }
+
+            // Include LAN-discovered relays (advertised via UDP beacon from nearby relay servers).
+            // These are appended after explicitly configured relays. The health-score + distance sort
+            // below will naturally rank nearby LAN relays higher (same-subnet distance score = 0).
+            foreach (var relay in _discoveredRelays.Values.ToArray())
+            {
+                AddCandidate($"{relay.Host}:{relay.Port}");
             }
 
             if (candidates.Count > 1)

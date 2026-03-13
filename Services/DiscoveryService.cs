@@ -129,7 +129,7 @@ namespace Zer0Talk.Services
                                     {
                                         try
                                         {
-                                            var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, ct);
+                                            var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, invite.Source, ct);
                                             if (joined)
                                             {
                                                 try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
@@ -236,7 +236,7 @@ namespace Zer0Talk.Services
                         {
                             try
                             {
-                                var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, ct);
+                                var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, invite.Source, ct);
                                 if (joined)
                                 {
                                     try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }

@@ -209,12 +209,4 @@ public class AppSettings
     public bool PrivacyPolicyAccepted { get; set; } = false;
     public bool DoNotShowPrivacyAgain { get; set; } = false;
 
-    // Hosted Server: home server the user is registered with (host:port, e.g. "relay.example.com:8444")
-    public string? HomeServer { get; set; }
-    // DPAPI-protected auth token blob (Base64) issued by the home server after ACCOUNT-REG/ACCOUNT-AUTH
-    public string? HomeServerTokenProtected { get; set; }
-    // Additional server addresses where the user has joined rooms on foreign servers
-    public System.Collections.Generic.List<string> SavedRoomServers { get; set; } = new();
-    // Room IDs the user is a member of (informational; server is authoritative)
-    public System.Collections.Generic.List<string> JoinedRoomIds { get; set; } = new();
 }

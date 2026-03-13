@@ -57,9 +57,6 @@ public static partial class AppServices
     public static IpBlockingService IpBlocking { get; } = new(Settings);
     public static LocalizationService Localization { get; } = new();
     public static AutoUpdateService AutoUpdate { get; } = new();
-    public static ServerAccountService ServerAccount { get; } = new(Settings, Identity);
-    public static RoomKeyStore RoomKeys { get; } = new();
-    public static RoomService Rooms { get; } = new(ServerAccount, RoomKeys, Settings, Identity);
     // Centralized UI pulse key; interval can be adjusted via Settings if desired
     private const string UiPulseKey = "App.UI.Pulse";
     private static readonly object PresenceWorkGate = new();

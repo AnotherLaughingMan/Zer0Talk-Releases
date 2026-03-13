@@ -27,9 +27,6 @@ public sealed class RelayHost
     private readonly RelayForwarder _forwarder;
     private readonly RelayRateLimiter _rateLimiter;
     private readonly RelayFederationManager? _federation;
-    private HostedServerHost? _hostedServer;
-    private RoomFederationManager? _roomFederation;
-
     // ── Directory: uid → registration entry ──
     private readonly ConcurrentDictionary<string, DirectoryEntry> _directory = new(StringComparer.OrdinalIgnoreCase);
 
@@ -92,37 +89,6 @@ public sealed class RelayHost
             _federation.StatsChanged += stats => Log?.Invoke($"[Federation] peers={stats.HealthyPeers}/{stats.TotalPeers} cache={stats.CachedDirectoryEntries}");
         }
 
-        if (config.EnableHosting)
-        {
-            var db = new ServerDatabase(RelayConfigStore.GetDataDirectoryPath(config));
-
-            // s2sAddress is what peers use to route messages back to this server.
-            // If HostingAddress already contains a port ("host:port"), use it as-is.
-            // If it's only a host/IP, append HostingS2SPort.
-            // If not set at all, fall back to localhost (LAN-only mode).
-            string s2sAddress;
-            if (string.IsNullOrWhiteSpace(config.HostingAddress))
-            {
-                s2sAddress = $"localhost:{config.HostingS2SPort}";
-            }
-            else if (config.HostingAddress.Contains(':'))
-            {
-                s2sAddress = config.HostingAddress;   // already "host:port"
-            }
-            else
-            {
-                s2sAddress = $"{config.HostingAddress}:{config.HostingS2SPort}";
-            }
-
-            if (config.PeerHostedServers.Count > 0)
-            {
-                _roomFederation = new RoomFederationManager(config);
-                _roomFederation.Log += msg => Log?.Invoke($"[S2S] {msg}");
-            }
-
-            _hostedServer = new HostedServerHost(config, db, s2sAddress, _roomFederation);
-            _hostedServer.Log += msg => Log?.Invoke($"[Hosting] {msg}");
-        }
     }
 
     // ── Public state ──
@@ -192,12 +158,6 @@ public sealed class RelayHost
 
         try { _federation?.Start(); } catch (Exception ex) { Log?.Invoke($"Federation start failed: {ex.Message}"); }
 
-        if (_hostedServer != null)
-        {
-            try { _roomFederation?.Start(); } catch (Exception ex) { Log?.Invoke($"S2S federation start failed: {ex.Message}"); }
-            _ = _hostedServer.StartAsync(_cts.Token);
-        }
-
         _ = AcceptLoopAsync(_cts.Token);
         _ = CleanupLoopAsync(_cts.Token);
         ReportStats();
@@ -208,8 +168,6 @@ public sealed class RelayHost
     public void Stop()
     {
         if (!IsRunning) return;
-        try { _hostedServer?.Stop(); } catch { }
-        try { _roomFederation?.Stop(); } catch { }
         try { _federation?.Stop(); } catch { }
         try { _cts?.Cancel(); } catch { }
         try { _listener?.Stop(); } catch { }
@@ -845,12 +803,25 @@ public sealed class RelayHost
     {
         try
         {
-            var peers = _config.PeerRelays ?? new System.Collections.Generic.List<string>();
-            foreach (var peer in peers)
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Static configured peers
+            foreach (var peer in _config.PeerRelays ?? new System.Collections.Generic.List<string>())
             {
-                if (!string.IsNullOrWhiteSpace(peer))
+                if (!string.IsNullOrWhiteSpace(peer) && seen.Add(peer.Trim()))
                     await WriteLineAsync(stream, $"PEER {peer.Trim()}", ct);
             }
+
+            // Dynamically discovered federation peers (WAN relay gossip propagation)
+            if (_federation != null)
+            {
+                foreach (var peerAddr in _federation.GetKnownPeerAddresses())
+                {
+                    if (!string.IsNullOrWhiteSpace(peerAddr) && seen.Add(peerAddr))
+                        await WriteLineAsync(stream, $"PEER {peerAddr}", ct);
+                }
+            }
+
             await WriteLineAsync(stream, "END", ct);
         }
         catch { }
@@ -1547,6 +1518,31 @@ public sealed class RelayHost
                 RecordProbeAudit(client.Client.RemoteEndPoint as IPEndPoint, "Zer0Talk Relay", cmd, "Accepted", "Federation offer forwarded");
                 Log?.Invoke($"RELAY-OFFER stored via federation: invite={inviteId[..Math.Min(8, inviteId.Length)]}... dst={BuildModerationHandle(targetUid)}");
                 await WriteLineAsync(stream, $"OK {inviteId}", ct);
+                SafeClose(client);
+                return true;
+            }
+
+            if (string.Equals(cmd, "RELAY-MESH-PEERS", StringComparison.OrdinalIgnoreCase))
+            {
+                var secret = parts.Length >= 2 ? parts[^1].Trim() : string.Empty;
+                if (!IsFederationSecretOk(secret))
+                {
+                    RecordProbeAudit(client.Client.RemoteEndPoint as IPEndPoint, "Zer0Talk Relay", cmd, "Failure", "Invalid federation shared secret");
+                    await WriteLineAsync(stream, "ERR unauthorized", ct);
+                    SafeClose(client);
+                    return true;
+                }
+                RecordProbeAudit(client.Client.RemoteEndPoint as IPEndPoint, "Zer0Talk Relay", cmd, "Accepted", "Federation mesh peers request accepted");
+
+                // Return all known healthy peers so callers can extend their mesh.
+                var meshPeers = (_federation?.GetKnownPeerAddresses() ?? System.Array.Empty<string>())
+                    .Concat(_config.PeerRelays.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim()))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                await WriteLineAsync(stream, meshPeers.Count > 0
+                    ? $"MESH-PEERS {string.Join(' ', meshPeers)}"
+                    : "MESH-PEERS NONE", ct);
                 SafeClose(client);
                 return true;
             }

@@ -1073,26 +1073,35 @@
           <!-- ── Section Divider ── -->
           <Border Classes="general-divider"/>
 
-          <!-- Community Relay List -->
+          <!-- Detected Relay List -->
           <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Classes="general-section-title" Text="Community Relays"/>
-              <TextBlock Text="Quick-start relay addresses maintained by the Zer0Talk community. Click Use to set one as your primary relay." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
-              <ItemsControl ItemsSource="{Binding DefaultRelays}">
+              <TextBlock Classes="general-section-title" Text="Detected Relays"/>
+              <!-- Filter row -->
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Text="Show" VerticalAlignment="Center" FontSize="13"/>
+                <ComboBox Width="110" SelectedIndex="{Binding RelayFilterIndex}"
+                          ToolTip.Tip="Filter relays by source: configured addresses, LAN beacons, or gossip-discovered WAN relays.">
+                  <ComboBoxItem Content="All"/>
+                  <ComboBoxItem Content="Config"/>
+                  <ComboBoxItem Content="LAN"/>
+                  <ComboBoxItem Content="WAN"/>
+                </ComboBox>
+              </StackPanel>
+              <!-- Relay list -->
+              <ItemsControl ItemsSource="{Binding FilteredDiscoveredRelays}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,3">
-                      <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"/>
-                        <TextBlock Text="{Binding Address}" FontSize="11" Foreground="{DynamicResource App.SecondaryText}"/>
-                      </StackPanel>
-                      <Button Grid.Column="1" Margin="12,0,0,0" Content="Use"
-                              Command="{Binding $parent[UserControl].DataContext.UseDefaultRelayCommand}"
-                              CommandParameter="{Binding}"/>
+                    <Grid ColumnDefinitions="52,*" Margin="0,3" ColumnSpacing="8">
+                      <Border Grid.Column="0" Background="{DynamicResource App.Accent}" CornerRadius="3" Padding="5,2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding Source}" FontSize="10" FontWeight="SemiBold" Foreground="White"/>
+                      </Border>
+                      <TextBlock Grid.Column="1" Text="{Binding Display}" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
+              <TextBlock Text="No relays detected yet." FontSize="12" Foreground="{DynamicResource App.SecondaryText}" IsVisible="{Binding !HasDiscoveredRelays}"/>
             </StackPanel>
           </Border>
 

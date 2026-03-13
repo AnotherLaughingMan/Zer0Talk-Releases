@@ -9,7 +9,7 @@ public sealed class RelayConfig
     public string RelayAddressToken { get; set; } = string.Empty;
     public int MaxPending { get; set; } = 256;
     public int MaxSessions { get; set; } = 512;
-    public int PendingTimeoutSeconds { get; set; } = 60;
+    public int PendingTimeoutSeconds { get; set; } = 90;
     public int BufferSize { get; set; } = 16 * 1024;
     public int MaxConnectionsPerMinute { get; set; } = 120;
     public int BanSeconds { get; set; } = 120;
@@ -31,16 +31,6 @@ public sealed class RelayConfig
     public int MaxFederationPeers { get; set; } = 10;
     public int FederationSyncIntervalSeconds { get; set; } = 30;
     public string FederationSharedSecret { get; set; } = string.Empty; // Optional: for relay authentication
-
-    // Hosted Server settings (server-retained accounts + rooms)
-    public bool EnableHosting { get; set; } = false;
-    public int HostingPort { get; set; } = 8444;
-    public int HostingS2SPort { get; set; } = 8445;                     // Server-to-server room federation port
-    public string HostingAddress { get; set; } = string.Empty;          // Publicly reachable address for S2S (e.g. "relay.example.com")
-    public System.Collections.Generic.List<string> PeerHostedServers { get; set; } = new(); // "host:8445" per peer
-    public int MaxRegisteredUsers { get; set; } = 10_000;
-    public int MaxRoomsPerUser { get; set; } = 10;
-    public int MaxMembersPerRoom { get; set; } = 12;
-    public int RoomMessageQueueDepth { get; set; } = 200;
+    public bool MeshDiscoveryEnabled { get; set; } = true; // Auto-discover and connect to peers announced via RELAY-MESH-PEERS gossip
     public string DataDirectory { get; set; } = "relay-data";
 }

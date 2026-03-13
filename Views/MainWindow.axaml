@@ -305,9 +305,6 @@
                         <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedHome}" Click="Home_Click">
                             <TextBlock Classes="icon-mdl2" Text="&#xE80F;" FontSize="26"/>
                         </Button>
-                        <Button Classes="icon-button" ToolTip.Tip="Rooms &amp; Server" Click="Rooms_Click">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE716;" FontSize="26"/>
-                        </Button>
                         <Button x:Name="LogsButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedLogs}" Click="Logs_Click" IsVisible="False">
                             <TextBlock Classes="icon-mdl2" Text="&#xE8A5;" FontSize="26"/>
                         </Button>
@@ -361,15 +358,6 @@
                                             <Grid ColumnDefinitions="20,*,20" MinWidth="124">
                                                 <TextBlock Grid.Column="0" Classes="icon-mdl2" Text="&#xE790;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                                 <TextBlock Grid.Column="1" Text="Theme Editor" HorizontalAlignment="Center" TextAlignment="Center"/>
-                                            </Grid>
-                                        </MenuItem.Header>
-                                    </MenuItem>
-                                    <Separator/>
-                                    <MenuItem Click="SettingsMenu_Rooms_Click">
-                                        <MenuItem.Header>
-                                            <Grid ColumnDefinitions="20,*,20" MinWidth="124">
-                                                <TextBlock Grid.Column="0" Classes="icon-mdl2" Text="&#xE716;" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                                <TextBlock Grid.Column="1" Text="Rooms &amp; Server" HorizontalAlignment="Center" TextAlignment="Center"/>
                                             </Grid>
                                         </MenuItem.Header>
                                     </MenuItem>

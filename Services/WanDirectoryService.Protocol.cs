@@ -332,6 +332,15 @@ public sealed partial class WanDirectoryService
         }
     }
 
+    /// <summary>Returns a snapshot of gossip-discovered relay endpoints.</summary>
+    public IReadOnlyList<string> GetGossipDiscoveredRelays()
+    {
+        lock (_discoveredRelayPeersLock)
+        {
+            return _discoveredRelayPeers.ToList();
+        }
+    }
+
     private async Task<IReadOnlyList<string>> TryFetchRelayPeersAsync(string host, int port, CancellationToken ct)
     {
         var result = new List<string>();

@@ -52,14 +52,7 @@ public sealed class RelayForwarder
                 throw new IOException($"{direction} read failed after {bytesTransferred} bytes: {ex.Message}", ex);
             }
 
-            if (read <= 0)
-            {
-                if (!ct.IsCancellationRequested && bytesTransferred < 100)
-                {
-                    throw new IOException($"{direction} closed early ({bytesTransferred} bytes)");
-                }
-                break;
-            }
+            if (read <= 0) break;
 
             bytesTransferred += (ulong)read;
 
