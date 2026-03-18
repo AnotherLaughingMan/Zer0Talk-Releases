@@ -21,7 +21,7 @@ This is an **alpha release** – it's functional but expect bugs and changes. No
 - **Ultimate Privacy**: End-to-end encryption with modern, multi-layered cryptography – far beyond basic protections.
 - **No Central Authority**: Direct P2P connections mean no company or government can subpoena your chats or force age/ID verification.
 - **Connects Automatically**: Three-tier connection system tries direct, then NAT traversal, then relay – usually without any manual setup.
-- **Rich User Experience**: Rich text formatting, message editing/deletion, burn timers, and customizable themes.
+- **Rich User Experience**: Rich text formatting, message editing/deletion, Burn Conversation, and customizable themes.
 - **Resistant to Overreach**: In a world of creeping data mandates (e.g., California AB-1043, UK OSA), Zer0Talk collects **nothing** – no accounts, no metadata, no way to tie messages to identities or ages.
 
 If you're tired of platforms like Discord, Reddit, or even OS-level prompts bending to regulations, Zer0Talk is your escape to uncensorable communication.
@@ -132,12 +132,12 @@ After signing in, your Zer0Talk ID is shown on the main screen. This is what you
 - Once accepted and both of you are online, chat opens automatically. Messages are E2E encrypted from the first frame.
 
 ### 5. Start Chatting
-Select a contact, type, send. Edit or delete messages, set burn timers, use Markdown formatting. Connection happens automatically — direct if possible, relay as fallback.
+Select a contact, type, send. Edit or delete messages, burn conversations, use Markdown formatting. Connection happens automatically — direct if possible, relay as fallback.
 
-**Note**: Both you and your contact must be **online at the same time**. Zer0Talk is true P2P — there is no offline message queuing.
+**Note**: Both you and your contact must be **online at the same time** to exchange messages. Outgoing messages are held **locally and encrypted** until your contact comes online — nothing is queued on a server.
 
 **Quick Tips:**
-- Customize early: Settings → Themes for colors and gradients; Notifications for tray alerts.
+- Customize early: Settings → Themes for colors and gradients. In-app tray notifications use your theme colors; desktop (system) notifications use your OS defaults.
 - Back up your data: copy `%AppData%\Roaming\Zer0Talk\` to an encrypted external drive regularly.
 - If a connection shows as "relay" instead of "direct", that's normal and fully encrypted — see the Network section if you want to optimize for direct.
 
