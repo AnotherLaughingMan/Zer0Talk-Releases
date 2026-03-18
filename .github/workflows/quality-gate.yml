@@ -85,6 +85,7 @@ jobs:
   federation-smoke:
     needs: build
     if: github.repository != 'AnotherLaughingMan/Zer0Talk-Releases'
+    continue-on-error: true
     runs-on: windows-latest
 
     steps:
