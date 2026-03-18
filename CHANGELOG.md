@@ -26,6 +26,17 @@ Run this checklist before creating a release tag.
 
 ## [Unreleased]
 
+### Added
+- *(nothing yet)*
+
+### Updated
+- *(nothing yet)*
+
+### Fixed
+- *(nothing yet)*
+
+## [0.0.4.05-Alpha] - 2026-03-17
+
 ### Removed
 - **Private chat rooms / hosted server feature**: removed entirely from both the client and the relay server. The feature (persistent accounts, `ROOM-*` protocol, group key management, server-routed messaging, S2S federation) was out of scope for a P2P chat app and introduced unjustifiable infrastructure complexity and attack surface. All dedicated files (`RoomService`, `RoomKeyStore`, `RoomKeyCrypto`, `RoomsWindow`, `RoomsViewModel`, `ServerAccountService`, relay-side `HostedServerHost`, `RoomRepository`, `UserRepository`, `RoomFederationManager`, `ServerDatabase`, `RoomMessageQueue`) are deleted. Shared files (`AppSettings`, `AppServices`, `MainWindow`, `RelayConfig`, `RelayHost`, `RelayConfigStore`) are cleaned of all room/hosting references. `Microsoft.Data.Sqlite` and `Sodium.Core` packages removed from the relay server binary. `DataDirectory` config field is retained (used for the moderation audit log).
 
@@ -73,6 +84,11 @@ Run this checklist before creating a release tag.
 - Fluent `SelectionIndicator` and internal `Rectangle` elements hidden inside ContactsList `ListBoxItem` template across all themes via NeutralMetrics.
 
 ### Fixed
+- **Unread dot on contact cards disappeared as soon as the contact came online**: `HandleContactCameOnline` called `MarkConversationMessageNoticesRead` whenever a peer's presence changed to Online — clearing all of that peer's unread message notices before the user ever opened the conversation. The dot would appear briefly on message arrival, then vanish the instant the sender connected. Fixed by removing the erroneous `MarkConversationMessageNoticesRead` call; notices now persist until `LoadConversation` clears them when the user actually opens the chat.
+- **Unread dot disappeared when user status was Away/Idle/DND/Invisible**: messages arriving in the open conversation were only marked read when `IsSelfOnline()` returned true, so under any other presence mode the dot kept reappearing even though the conversation was visible. Removed the `isSelfOnline` guard — if the conversation is open the message is being seen regardless of the user's presence status.
+- **Unread dot reappeared after already-read messages were re-delivered**: the `AddOrUpdateMessageNotice` update path set `IsUnread = isUnread` unconditionally, which allowed a duplicate delivery (retransmit or reconnect replay) to flip a read notice back to unread and re-light the dot. Changed to `IsUnread = existing.IsUnread && isUnread` so a notice that was already marked read cannot be un-read by an incoming update.
+- **Muted contacts produced no unread dot**: `PublishMessageNotification` returned early on mute before ever calling `AddOrUpdateMessageNotice`, preventing the notice — and therefore the dot — from being created at all. Muted contacts now still receive a notice (dot appears) but audio playback and desktop toast are suppressed, giving mute its intended "silent" behaviour without hiding the indicator.
+- **Unread dot appeared dim on first show**: the `Border.unread-dot` style had no explicit `Opacity` setter before its pulse animation, so the first frame could start mid-cycle at 30% opacity. Added `<Setter Property="Opacity" Value="1"/>` to ensure the dot is always fully visible the moment it becomes visible.
 - **Message status stuck at "Sending" after peer comes back online**: `OutboxService.DrainAsync` successfully sent queued messages and removed them from the outbox but never advanced their `DeliveryStatus` from `Pending` ("Sending…" clock icon) to `Sent`. Root cause: no callback existed for the drain success path. Fixed by adding a `static event Action<string, Guid> OutboxService.MessageSentFromOutbox` fired after each successful chat-frame write; `MainWindowViewModel` subscribes to it and updates both the in-memory `Message` object and the persisted `.p2e` conversation file, exactly mirroring the existing `ChatMessageDeliveryAcked` (`Sent → Delivered`) path.
 - **Unread badge never appeared on contact cards**: `AppServices.Notifications.NoticesChanged` fired every time a message notice was added or removed, but the handler only called `RefreshHasPendingInvites()` — it never called `RefreshContactMetadata()`. As a result `Contact.UnreadCount` was never updated when messages arrived (only on `SessionCountChanged` and `ContactManager.Changed`), so `HasUnread` was always false and the badge was always hidden. Added `RefreshContactMetadata()` to the `NoticesChanged` handler so badge counts update immediately when a new message notice lands.
 - **Toggle Contacts button restored**: `ToggleLeftPanel_Click`, `CollapseBothInstant`, and `NormalizeCentralLayout` all guarded against `ColumnDefinitions.Count >= 6` — a stale check from when a right diagnostics panel occupied two additional `BodyGrid` columns. After the notification panel was converted to a dropdown, `BodyGrid` was reduced to 4 columns and the guard always failed, silently preventing the toggle from doing anything. All three functions updated to `Count >= 4`; references to the removed columns [4] and [5] removed.

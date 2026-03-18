@@ -18,7 +18,7 @@ namespace Zer0Talk.Services
 {
     public partial class NotificationService
     {
-        public NotificationItem AddOrUpdateMessageNotice(string title, string body, string? originUid, Guid messageId, bool incoming, DateTime? timestamp = null, bool isUnread = true, bool isPriority = false, bool isMention = false)
+        public NotificationItem AddOrUpdateMessageNotice(string title, string body, string? originUid, Guid messageId, bool incoming, DateTime? timestamp = null, bool isUnread = true, bool isPriority = false, bool isMention = false, bool suppressInterruptions = false)
         {
             if (messageId == Guid.Empty) messageId = Guid.NewGuid();
             var trimmedOrigin = TrimUidPrefix(originUid ?? string.Empty);
@@ -122,6 +122,13 @@ namespace Zer0Talk.Services
                 }
             }
 
+            // Muted contacts: notice is still created (unread dot must appear) but interruptions are silenced
+            if (suppressInterruptions)
+            {
+                shouldPlayAudio = false;
+                shouldShowToast = false;
+            }
+
             // Build the notification item; only add to _notices if shouldAddToCenter or outgoing
             NotificationItem updated;
             bool notify = false;
@@ -140,7 +147,7 @@ namespace Zer0Talk.Services
                         Body = string.IsNullOrWhiteSpace(body) ? existing.Body : body,
                         FullBody = string.IsNullOrWhiteSpace(existing.FullBody) ? body : existing.FullBody,
                         OriginUid = string.IsNullOrWhiteSpace(trimmedOrigin) ? existing.OriginUid : trimmedOrigin,
-                        IsUnread = isUnread,
+                        IsUnread = existing.IsUnread && isUnread,
                         IsMessage = true,
                         IsIncoming = incoming,
                         MessageId = messageId,

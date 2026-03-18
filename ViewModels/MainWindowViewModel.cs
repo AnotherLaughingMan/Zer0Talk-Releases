@@ -216,7 +216,7 @@ namespace Zer0Talk.ViewModels
                                         existing.Presence = kv.Value.Presence;
                                         if (kv.Value.Presence == PresenceStatus.Online && previousPresence != PresenceStatus.Online)
                                         {
-                                            HandleContactCameOnline(existing.UID);
+                                            // contact came online — no action needed
                                         }
                                     }
                                     if (!string.Equals(existing.DisplayName, kv.Value.DisplayName, StringComparison.Ordinal))
@@ -1250,17 +1250,13 @@ namespace Zer0Talk.ViewModels
                     msg.EnsureReactionStateLoaded();
                     var selectedUid = SelectedContact?.UID ?? string.Empty;
                     var display = ResolveContactDisplayName(senderUid);
-                    var isSelfOnline = IsSelfOnline();
                     if (string.Equals(TrimUidPrefix(selectedUid), senderUid, StringComparison.OrdinalIgnoreCase))
                     {
                         Avalonia.Threading.Dispatcher.UIThread.Post(() => Messages.Add(msg));
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                         {
                             OnPropertyChanged(nameof(IsChatEncrypted));
-                            if (isSelfOnline)
-                            {
-                                MarkMessagesAsRead(new[] { msg });
-                            }
+                            MarkMessagesAsRead(new[] { msg });
                         });
                         // FIXED: Always publish notification for selected conversation too
                         // Audio notifications are handled by presence mode logic, desktop toasts by window state
@@ -2251,13 +2247,7 @@ namespace Zer0Talk.ViewModels
 
         private void HandleContactCameOnline(string uid)
         {
-            try
-            {
-                var trimmed = TrimUidPrefix(uid);
-                if (string.IsNullOrWhiteSpace(trimmed)) return;
-                AppServices.Notifications.MarkConversationMessageNoticesRead(trimmed);
-            }
-            catch { }
+            // Intentionally empty — unread notices must persist until the conversation is opened.
         }
 
         private void PublishMessageNotification(string originUid, string displayName, Message message, bool incoming, bool unread)
@@ -2267,10 +2257,7 @@ namespace Zer0Talk.ViewModels
             {
                 var trimmedOrigin = TrimUidPrefix(originUid);
                 var contactPolicy = Contacts.FirstOrDefault(c => string.Equals(TrimUidPrefix(c.UID ?? string.Empty), trimmedOrigin, StringComparison.OrdinalIgnoreCase));
-                if (incoming && contactPolicy?.MuteNotifications == true)
-                {
-                    return;
-                }
+                var muted = incoming && contactPolicy?.MuteNotifications == true;
 
                 var isPriority = incoming && contactPolicy?.PriorityNotifications == true;
                 var isMention = incoming && IsMentionLikeTrigger(message?.Content ?? string.Empty);
@@ -2286,7 +2273,7 @@ namespace Zer0Talk.ViewModels
                     : baseTitle;
                 var preview = BuildMessagePreview(message?.Content ?? string.Empty);
                 var timestamp = message?.Timestamp ?? DateTime.UtcNow;
-                AppServices.Notifications.AddOrUpdateMessageNotice(title, preview, trimmedOrigin, message?.Id ?? Guid.NewGuid(), incoming, timestamp, unread, isPriority, isMention);
+                AppServices.Notifications.AddOrUpdateMessageNotice(title, preview, trimmedOrigin, message?.Id ?? Guid.NewGuid(), incoming, timestamp, unread, isPriority, isMention, suppressInterruptions: muted);
                 published = true;
                 
                 // Audio notification is handled by NotificationService.AddOrUpdateMessageNotice

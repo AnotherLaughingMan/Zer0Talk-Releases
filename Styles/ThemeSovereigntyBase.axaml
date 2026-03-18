@@ -188,6 +188,7 @@
   <Style Selector="Border.unread-dot">
     <!-- Accent-coloured glow halo -->
     <Setter Property="BoxShadow" Value="0 0 8 3 #995C82FF"/>
+    <Setter Property="Opacity" Value="1"/>
     <Style.Animations>
       <Animation Duration="0:0:1.4" IterationCount="Infinite">
         <KeyFrame Cue="0%">
