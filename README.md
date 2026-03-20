@@ -42,7 +42,7 @@ If you're tired of platforms like Discord, Reddit, or even OS-level prompts bend
 ### 💬 Messaging
 - **Real-Time P2P Chat**: Instant delivery with delivery confirmations (both users must be online simultaneously).
 - **Edit & Delete**: Modify or remove messages on both ends.
-- **Burn Messages**: Set timers for automatic deletion.
+- **Burn Conversation**: Permanently and unrecoverably wipe all your sent messages from a conversation with one click.
 - **Markdown & Formatting**: Bold, italic, code blocks, and more.
 - **Message Status Indicators**: Clock (pending), single checkmark (sent), filled checkmark (delivered).
 
