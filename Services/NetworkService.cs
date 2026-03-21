@@ -96,6 +96,21 @@ private double _relayPairWaitMsEwma = 20000;
     private volatile int _autoConnSweepRunning;
     private DateTime _lastAutoConnSweepUtc = DateTime.MinValue;
 
+    // [RELAY-BACKOFF] Escalating backoff for peers whose relay attempts consistently fail
+    // (peer is offline, never joins the relay session). Prevents relay spam for offline contacts.
+    private readonly ConcurrentDictionary<string, RelayBackoffState> _relayBackoff = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan RelayBackoffMin = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan RelayBackoffMax = TimeSpan.FromMinutes(5);
+
+    private sealed class RelayBackoffState
+    {
+        public DateTime LastFailUtc { get; set; }
+        public int ConsecutiveFailures { get; set; }
+        public TimeSpan CurrentBackoff => TimeSpan.FromSeconds(
+            Math.Min(RelayBackoffMax.TotalSeconds,
+                     RelayBackoffMin.TotalSeconds * Math.Pow(2, Math.Min(ConsecutiveFailures - 1, 4))));
+    }
+
     // [VERSION-CONTROL] Version tracking and mismatch detection
     private readonly ConcurrentDictionary<string, string> _peerVersions = new(StringComparer.OrdinalIgnoreCase);
     public event Action<string, string, string>? VersionMismatchDetected; // (peerUid, ourVersion, theirVersion)
@@ -629,6 +644,13 @@ private double _relayPairWaitMsEwma = 20000;
                 return false;
             }
 
+            // Skip relay if this peer has had repeated relay failures (offline) and backoff hasn't elapsed.
+            if (IsRelayBackedOff(Trim(peerUid)))
+            {
+                SafeNetLog($"connect relay skipped | peer={peerUid} | reason=relay-backoff");
+                return false;
+            }
+
             string? contactPreferredRelay = null;
             try { contactPreferredRelay = AppServices.Contacts.GetPreferredRelay(Trim(peerUid)); } catch { }
             var relayCandidates = BuildRelayCandidates(s, contactPreferredRelay);
@@ -678,7 +700,11 @@ private double _relayPairWaitMsEwma = 20000;
                 // Happy Eyeballs: try relay candidates with staggered parallel starts.
                 // Takes the first candidate to succeed; cancels the rest.
                 var ok = await ConnectToFirstRelayAsync(peerUid, relayCandidates, ct);
-                if (ok) return true;
+                if (ok)
+                {
+                    ClearRelayBackoff(Trim(peerUid));
+                    return true;
+                }
 
                 if (round < relayRounds - 1)
                 {
@@ -686,6 +712,7 @@ private double _relayPairWaitMsEwma = 20000;
                 }
             }
 
+            RecordRelayFailure(Trim(peerUid));
             return false;
         }
 
@@ -2005,6 +2032,12 @@ private double _relayPairWaitMsEwma = 20000;
                     try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=disabled"); } catch { }
                     return false;
                 }
+                if (IsRelayBackedOff(uid))
+                {
+                    outcome = "skipped-relay-backoff";
+                    try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=relay-backoff"); } catch { }
+                    return false;
+                }
                 string? autoPreferredRelay = null;
                 try { autoPreferredRelay = AppServices.Contacts.GetPreferredRelay(uid); } catch { }
                 var relayCandidates = BuildRelayCandidates(s, autoPreferredRelay);
@@ -2020,10 +2053,12 @@ private double _relayPairWaitMsEwma = 20000;
                     if (await TryConnectViaRelayEndpointAsync(uid, relay.Host, relay.Port, relay.Display, ct))
                     {
                         outcome = "ok";
+                        ClearRelayBackoff(uid);
                         try { SafeNetLog($"autoconn result | peer={uid} | mode=relay-only | ok=true | server={relay.Display}"); } catch { }
                         return true;
                     }
                 }
+                RecordRelayFailure(uid);
                 outcome = "fail";
                 try { SafeNetLog($"autoconn result | peer={uid} | mode=relay-only | ok=false"); } catch { }
             }
@@ -2987,6 +3022,38 @@ private double _relayPairWaitMsEwma = 20000;
                 return $"{uid1}:{uid2}";
             }
             return $"{uid2}:{uid1}";
+        }
+
+        private bool IsRelayBackedOff(string peerUid)
+        {
+            if (!_relayBackoff.TryGetValue(peerUid, out var state)) return false;
+            return (DateTime.UtcNow - state.LastFailUtc) < state.CurrentBackoff;
+        }
+
+        private void RecordRelayFailure(string peerUid)
+        {
+            _relayBackoff.AddOrUpdate(peerUid,
+                _ => new RelayBackoffState { LastFailUtc = DateTime.UtcNow, ConsecutiveFailures = 1 },
+                (_, existing) =>
+                {
+                    existing.LastFailUtc = DateTime.UtcNow;
+                    existing.ConsecutiveFailures++;
+                    return existing;
+                });
+            try
+            {
+                var state = _relayBackoff[peerUid];
+                SafeNetLog($"relay backoff set | peer={peerUid} | failures={state.ConsecutiveFailures} | next-try-in={state.CurrentBackoff.TotalSeconds:F0}s");
+            }
+            catch { }
+        }
+
+        private void ClearRelayBackoff(string peerUid)
+        {
+            if (_relayBackoff.TryRemove(peerUid, out _))
+            {
+                try { SafeNetLog($"relay backoff cleared | peer={peerUid}"); } catch { }
+            }
         }
 
         private void RegisterPendingOutboundExpectation(string? endpoint, string expectedUid)

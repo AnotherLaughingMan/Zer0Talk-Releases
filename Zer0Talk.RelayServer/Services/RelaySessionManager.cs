@@ -227,6 +227,36 @@ public sealed class RelaySessionManager
         }
     }
 
+    /// <summary>
+    /// Proactively removes active sessions where the TCP connection is dead.
+    /// Called periodically from the cleanup loop to prevent ghost sessions from
+    /// lingering indefinitely in the <c>_active</c> dictionary.
+    /// Returns the number of dead sessions removed.
+    /// </summary>
+    public int CleanupDeadActiveSessions(Action<string>? log = null)
+    {
+        var removed = 0;
+        foreach (var entry in _active)
+        {
+            try
+            {
+                if (entry.Value.IsConnected) continue;
+            }
+            catch
+            {
+                // Socket check threw — treat as dead.
+            }
+
+            if (_active.TryRemove(entry.Key, out var session))
+            {
+                try { session.Close(); } catch { }
+                removed++;
+                log?.Invoke($"Relay cleaned dead active session {entry.Key}");
+            }
+        }
+        return removed;
+    }
+
     private static bool IsCompatible(RelayRequest a, RelayRequest b)
     {
         if (!string.IsNullOrWhiteSpace(a.Role) && !string.IsNullOrWhiteSpace(b.Role) &&

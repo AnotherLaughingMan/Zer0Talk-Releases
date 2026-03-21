@@ -1613,6 +1613,7 @@ public sealed class RelayHost
             try
             {
                 _sessions.CleanupExpiredPending();
+                _sessions.CleanupDeadActiveSessions(msg => Log?.Invoke(msg));
                 PruneDirectory();
                 PruneInvites();
                 PruneInviteSignals();

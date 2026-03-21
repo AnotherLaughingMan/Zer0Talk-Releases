@@ -35,6 +35,12 @@ Run this checklist before creating a release tag.
 ### Fixed
 - *(nothing yet)*
 
+## [0.0.4.06-Alpha] - 2026-03-21
+
+### Fixed
+- **Relay: dead active sessions now cleaned proactively**: the relay cleanup loop (every 5s) now sweeps `_active` sessions where TCP is dead, preventing ghost sessions from lingering indefinitely. Previously dead active sessions were only cleaned lazily when a new pairing attempt for the same key arrived.
+- **Relay: escalating backoff for offline contacts**: clients now apply escalating backoff (30s → 60s → 120s → 5min cap) when relay pairing repeatedly fails for a peer (peer offline, never joins). Previously a flat 6-second backoff caused relentless relay churn, OFFER spam, and 1000+ federation lookup attempts for peers that were simply offline. Backoff clears instantly when a relay connection succeeds.
+
 ## [0.0.4.05-Alpha] - 2026-03-17
 
 ### Removed
