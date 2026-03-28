@@ -1,0 +1,52 @@
+[
+  {
+    "name": "area/relay",
+    "color": "0366d6",
+    "description": "Issues related to relay/server behavior and protocols"
+  },
+  {
+    "name": "area/client",
+    "color": "1d76db",
+    "description": "Issues related to the desktop client"
+  },
+  {
+    "name": "area/ui",
+    "color": "6f42c1",
+    "description": "UI, layout, and visual issues"
+  },
+  {
+    "name": "area/network",
+    "color": "0052cc",
+    "description": "Networking, connectivity, and federation issues"
+  },
+  {
+    "name": "priority/critical",
+    "color": "b60205",
+    "description": "Requires immediate attention and a hotfix"
+  },
+  {
+    "name": "priority/high",
+    "color": "d93f0b",
+    "description": "High priority - important but not blocking production"
+  },
+  {
+    "name": "priority/medium",
+    "color": "fbca04",
+    "description": "Normal priority work"
+  },
+  {
+    "name": "priority/low",
+    "color": "0e8a16",
+    "description": "Low priority or nice-to-have"
+  },
+  {
+    "name": "bug",
+    "color": "d73a4a",
+    "description": "Something isn't working"
+  },
+  {
+    "name": "enhancement",
+    "color": "a2eeef",
+    "description": "New feature or request"
+  }
+]
