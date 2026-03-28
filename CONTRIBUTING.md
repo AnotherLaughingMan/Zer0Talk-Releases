@@ -1,44 +1,56 @@
-CONTRIBUTING
-============
+**Contributing to Zer0Talk**
 
-Thanks for contributing to Zer0Talk! This document explains the preferred process for filing issues, proposing changes, and submitting pull requests so maintainers can review your work quickly.
+Thanks — we appreciate contributions. This file gives a quick path for reporting issues, developing, testing, and submitting PRs.
 
-1. Report issues first
----------------------
-- Use the Issue templates in `.github/ISSUE_TEMPLATE/` to report bugs or request features.
-- Provide reproduction steps, environment details, and small test files where applicable.
+**Quick Start**
+- **Report first:** Use the issue templates in `.github/ISSUE_TEMPLATE/` (bug or feature).
+- **Build & test:** Validate locally in both Debug and Release before opening a PR.
+- **Follow the PR checklist** in `.github/PULL_REQUEST_TEMPLATE.md`.
 
-2. Development setup
----------------------
-- We ask contributors to validate changes with both Debug and Release builds. From the repository root run:
+**Report an Issue**
+- **Use template:** Choose `Bug report` or `Feature request` under Issues → New.
+- **Include:** concise description, exact steps to reproduce, expected vs actual behavior, logs, OS/version, and screenshots when helpful.
+
+**Development Setup**
+- Clone the repo and run both builds from the repo root:
 
 ```pwsh
 dotnet build ./Zer0Talk.sln -c Debug
 dotnet build ./Zer0Talk.sln -c Release
 ```
 
-- If your change affects federation/relay code, run the provided smoke or reliability scripts in `./scripts/` as appropriate.
+- If you change relay/federation code, run the smoke or reliability scripts in `./scripts/` as needed:
 
-3. Tests
---------
-- Add unit tests for new behavior. Run the test suite before submitting a PR.
+```pwsh
+# example
+pwsh .\scripts\federation_smoke_check.ps1
+```
 
-4. Commit style
----------------
-- Keep commits small and focused. Use clear subject lines and explain why a change was made in the body.
-- Update `CHANGELOG.md` with a short entry under the Unreleased section for user-visible changes.
+**Testing**
+- Add unit tests for new behavior and run the test suite locally before opening a PR.
+- Where available, include short instructions to reproduce tests in your PR description.
 
-5. Pull requests
-----------------
-- Open a PR against `main` (or the branch requested in an issue). Include a short description, motivation, and steps to test.
-- Use the PR template to ensure checklist items are addressed.
+**Commit Guidelines**
+- Keep commits small and focused. Use imperative subject lines (e.g., "Add X feature").
+- In the commit body explain *why* the change was made, not just *what* changed.
+- Update `CHANGELOG.md` under the Unreleased section for user‑facing changes.
 
-6. Code review and CI
----------------------
-- All PRs must pass CI and at least one approving review from a maintainer before merge.
+**Pull Requests**
+- Open a PR against `main` (unless an issue requests a different branch).
+- In your PR include: summary, motivation, test steps, and any screenshots or logs.
+- Complete the PR checklist in `.github/PULL_REQUEST_TEMPLATE.md` before requesting review.
 
-7. Code of conduct
-------------------
-By contributing you agree to follow the project's Code of Conduct in `CODE_OF_CONDUCT.md`.
+**Code Review & CI**
+- All PRs must pass CI and receive at least one maintainer approval before merge.
+- Address review comments promptly and re-run the tests where applicable.
 
-Thank you — maintainers
+**Security / Sensitive Code**
+- For encryption or protocol changes, ping maintainers and include design notes. Refer to `docs/RELAY-FIX-PLAN.md` when relevant.
+
+**Code of Conduct**
+- By contributing you agree to follow the project's `CODE_OF_CONDUCT.md`.
+
+**Need Help?**
+- For repo access or admin actions, contact a maintainer listed in `CODEOWNERS` or open an issue tagged `area/repo`.
+
+Thank you — the maintainers
