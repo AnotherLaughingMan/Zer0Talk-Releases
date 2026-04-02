@@ -2091,14 +2091,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 Utilities.Logger.Log($"Presence set to {status}");
                 try { InteractionLogger.Log($"[AvatarMenu] Presence set to {status}"); } catch { }
                 BroadcastPresence(status);
-                try
-                {
-                    if (DataContext is MainWindowViewModel vm)
-                    {
-                        vm.HandleLocalPresenceStatusChanged(status);
-                    }
-                }
-                catch { }
             }
             catch { }
         }
@@ -5561,9 +5553,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 if (!string.IsNullOrWhiteSpace(notice.OriginUid) && DataContext is MainWindowViewModel vm)
                     vm.FocusConversation(notice.OriginUid);
-                var targetId = notice.MessageId ?? notice.Id;
-                if (targetId != Guid.Empty)
-                    try { AppServices.Notifications.MarkMessageNoticeRead(targetId); } catch { }
             }
         };
         return card;
@@ -6127,12 +6116,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (!string.IsNullOrWhiteSpace(notice.OriginUid) && DataContext is MainWindowViewModel vm)
             {
                 vm.FocusConversation(notice.OriginUid);
-            }
-
-            var targetId = notice.MessageId ?? notice.Id;
-            if (targetId != Guid.Empty)
-            {
-                try { AppServices.Notifications.MarkMessageNoticeRead(targetId); } catch { }
             }
 
             e.Handled = true;

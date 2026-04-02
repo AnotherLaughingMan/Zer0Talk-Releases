@@ -786,6 +786,8 @@ namespace Zer0Talk.ViewModels
             // Load contacts from manager
             AppServices.Contacts.Load(AppServices.Passphrase);
             foreach (var c in AppServices.Contacts.Contacts) Contacts.Add(c);
+            // Ensure unread badges and connection mode metadata are correct on first paint.
+            RefreshContactMetadata();
             // Populate last message previews for contact list display
             _ = Task.Run(() =>
             {
@@ -807,7 +809,11 @@ namespace Zer0Talk.ViewModels
             catch { }
             try
             {
-                Action noticesChanged = () => { Avalonia.Threading.Dispatcher.UIThread.Post(() => { RefreshHasPendingInvites(); RefreshContactMetadata(); }); };
+                Action noticesChanged = () => 
+                { 
+                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] NoticesChanged event fired, posting RefreshContactMetadata to UI thread\n"); } catch { }
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => { RefreshHasPendingInvites(); RefreshContactMetadata(); }); 
+                };
                 AppServices.Notifications.NoticesChanged += noticesChanged;
                 _teardownActions.Add(() => AppServices.Notifications.NoticesChanged -= noticesChanged);
             }
@@ -822,6 +828,29 @@ namespace Zer0Talk.ViewModels
 
             // Ensure initial badge state
             RefreshHasPendingInvites();
+
+            // Keep unread/contact metadata in sync even when no explicit notice/session event is raised.
+            var contactMetadataRefreshTimer = new Avalonia.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(30)
+            };
+            EventHandler? contactMetadataRefreshHandler = null;
+            contactMetadataRefreshHandler = (_, __) =>
+            {
+                try { RefreshContactMetadata(); } catch { }
+            };
+            contactMetadataRefreshTimer.Tick += contactMetadataRefreshHandler;
+            contactMetadataRefreshTimer.Start();
+            _teardownActions.Add(() =>
+            {
+                try
+                {
+                    contactMetadataRefreshTimer.Stop();
+                    if (contactMetadataRefreshHandler != null)
+                        contactMetadataRefreshTimer.Tick -= contactMetadataRefreshHandler;
+                }
+                catch { }
+            });
 
             // Subscribe to language changes for localized strings
             try
@@ -1249,22 +1278,46 @@ namespace Zer0Talk.ViewModels
                     };
                     msg.EnsureReactionStateLoaded();
                     var selectedUid = SelectedContact?.UID ?? string.Empty;
+                    var isSelectedPeer = string.Equals(TrimUidPrefix(selectedUid), senderUid, StringComparison.OrdinalIgnoreCase);
+                    var canAutoRead = isSelectedPeer && IsMainWindowReadable();
                     var display = ResolveContactDisplayName(senderUid);
-                    if (string.Equals(TrimUidPrefix(selectedUid), senderUid, StringComparison.OrdinalIgnoreCase))
+                    if (isSelectedPeer)
                     {
                         Avalonia.Threading.Dispatcher.UIThread.Post(() => Messages.Add(msg));
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        if (canAutoRead)
                         {
-                            OnPropertyChanged(nameof(IsChatEncrypted));
-                            MarkMessagesAsRead(new[] { msg });
-                        });
-                        // FIXED: Always publish notification for selected conversation too
-                        // Audio notifications are handled by presence mode logic, desktop toasts by window state
-                        PublishMessageNotification(senderUid, display, msg, incoming: true, unread: true);
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            {
+                                OnPropertyChanged(nameof(IsChatEncrypted));
+                                MarkMessagesAsRead(new[] { msg });
+                            });
+                            // Conversation is truly visible/active, so this message is read on arrival.
+                            PublishMessageNotification(senderUid, display, msg, incoming: true, unread: false);
+                            // Send read receipt immediately for the newly auto-read message.
+                            _ = Task.Run(async () =>
+                            {
+                                try { await AppServices.Network.SendReadReceiptAsync(senderUid, msg.Id); } catch { }
+                            });
+                        }
+                        else
+                        {
+                            // Selected peer while window is inactive/minimized still counts as unread.
+                            PublishMessageNotification(senderUid, display, msg, incoming: true, unread: true);
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            {
+                                try { RefreshContactMetadata(); } catch { }
+                            });
+                        }
                     }
                     else
                     {
                         PublishMessageNotification(senderUid, display, msg, incoming: true, unread: true);
+                        // Reconcile immediately so the contact unread indicator updates without waiting
+                        // for background event scheduling order.
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            try { RefreshContactMetadata(); } catch { }
+                        });
                     }
                     _messagesStore.StoreMessage(senderUid, msg, AppServices.Passphrase);
                     // Update contact card last message preview
@@ -1301,7 +1354,11 @@ namespace Zer0Talk.ViewModels
                         {
                             foreach (var msg in Messages)
                             {
-                                if (msg.Id == messageId)
+                                if (msg.Id == messageId
+                                    && IsOwnMessage(msg)
+                                    && string.Equals(TrimUidPrefix(msg.RecipientUID ?? string.Empty), normalized, StringComparison.OrdinalIgnoreCase)
+                                    && msg.DeliveryStatus != Models.MessageDeliveryStatus.Delivered
+                                    && msg.DeliveryStatus != Models.MessageDeliveryStatus.Read)
                                 {
                                     msg.DeliveryStatus = Models.MessageDeliveryStatus.Delivered;
                                     break;
@@ -1329,7 +1386,10 @@ namespace Zer0Talk.ViewModels
                         {
                             foreach (var msg in Messages)
                             {
-                                if (msg.Id == messageId && msg.DeliveryStatus != Models.MessageDeliveryStatus.Read)
+                                if (msg.Id == messageId
+                                    && IsOwnMessage(msg)
+                                    && string.Equals(TrimUidPrefix(msg.RecipientUID ?? string.Empty), normalized, StringComparison.OrdinalIgnoreCase)
+                                    && msg.DeliveryStatus != Models.MessageDeliveryStatus.Read)
                                 {
                                     msg.DeliveryStatus = Models.MessageDeliveryStatus.Read;
                                     break;
@@ -1358,7 +1418,10 @@ namespace Zer0Talk.ViewModels
                         {
                             foreach (var msg in Messages)
                             {
-                                if (msg.Id == messageId && msg.DeliveryStatus == Models.MessageDeliveryStatus.Pending)
+                                if (msg.Id == messageId
+                                    && IsOwnMessage(msg)
+                                    && string.Equals(TrimUidPrefix(msg.RecipientUID ?? string.Empty), normalized, StringComparison.OrdinalIgnoreCase)
+                                    && msg.DeliveryStatus == Models.MessageDeliveryStatus.Pending)
                                 {
                                     msg.DeliveryStatus = Models.MessageDeliveryStatus.Sent;
                                     break;
@@ -2619,21 +2682,6 @@ namespace Zer0Talk.ViewModels
             if (!string.Equals(prefixed, trimmed, StringComparison.OrdinalIgnoreCase)) yield return prefixed;
         }
 
-        // Mark a single notification-backed message as read and remove related notices for its origin.
-        public void MarkMessageAsReadAndClear(Message m)
-        {
-            try
-            {
-                if (m == null) return;
-                // Clear notification badge for this message
-                try { AppServices.Notifications.MarkMessageNoticeRead(m.Id); } catch { }
-                RefreshHasPendingInvites();
-                RebuildTimeline();
-                ApplyMessageSearch();
-            }
-            catch { }
-        }
-
         // Mark all messages shown in the Messages list as read and remove related notices.
         public void MarkAllNotificationMessagesReadAndClear()
         {
@@ -2643,34 +2691,6 @@ namespace Zer0Talk.ViewModels
                 RefreshHasPendingInvites();
                 RebuildTimeline();
                 ApplyMessageSearch();
-            }
-            catch { }
-        }
-
-        // Mark all unread incoming messages from all contacts as read (used when coming back online)
-        public void MarkAllUnreadMessagesAsRead()
-        {
-            try
-            {
-                // Clear all conversation notifications
-                try { AppServices.Notifications.MarkAllMessageNoticesRead(); } catch { }
-                RefreshHasPendingInvites();
-                RebuildTimeline();
-                ApplyMessageSearch();
-            }
-            catch { }
-        }
-
-        public void HandleLocalPresenceStatusChanged(Models.PresenceStatus status)
-        {
-            try
-            {
-                if (status != Models.PresenceStatus.Online) return;
-                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                {
-                    try { MarkAllUnreadMessagesAsRead(); }
-                    catch { }
-                });
             }
             catch { }
         }
@@ -3847,6 +3867,7 @@ namespace Zer0Talk.ViewModels
                         }
                     }
                 }
+                ValidateContactReferences();
             }
             catch { }
         }
@@ -3888,11 +3909,76 @@ namespace Zer0Talk.ViewModels
                     try
                     {
                         var uid = TrimUidPrefix(c.UID);
-                        c.UnreadCount = AppServices.Notifications.GetUnreadCountForPeer(uid);
+                        var newUnreadCount = AppServices.Notifications.GetUnreadCountForPeer(uid);
+                        var selectedUid = TrimUidPrefix(SelectedContact?.UID ?? string.Empty);
+                        var isSelectedContact = string.Equals(uid, selectedUid, StringComparison.OrdinalIgnoreCase);
+                        
+                        // Diagnostic: log if unread count changed or is non-zero
+                        if (newUnreadCount != c.UnreadCount || newUnreadCount > 0)
+                        {
+                            try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] REFRESH: contact={c.DisplayName} (uid={c.UID}), trimmed={uid}, old={c.UnreadCount}, new={newUnreadCount}\n"); } catch { }
+                        }
+                        
+                        // Canonical model: unread count is derived from notifications service state.
+                        c.UnreadCount = newUnreadCount;
                         c.ConnectionMode = AppServices.Network.GetConnectionMode(uid);
                         c.PeerVersion = AppServices.Network.GetPeerVersion(uid);
                     }
-                    catch { }
+                    catch (Exception ex) 
+                    { 
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] REFRESH ERROR: contact={c.DisplayName}, ex={ex.Message}\n"); } catch { }
+                    }
+                }
+                
+                // Fallback: ensure FilteredContacts stays in sync with Contacts
+                SynchronizeUnreadCountsToFilteredContacts();
+            }
+            catch (Exception ex)
+            {
+                try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] REFRESH OUTER ERROR: {ex.Message}\n"); } catch { }
+            }
+        }
+
+        /// <summary>Verify that FilteredContacts items are same references as Contacts items (not copies).</summary>
+        private void ValidateContactReferences()
+        {
+            try
+            {
+                if (FilteredContacts.Count > 0)
+                {
+                    int mismatchCount = 0;
+                    foreach (var fc in FilteredContacts)
+                    {
+                        var original = Contacts.FirstOrDefault(c =>
+                            string.Equals(TrimUidPrefix(c.UID ?? string.Empty), TrimUidPrefix(fc.UID ?? string.Empty), StringComparison.OrdinalIgnoreCase));
+                        if (original != null && !ReferenceEquals(original, fc))
+                        {
+                            mismatchCount++;
+                        }
+                    }
+                    if (mismatchCount > 0)
+                    {
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] WARNING: {mismatchCount}/{FilteredContacts.Count} FilteredContacts are copies, not references! This breaks unread updates!\n"); } catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>Fallback: synchronize unread counts from Contacts to FilteredContacts in case of reference mismatch.</summary>
+        private void SynchronizeUnreadCountsToFilteredContacts()
+        {
+            try
+            {
+                foreach (var fc in FilteredContacts)
+                {
+                    var original = Contacts.FirstOrDefault(c =>
+                        string.Equals(TrimUidPrefix(c.UID ?? string.Empty), TrimUidPrefix(fc.UID ?? string.Empty), StringComparison.OrdinalIgnoreCase));
+                    if (original != null && original.UnreadCount != fc.UnreadCount)
+                    {
+                        fc.UnreadCount = original.UnreadCount;
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] FALLBACK SYNC: {fc.DisplayName} unread={original.UnreadCount}\n"); } catch { }
+                    }
                 }
             }
             catch { }
@@ -3931,7 +4017,7 @@ namespace Zer0Talk.ViewModels
         private static string TrimUidPrefix(string uid)
         {
             if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
-            return uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+            return uid.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) && uid.Length > 4 ? uid.Substring(4) : uid;
         }
 
         private bool IsSelectedContactPeer(string peerUid)
@@ -4061,32 +4147,67 @@ namespace Zer0Talk.ViewModels
                     Messages.Add(m);
                 }
                 ApplyMessageSearch();
-                MarkMessagesAsRead();
-                // Clear notifications for this conversation
-                try { AppServices.Notifications.MarkConversationMessageNoticesRead(peerUid); } catch { }
-                // Send read receipts for all incoming messages from this peer (best-effort, only when connected)
-                try
+                if (IsMainWindowReadable())
                 {
-                    var incomingIds = list
-                        .Where(m => string.Equals(TrimUidPrefix(m.SenderUID ?? string.Empty), peerUid, StringComparison.OrdinalIgnoreCase) && m.Id != Guid.Empty)
-                        .Select(m => m.Id)
-                        .ToList();
-                    if (incomingIds.Count > 0)
+                    MarkMessagesAsRead();
+                    // Clear notifications only when conversation is actually readable by user.
+                    try { AppServices.Notifications.MarkConversationMessageNoticesRead(peerUid); } catch { }
+                    try
                     {
-                        _ = Task.Run(async () =>
+                        var selected = SelectedContact;
+                        if (selected != null && string.Equals(TrimUidPrefix(selected.UID), peerUid, StringComparison.OrdinalIgnoreCase))
                         {
-                            foreach (var id in incomingIds)
-                            {
-                                try { await AppServices.Network.SendReadReceiptAsync(peerUid, id); } catch { }
-                            }
-                        });
+                            selected.UnreadCount = 0;
+                        }
                     }
+                    catch { }
+                    // Send read receipts for all incoming messages from this peer (best-effort, only when connected)
+                    try
+                    {
+                        var incomingIds = list
+                            .Where(m => string.Equals(TrimUidPrefix(m.SenderUID ?? string.Empty), peerUid, StringComparison.OrdinalIgnoreCase) && m.Id != Guid.Empty)
+                            .Select(m => m.Id)
+                            .ToList();
+                        if (incomingIds.Count > 0)
+                        {
+                            _ = Task.Run(async () =>
+                            {
+                                foreach (var id in incomingIds)
+                                {
+                                    try { await AppServices.Network.SendReadReceiptAsync(peerUid, id); } catch { }
+                                }
+                            });
+                        }
+                    }
+                    catch { }
                 }
-                catch { }
+                else
+                {
+                    // Do not mutate read state while window is inactive/minimized.
+                    // Keep unread indicators until user actively reads the conversation.
+                    try { RefreshContactMetadata(); } catch { }
+                }
             }
             catch (Exception ex)
             {
                 Logger.Log($"LoadConversation: Error loading conversation for peer={peerUid}: {ex.Message}");
+            }
+        }
+
+        private static bool IsMainWindowReadable()
+        {
+            try
+            {
+                var desktop = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                var mainWindow = desktop?.MainWindow;
+                if (mainWindow == null) return false;
+                if (!mainWindow.IsVisible) return false;
+                if (mainWindow.WindowState == Avalonia.Controls.WindowState.Minimized) return false;
+                return mainWindow.IsActive;
+            }
+            catch
+            {
+                return false;
             }
         }
 

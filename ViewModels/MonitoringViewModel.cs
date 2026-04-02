@@ -13,6 +13,7 @@ namespace Zer0Talk.ViewModels;
 
 public class MonitoringViewModel : INotifyPropertyChanged
 {
+    private const int SessionSyntheticRateKey = -1;
     public event PropertyChangedEventHandler? PropertyChanged;
     private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
@@ -599,6 +600,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
         // Summaries
         double tcpIn = 0, tcpOut = 0, udpIn = 0, udpOut = 0, outIn = 0, outOut = 0;
         if (AppServices.Network.ListeningPort is int lp && rates.TryGetValue(lp, out var r1)) { tcpIn = r1.In; tcpOut = r1.Out; }
+        else if (rates.TryGetValue(SessionSyntheticRateKey, out var rs)) { tcpIn = rs.In; tcpOut = rs.Out; }
         if (AppServices.Network.UdpBoundPort is int up && rates.TryGetValue(up, out var r2)) { udpIn = r2.In; udpOut = r2.Out; }
         if (AppServices.Network.LastAutoClientPort is int ap && rates.TryGetValue(ap, out var r3)) { outIn = r3.In; outOut = r3.Out; }
         TcpRate = $"TCP: {FormatRate(tcpIn + tcpOut)}";

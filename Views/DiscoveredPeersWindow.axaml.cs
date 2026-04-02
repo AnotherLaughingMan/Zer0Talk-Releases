@@ -14,10 +14,10 @@ namespace Zer0Talk.Views;
 
 public partial class DiscoveredPeersWindow : Window
 {
-    // 2-second tick to keep Bytes In/Out counts live during active sessions.
+    // 500ms tick keeps byte counters visibly live under steady traffic.
     private readonly Avalonia.Threading.DispatcherTimer _liveTimer = new()
     {
-        Interval = TimeSpan.FromSeconds(2)
+        Interval = TimeSpan.FromMilliseconds(500)
     };
 
     private DiscoveredPeersViewModel? _vm;

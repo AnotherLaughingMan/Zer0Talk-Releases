@@ -116,7 +116,9 @@ namespace Zer0Talk.Services
                 {
                     shouldPlayAudio = true;
                     shouldShowToast = false;
-                    shouldAddToCenter = false;
+                    // Hardening: unread state and notification center entries must still be tracked
+                    // even when presence-mode evaluation fails.
+                    shouldAddToCenter = true;
                     TryWriteNetworkVerboseLogThrottled("notices.presence.error", PresenceDecisionLogInterval,
                         () => $"{DateTime.Now:O} [Notices] Error checking presence: {ex.Message} → defaulting to Online behavior\n");
                 }
@@ -178,6 +180,12 @@ namespace Zer0Talk.Services
                         IsMention: isMention);
                     _notices.Add(updated);
                     notify = true;
+                    
+                    // Diagnostic: log new unread message notice
+                    if (isUnread)
+                    {
+                        try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] NOTICE CREATED: uid={trimmedOrigin}, title={titleWithTime}, messageId={messageId}, unread={isUnread}\n"); } catch { }
+                    }
                 }
                 else
                 {
@@ -463,6 +471,14 @@ namespace Zer0Talk.Services
                     if (n.IsMessage && n.IsUnread && string.Equals(n.OriginUid, trimmed, StringComparison.OrdinalIgnoreCase))
                         count++;
                 }
+                
+                // Diagnostic logging: log if we found any unread OR if notices exist at all for this peer
+                if (count > 0 || _notices.Any(n => n.IsMessage && string.Equals(n.OriginUid, trimmed, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var totalForPeer = _notices.Count(n => n.IsMessage && string.Equals(n.OriginUid, trimmed, StringComparison.OrdinalIgnoreCase));
+                    var unreadForPeer = count;
+                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] Query: uid={originUid} → trimmed={trimmed}, unread={unreadForPeer}/{totalForPeer}\n"); } catch { }
+                }
                 return count;
             }
         }
@@ -591,7 +607,7 @@ namespace Zer0Talk.Services
         private static string TrimUidPrefix(string uid)
         {
             if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
-            return uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid[4..] : uid;
+            return uid.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) && uid.Length > 4 ? uid[4..] : uid;
         }
 
         private void ShowTransientToast(string title, string text, Models.NotificationType? type = null, string? originUid = null, Guid? messageId = null)

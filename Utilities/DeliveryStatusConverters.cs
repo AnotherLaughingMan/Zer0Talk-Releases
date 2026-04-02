@@ -8,7 +8,7 @@ namespace Zer0Talk.Utilities
 {
     /// <summary>
     /// Returns an MDL2 glyph string for outbound message delivery status.
-    /// Pending = clock, Sent = single check, Delivered = double check, Read = double check (same glyph — colour distinguishes them via separate TextBlock).
+    /// Pending = clock, Sent = single check, Delivered = double check, Read = single check (accent rendered by separate TextBlock in message template).
     /// Returns empty string for None (incoming messages).
     /// </summary>
     public sealed class DeliveryStatusToGlyphConverter : IValueConverter
@@ -21,9 +21,10 @@ namespace Zer0Talk.Utilities
             return status switch
             {
                 MessageDeliveryStatus.Pending => "\uE823",           // Clock
-                MessageDeliveryStatus.Sent => "\uE8FB",              // Accept (single check)
+                // E73E renders as a stable single check across Segoe Fluent / MDL2 fallback chains.
+                MessageDeliveryStatus.Sent => "\uE73E",              // Single check
                 MessageDeliveryStatus.Delivered => "\uE73E\uE73E",   // Two checkmarks (gray)
-                MessageDeliveryStatus.Read => "\uE73E\uE73E",        // Two checkmarks (accent — rendered by Read TextBlock)
+                MessageDeliveryStatus.Read => "\uE73E",              // Single check (accent — rendered by Read TextBlock)
                 _ => string.Empty
             };
         }
@@ -87,7 +88,7 @@ namespace Zer0Talk.Utilities
     }
 
     /// <summary>
-    /// Returns true only when status is Read. Used to show the accent-coloured double-check TextBlock.
+    /// Returns true only when status is Read. Used to show the accent-coloured single-check TextBlock.
     /// </summary>
     public sealed class DeliveryStatusIsReadConverter : IValueConverter
     {

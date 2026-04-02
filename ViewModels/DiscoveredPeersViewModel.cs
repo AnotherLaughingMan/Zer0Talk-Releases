@@ -8,6 +8,7 @@ using System.Windows.Input;
 
 using Zer0Talk.Models;
 using Zer0Talk.Services;
+using Zer0Talk.Utilities;
 
 namespace Zer0Talk.ViewModels;
 
@@ -20,6 +21,7 @@ public sealed class DiscoveredPeersViewModel : INotifyPropertyChanged
 {
     private readonly PeerManager _peerManager = AppServices.Peers;
     private readonly SettingsService _settings = AppServices.Settings;
+    private DateTime _lastRefreshErrorLogUtc = DateTime.MinValue;
 
     /// <summary>The live list of visible, non-simulated discovered peers.</summary>
     public ObservableCollection<Peer> Peers { get; } = new();
@@ -89,10 +91,10 @@ public sealed class DiscoveredPeersViewModel : INotifyPropertyChanged
     {
         try
         {
-            var allPeers = _peerManager.Peers.ToList();
+            var allPeers = SnapshotPeers();
             var now = DateTime.UtcNow;
 
-            var contacts = AppServices.Contacts.Contacts.ToList();
+            var contacts = SnapshotContacts();
             var simulatedUids = new HashSet<string>(
                 contacts.Where(c => c.IsSimulated).Select(c => NormalizeUid(c.UID)),
                 StringComparer.OrdinalIgnoreCase);
@@ -152,7 +154,14 @@ public sealed class DiscoveredPeersViewModel : INotifyPropertyChanged
 
             SyncPeers(peers);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            if ((DateTime.UtcNow - _lastRefreshErrorLogUtc) >= TimeSpan.FromSeconds(3))
+            {
+                _lastRefreshErrorLogUtc = DateTime.UtcNow;
+                try { Logger.Log($"DiscoveredPeersViewModel.Refresh failed: {ex.Message}"); } catch { }
+            }
+        }
     }
 
     // ── Commands ─────────────────────────────────────────────────────────────
@@ -369,6 +378,26 @@ public sealed class DiscoveredPeersViewModel : INotifyPropertyChanged
             return flags[Math.Abs(ipAddress.GetHashCode()) % flags.Length];
         }
         catch { return "🌍"; }
+    }
+
+    private List<Peer> SnapshotPeers()
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try { return _peerManager.Peers.ToList(); }
+            catch (InvalidOperationException) { }
+        }
+        return _peerManager.Peers.ToArray().ToList();
+    }
+
+    private static List<Contact> SnapshotContacts()
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            try { return AppServices.Contacts.Contacts.ToList(); }
+            catch (InvalidOperationException) { }
+        }
+        return AppServices.Contacts.Contacts.ToArray().ToList();
     }
 
     // ── INotifyPropertyChanged ────────────────────────────────────────────────

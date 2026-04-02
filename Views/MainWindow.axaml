@@ -1143,9 +1143,9 @@
                                                                 <TextBlock Classes="icon-mdl2" FontSize="12" Opacity="0.55"
                                                                            Text="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusToGlyphConverter}}"
                                                                            IsVisible="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusIsNotReadConverter}}"/>
-                                                                <!-- Read: accent-colored double-check -->
+                                                                <!-- Read: accent-colored single-check -->
                                                                 <TextBlock Classes="icon-mdl2" FontSize="12"
-                                                                           Text="&#xE73E;&#xE73E;"
+                                                                           Text="&#xE73E;"
                                                                            Foreground="{DynamicResource App.Accent}"
                                                                            IsVisible="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusIsReadConverter}}"/>
                                                             </Panel>

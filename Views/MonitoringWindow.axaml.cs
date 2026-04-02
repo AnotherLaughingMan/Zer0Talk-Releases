@@ -18,6 +18,7 @@ namespace Zer0Talk.Views;
 
 public partial class MonitoringWindow : Window, IDisposable
 {
+    private const int SessionSyntheticRateKey = -1;
     // Scoped refresh: MonitoringWindow owns its interval; event-loop on a dedicated thread with cancellation.
     private int _intervalMs;
     private System.Collections.Generic.Dictionary<int, (long In, long Out, DateTime AtUtc)> _lastTotals = new();
@@ -328,6 +329,12 @@ public partial class MonitoringWindow : Window, IDisposable
                     {
                         rates.TryGetValue(sessLp, out var curVal);
                         rates[sessLp] = (Math.Max(curVal.In, sessIn), Math.Max(curVal.Out, sessOut));
+                    }
+                    else
+                    {
+                        // Keep session traffic visible when the listener key is transiently unavailable.
+                        rates.TryGetValue(SessionSyntheticRateKey, out var curVal);
+                        rates[SessionSyntheticRateKey] = (Math.Max(curVal.In, sessIn), Math.Max(curVal.Out, sessOut));
                     }
                 }
             }

@@ -35,6 +35,25 @@ Run this checklist before creating a release tag.
 ### Fixed
 - *(nothing yet)*
 
+## [0.0.4.07-Alpha] - 2026-04-02
+
+### Fixed
+- **Delivery status glyph ambiguity for `Sent`**: outbound `Sent` status now uses a stable single-check glyph (`\uE73E`) in `DeliveryStatusToGlyphConverter`, avoiding duplicate-looking checkmarks on certain Segoe Fluent/MDL2 fallback chains.
+- **Discovered Peers byte counters could appear frozen under concurrent refresh pressure**: the live refresh cadence was increased from 2 s to 500 ms in `DiscoveredPeersWindow`, and `DiscoveredPeersViewModel.Refresh()` now snapshots peer/contact collections with retry logic to tolerate concurrent list mutation instead of silently stalling updates.
+- **Unread contact-dot startup consistency**: `MainWindowViewModel` now performs an initial `RefreshContactMetadata()` immediately after contact load and runs a low-frequency (30 s) metadata refresh timer to keep unread counts aligned even when no explicit notice/session event fires.
+- **Unread notice UID normalization edge case**: UID prefix trimming in `MainWindowViewModel` and `NotificationService.Messages` now uses case-insensitive `usr-` matching so unread/read transitions stay consistent across mixed-case UID forms.
+- **Monitoring Summary graph activity gap**: monitoring tick logic now preserves session throughput using a synthetic fallback rate key when listening-port keying is temporarily unavailable, and `MonitoringViewModel.UpdateRates()` consumes that fallback so Summary view keeps showing live activity.
+- **Unread dot diagnostic hardening (Phase 2)**: added comprehensive logging instrumentation to trace unread message flow (notice creation, query, refresh); added `ValidateContactReferences()` to detect if `FilteredContacts` items are copies vs. references; added `SynchronizeUnreadCountsToFilteredContacts()` fallback to keep unread counts in sync across collections. These changes help isolate why unread dots sometimes don't appear by enabling detailed per-step diagnostics in logs.
+- **Unread dot behavior hardening for background conversations**: incoming messages for the currently open contact are no longer flagged unread, while incoming messages for non-focused contacts now set an immediate unread indicator on that contact card; notification presence-evaluation fallback also keeps notice-center storage enabled so unread state is not dropped on error paths.
+- **Unread indicator persistence semantics**: unread indicators are no longer auto-cleared when local presence transitions to Online; unread reconciliation now remains sticky for non-selected contacts and clears when that contact is actually opened, matching expected "show until read" behavior.
+- **Canonical message-flow reset (Phase 1)**: inbound read/unread behavior now respects window readability (active, visible, not minimized). Selected-contact messages are only auto-read when the window is truly readable; otherwise they remain unread. Contact unread badges are now reconciled directly from `NotificationService` unread state to reduce competing side-effects.
+- **Canonical message-flow reset (Phase 2)**: notification-center click handlers no longer directly mark message notices as read. Conversation open/read logic is now the canonical clear path, reducing duplicate side-effects and preventing premature unread-dot disappearance.
+- **Canonical message-flow reset (Phase 3)**: delivery/read-receipt event handlers are now scoped to outbound messages for the expected peer (not message-ID-only matches). Active open conversations now send immediate read receipts for newly auto-read incoming messages, keeping read-receipt semantics aligned with real read visibility.
+- **Canonical message-flow reset (Phase 4)**: removed remaining local presence-to-message coupling from the main window status path. Presence changes now affect interruption/presence state only and do not invoke message read/unread mutation hooks.
+- **Canonical message-flow reset (Phase 5)**: delivery-status rendering contract was normalized so `Read` uses a single accent check consistently across converter/template paths, preventing fallback or alternate binding paths from reintroducing double-read-check visuals.
+- **Canonical message-flow reset (Phase 6)**: added deterministic unit coverage for delivery-status rendering and unread-badge property semantics. New tests lock `Read` glyph contract (single-check) and enforce unread badge change notifications (`UnreadCount` + `HasUnread`) to reduce regression risk.
+- **Canonical message-flow reset (Phase 7)**: removed unused legacy message-read helper paths from `MainWindowViewModel` that could mass-clear unread state outside canonical conversation-open/read flow, reducing future regression surface while preserving explicit notification-center "mark all" behavior.
+
 ## [0.0.4.06-Alpha] - 2026-03-21
 
 ### Fixed
