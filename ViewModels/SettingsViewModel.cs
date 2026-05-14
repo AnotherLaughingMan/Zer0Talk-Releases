@@ -142,6 +142,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(DefaultPresenceIndex),
         nameof(AllowAutoUpdates),
         nameof(EnableSmoothScrolling),
+        nameof(EnableHybridContactsShell),
+        nameof(EnableHybridUnreadShell),
+        nameof(EnableHybridIpcHost),
         nameof(SuppressNotificationsInDnd),
         nameof(NotificationDurationSeconds),
         nameof(EnableNotificationBellFlash),
@@ -318,6 +321,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _baseDefaultPresenceIndex;
     private bool _baseAllowAutoUpdates;
     private bool _baseEnableSmoothScrolling;
+    private bool _baseEnableHybridContactsShell;
+    private bool _baseEnableHybridUnreadShell;
+    private bool _baseEnableHybridIpcHost;
     private bool _baseSuppressNotificationsInDnd;
     private double _baseNotificationDurationSeconds;
     private bool _baseEnableNotificationBellFlash;
@@ -447,6 +453,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             DefaultPresenceIndex = PresenceToIndex(settings.Status);
             AllowAutoUpdates = settings.AutoUpdateEnabled;
             EnableSmoothScrolling = settings.EnableSmoothScrolling;
+            EnableHybridContactsShell = settings.EnableHybridContactsShell;
+            EnableHybridUnreadShell = settings.EnableHybridUnreadShell;
+            EnableHybridIpcHost = settings.EnableHybridIpcHost;
             UpdateLastAutoUpdateCheckDisplay(settings.LastAutoUpdateCheckUtc);
             SuppressNotificationsInDnd = settings.SuppressNotificationsInDnd;
             NotificationDurationSeconds = Math.Clamp(settings.NotificationDurationSeconds, 0.5, 30.0);
@@ -758,6 +767,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             DefaultPresenceIndex = PresenceToIndex(s.Status);
             AllowAutoUpdates = s.AutoUpdateEnabled;
             EnableSmoothScrolling = s.EnableSmoothScrolling;
+            EnableHybridContactsShell = s.EnableHybridContactsShell;
+            EnableHybridUnreadShell = s.EnableHybridUnreadShell;
+            EnableHybridIpcHost = s.EnableHybridIpcHost;
             UpdateLastAutoUpdateCheckDisplay(s.LastAutoUpdateCheckUtc);
             SuppressNotificationsInDnd = s.SuppressNotificationsInDnd;
             NotificationDurationSeconds = Math.Clamp(s.NotificationDurationSeconds, 0.5, 30.0);
@@ -3060,6 +3072,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private bool _enableSmoothScrolling = true;
     public bool EnableSmoothScrolling { get => _enableSmoothScrolling; set { if (_enableSmoothScrolling != value) { _enableSmoothScrolling = value; OnPropertyChanged(); } } }
 
+    private bool _enableHybridContactsShell;
+    public bool EnableHybridContactsShell { get => _enableHybridContactsShell; set { if (_enableHybridContactsShell != value) { _enableHybridContactsShell = value; OnPropertyChanged(); } } }
+
+    private bool _enableHybridUnreadShell;
+    public bool EnableHybridUnreadShell { get => _enableHybridUnreadShell; set { if (_enableHybridUnreadShell != value) { _enableHybridUnreadShell = value; OnPropertyChanged(); } } }
+
+    private bool _enableHybridIpcHost;
+    public bool EnableHybridIpcHost { get => _enableHybridIpcHost; set { if (_enableHybridIpcHost != value) { _enableHybridIpcHost = value; OnPropertyChanged(); } } }
+
     private string? _lastAutoUpdateCheckUtcRaw;
     private string _lastAutoUpdateCheckDisplay = "Never";
     public string LastAutoUpdateCheckDisplay
@@ -3734,6 +3755,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.Status = IndexToPresence(DefaultPresenceIndex);
             s.AutoUpdateEnabled = AllowAutoUpdates;
             s.EnableSmoothScrolling = EnableSmoothScrolling;
+            s.EnableHybridContactsShell = EnableHybridContactsShell;
+            s.EnableHybridUnreadShell = EnableHybridUnreadShell;
+            s.EnableHybridIpcHost = EnableHybridIpcHost;
             s.SuppressNotificationsInDnd = SuppressNotificationsInDnd;
             s.NotificationDurationSeconds = Math.Clamp(NotificationDurationSeconds, 0.5, 30.0);
             s.EnableNotificationBellFlash = EnableNotificationBellFlash;
@@ -3797,6 +3821,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 }
             }
             _settings.Save(AppServices.Passphrase);
+            // Apply hybrid IPC host rollout state immediately.
+            try { AppServices.StartHybridIpcHostIfEnabled(); } catch { }
+            // Apply shell-side consumer rollout state immediately.
+            try { AppServices.StartHybridShellAdapterIfEnabled(); } catch { }
             try { LogSettingsEvent($"Saved settings (ThemeId={s.ThemeId}, ThemeOption={s.Theme})"); } catch { }
             try { WritePerformanceLog($"Saved perf: CcdAffinityIndex={s.CcdAffinityIndex}, DisableGPU={s.DisableGpuAcceleration}, FPS={s.FpsThrottle}, Refresh={s.RefreshRateThrottle}, RAMmb={s.RamUsageLimitMb}, VRAMmb={s.VramUsageLimitMb}"); } catch { }
             try { ApplyGpuModeImmediate(s.DisableGpuAcceleration); } catch { }
@@ -4051,6 +4079,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseDefaultPresenceIndex != _defaultPresenceIndex) return true;
             if (_baseAllowAutoUpdates != _allowAutoUpdates) return true;
             if (_baseEnableSmoothScrolling != _enableSmoothScrolling) return true;
+            if (_baseEnableHybridContactsShell != _enableHybridContactsShell) return true;
+            if (_baseEnableHybridUnreadShell != _enableHybridUnreadShell) return true;
+            if (_baseEnableHybridIpcHost != _enableHybridIpcHost) return true;
             if (_baseSuppressNotificationsInDnd != _suppressNotificationsInDnd) return true;
             if (Math.Abs(_baseNotificationDurationSeconds - _notificationDurationSeconds) > 0.01) return true;
             if (_baseAutoLockEnabled != _autoLockEnabled) return true;
@@ -4141,6 +4172,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseDefaultPresenceIndex = _defaultPresenceIndex;
             _baseAllowAutoUpdates = _allowAutoUpdates;
             _baseEnableSmoothScrolling = _enableSmoothScrolling;
+            _baseEnableHybridContactsShell = _enableHybridContactsShell;
+            _baseEnableHybridUnreadShell = _enableHybridUnreadShell;
+            _baseEnableHybridIpcHost = _enableHybridIpcHost;
             _baseSuppressNotificationsInDnd = _suppressNotificationsInDnd;
             _baseNotificationDurationSeconds = _notificationDurationSeconds;
             _baseEnableNotificationBellFlash = _enableNotificationBellFlash;

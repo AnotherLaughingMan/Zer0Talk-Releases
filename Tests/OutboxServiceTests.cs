@@ -12,6 +12,54 @@ namespace Zer0Talk.Tests;
 public class OutboxServiceTests
 {
     [Fact]
+    public void Enqueue_PersistsQueuedChatMessage_WithStableIdentifiers()
+    {
+        var suffix = "tests-" + Guid.NewGuid().ToString("N");
+        var originalSuffix = AppDataPaths.Root;
+        AppDataPaths.SetProfileSuffix(suffix);
+
+        try
+        {
+            var passphrase = "unit-test-passphrase";
+            var peerUid = "usr-peer-chat-test";
+            var message = new Zer0Talk.Models.Message
+            {
+                Id = Guid.Empty,
+                SenderUID = "usr-sender",
+                RecipientUID = peerUid,
+                Content = "queued offline message",
+                Timestamp = DateTime.UtcNow
+            };
+
+            var outbox = new OutboxService();
+            var store = new OutboxContainer();
+
+            outbox.Enqueue(peerUid, message, passphrase);
+
+            var loaded = store.Load(peerUid, passphrase);
+            Assert.Single(loaded);
+            Assert.Equal("Chat", loaded[0].Operation);
+            Assert.NotEqual(Guid.Empty, loaded[0].Id);
+            Assert.Equal(loaded[0].Id, loaded[0].Message?.Id);
+            Assert.Equal("queued offline message", loaded[0].Message?.Content);
+        }
+        finally
+        {
+            try
+            {
+                var root = AppDataPaths.Root;
+                if (Directory.Exists(root))
+                {
+                    Directory.Delete(root, true);
+                }
+            }
+            catch { }
+
+            AppDataPaths.SetProfileSuffix(null);
+        }
+    }
+
+    [Fact]
     public void EnqueueEdit_UpdateAndCancel_PreservesSingleQueuedEditLifecycle()
     {
         var suffix = "tests-" + Guid.NewGuid().ToString("N");

@@ -186,7 +186,7 @@
 
   <!-- Glowing pulsing unread dot — upper-right corner of contact cards -->
   <Style Selector="Border.unread-dot">
-    <!-- Accent-coloured glow halo -->
+    <!-- Accent-coloured glow halo around a solid white core dot. -->
     <Setter Property="BoxShadow" Value="0 0 8 3 #995C82FF"/>
     <Setter Property="Opacity" Value="1"/>
     <Style.Animations>
@@ -195,7 +195,7 @@
           <Setter Property="Opacity" Value="1.0"/>
         </KeyFrame>
         <KeyFrame Cue="50%">
-          <Setter Property="Opacity" Value="0.3"/>
+          <Setter Property="Opacity" Value="0.7"/>
         </KeyFrame>
         <KeyFrame Cue="100%">
           <Setter Property="Opacity" Value="1.0"/>

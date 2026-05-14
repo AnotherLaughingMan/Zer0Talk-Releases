@@ -53,6 +53,15 @@ public static partial class AppServices
     public static LogMaintenanceService LogMaintenance { get; } = new(Settings, Updates);
     public static TrayIconService TrayIcon { get; } = new();
     public static NotificationService Notifications { get; } = new();
+    public static ContactsBridgeService ContactsBridge { get; } = new(Contacts, Notifications);
+    public static ContactsIpcEndpointService ContactsIpcEndpoint { get; } = new(ContactsBridge);
+    public static UnreadStateService UnreadState { get; } = new(Notifications);
+    public static UnreadBridgeService UnreadBridge { get; } = new(UnreadState, Events);
+    public static UnreadIpcEndpointService UnreadIpcEndpoint { get; } = new(UnreadBridge, Events);
+    public static HybridIpcHostService HybridIpcHost { get; } = new(ContactsIpcEndpoint, UnreadIpcEndpoint);
+    public static HybridShellIpcClientService HybridShellIpcClient { get; } = new();
+    public static HybridShellConsumerService HybridShellConsumer { get; } = new(HybridShellIpcClient);
+    public static HybridShellAdapterService HybridShellAdapter { get; } = new(HybridShellConsumer);
     public static AudioNotificationService AudioNotifications => AudioNotificationService.Instance;
     public static IpBlockingService IpBlocking { get; } = new(Settings);
     public static LocalizationService Localization { get; } = new();
@@ -102,9 +111,56 @@ public static partial class AppServices
 
     private static string NormalizePeerUid(string uid)
     {
-        if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
-        return uid.StartsWith("usr-", System.StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+        return UidNormalization.TrimPrefix(uid ?? string.Empty);
     }
+
+    public static void StartHybridIpcHostIfEnabled()
+    {
+        try
+        {
+            if (Settings.Settings.EnableHybridIpcHost)
+            {
+                HybridIpcHost.Start();
+            }
+            else
+            {
+                HybridIpcHost.Stop();
+            }
+        }
+        catch { }
+    }
+
+    public static void StopHybridIpcHost()
+    {
+        try { HybridIpcHost.Stop(); } catch { }
+    }
+
+    public static void StartHybridShellAdapterIfEnabled()
+    {
+        try
+        {
+            var enableContacts = Settings.Settings.EnableHybridContactsShell;
+            var enableUnread = Settings.Settings.EnableHybridUnreadShell;
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                try
+                {
+                    await HybridShellAdapter.StartAsync(enableContacts, enableUnread).ConfigureAwait(false);
+                }
+                catch { }
+            });
+        }
+        catch { }
+    }
+
+    public static void StopHybridShellAdapter()
+    {
+        try { HybridShellAdapter.StopAsync().GetAwaiter().GetResult(); } catch { }
+    }
+
+    // Back-compat wrappers for existing call sites while migration is in progress.
+    public static void StartHybridShellConsumerIfEnabled() => StartHybridShellAdapterIfEnabled();
+    public static void StopHybridShellConsumer() => StopHybridShellAdapter();
 
     private static bool TryBeginPresenceWork(string uid)
     {
@@ -256,6 +312,80 @@ public static partial class AppServices
         catch (Exception ex)
         {
             LogGuardedFailure($"MessagesDeleteFromRemote({peerUid}, {messageId})", ex);
+        }
+    }
+
+    public static UnreadSnapshotDto GetUnreadSnapshotDto()
+    {
+        try
+        {
+            return UnreadBridge.GetSnapshot();
+        }
+        catch
+        {
+            return new UnreadSnapshotDto(UnreadBridgeService.SnapshotSchemaVersion, DateTime.UtcNow, Array.Empty<UnreadPeerCountDto>(), 0);
+        }
+    }
+
+    public static string GetUnreadSnapshotJson()
+    {
+        try
+        {
+            return UnreadBridge.GetSnapshotJson();
+        }
+        catch
+        {
+            return "{\"schemaVersion\":1,\"generatedUtc\":null,\"peers\":[],\"totalUnread\":0}";
+        }
+    }
+
+    public static bool TryHandleUnreadIpcRequest(string command, out string responseJson)
+    {
+        responseJson = string.Empty;
+        try
+        {
+            return UnreadIpcEndpoint.TryHandleRequest(command, out responseJson);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static ContactsSnapshotDto GetContactsSnapshotDto()
+    {
+        try
+        {
+            return ContactsBridge.GetSnapshot();
+        }
+        catch
+        {
+            return new ContactsSnapshotDto(ContactsBridgeService.SnapshotSchemaVersion, DateTime.UtcNow, Array.Empty<ContactListItemDto>(), 0, 0);
+        }
+    }
+
+    public static string GetContactsSnapshotJson()
+    {
+        try
+        {
+            return ContactsBridge.GetSnapshotJson();
+        }
+        catch
+        {
+            return "{\"schemaVersion\":1,\"generatedUtc\":null,\"contacts\":[],\"totalContacts\":0,\"totalUnread\":0}";
+        }
+    }
+
+    public static bool TryHandleContactsIpcRequest(string command, out string responseJson)
+    {
+        responseJson = string.Empty;
+        try
+        {
+            return ContactsIpcEndpoint.TryHandleRequest(command, out responseJson);
+        }
+        catch
+        {
+            return false;
         }
     }
 

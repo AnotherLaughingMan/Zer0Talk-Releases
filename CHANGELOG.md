@@ -27,13 +27,58 @@ Run this checklist before creating a release tag.
 ## [Unreleased]
 
 ### Added
-- *(nothing yet)*
+- **Hybrid IPC runtime host (Slice 2)**: added `HybridIpcHostService` (named-pipe, newline-delimited JSON) with request/response routing for `contacts.list.get` and `unread.snapshot.get`, plus push-event broadcast envelopes for `contacts.list.changed` and `unread.snapshot.changed`.
+- **Hybrid migration feature flags**: added `AppSettings` gates (`EnableHybridContactsShell`, `EnableHybridUnreadShell`, `EnableHybridIpcHost`) to support controlled rollout and rollback of shell/IPC migration paths.
+- **Hybrid IPC host tests**: added focused transport-host tests covering request/response behavior, unknown-command errors, and contacts change event broadcast over the runtime pipe host.
+- **Hybrid rollout controls in Settings UI**: added General-panel toggles for hybrid contacts shell, hybrid unread shell, and hybrid IPC host startup so migration paths can be enabled manually without editing files.
+- **Hybrid IPC host hardening tests**: added coverage for oversized-frame rejection (`frame-too-large`) to lock baseline transport guardrails.
+- **Contacts delta event contract**: `ContactsIpcEndpointService` now emits `contacts.list.delta.changed` payloads (added/updated/removed UID sets) alongside full snapshot events so shell clients can apply incremental list updates efficiently.
+- **Unread count delta event contract**: `UnreadIpcEndpointService` now emits `unread.count.changed` per-peer delta payloads (`peerUid`, `unreadCount`) in addition to full unread snapshot change events.
+- **IPC capability negotiation command**: `HybridIpcHostService` now supports `ipc.capabilities.get`, returning protocol version, supported commands/events, schema versions, and host limits so shell clients can negotiate features before subscribing.
+- **Shell-side hybrid IPC consumer scaffold**: added `HybridShellIpcClientService` with named-pipe connect/disconnect, `ipc.capabilities.get` negotiation, typed snapshot request helpers, and event routing for contacts/unread snapshot and delta channels.
+- **Shell consumer coordinator wiring**: added `HybridShellConsumerService` and wired startup/settings-save/shutdown integration so hybrid shell flags now drive a concrete connect-negotiate-consume lifecycle in-process.
+- **Stable shell adapter facade**: added `HybridShellAdapterService` as a single shell-facing state surface over the consumer, with normalized contact/unread lookup APIs and unified `StateChanged` lifecycle/state telemetry.
 
 ### Updated
-- *(nothing yet)*
+- **Contacts snapshot ordering parity**: `ContactsBridgeService` now sorts using main-contact-list parity (online-priority states first, then `LastMessageUtc` descending, then display name/UID), aligning snapshot consumers with current in-app ordering behavior.
+- **Hybrid IPC host lifecycle wiring**: startup now conditionally starts the runtime host via settings gate (`EnableHybridIpcHost`) during post-initialization, and shutdown now explicitly stops the host.
+- **Settings save/apply integration for hybrid rollout**: saving settings now persists all hybrid toggles and applies IPC host start/stop immediately based on `EnableHybridIpcHost`.
+- **Unread delta fan-out through EventHub**: app event wiring now forwards per-peer unread count changes (`UnreadCountChanged`) into `EventHub` for transport adapters and shell listeners.
+- **Delta payload versioning fields**: contacts delta payloads now use explicit `schemaVersion` (`DeltaSchemaVersion`), and unread count delta payloads now include `schemaVersion` (`CountDeltaSchemaVersion`) for forward-compatible contract evolution.
+- **Delta-first with snapshot fallback behavior**: shell consumer now prefers delta streams when capabilities advertise them and falls back to periodic snapshot polling when delta support is unavailable.
+- **Adapter-owned shell lifecycle wiring**: startup/settings-save/shutdown flows now drive the adapter service directly, with back-compat wrappers retained in `AppServices` during migration.
 
 ### Fixed
-- *(nothing yet)*
+- **Contacts snapshot UID normalization mismatch**: `ContactsBridgeService` now uses canonical case-insensitive UID normalization, fixing mixed-case `USR-` prefix handling so unread/contact snapshot joins are stable.
+- **Canonical UID trim consistency**: `Contact` and `AppServices` UID normalization paths now use the shared `UidNormalization` utility to avoid future prefix/case drift across layers.
+- **Hybrid IPC host standard hardening**: host now enforces max concurrent clients, per-client request rate limiting, and max frame size validation to reduce abuse and malformed-frame risk.
+- **Obsolete popup placement API usage**: replaced `Popup.PlacementMode` with `Popup.Placement` for anchor/gravity dropdowns to remove Avalonia obsolete warnings.
+- **Shell IPC JSON compatibility**: `HybridShellIpcClientService` now deserializes camelCase payloads case-insensitively and uses safer connect/request timeouts, preventing default-valued DTO snapshots and intermittent startup failures.
+
+## [0.0.4.08-Alpha] - 2026-04-02
+
+### Added
+- **NotificationService unread-state contract (phase start for UI pivot)**: introduced a canonical unread API for UI clients: `UnreadCountChanged` (per-peer count event), `UnreadSnapshotChanged` (full snapshot event), and `GetUnreadCountsSnapshot()` (current aggregate unread map keyed by normalized peer UID).
+- **Unread snapshot unit coverage**: added deterministic tests for unread aggregation and clear semantics (`MarkMessageNoticeRead`, `MarkConversationMessageNoticesRead`, `MarkAllMessageNoticesRead`) to lock the new unread contract behavior.
+- **Unread read-model unit coverage**: added focused tests for `UnreadStateService` snapshot behavior and `EventHub` unread snapshot fan-out, guarding the new migration contract.
+- **Unread read-model service (`UnreadStateService`)**: added a dedicated snapshot facade (`GetSnapshot()` + `SnapshotChanged`) registered in `AppServices` for incremental shell/IPC adoption without coupling consumers to `NotificationService` internals.
+- **Unread transport adapter service (`UnreadBridgeService`)**: added a transport-neutral unread bridge that emits stable DTO snapshots (`UnreadSnapshotDto`, `UnreadPeerCountDto`) and JSON payloads for future shell/IPC consumers.
+- **Unread bridge payload versioning**: `UnreadSnapshotDto` now includes a `schemaVersion` field (`1`) so future shell/IPC consumers can safely evolve contract handling.
+- **Minimal unread IPC endpoint contract**: added `UnreadIpcEndpointService` with a transport-agnostic request handler (`unread.snapshot.get` -> snapshot JSON) and JSON push notifications (`unread.snapshot.changed`) wired from typed `EventHub.UnreadSnapshotDtoChanged` updates.
+- **Contacts list migration contract (Tauri slice)**: added `ContactsBridgeService` and `ContactsIpcEndpointService` with stable contacts snapshot DTO/JSON payloads and transport-agnostic command/event surface (`contacts.list.get`, `contacts.list.changed`) to support the first contacts-list shell migration slice while preserving .NET core services.
+
+### Updated
+- **Unread mutation paths now publish deterministic state updates**: message notice add/update/read-clear flows now emit unread count + snapshot updates alongside existing `NoticesChanged`, creating a stable bridge for incremental non-Avalonia UI adoption.
+- **MainWindowViewModel unread synchronization path**: the viewmodel now subscribes to `UnreadSnapshotChanged` and applies unread counts directly to contact cards, reducing dependence on broad refresh churn from generic notice events.
+- **MainWindowViewModel notices event handling**: generic `NoticesChanged` now refreshes invite badge state only; unread contact badge updates are sourced from unread snapshot events to avoid unnecessary full contact metadata refreshes on every notice change.
+- **Unread event fan-out**: unread snapshot updates are now also bridged through `EventHub` (`UnreadSnapshotChanged`) to simplify cross-layer consumers and future external adapters.
+- **Unread contract test hardening**: added `UnreadBridgeService` test coverage for DTO mapping order, event propagation from `EventHub`, and JSON payload output.
+- **Unread DTO event channel**: added `EventHub.UnreadSnapshotDtoChanged` and AppServices forwarding from `UnreadBridgeService`, enabling typed unread snapshot subscribers without raw dictionary parsing.
+- **Relay rendezvous invite processing hardening (Phase 2.3 start)**: client discovery loops now ACK every processed relay invite (not only successful joins) while still attempting all invites in a batch until one connects, preventing repeated replay/redelivery churn on failed invite attempts.
+
+### Fixed
+- **Delivery status visual correction**: `Delivered` messages now render as a single gray check instead of a double check, matching the current chat status visual language.
+- **Unread contact-dot — definitive fix**: removed the unreliable `Panel` overlay approach entirely. The unread indicator is now a plain Border (`8×8`, white fill, `App.Accent` border) placed inside the contact card's right-column `StackPanel`, using `{Binding UnreadCount, Converter={StaticResource GreaterThanZeroConverter}}` instead of `HasUnread`. This eliminates Panel z-order/clipping fragility, cross-property notification edge cases, and release-build rendering differences that caused the dot to silently disappear. The dot now participates in normal layout flow and works across all built-in and custom themes.
 
 ## [0.0.4.07-Alpha] - 2026-04-02
 

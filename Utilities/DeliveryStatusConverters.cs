@@ -23,11 +23,24 @@ namespace Zer0Talk.Utilities
                 MessageDeliveryStatus.Pending => "\uE823",           // Clock
                 // E73E renders as a stable single check across Segoe Fluent / MDL2 fallback chains.
                 MessageDeliveryStatus.Sent => "\uE73E",              // Single check
-                MessageDeliveryStatus.Delivered => "\uE73E\uE73E",   // Two checkmarks (gray)
+                MessageDeliveryStatus.Delivered => "\uE73E",         // Single check (gray)
                 MessageDeliveryStatus.Read => "\uE73E",              // Single check (accent — rendered by Read TextBlock)
                 _ => string.Empty
             };
         }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// Returns true only when the message is still pending delivery.
+    /// Used to surface a visible queued indicator in the chat canvas.
+    /// </summary>
+    public sealed class DeliveryStatusIsPendingConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+            => value is MessageDeliveryStatus.Pending;
 
         public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
             => throw new NotSupportedException();

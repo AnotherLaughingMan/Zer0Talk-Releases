@@ -4,6 +4,7 @@
     - Threading: Raise* methods are lightweight; handlers should marshal to UI thread if needed.
 */
 using System;
+using System.Collections.Generic;
 
 using Zer0Talk.Models;
 
@@ -30,6 +31,12 @@ namespace Zer0Talk.Services
         public event Action<string, System.Guid, string>? MessageEdited;
         // Message deleted locally or received delete from remote
         public event Action<string, System.Guid>? MessageDeleted;
+        // Canonical unread-state snapshot updates for UI/shell consumers.
+        public event Action<IReadOnlyDictionary<string, int>>? UnreadSnapshotChanged;
+        // DTO-level unread snapshot updates for transport adapters and external shells.
+        public event Action<UnreadSnapshotDto>? UnreadSnapshotDtoChanged;
+        // Per-peer unread count delta updates.
+        public event Action<string, int>? UnreadPeerCountChanged;
 
         public void RaiseNatChanged() { try { NatChanged?.Invoke(); } catch { } }
         public void RaiseNetworkListeningChanged(bool isListening, int? port) { try { NetworkListeningChanged?.Invoke(isListening, port); } catch { } }
@@ -42,6 +49,9 @@ namespace Zer0Talk.Services
     public void RaiseOpenConversationRequested(string uid) { if (string.IsNullOrWhiteSpace(uid)) return; try { OpenConversationRequested?.Invoke(uid); } catch { } }
         public void RaiseMessageEdited(string peerUid, System.Guid messageId, string newContent) { if (string.IsNullOrWhiteSpace(peerUid) || messageId == System.Guid.Empty) return; try { MessageEdited?.Invoke(peerUid, messageId, newContent); } catch { } }
         public void RaiseMessageDeleted(string peerUid, System.Guid messageId) { if (string.IsNullOrWhiteSpace(peerUid) || messageId == System.Guid.Empty) return; try { MessageDeleted?.Invoke(peerUid, messageId); } catch { } }
+        public void RaiseUnreadSnapshotChanged(IReadOnlyDictionary<string, int> snapshot) { if (snapshot == null) return; try { UnreadSnapshotChanged?.Invoke(snapshot); } catch { } }
+        public void RaiseUnreadSnapshotDtoChanged(UnreadSnapshotDto snapshot) { if (snapshot == null) return; try { UnreadSnapshotDtoChanged?.Invoke(snapshot); } catch { } }
+        public void RaiseUnreadPeerCountChanged(string peerUid, int unreadCount) { if (string.IsNullOrWhiteSpace(peerUid)) return; try { UnreadPeerCountChanged?.Invoke(peerUid, unreadCount); } catch { } }
     }
 }
 

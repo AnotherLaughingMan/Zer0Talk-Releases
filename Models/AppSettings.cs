@@ -92,6 +92,8 @@ public class AppSettings
     public int LastNotificationCenterView { get; set; } = 0;
     // Composer markdown toolbar row visibility persistence
     public bool ComposerMarkdownToolsVisible { get; set; } = true;
+    // Composer markdown live preview visibility persistence
+    public bool ComposerMarkdownPreviewVisible { get; set; } = true;
 
     // Connectivity: optional relay fallback if direct+NAT traversal fail.
     // If enabled, the app will attempt to reach peers via a relay service when direct connection is not possible.
@@ -99,6 +101,10 @@ public class AppSettings
     public bool RelayFallbackEnabled { get; set; } = true;
     public string? RelayServer { get; set; }
     public System.Collections.Generic.List<string> SavedRelayServers { get; set; } = new();
+    // Hybrid shell migration feature gates.
+    public bool EnableHybridContactsShell { get; set; } = false;
+    public bool EnableHybridUnreadShell { get; set; } = false;
+    public bool EnableHybridIpcHost { get; set; } = false;
     // Optional WAN bootstrap seed nodes used to discover peers when no known endpoints are available.
     // Format: "host:port" (e.g., "seed1.example.net:443").
     // These are not forced by default; they are used opportunistically when needed.

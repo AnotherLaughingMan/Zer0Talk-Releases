@@ -17,9 +17,19 @@ public class DeliveryStatusConverterTests
 
         Assert.Equal("\uE823", converter.Convert(MessageDeliveryStatus.Pending, typeof(string), null, Culture));
         Assert.Equal("\uE73E", converter.Convert(MessageDeliveryStatus.Sent, typeof(string), null, Culture));
-        Assert.Equal("\uE73E\uE73E", converter.Convert(MessageDeliveryStatus.Delivered, typeof(string), null, Culture));
+        Assert.Equal("\uE73E", converter.Convert(MessageDeliveryStatus.Delivered, typeof(string), null, Culture));
         Assert.Equal("\uE73E", converter.Convert(MessageDeliveryStatus.Read, typeof(string), null, Culture));
         Assert.Equal(string.Empty, converter.Convert(MessageDeliveryStatus.None, typeof(string), null, Culture));
+    }
+
+    [Fact]
+    public void DeliveryStatusPendingVisibilityConverter_OnlyShowsQueuedState()
+    {
+        var converter = new DeliveryStatusIsPendingConverter();
+
+        Assert.True((bool)converter.Convert(MessageDeliveryStatus.Pending, typeof(bool), null, Culture)!);
+        Assert.False((bool)converter.Convert(MessageDeliveryStatus.Sent, typeof(bool), null, Culture)!);
+        Assert.False((bool)converter.Convert(MessageDeliveryStatus.Read, typeof(bool), null, Culture)!);
     }
 
     [Fact]

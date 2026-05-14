@@ -13,6 +13,9 @@ public static partial class AppServices
         // Forward service events to centralized hub (no heavy work here)
         try { Nat.Changed += () => Events.RaiseNatChanged(); } catch { }
         try { Network.WarningRaised += msg => Events.RaiseFirewallPrompt(msg); } catch { }
+        try { Notifications.UnreadSnapshotChanged += snapshot => Events.RaiseUnreadSnapshotChanged(snapshot); } catch { }
+        try { Notifications.UnreadCountChanged += (peerUid, count) => Events.RaiseUnreadPeerCountChanged(peerUid, count); } catch { }
+        try { UnreadBridge.SnapshotChanged += snapshot => Events.RaiseUnreadSnapshotDtoChanged(snapshot); } catch { }
         try
         {
             Network.VersionMismatchDetected += (peerUid, ourVersion, theirVersion) =>
@@ -260,6 +263,16 @@ public static partial class AppServices
         try { Settings.Save(Passphrase); } catch { }
         try { LinkPreview.Dispose(); } catch { }
         try { TrayIcon.Dispose(); } catch { }
+        try { StopHybridShellAdapter(); } catch { }
+        try { HybridShellAdapter.Dispose(); } catch { }
+        try { HybridShellConsumer.Dispose(); } catch { }
+        try { HybridShellIpcClient.Dispose(); } catch { }
+        try { StopHybridIpcHost(); } catch { }
+        try { ContactsIpcEndpoint.Dispose(); } catch { }
+        try { ContactsBridge.Dispose(); } catch { }
+        try { UnreadIpcEndpoint.Dispose(); } catch { }
+        try { UnreadBridge.Dispose(); } catch { }
+        try { UnreadState.Dispose(); } catch { }
         try { AutoUpdate.Dispose(); } catch { }
         try { AudioNotifications.Dispose(); } catch { }
 #if DEBUG

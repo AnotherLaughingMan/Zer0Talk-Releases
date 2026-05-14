@@ -66,6 +66,7 @@
         <util:DeliveryStatusToGlyphConverter x:Key="DeliveryStatusToGlyphConverter" />
         <util:DeliveryStatusVisibleConverter x:Key="DeliveryStatusVisibleConverter" />
         <util:DeliveryStatusToTooltipConverter x:Key="DeliveryStatusToTooltipConverter" />
+        <util:DeliveryStatusIsPendingConverter x:Key="DeliveryStatusIsPendingConverter" />
         <util:DeliveryStatusIsReadConverter x:Key="DeliveryStatusIsReadConverter" />
         <util:DeliveryStatusIsNotReadConverter x:Key="DeliveryStatusIsNotReadConverter" />
         <util:VersionMismatchTooltipConverter x:Key="VersionMismatchTooltipConverter" />
@@ -479,8 +480,7 @@
                   <Border Classes="contact-indicator" Width="3" CornerRadius="1.5"
                           VerticalAlignment="Stretch" Margin="0,4"
                           HorizontalAlignment="Left"/>
-                  <Panel Grid.Column="1">
-                  <Border Classes="contact-card"
+                  <Border Classes="contact-card" Grid.Column="1"
                     Padding="10,8"
                     BorderThickness="1"
                                     ContextRequested="ContactCard_ContextRequested"
@@ -667,16 +667,17 @@
                                                 </MultiBinding>
                                             </TextBlock.IsVisible>
                                         </TextBlock>
+                                        <!-- Unread indicator: white dot with accent border, shown when contact has unread messages -->
+                                        <Border Width="8" Height="8" CornerRadius="4"
+                                                Background="#FFFFFFFF"
+                                                BorderBrush="{DynamicResource App.Accent}"
+                                                BorderThickness="1.5"
+                                                HorizontalAlignment="Center"
+                                                Margin="0,2,0,0"
+                                                IsVisible="{Binding UnreadCount, Converter={StaticResource GreaterThanZeroConverter}}"/>
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                  <!-- Glowing unread dot — overlaid in the upper-right corner of the card -->
-                  <Border Classes="unread-dot" Width="10" Height="10" CornerRadius="5"
-                          Background="{DynamicResource App.Accent}"
-                          HorizontalAlignment="Right" VerticalAlignment="Top"
-                          Margin="0,6,6,0"
-                          IsVisible="{Binding HasUnread}"/>
-                  </Panel>
                 </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -779,7 +780,7 @@
                 <!-- Search Drop Panel -->
                 <Popup x:Name="ChatSearchPopup"
                        Grid.Row="0" Grid.RowSpan="2"
-                       PlacementMode="AnchorAndGravity"
+                      Placement="AnchorAndGravity"
                        PlacementAnchor="BottomRight"
                        PlacementGravity="BottomLeft"
                        IsLightDismissEnabled="True"
@@ -823,7 +824,7 @@
                 <!-- Pinned Messages Drop Panel -->
                 <Popup x:Name="PinnedDropPopup"
                        Grid.Row="0" Grid.RowSpan="2"
-                       PlacementMode="AnchorAndGravity"
+                      Placement="AnchorAndGravity"
                        PlacementAnchor="BottomRight"
                        PlacementGravity="BottomLeft"
                        IsLightDismissEnabled="True"
@@ -889,6 +890,7 @@
                                 </DataTemplate>
                                 <DataTemplate x:DataType="models:Message">
                                     <Border Classes="message-container message-row"
+                                            Tag="{Binding Id}"
                                             Padding="8"
                                             Margin="0,0,0,12">
                                         <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="12">
@@ -1139,6 +1141,18 @@
                                                                         <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUidFull" />
                                                                     </MultiBinding>
                                                                 </Panel.IsVisible>
+                                                                <Border Background="{DynamicResource App.ItemSelected}"
+                                                                        BorderBrush="{DynamicResource App.Accent}"
+                                                                        BorderThickness="1"
+                                                                        CornerRadius="8"
+                                                                        Padding="6,1"
+                                                                        Margin="0,0,6,0"
+                                                                        IsVisible="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusIsPendingConverter}}">
+                                                                    <TextBlock Text="Queued"
+                                                                               FontSize="10"
+                                                                               FontWeight="SemiBold"
+                                                                               Foreground="{DynamicResource App.Accent}" />
+                                                                </Border>
                                                                 <!-- Pending / Sent / Delivered: gray glyph -->
                                                                 <TextBlock Classes="icon-mdl2" FontSize="12" Opacity="0.55"
                                                                            Text="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusToGlyphConverter}}"
@@ -1298,6 +1312,13 @@
                                     Focusable="False">
                                 <TextBlock x:Name="ComposerMarkdownToggleIcon" Classes="icon-mdl2" Text="&#xE76C;" FontSize="14"/>
                             </Button>
+                            <Button x:Name="ComposerMarkdownPreviewToggleButton"
+                                    Classes="icon-button"
+                                    Click="ToggleComposerMarkdownPreview_Click"
+                                    ToolTip.Tip="Hide markdown preview"
+                                    Focusable="False">
+                                <TextBlock x:Name="ComposerMarkdownPreviewToggleIcon" Classes="icon-mdl2" Text="&#xE890;" FontSize="14"/>
+                            </Button>
                             <StackPanel x:Name="ComposerMarkdownButtonsPanel" Orientation="Horizontal" Spacing="6">
                                 <Button Classes="icon-button" Click="BoldButton_Click" ToolTip.Tip="{Binding LocalizedBold}" Focusable="False">
                                     <TextBlock Text="B" FontWeight="Bold" FontSize="13"/>
@@ -1351,6 +1372,29 @@
                                 <TextBlock Classes="icon-mdl2" Text="&#xE76E;"/>
                             </Button>
                         </Grid>
+                        <Border x:Name="ComposerMarkdownPreviewPanel"
+                                Grid.Row="3"
+                                CornerRadius="4"
+                                Padding="8,6"
+                                Background="{DynamicResource App.Surface}"
+                                BorderBrush="{DynamicResource App.Border}"
+                                BorderThickness="1"
+                                IsVisible="False">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Live markdown preview"
+                                           Opacity="0.75"
+                                           FontSize="11"/>
+                                <Grid>
+                                    <cm:Zer0TalkMarkdownViewer Markdown="{Binding OutgoingMessage}"
+                                                           IsEmojiOnly="{Binding IsOutgoingMessageEmojiOnly}"
+                                                           IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig}" />
+                                    <TextBlock Text="{Binding OutgoingMessage}"
+                                               TextWrapping="Wrap"
+                                               FontSize="{Binding IsOutgoingMessageEmojiOnly, Converter={StaticResource EmojiOnlyFontSizeConverter}}"
+                                               IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig, Converter={StaticResource InverseBoolConverter}}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
                     </Grid>
                 </Border>
                 
@@ -1444,7 +1488,7 @@
         <!-- Notification Drop Panel Popup (Discord-style dropdown from bell) -->
         <Popup x:Name="NotificationDropPopup"
                Grid.Row="0" Grid.RowSpan="3"
-               PlacementMode="AnchorAndGravity"
+             Placement="AnchorAndGravity"
                PlacementAnchor="BottomRight"
                PlacementGravity="BottomLeft"
                IsLightDismissEnabled="True"

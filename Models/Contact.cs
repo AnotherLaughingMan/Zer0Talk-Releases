@@ -2,6 +2,7 @@
     Contact entry: identity, display info, and trust flags.
 */
 using System.Text.Json.Serialization;
+using Zer0Talk.Utilities;
 
 namespace Zer0Talk.Models
 {
@@ -159,8 +160,7 @@ namespace Zer0Talk.Models
 
         private static string TrimPrefix(string uid)
         {
-            if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
-            return uid.StartsWith("usr-", System.StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+            return UidNormalization.TrimPrefix(uid ?? string.Empty);
         }
         // Additional contact properties
     }

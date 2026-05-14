@@ -127,17 +127,21 @@ namespace Zer0Talk.Services
                                     var connected = false;
                                     foreach (var invite in invites)
                                     {
+                                        var joined = false;
                                         try
                                         {
-                                            var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, invite.Source, ct);
-                                            if (joined)
-                                            {
-                                                try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
-                                                connected = true;
-                                                break;
-                                            }
+                                            joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, invite.Source, ct);
                                         }
                                         catch { }
+
+                                        // ACK every processed invite (success or failure) to avoid replay churn.
+                                        try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
+
+                                        if (joined)
+                                        {
+                                            connected = true;
+                                            break;
+                                        }
                                     }
 
                                     if (connected) break; // Successfully connected, stop polling
@@ -234,19 +238,23 @@ namespace Zer0Talk.Services
                         var connected = false;
                         foreach (var invite in invites)
                         {
+                            var joined = false;
                             try
                             {
-                                var joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, invite.Source, ct);
-                                if (joined)
-                                {
-                                    try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
-                                    AppendLog($"Relay invite poll: connected via invite from {invite.SourceUid}");
-                                    connected = true;
-                                    break;
-                                }
-                                AppendLog($"Relay invite poll: relay join failed for {invite.SourceUid}");
+                                joined = await AppServices.Network.TryConnectViaRelayInviteAsync(invite.SourceUid, invite.SessionKey, invite.Source, ct);
                             }
                             catch { }
+
+                            // ACK every processed invite (success or failure) to avoid replay churn.
+                            try { await AppServices.WanDirectory.TryAckRelayInviteAsync(localUid, invite.InviteId, ct); } catch { }
+
+                            if (joined)
+                            {
+                                AppendLog($"Relay invite poll: connected via invite from {invite.SourceUid}");
+                                connected = true;
+                                break;
+                            }
+                            AppendLog($"Relay invite poll: relay join failed for {invite.SourceUid}");
                         }
 
                         if (!connected)

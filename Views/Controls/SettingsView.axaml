@@ -222,6 +222,34 @@
                 </StackPanel>
               </Grid>
 
+              <Border Classes="general-divider" Margin="0,8,0,4"/>
+
+              <TextBlock Text="Hybrid UI Migration" FontWeight="SemiBold"/>
+
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,4,0,0">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableHybridContactsShell}" ToolTip.Tip="Enable hybrid contacts shell surface (opt-in)."/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Enable hybrid contacts shell" VerticalAlignment="Center"/>
+                  <TextBlock Text="Routes contacts list consumers through migration-safe shell contract paths." FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
+
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableHybridUnreadShell}" ToolTip.Tip="Enable hybrid unread shell surface (opt-in)."/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Enable hybrid unread shell" VerticalAlignment="Center"/>
+                  <TextBlock Text="Routes unread badge consumers through migration-safe shell contract paths." FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
+
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableHybridIpcHost}" ToolTip.Tip="Enable runtime named-pipe host for external shell clients."/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Enable hybrid IPC host" VerticalAlignment="Center"/>
+                  <TextBlock Text="Starts the runtime pipe host used by shell clients for contacts/unread requests and events." FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
+
               <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
                 <Button Content="{Binding LocalizedCheckForUpdatesNow}"
                         Command="{Binding CheckForUpdatesNowCommand}"

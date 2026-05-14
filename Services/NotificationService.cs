@@ -40,6 +40,7 @@ namespace Zer0Talk.Services
     private DateTime _lastMessageAudioUtc = DateTime.MinValue;
     private int _noticesChangedQueued;
     private int _securityEventsChangedQueued;
+    private int _unreadSnapshotChangedQueued;
 
     private const int ToastMargin = 12;
     private const int ToastSpacing = 8;
@@ -137,6 +138,57 @@ namespace Zer0Talk.Services
             Interlocked.Exchange(ref _securityEventsChangedQueued, 0);
             try { SecurityEventsChanged?.Invoke(); } catch { }
         }, DispatcherPriority.Background);
+    }
+
+    private void QueueUnreadCountChanged(string originUid)
+    {
+        if (string.IsNullOrWhiteSpace(originUid)) return;
+        var trimmed = TrimUidPrefix(originUid);
+        if (string.IsNullOrWhiteSpace(trimmed)) return;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            try
+            {
+                var unread = GetUnreadCountForPeer(trimmed);
+                UnreadCountChanged?.Invoke(trimmed, unread);
+            }
+            catch { }
+        }, DispatcherPriority.Background);
+    }
+
+    private void QueueUnreadSnapshotChanged()
+    {
+        if (Interlocked.Exchange(ref _unreadSnapshotChangedQueued, 1) == 1) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            Interlocked.Exchange(ref _unreadSnapshotChangedQueued, 0);
+            try { UnreadSnapshotChanged?.Invoke(GetUnreadCountsSnapshot()); } catch { }
+        }, DispatcherPriority.Background);
+    }
+
+    public IReadOnlyDictionary<string, int> GetUnreadCountsSnapshot()
+    {
+        var snapshot = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        lock (_notices)
+        {
+            for (int i = 0; i < _notices.Count; i++)
+            {
+                var n = _notices[i];
+                if (!n.IsMessage || !n.IsUnread) continue;
+                var origin = TrimUidPrefix(n.OriginUid ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(origin)) continue;
+                if (snapshot.TryGetValue(origin, out var current))
+                {
+                    snapshot[origin] = current + 1;
+                }
+                else
+                {
+                    snapshot[origin] = 1;
+                }
+            }
+        }
+        return snapshot;
     }
 
     private void RemoveToastWindow(Window toast)
@@ -555,6 +607,8 @@ namespace Zer0Talk.Services
 
         public event Action? NoticesChanged;
         public event Action? SecurityEventsChanged;
+        public event Action<string, int>? UnreadCountChanged;
+        public event Action<IReadOnlyDictionary<string, int>>? UnreadSnapshotChanged;
         public event Action<string, Guid?>? ReplyRequested;
 
         private static bool IsWithinQuietHours(Models.AppSettings settings, DateTime localNow)
@@ -656,11 +710,31 @@ namespace Zer0Talk.Services
             if (noticeId == Guid.Empty) return;
             try
             {
+                string? removedOrigin = null;
+                bool removedUnreadMessage = false;
                 lock (_notices)
                 {
-                    _notices.RemoveAll(n => n.Id == noticeId);
+                    for (int i = _notices.Count - 1; i >= 0; i--)
+                    {
+                        var notice = _notices[i];
+                        if (notice.Id != noticeId) continue;
+                        if (notice.IsMessage && notice.IsUnread)
+                        {
+                            removedUnreadMessage = true;
+                            removedOrigin = notice.OriginUid;
+                        }
+                        _notices.RemoveAt(i);
+                    }
                 }
                 QueueNoticesChanged();
+                if (removedUnreadMessage)
+                {
+                    if (!string.IsNullOrWhiteSpace(removedOrigin))
+                    {
+                        QueueUnreadCountChanged(removedOrigin);
+                    }
+                    QueueUnreadSnapshotChanged();
+                }
             }
             catch { }
         }
@@ -768,8 +842,17 @@ namespace Zer0Talk.Services
         {
             try
             {
-                lock (_notices) { _notices.Clear(); }
+                bool hadUnreadMessages = false;
+                lock (_notices)
+                {
+                    hadUnreadMessages = _notices.Any(n => n.IsMessage && n.IsUnread);
+                    _notices.Clear();
+                }
                 QueueNoticesChanged();
+                if (hadUnreadMessages)
+                {
+                    QueueUnreadSnapshotChanged();
+                }
             }
             catch { }
         }
@@ -782,11 +865,32 @@ namespace Zer0Talk.Services
                 if (origins == null) return;
                 var set = new HashSet<string>(origins.Where(x => !string.IsNullOrWhiteSpace(x)), StringComparer.OrdinalIgnoreCase);
                 if (set.Count == 0) return;
+                var affectedOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                bool removedUnreadMessages = false;
                 lock (_notices)
                 {
-                    _notices.RemoveAll(n => n.OriginUid != null && set.Contains(n.OriginUid));
+                    for (int i = _notices.Count - 1; i >= 0; i--)
+                    {
+                        var notice = _notices[i];
+                        if (notice.OriginUid == null || !set.Contains(notice.OriginUid)) continue;
+                        if (notice.IsMessage && notice.IsUnread)
+                        {
+                            removedUnreadMessages = true;
+                            var origin = TrimUidPrefix(notice.OriginUid);
+                            if (!string.IsNullOrWhiteSpace(origin)) affectedOrigins.Add(origin);
+                        }
+                        _notices.RemoveAt(i);
+                    }
                 }
                 QueueNoticesChanged();
+                if (removedUnreadMessages)
+                {
+                    foreach (var origin in affectedOrigins)
+                    {
+                        QueueUnreadCountChanged(origin);
+                    }
+                    QueueUnreadSnapshotChanged();
+                }
             }
             catch { }
         }

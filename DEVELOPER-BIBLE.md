@@ -1,7 +1,7 @@
 # Zer0Talk — Developer Bible
 
-**Version:** 0.0.4.05-Alpha  
-**Last Audited:** 2026-03-13  
+**Version:** 0.0.4.08-Alpha  
+**Last Audited:** 2026-05-14  
 **Status:** Living document. Treat with the same seriousness as production code.
 
 > **On AI tooling:** This project uses AI agents as part of its development workflow. This is not "vibe coding." Every decision — architectural, cryptographic, product, and policy — is made by the project owner. The AI is a tool, directed deliberately, the same way any other tool is. See [Section 21](#21-ai-in-the-development-workflow) for full disclosure.
@@ -46,7 +46,7 @@ Zer0Talk is a **private, end-to-end encrypted peer-to-peer messaging application
 - **Blind relay, zero knowledge.** Optional relay infrastructure can be self-hosted. Relays are not servers in the traditional sense — they retain no data and serve no content. A relay only facilitates the initial TCP connection request and forwards an opaque encrypted byte stream. The ECDH handshake and session keys are established end-to-end, through the relay-forwarded stream. The relay is provably blind to all plaintext.
 - **All data encrypted at rest.** Every persistent file is encrypted using XChaCha20-Poly1305 with Argon2id key derivation. Nothing is stored in plaintext.
 - **Self-sovereign.** Users control their data directory, their keys, their relay, and their contacts. Account deletion is performed via **Settings → Danger Zone → Delete Account**, which performs a secure multi-pass wipe of all identity and data files.
-- **Alpha stage.** The current version (`0.0.4.05-Alpha`) is pre-release. Breaking changes may occur between versions.
+- **Alpha stage.** The current version (`0.0.4.08-Alpha`) is pre-release. Breaking changes may occur between versions.
 
 ---
 
@@ -67,25 +67,25 @@ These are explicit, decided policy rejections — not omissions:
 ## 3. Repository Layout
 
 ```
-Zer0Talk/                          ← Main client (WinExe, .NET 9, Avalonia 11)
+Zer0Talk/                          ← Main client core (WinExe, .NET 9; Avalonia runtime shell while hybrid Tauri migration is in progress)
   App.axaml / App.axaml.cs         ← Application root
-  Program.cs                       ← Entry point, single-instance guard, Avalonia init
+  Program.cs                       ← Entry point, single-instance guard, client host bootstrap
   AppInfo.cs                       ← Version and build constants
   StartupInit.cs                   ← ModuleInitializer (earliest possible hook)
   Directory.Build.props            ← Shared version, analyzer policies
   GlobalSuppressions.cs            ← Global analyzer suppressions
   Assets/                          ← Icons, avatars, flags, sounds, syntax themes
   Containers/                      ← P2EContainer, OutboxContainer, MessageContainer
-  Controls/                        ← Reusable Avalonia controls (AvatarImage, FlagImage, etc.)
+  Controls/                        ← Reusable UI controls (current shell: Avalonia)
   Models/                          ← Data models (no business logic)
   Resources/                       ← Localization JSON, emoji catalog, flag index
   Scripts/                         ← PowerShell dev/ops scripts (not compiled)
   Services/                        ← All business logic (singletons via AppServices)
-  Styles/                          ← Avalonia theme AXAML
+  Styles/                          ← Current Avalonia theme AXAML
   Tests/                           ← xUnit test project
   Utilities/                       ← Pure helpers: logging, crypto, converters, paths
   ViewModels/                      ← MVVM view models
-  Views/                           ← Avalonia windows and panels
+  Views/                           ← Current Avalonia windows and panels
   Zer0Talk.RelayServer/            ← Relay server (separate WinExe, same solution)
 ```
 
@@ -98,7 +98,8 @@ Zer0Talk/                          ← Main client (WinExe, .NET 9, Avalonia 11)
 | Layer | Technology |
 |---|---|
 | Runtime | .NET 9 |
-| UI framework | Avalonia 11.3.7 (Fluent theme) |
+| UI framework (current shell) | Avalonia 11.3.7 (Fluent theme) |
+| UI migration target | Tauri shell (hybrid rollout via IPC/adapter feature gates) |
 | UI icons | Material.Icons.Avalonia |
 | Markdown | Markdig 0.37 |
 | Symmetric crypto | libsodium (Sodium.Core) — XChaCha20-Poly1305 |
@@ -235,7 +236,7 @@ Program.Main()
   ├── SetCurrentProcessExplicitAppUserModelID("Zer0Talk.App")   // Taskbar identity
   ├── Acquire single-instance Mutex                             // Bring existing window to front and exit if lost
   ├── Register FirstChanceException handler for diagnostics
-  ├── Build Avalonia AppBuilder and start
+  ├── Build current client host and start (Avalonia runtime shell today)
   └── App.OnFrameworkInitializationCompleted()
         ├── AppDataPaths.MigrateIfNeeded()
         ├── Initialize services (all AppServices singletons exist from static init)
@@ -276,6 +277,15 @@ AppServices.Discovery      // DiscoveryService  – LAN/relay invite polling
 AppServices.Retention      // RetentionService  – orphan file cleanup, log pruning
 AppServices.ThemeEngine    // ThemeEngine       – theme management
 AppServices.Notifications  // NotificationService – toast + notification center
+AppServices.UnreadState    // UnreadStateService – canonical unread snapshot facade
+AppServices.UnreadBridge   // UnreadBridgeService – DTO/JSON unread transport surface
+AppServices.UnreadIpcEndpoint // UnreadIpcEndpointService – unread IPC command/event contract
+AppServices.ContactsBridge // ContactsBridgeService – contacts snapshot transport surface
+AppServices.ContactsIpcEndpoint // ContactsIpcEndpointService – contacts IPC command/event contract
+AppServices.HybridIpcHost  // HybridIpcHostService – runtime named-pipe host for hybrid shell
+AppServices.HybridShellIpcClient // HybridShellIpcClientService – shell-side IPC consumer client
+AppServices.HybridShellConsumer // HybridShellConsumerService – snapshot/delta consume coordinator
+AppServices.HybridShellAdapter // HybridShellAdapterService – stable shell-facing state facade
 AppServices.AutoUpdate     // AutoUpdateService – GitHub release feed check
 AppServices.IpBlocking     // IpBlockingService – per-IP and CIDR blocking
 AppServices.Localization   // LocalizationService – i18n string lookup
@@ -597,14 +607,18 @@ The `FilteredDiscoveredRelays` observable collection (`SettingsViewModel`) is po
 
 ### Framework
 
-Avalonia 11.3.7 with `FluentTheme`. Compiled bindings are enabled by default (`AvaloniaUseCompiledBindingsByDefault=true` in the client `.csproj`). The relay server disables compiled bindings for flexibility.
+Current production UI shell is Avalonia 11.3.7 with `FluentTheme`. Compiled bindings are enabled by default (`AvaloniaUseCompiledBindingsByDefault=true` in the client `.csproj`).
+
+Migration direction is a hybrid Tauri shell rollout (slice-by-slice), with .NET services and protocol logic retained as the source of truth during transition.
 
 ### Pattern
 
-Strict MVVM:
+Current shell pattern (Avalonia): strict MVVM.
 - **Views** (`.axaml` + `.axaml.cs`): Only UI wiring. No business logic. Subscribes to EventHub or ViewModel events.
 - **ViewModels** (`.cs`): Implements `INotifyPropertyChanged`. Contains presentation logic. No direct network or IO calls — delegates to services.
 - **Services**: All logic. No Avalonia dependencies. (Exception: `AppServices.Events.RaiseUiPulse` may be called from a background service, but it only dispatches a signal — no UI manipulation from services.)
+
+Migration rule (Tauri slices): shell-side UI consumes state via adapter/IPC contracts rather than duplicating network or crypto behavior in the frontend.
 
 ### Window Inventory
 
@@ -635,6 +649,24 @@ Strict MVVM:
 | `PresenceDndIcon` | `Controls/PresenceDndIcon.axaml` | Do-Not-Disturb indicator |
 | `PresenceIdleIcon` | `Controls/PresenceIdleIcon.axaml` | Idle indicator |
 | `MarkdownToolbar` | `Controls/MarkdownToolbar.axaml` | Floating and inline formatting bar |
+| `Zer0TalkMarkdownViewer` | `Controls/Markdown/ZTalkMarkdownViewer.cs` | Safe markdown viewer (Markdig parser -> render model -> Avalonia controls) |
+
+### Composer Markdown UX (Current)
+
+- The composer has two independent UX toggles in `MainWindow`: one for formatting tools and one for live markdown preview.
+- The live preview panel renders from `OutgoingMessage` using `Zer0TalkMarkdownViewer` and only appears when preview is enabled and the composer is non-empty.
+- Preview visibility is persisted via `AppSettings.ComposerMarkdownPreviewVisible`.
+- Formatting toolbar visibility is persisted via `AppSettings.ComposerMarkdownToolsVisible`.
+
+### Hybrid UI Migration Gates (Current)
+
+`AppSettings` now contains feature flags used for controlled rollout of shell migration slices:
+
+- `EnableHybridContactsShell`
+- `EnableHybridUnreadShell`
+- `EnableHybridIpcHost`
+
+These gates allow gradual Tauri shell adoption with rollback control per slice.
 
 ### Theme System
 
@@ -677,7 +709,7 @@ Custom `.zttheme` files are stored in `%APPDATA%\Zer0Talk\Themes\`. The theme sa
 |---|---|---|
 | `Pending` | Clock | Message enqueued locally |
 | `Sent` | Single checkmark | Message written to AeadTransport without error |
-| `Delivered` | Filled checkmark | Peer sent `0xB5` ACK frame with this message's GUID |
+| `Delivered` | Single checkmark (gray) | Peer sent `0xB5` ACK frame with this message's GUID |
 
 Delivery status is persisted to the message file (`messages/<uid8>.p2e`) and restored on conversation load.
 
@@ -703,6 +735,7 @@ Outbox drain is subject to `OutboxDrainLimiter (2,2)` and `OutboxDrainDebounce (
 | Conversation search | Live (v1) | In-thread search, next/prev navigation |
 | Message space filters | Live | All, Unread, Pinned, Starred |
 | Delivery ACK | Live | `0xB5` frame → Delivered status |
+| Composer live markdown preview | Live | Toggleable preview panel above composer input; visibility persisted in settings |
 | File/image transfer | **Rejected** | See [Section 2](#2-what-zer0talk-is-not) |
 
 ---
@@ -714,13 +747,13 @@ Outbox drain is subject to `OutboxDrainLimiter (2,2)` and `OutboxDrainDebounce (
 The single source of truth is `Directory.Build.props`:
 
 ```xml
-<Zer0TalkVersion>0.0.4.05</Zer0TalkVersion>
+<Zer0TalkVersion>0.0.4.08</Zer0TalkVersion>
 <Zer0TalkPrereleaseTag>Alpha</Zer0TalkPrereleaseTag>
 ```
 
 Both `Zer0Talk.csproj` and `Zer0Talk.RelayServer.csproj` inherit these values. A MSBuild target (`ValidateSharedVersionSync`) enforces at build time that `Version`, `AssemblyVersion`, `FileVersion`, and `InformationalVersion` all match the shared values. A version drift between the two projects is a **build error**.
 
-**InformationalVersion format:** `0.0.4.05-Alpha`
+**InformationalVersion format:** `0.0.4.08-Alpha`
 
 `AppInfo.Version` (and `RelayAppInfo.Version`) parse the assembly's `AssemblyInformationalVersionAttribute`, stripping the prerelease tag and any `+<commit>` suffix automatically.
 
@@ -728,7 +761,7 @@ Both `Zer0Talk.csproj` and `Zer0Talk.RelayServer.csproj` inherit these values. A
 
 | Config | Analyzers | AppHost | Notes |
 |---|---|---|---|
-| Debug | Off | Enabled | Avalonia Diagnostics included |
+| Debug | Off | Enabled | Avalonia diagnostics included for the current runtime shell |
 | Release | Recommended | Enabled | Analyzers on, optimized |
 
 **Always build both configurations before declaring work done.** This is a standing requirement — never ship Debug-only validation.
@@ -852,7 +885,8 @@ Files over **600 lines are too long.** Split into focused partial classes (the c
 
 ### Threading
 
-- UI updates must happen on the Avalonia UI thread. Use `Dispatcher.UIThread.Post()` or `InvokeAsync()` when transitioning from background tasks.
+- For the current Avalonia shell, UI updates must happen on the Avalonia UI thread. Use `Dispatcher.UIThread.Post()` or `InvokeAsync()` when transitioning from background tasks.
+- For hybrid/Tauri shell slices, marshal UI updates through the shell runtime event loop; do not call Avalonia UI APIs from shell-side code.
 - All cross-thread shared state uses `ConcurrentDictionary`, `Interlocked`, or `lock`.
 - `SemaphoreSlim` is used to bound concurrency on network operations (never unbounded `Task.Run` floods).
 
@@ -882,7 +916,7 @@ Security is not a layer — it is the foundation. Every change must be evaluated
 | Replay attacks | Monotonic AeadTransport counter; message-ID dedup window (30 min) |
 | Data theft at rest | All .p2e files are P2E3-encrypted with Argon2id + XChaCha20-Poly1305 |
 | Passphrase exposure | DPAPI protection; buffers zeroed after use |
-| Injection (UI) | Avalonia data binding with compiled bindings; no eval of user content as code |
+| Injection (UI) | No eval of user content as code; current Avalonia shell uses compiled bindings, hybrid shell slices must preserve the same no-eval policy |
 | SSRF | Allowlist for all outbound HTTP; private IP ranges rejected |
 | Protocol handler abuse | UrlLauncher enforces http/https scheme only |
 | DoS (connection flood) | 15 connections/5 min per IP client-side; relay rate limiter per IP + UID |

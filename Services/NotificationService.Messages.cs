@@ -209,6 +209,11 @@ namespace Zer0Talk.Services
             if (notify)
             {
                 QueueNoticesChanged();
+                if (!string.IsNullOrWhiteSpace(updated.OriginUid))
+                {
+                    QueueUnreadCountChanged(updated.OriginUid);
+                }
+                QueueUnreadSnapshotChanged();
                 TryWriteUiVerboseLogThrottled("notices.message.update", TimeSpan.FromMilliseconds(1500),
                     () => $"{DateTime.Now:O} [Notices] Message notice {(addedToCenter ? "added to center" : "skipped center")}: {updated.Title}\n");
             }
@@ -437,6 +442,7 @@ namespace Zer0Talk.Services
         {
             if (messageId == Guid.Empty) return;
             bool notify = false;
+            string? affectedOrigin = null;
             lock (_notices)
             {
                 var index = _notices.FindIndex(n => n.IsMessage && n.MessageId == messageId);
@@ -448,11 +454,17 @@ namespace Zer0Talk.Services
                 }
                 var updated = existing with { IsUnread = false, ReadUtc = existing.ReadUtc ?? DateTime.UtcNow };
                 _notices[index] = updated;
+                affectedOrigin = updated.OriginUid;
                 notify = true;
             }
             if (notify)
             {
                 QueueNoticesChanged();
+                if (!string.IsNullOrWhiteSpace(affectedOrigin))
+                {
+                    QueueUnreadCountChanged(affectedOrigin);
+                }
+                QueueUnreadSnapshotChanged();
             }
             if (scheduleRemoval) EnqueueMessageRemoval(messageId);
         }
@@ -509,6 +521,8 @@ namespace Zer0Talk.Services
             if (notify)
             {
                 QueueNoticesChanged();
+                QueueUnreadCountChanged(trimmed);
+                QueueUnreadSnapshotChanged();
             }
             foreach (var id in toRemove)
             {
@@ -519,6 +533,7 @@ namespace Zer0Talk.Services
         public void MarkAllMessageNoticesRead()
         {
             var ids = new List<Guid>();
+            var affectedOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             bool notify = false;
             lock (_notices)
             {
@@ -528,6 +543,8 @@ namespace Zer0Talk.Services
                     if (n.IsMessage && n.MessageId.HasValue)
                     {
                         ids.Add(n.MessageId.Value);
+                        var origin = TrimUidPrefix(n.OriginUid ?? string.Empty);
+                        if (!string.IsNullOrWhiteSpace(origin)) affectedOrigins.Add(origin);
                         if (n.IsUnread || !n.ReadUtc.HasValue)
                         {
                             _notices[i] = n with { IsUnread = false, ReadUtc = DateTime.UtcNow };
@@ -540,6 +557,11 @@ namespace Zer0Talk.Services
             if (notify)
             {
                 QueueNoticesChanged();
+                foreach (var origin in affectedOrigins)
+                {
+                    QueueUnreadCountChanged(origin);
+                }
+                QueueUnreadSnapshotChanged();
             }
             foreach (var id in ids)
             {

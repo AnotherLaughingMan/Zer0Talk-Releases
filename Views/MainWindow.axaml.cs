@@ -20,6 +20,7 @@ using Avalonia.Threading;
 using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 using System.Threading;
+using System.Threading.Tasks;
 using System.IO;
 using System.Collections.Specialized;
 
@@ -47,6 +48,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     public System.Windows.Input.ICommand StatusDurationCommand { get; }
     private const double ChatInputDefaultMinHeight = 56d;
     private const double ChatInputDefaultMaxHeight = 200d;
+    private bool _composerMarkdownPreviewEnabled = true;
     // Geometry is now persisted via lightweight LayoutCache on close only (no runtime throttled writes)
     // NOTE: We intentionally removed frequent writes to settings.p2e to avoid I/O overhead.
     // Remember last non-zero width of the Notification Center (right) panel within the session
@@ -88,6 +90,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private bool _isBellFlashing;
     private EventHandler? _themeAppliedHandler;
     private Guid? _lastAutoScrolledSearchMessageId;
+    private Guid? _pendingChatMessageJumpId;
     private Control? _lastReactionPickerAnchor;
 
     public MainWindow()
@@ -143,6 +146,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             this.Opened += (_, __) => AttachFlickerWatchers();
             this.Opened += (_, __) => InitializeMessageInputSizing();
             this.Opened += (_, __) => RestoreComposerMarkdownToolsVisibility();
+            this.Opened += (_, __) => RestoreComposerMarkdownPreviewVisibility();
             this.Opened += (_, __) => InitializeMarkdownToolbar();
             this.Opened += (_, __) => InitializeNotificationBellFlash();
             this.Activated += (_, __) => WriteUiCategory("[Window]", "Activated");
@@ -2957,6 +2961,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    private void ToggleComposerMarkdownPreview_Click(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var showPreview = !_composerMarkdownPreviewEnabled;
+            UpdateComposerMarkdownPreviewUi(showPreview);
+            PersistComposerMarkdownPreviewVisibility(showPreview);
+            e.Handled = true;
+        }
+        catch { }
+    }
+
     private void RestoreComposerMarkdownToolsVisibility()
     {
         try
@@ -2975,6 +2991,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             AppServices.Settings.Settings.ComposerMarkdownToolsVisible = visible;
+            _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
+        }
+        catch { }
+    }
+
+    private void RestoreComposerMarkdownPreviewVisibility()
+    {
+        try
+        {
+            var visible = AppServices.Settings.Settings.ComposerMarkdownPreviewVisible;
+            UpdateComposerMarkdownPreviewUi(visible);
+        }
+        catch
+        {
+            try { UpdateComposerMarkdownPreviewUi(true); } catch { }
+        }
+    }
+
+    private void PersistComposerMarkdownPreviewVisibility(bool visible)
+    {
+        try
+        {
+            AppServices.Settings.Settings.ComposerMarkdownPreviewVisible = visible;
             _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
         }
         catch { }
@@ -3002,6 +3041,46 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 ToolTip.SetTip(toggleButton, visible ? "Hide markdown tools" : "Show markdown tools");
             }
+        }
+        catch { }
+    }
+
+    private void UpdateComposerMarkdownPreviewUi(bool visible)
+    {
+        try
+        {
+            _composerMarkdownPreviewEnabled = visible;
+
+            var icon = this.FindControl<TextBlock>("ComposerMarkdownPreviewToggleIcon");
+            var toggleButton = this.FindControl<Button>("ComposerMarkdownPreviewToggleButton");
+
+            if (icon != null)
+            {
+                icon.Text = visible ? "\uE890" : "\uE8A7";
+            }
+
+            if (toggleButton != null)
+            {
+                ToolTip.SetTip(toggleButton, visible ? "Hide markdown preview" : "Show markdown preview");
+            }
+
+            UpdateComposerPreviewVisibility();
+        }
+        catch { }
+    }
+
+    private void UpdateComposerPreviewVisibility()
+    {
+        try
+        {
+            var panel = this.FindControl<Border>("ComposerMarkdownPreviewPanel");
+            var input = GetMessageInput();
+            if (panel == null || input == null)
+            {
+                return;
+            }
+
+            panel.IsVisible = _composerMarkdownPreviewEnabled && !string.IsNullOrWhiteSpace(input.Text);
         }
         catch { }
     }
@@ -3066,6 +3145,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             return;
         }
+
+        UpdateComposerPreviewVisibility();
 
         // Skip resize during active text selection to prevent freezing
         if (input.SelectionStart != input.SelectionEnd)
@@ -6116,11 +6197,72 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (!string.IsNullOrWhiteSpace(notice.OriginUid) && DataContext is MainWindowViewModel vm)
             {
                 vm.FocusConversation(notice.OriginUid);
+                if (notice.MessageId.HasValue && notice.MessageId.Value != Guid.Empty)
+                {
+                    QueueChatMessageJump(notice.MessageId.Value);
+                }
             }
 
             e.Handled = true;
         }
         catch { }
+    }
+
+    private void QueueChatMessageJump(Guid messageId)
+    {
+        try
+        {
+            if (messageId == Guid.Empty) return;
+            _pendingChatMessageJumpId = messageId;
+            _ = AttemptChatMessageJumpAsync(messageId);
+        }
+        catch { }
+    }
+
+    private async Task AttemptChatMessageJumpAsync(Guid messageId)
+    {
+        try
+        {
+            for (var attempt = 0; attempt < 20; attempt++)
+            {
+                if (_pendingChatMessageJumpId != messageId) return;
+                if (TryBringChatMessageIntoView(messageId))
+                {
+                    _pendingChatMessageJumpId = null;
+                    return;
+                }
+                await Task.Delay(50).ConfigureAwait(false);
+            }
+        }
+        catch { }
+        finally
+        {
+            if (_pendingChatMessageJumpId == messageId)
+            {
+                _pendingChatMessageJumpId = null;
+            }
+        }
+    }
+
+    private bool TryBringChatMessageIntoView(Guid messageId)
+    {
+        try
+        {
+            if (messageId == Guid.Empty) return false;
+            var scrollViewer = this.FindControl<ScrollViewer>("ChatScroll");
+            if (scrollViewer == null) return false;
+            scrollViewer.UpdateLayout();
+
+            var target = scrollViewer.GetVisualDescendants()
+                .OfType<Control>()
+                .FirstOrDefault(control => control.Tag is Guid taggedId && taggedId == messageId);
+
+            if (target == null) return false;
+
+            target.BringIntoView();
+            return true;
+        }
+        catch { return false; }
     }
 
     // Public API: Reset main UI to defaults (panel visibility + layout) and persist immediately.

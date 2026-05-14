@@ -811,11 +811,27 @@ namespace Zer0Talk.ViewModels
             {
                 Action noticesChanged = () => 
                 { 
-                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] NoticesChanged event fired, posting RefreshContactMetadata to UI thread\n"); } catch { }
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() => { RefreshHasPendingInvites(); RefreshContactMetadata(); }); 
+                    try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] NoticesChanged event fired, posting invite badge refresh to UI thread\n"); } catch { }
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => { RefreshHasPendingInvites(); }); 
                 };
                 AppServices.Notifications.NoticesChanged += noticesChanged;
                 _teardownActions.Add(() => AppServices.Notifications.NoticesChanged -= noticesChanged);
+            }
+            catch { }
+            try
+            {
+                var initialUnreadSnapshot = AppServices.UnreadState.GetSnapshot();
+                RefreshUnreadCountsFromSnapshot(initialUnreadSnapshot);
+
+                Action<IReadOnlyDictionary<string, int>> unreadSnapshotChanged = snapshot =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        try { RefreshUnreadCountsFromSnapshot(snapshot); } catch { }
+                    });
+                };
+                AppServices.UnreadState.SnapshotChanged += unreadSnapshotChanged;
+                _teardownActions.Add(() => AppServices.UnreadState.SnapshotChanged -= unreadSnapshotChanged);
             }
             catch { }
             try
@@ -3286,14 +3302,10 @@ namespace Zer0Talk.ViewModels
                 {
                     var normalized = TrimUidPrefix(recipientUid);
                     if (string.IsNullOrWhiteSpace(normalized)) return;
-                    for (var i = 0; i < 4; i++)
+
+                    if (AppServices.Network.HasEncryptedSession(normalized))
                     {
-                        if (AppServices.Network.HasEncryptedSession(normalized))
-                        {
-                            await AppServices.Outbox.DrainAsync(normalized, AppServices.Passphrase, CancellationToken.None);
-                            return;
-                        }
-                        await Task.Delay(300).ConfigureAwait(false);
+                        await AppServices.Outbox.DrainAsync(normalized, AppServices.Passphrase, CancellationToken.None).ConfigureAwait(false);
                     }
                 }
                 catch { }
@@ -3937,6 +3949,30 @@ namespace Zer0Talk.ViewModels
             {
                 try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] REFRESH OUTER ERROR: {ex.Message}\n"); } catch { }
             }
+        }
+
+        private void RefreshUnreadCountsFromSnapshot(IReadOnlyDictionary<string, int> snapshot)
+        {
+            try
+            {
+                if (snapshot == null) return;
+                foreach (var contact in Contacts)
+                {
+                    try
+                    {
+                        var uid = TrimUidPrefix(contact.UID);
+                        var unread = snapshot.TryGetValue(uid, out var value) ? value : 0;
+                        if (contact.UnreadCount != unread)
+                        {
+                            contact.UnreadCount = unread;
+                        }
+                    }
+                    catch { }
+                }
+
+                SynchronizeUnreadCountsToFilteredContacts();
+            }
+            catch { }
         }
 
         /// <summary>Verify that FilteredContacts items are same references as Contacts items (not copies).</summary>

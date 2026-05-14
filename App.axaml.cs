@@ -603,6 +603,26 @@ public partial class App : Application
             try { Logger.Log($"Failed to initialize system tray on startup: {ex.Message}"); } catch { }
             SafeStartupLog($"SystemTray: Failed to initialize - {ex.Message}");
         }
+
+        // Start hybrid IPC host if feature-gated on in settings.
+        try
+        {
+            AppServices.StartHybridIpcHostIfEnabled();
+        }
+        catch (Exception ex)
+        {
+            try { Logger.Log($"Hybrid IPC host start check failed: {ex.Message}"); } catch { }
+        }
+
+        // Start shell-side hybrid consumer if feature-gated on in settings.
+        try
+        {
+            AppServices.StartHybridShellAdapterIfEnabled();
+        }
+        catch (Exception ex)
+        {
+            try { Logger.Log($"Hybrid shell consumer start check failed: {ex.Message}"); } catch { }
+        }
         
         // Setup other post-initialization tasks as needed
         _ = System.Threading.Tasks.Task.Run(() =>
