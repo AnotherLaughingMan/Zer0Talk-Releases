@@ -430,27 +430,27 @@ namespace Zer0Talk.Controls.Markdown
         }
     }
     
-    // Check if text is quote markdown (starts with >)
+    // Returns true when the first non-empty line is a quote.
     private static bool IsQuoteMarkdown(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         
-        // Check if any line starts with >
+        // First non-empty line check.
     var lines = text.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
     return lines.Length > 0 && lines[0].TrimStart().StartsWith('>');
     }
 
-    // Check if text is code block markdown (starts with ``` or contains code fence)
+    // Returns true when text starts with a fenced code block.
     private static bool IsCodeBlockMarkdown(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         
     var trimmed = text.Trim();
-    // Check for fenced code block: ```language or just ```
+    // Accept both ```language and plain ``` forms.
     return trimmed.StartsWith("```", StringComparison.Ordinal);
     }
 
-    // Check if text contains spoiler markdown ||text||
+    // Returns true when spoiler tokens are present.
     private static bool HasSpoilerMarkdown(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
@@ -458,17 +458,17 @@ namespace Zer0Talk.Controls.Markdown
         return SpoilerTokenizer.ContainsValidSpoiler(text);
     }
 
-    // Check if text is header markdown (starts with #)
+    // Returns true when line starts with markdown header markers.
     private static bool IsHeaderMarkdown(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         
     var trimmed = text.TrimStart();
-    // Check for header: # ## ### #### ##### ######
+    // Header markers: # through ######.
     return trimmed.StartsWith('#');
     }
 
-    // Check if text is list markdown (starts with -, *, +, or digit.)
+    // Returns true when text looks like a list.
     private static bool IsListMarkdown(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
@@ -478,11 +478,11 @@ namespace Zer0Talk.Controls.Markdown
         
         var firstLine = lines[0].TrimStart();
         
-        // Check for unordered list: -, *, +
+        // Unordered list markers.
         if (firstLine.StartsWith("- ", StringComparison.Ordinal) || firstLine.StartsWith("* ", StringComparison.Ordinal) || firstLine.StartsWith("+ ", StringComparison.Ordinal))
             return true;
         
-        // Check for ordered list: 1. 2. 3. etc.
+        // Ordered list markers such as 1. 2. 3.
         if (firstLine.Length > 2 && char.IsDigit(firstLine[0]))
         {
             for (int i = 1; i < firstLine.Length; i++)
@@ -497,28 +497,28 @@ namespace Zer0Talk.Controls.Markdown
         return false;
     }
 
-    // Check if text is horizontal rule (---, ***, ___)
+    // Returns true when text is a horizontal rule.
     private static bool IsHorizontalRuleMarkdown(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
         
         var trimmed = text.Trim();
         
-        // Must be at least 3 characters of the same type: --- or *** or ___
+        // Must contain at least three of the same marker.
         if (trimmed.Length < 3) return false;
         
-        // Check if it's all dashes, asterisks, or underscores (with optional spaces)
+        // Allow whitespace between markers.
         var chars = trimmed.Where(c => !char.IsWhiteSpace(c)).ToArray();
         if (chars.Length < 3) return false;
         
         var firstChar = chars[0];
         if (firstChar != '-' && firstChar != '*' && firstChar != '_') return false;
         
-        // All non-whitespace chars must be the same
+        // Every non-space char must match.
         return chars.All(c => c == firstChar);
     }
 
-    // Check if text is table markdown (contains | separators)
+    // Returns true when lines match table layout.
     private static bool IsTableMarkdown(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
@@ -528,9 +528,9 @@ namespace Zer0Talk.Controls.Markdown
     var lines = text.Split(LineSeparators, StringSplitOptions.RemoveEmptyEntries);
         System.Diagnostics.Debug.WriteLine($"[IsTableMarkdown] Lines count: {lines.Length}");
         
-        if (lines.Length < 2) return false; // Need at least header and separator
+        if (lines.Length < 2) return false; // Needs at least header and separator.
         
-        // Look for table separator line (contains | and -)
+        // Look for a separator line like |---|---|.
         foreach (var line in lines)
         {
             var trimmed = line.Trim();
@@ -538,7 +538,7 @@ namespace Zer0Talk.Controls.Markdown
             
             if (trimmed.Contains('|') && trimmed.Contains('-'))
             {
-                // Check if it's a separator line: |---|---|
+                // Confirm only table separator chars are present.
                 var hasOnlyTableChars = trimmed.All(c => c == '|' || c == '-' || c == ':' || char.IsWhiteSpace(c));
                 System.Diagnostics.Debug.WriteLine($"[IsTableMarkdown] Has table chars: {hasOnlyTableChars}, Pipe count: {trimmed.Count(c => c == '|')}");
                 
@@ -554,7 +554,7 @@ namespace Zer0Talk.Controls.Markdown
         return false;
     }
 
-    // Check if text has multiple different markdown types (mixed document)
+    // Returns true when text mixes multiple markdown block types.
     private static bool HasMixedMarkdown(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;

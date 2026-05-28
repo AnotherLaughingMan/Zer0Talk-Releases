@@ -8,8 +8,8 @@ using Markdig.Syntax.Inlines;
 namespace Zer0Talk.Controls.Markdown;
 
 /// <summary>
-/// Parser that converts Markdown text into a safe, serializable RenderModel.
-/// Uses Markdig for robust parsing, then maps to our custom render model types.
+/// Converts Markdown text into a safe, serializable RenderModel.
+/// Uses Markdig for parsing, then maps blocks/inlines to local render model types.
 /// </summary>
 public sealed class MarkdownParser
 {
@@ -17,8 +17,7 @@ public sealed class MarkdownParser
 
     public MarkdownParser()
     {
-        // Configure Markdig pipeline with safe defaults
-        // Security: HTML is disabled for P2P safety
+        // Keep the pipeline small and predictable. HTML stays disabled.
         _pipeline = new MarkdownPipelineBuilder()
             .UseEmphasisExtras()      // Bold, italic, strikethrough
             .UsePipeTables()           // Table support
@@ -28,9 +27,8 @@ public sealed class MarkdownParser
     }
 
     /// <summary>
-    /// Parse markdown text into a RenderModel Document.
-    /// Returns null if parsing fails.
-    /// CRITICAL: Never throws - always returns Document or null for safe fallback.
+    /// Parses markdown text into a RenderModel document.
+    /// Returns null on hard failure; callers can fall back to plain text rendering.
     /// </summary>
     public Document? Parse(string markdownText)
     {
@@ -41,7 +39,7 @@ public sealed class MarkdownParser
 
         try
         {
-            // Parse with Markdig - wrapped in defensive try-catch
+            // Parse with Markdig inside a local guard.
             MarkdownDocument? markdigDoc = null;
             try
             {
@@ -49,7 +47,7 @@ public sealed class MarkdownParser
             }
             catch (Exception markdigEx)
             {
-                // Markdig itself failed - log and return null
+                // Markdig failed here; log and let caller fall back.
                 System.Diagnostics.Debug.WriteLine($"[MarkdownParser] Markdig.Parse failed: {markdigEx.Message}");
                 return null;
             }
@@ -59,7 +57,7 @@ public sealed class MarkdownParser
                 return null;
             }
 
-            // Convert to RenderModel - each block wrapped in try-catch
+            // Convert each block independently so one bad block does not kill the document.
             var blocks = new List<BlockNode>();
             try
             {
@@ -75,9 +73,9 @@ public sealed class MarkdownParser
                     }
                     catch (Exception blockEx)
                     {
-                        // Single block failed - skip it, continue with others
+                        // One block failed; keep going with the rest.
                         System.Diagnostics.Debug.WriteLine($"[MarkdownParser] Block conversion failed: {blockEx.Message}");
-                        // Add a fallback block to indicate error
+                        // Add a small placeholder so layout remains stable.
                         try
                         {
                             blocks.Add(new Paragraph 
@@ -94,16 +92,16 @@ public sealed class MarkdownParser
             }
             catch (Exception iterEx)
             {
-                // Iteration itself failed - return what we have so far
+                // Iteration failed; return whatever was collected.
                 System.Diagnostics.Debug.WriteLine($"[MarkdownParser] Block iteration failed: {iterEx.Message}");
             }
 
-            // Always return a Document, even if empty
+            // Always return a document, even if it's empty.
             return new Document { Blocks = blocks };
         }
         catch (Exception topEx)
         {
-            // Top-level parser failure - log and return null
+            // Top-level parser failure.
             System.Diagnostics.Debug.WriteLine($"[MarkdownParser] Top-level parse failed: {topEx.Message}");
             return null;
         }

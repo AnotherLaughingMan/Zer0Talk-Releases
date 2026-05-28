@@ -4,9 +4,9 @@
 **Last Audited:** 2026-05-14  
 **Status:** Living document. Treat with the same seriousness as production code.
 
-> **On AI tooling:** This project uses AI agents as part of its development workflow. This is not "vibe coding." Every decision — architectural, cryptographic, product, and policy — is made by the project owner. The AI is a tool, directed deliberately, the same way any other tool is. See [Section 21](#21-ai-in-the-development-workflow) for full disclosure.
+> **On AI tooling:** This project uses AI agents in day-to-day development. It is not "vibe coding." Architecture, cryptography, product direction, and policy are decided by the project owner. AI is treated as a tool and reviewed like any other input. See [Section 21](#21-ai-in-the-development-workflow) for full disclosure.
 
-Every contributor is expected to read, understand, and follow this document. It defines what Zer0Talk is, why it exists, how it is built, and the principles that govern every decision made in this codebase.
+Every contributor is expected to read, understand, and follow this document. It explains what Zer0Talk is, why it exists, how it is built, and the principles behind decisions in this codebase.
 
 ---
 
@@ -648,15 +648,24 @@ Migration rule (Tauri slices): shell-side UI consumes state via adapter/IPC cont
 | `VerifiedBadge` | `Controls/VerifiedBadge.axaml` | Shield icon for verified contacts |
 | `PresenceDndIcon` | `Controls/PresenceDndIcon.axaml` | Do-Not-Disturb indicator |
 | `PresenceIdleIcon` | `Controls/PresenceIdleIcon.axaml` | Idle indicator |
-| `MarkdownToolbar` | `Controls/MarkdownToolbar.axaml` | Floating and inline formatting bar |
 | `Zer0TalkMarkdownViewer` | `Controls/Markdown/ZTalkMarkdownViewer.cs` | Safe markdown viewer (Markdig parser -> render model -> Avalonia controls) |
 
 ### Composer Markdown UX (Current)
 
-- The composer has two independent UX toggles in `MainWindow`: one for formatting tools and one for live markdown preview.
-- The live preview panel renders from `OutgoingMessage` using `Zer0TalkMarkdownViewer` and only appears when preview is enabled and the composer is non-empty.
-- Preview visibility is persisted via `AppSettings.ComposerMarkdownPreviewVisible`.
-- Formatting toolbar visibility is persisted via `AppSettings.ComposerMarkdownToolsVisible`.
+- Hybrid markdown shell mode is now the preferred path for composer markdown UX (`EnableHybridMarkdownShell`).
+- Tauri-facing markdown IPC contract includes:
+  - `markdown.render.get` (preview html generation)
+  - `markdown.format.apply` (toolbar/header/inline action application)
+  - `markdown.ui.config.get` (preview button + toolbar + mini-editor capability/config surface)
+  - `markdown.draft.get|set` (composer markdown + selection state)
+  - `markdown.preview.state.get|set` (preview button state)
+  - `markdown.toolbar.state.get|set` (toolbar visibility + pin state)
+  - `markdown.mini-editor.state.get|set` (mini-editor open/pin/content state)
+- When hybrid markdown shell mode is enabled, Avalonia preview/toggle/toolbar/mini-editor composer interactions are gated off in `MainWindow` so shell behavior is the source of truth.
+
+`MarkdownComposerStateService` is the runtime state holder for shell-driven markdown composer flows.
+
+`HybridShellMarkdownAdapterService` is the shell-facing adapter facade for markdown slice state and command orchestration. It is wired in `AppServices` with a dedicated shell IPC client so markdown lifecycle does not contend with contacts/unread shell consumer state.
 
 ### Hybrid UI Migration Gates (Current)
 
@@ -665,6 +674,7 @@ Migration rule (Tauri slices): shell-side UI consumes state via adapter/IPC cont
 - `EnableHybridContactsShell`
 - `EnableHybridUnreadShell`
 - `EnableHybridIpcHost`
+- `EnableHybridMarkdownShell`
 
 These gates allow gradual Tauri shell adoption with rollback control per slice.
 

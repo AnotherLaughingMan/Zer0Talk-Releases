@@ -13,8 +13,8 @@ using Markdig.Syntax.Inlines;
 namespace Zer0Talk.Controls.Markdown;
 
 /// <summary>
-/// Custom Avalonia markdown renderer using Markdig for reliable parsing
-/// Built specifically for Zer0Talk's P2P messaging needs with security-first design
+/// Markdown renderer for Avalonia controls.
+/// Uses Markdig and keeps HTML disabled for safety in P2P chat rendering.
 /// </summary>
 public sealed class Zer0TalkMarkdownRenderer
 {
@@ -24,17 +24,17 @@ public sealed class Zer0TalkMarkdownRenderer
     {
         try
         {
-            // Configure Markdig pipeline with P2P-safe features (minimal safe set)
+            // Minimal feature set with HTML disabled.
             _pipeline = new MarkdownPipelineBuilder()
                 .UseEmphasisExtras() // Strikethrough, superscript, etc.
                 .UsePipeTables() // Table support
-                .UseAutoLinks() // But we'll handle them safely
+                .UseAutoLinks() // URLs are rendered with safe link handling
                 .DisableHtml() // Security: No HTML for P2P safety
                 .Build();
         }
         catch (Exception)
         {
-            // Fallback to basic pipeline if advanced features fail
+            // Fall back to a basic pipeline if optional features fail.
             try
             {
                 _pipeline = new MarkdownPipelineBuilder()
@@ -43,14 +43,14 @@ public sealed class Zer0TalkMarkdownRenderer
             }
             catch
             {
-                // Ultimate fallback - use default pipeline
+                // Last resort: default pipeline.
                 _pipeline = new MarkdownPipelineBuilder().Build();
             }
         }
     }
 
     /// <summary>
-    /// Render markdown text to Avalonia UI controls
+    /// Renders markdown text to Avalonia controls.
     /// </summary>
     public Control RenderMarkdown(string markdownText)
     {
@@ -61,11 +61,10 @@ public sealed class Zer0TalkMarkdownRenderer
 
         try
         {
-            // Use a simplified but properly sizing approach
-            // Parse markdown with Markdig 
+            // Keep simple messages on a TextBlock for layout stability.
             var document = Markdig.Markdown.Parse(markdownText, _pipeline);
             
-            // If it's just a single paragraph, use a TextBlock for simplicity
+            // Single paragraph path.
             if (document.Count == 1 && document[0] is ParagraphBlock paragraph)
             {
                 var textBlock = new TextBlock 
@@ -86,7 +85,7 @@ public sealed class Zer0TalkMarkdownRenderer
                         }
                         catch
                         {
-                            // Add fallback text for problematic inlines
+                            // Inline parse fallback.
                             inlines.Add(new Run { Text = GetInlineText(inline as ContainerInline) });
                         }
                     }
@@ -100,11 +99,11 @@ public sealed class Zer0TalkMarkdownRenderer
                     }
                     catch
                     {
-                        // Skip problematic inlines
+                        // Ignore bad inline instances.
                     }
                 }
 
-                // Fallback if no inlines added
+                // Final fallback for empty inline output.
                 if (textBlock.Inlines!.Count == 0)
                 {
                     textBlock.Text = markdownText;
@@ -114,7 +113,7 @@ public sealed class Zer0TalkMarkdownRenderer
             }
             else
             {
-                // For complex markdown, use a StackPanel
+                // Multi-block path.
                 var container = new StackPanel 
                 { 
                     Spacing = 8,
@@ -136,7 +135,7 @@ public sealed class Zer0TalkMarkdownRenderer
         }
         catch (Exception)
         {
-            // Fallback to plain text on parsing errors
+            // Parsing fallback.
             return new TextBlock 
             { 
                 Text = markdownText,

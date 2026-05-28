@@ -1,12 +1,12 @@
 # Zer0Talk: Secure Peer-to-Peer Messaging for Windows
 
-**Privacy-First, Decentralized Chat – No Servers, No Tracking, Just You and Your Contacts**
+**Private, decentralized chat with no central message server**
 
 [![Latest Release](https://img.shields.io/github/v/release/AnotherLaughingMan/Zer0Talk-Releases?label=latest%20release&style=flat-square&color=blueviolet)](https://github.com/AnotherLaughingMan/Zer0Talk-Releases/releases/latest)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue?style=flat-square)](https://github.com/AnotherLaughingMan/Zer0Talk-Releases/releases/latest)
 [![Status](https://img.shields.io/badge/status-Alpha-orange?style=flat-square)](https://github.com/AnotherLaughingMan/Zer0Talk-Releases/releases/latest)
 
-Zer0Talk is a fully decentralized messaging app designed for users who value true privacy. Built on peer-to-peer (P2P) technology, it ensures your conversations stay encrypted and local, with no central servers collecting your data. Whether you're chatting with friends or sharing sensitive information, Zer0Talk puts control back in your hands.
+Zer0Talk is a decentralized messaging app for people who want private communication without a central provider. It uses peer-to-peer (P2P) networking, keeps message content encrypted end to end, and stores your data locally on your own device.
 
 This is an **alpha release** – it's functional but expect bugs and changes. Not for critical use yet!
 
@@ -16,15 +16,15 @@ This is an **alpha release** – it's functional but expect bugs and changes. No
 
 ---
 
-## ✨ Why Choose Zer0Talk?
+## ✨ Why Zer0Talk?
 
-- **Ultimate Privacy**: End-to-end encryption with modern, multi-layered cryptography – far beyond basic protections.
-- **No Central Authority**: Direct P2P connections mean no company or government can subpoena your chats or force age/ID verification.
-- **Connects Automatically**: Three-tier connection system tries direct, then NAT traversal, then relay – usually without any manual setup.
-- **Rich User Experience**: Rich text formatting, message editing/deletion, Burn Conversation, and customizable themes.
-- **Resistant to Overreach**: In a world of creeping data mandates (e.g., California AB-1043, UK OSA), Zer0Talk collects **nothing** – no accounts, no metadata, no way to tie messages to identities or ages.
+- **Private by default**: End-to-end encryption and local storage, with no central message database.
+- **No account system**: Direct P2P identity and transport without usernames tied to a provider.
+- **Automatic connectivity**: Tries direct, then NAT traversal, then relay, usually with no manual setup.
+- **Practical chat features**: Formatting, message edit/delete, burn conversation, and theme customization.
+- **Minimal data footprint**: No sign-up flow, no central profile registry, and no server-side message retention.
 
-If you're tired of platforms like Discord, Reddit, or even OS-level prompts bending to regulations, Zer0Talk is your escape to uncensorable communication.
+If you prefer owning your chat data and running a client that does not depend on a central messaging service, Zer0Talk is built for that.
 
 ---
 

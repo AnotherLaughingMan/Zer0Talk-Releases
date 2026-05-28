@@ -1,23 +1,23 @@
 # Zer0Talk Install/Run Troubleshooting (Windows)
 
-This guide is for users who report that Zer0Talk will not install or start on Windows.
+Use this guide when Zer0Talk will not install or start on Windows.
 
 ## Most common cause
 For alpha or unsigned builds, Windows Defender SmartScreen may block launch with:
 - "Windows protected your PC"
 - "unrecognized app"
 
-This is expected for unsigned executables and does not always mean malware.
+This is common for unsigned executables and does not automatically mean malware.
 
 ## What users should do (safe path)
-Only continue if the file came from your official release page and filename/version match what you published.
+Only continue if the file came from your official release page and the filename/version match the published release.
 
 1. In the SmartScreen window, click **More info**.
 2. Confirm app name/path/version look correct.
 3. Click **Run anyway**.
 4. If prompted by UAC, click **Yes**.
 
-If the user does not trust the source, they should click **Don't run**.
+If the source is not trusted, click **Don't run**.
 
 ## If SmartScreen keeps blocking or deleting files
 1. Open **Windows Security** -> **Virus & threat protection** -> **Protection history**.
@@ -38,12 +38,12 @@ If the user does not trust the source, they should click **Don't run**.
 4. Ask for the latest log file and Windows version.
 
 ## Quick response template for support
-Use this message when users report install/run failure:
+Use this when users report install/run failures:
 
 "This is usually Windows SmartScreen blocking unsigned alpha builds. Please re-download from the official release page, open the SmartScreen prompt, click More info, then Run anyway. If blocked again, check Windows Security Protection History and restore the app if it was quarantined. If needed, use the portable zip build and run Zer0Talk.exe directly."
 
 ## Maintainer fix (prevents most of these reports)
-Long-term, sign release artifacts with Authenticode and timestamp them.
+Long term, sign release artifacts with Authenticode and timestamp them.
 
 Recommended order:
 1. Sign installer and primary executable during CI/release.
@@ -52,4 +52,4 @@ Recommended order:
 4. Publish SHA-256 checksums in release notes.
 
 ## Why this matters
-Without code signing, many users will see SmartScreen prompts and some AV engines will raise reputation warnings. Signing does not guarantee zero warnings, but it significantly reduces install friction.
+Without code signing, many users will see SmartScreen prompts and some AV engines may raise reputation warnings. Signing does not eliminate all warnings, but it significantly reduces install friction.

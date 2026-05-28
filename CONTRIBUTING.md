@@ -1,6 +1,6 @@
 **Contributing to Zer0Talk**
 
-Thanks — we appreciate contributions. This file gives a quick path for reporting issues, developing, testing, and submitting PRs.
+Thanks for contributing. This guide is the quick path for reporting issues, developing, testing, and opening PRs.
 
 **Quick Start**
 - **Report first:** Use the issue templates in `.github/ISSUE_TEMPLATE/` (bug or feature).
@@ -28,11 +28,11 @@ pwsh .\scripts\federation_smoke_check.ps1
 
 **Testing**
 - Add unit tests for new behavior and run the test suite locally before opening a PR.
-- Where available, include short instructions to reproduce tests in your PR description.
+- When relevant, include short repro and test steps in your PR description.
 
 **Commit Guidelines**
 - Keep commits small and focused. Use imperative subject lines (e.g., "Add X feature").
-- In the commit body explain *why* the change was made, not just *what* changed.
+- In the commit body, explain *why* the change was made, not just *what* changed.
 - Update `CHANGELOG.md` under the Unreleased section for user‑facing changes.
 
 **Pull Requests**
@@ -42,7 +42,7 @@ pwsh .\scripts\federation_smoke_check.ps1
 
 **Code Review & CI**
 - All PRs must pass CI and receive at least one maintainer approval before merge.
-- Address review comments promptly and re-run the tests where applicable.
+- Address review comments promptly and re-run tests where applicable.
 
 **Security / Sensitive Code**
 - For encryption or protocol changes, ping maintainers and include design notes. Refer to `docs/RELAY-FIX-PLAN.md` when relevant.
@@ -53,4 +53,5 @@ pwsh .\scripts\federation_smoke_check.ps1
 **Need Help?**
 - For repo access or admin actions, contact a maintainer listed in `CODEOWNERS` or open an issue tagged `area/repo`.
 
-Thank you — the maintainers
+Thanks,
+maintainers

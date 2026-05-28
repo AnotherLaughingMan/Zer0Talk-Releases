@@ -8,13 +8,13 @@
 
 ## A Note on How This Project Is Built
 
-Before the rules: a straight statement about something you may have opinions about.
+Before the rules, a quick note about how this project is built.
 
 **This project uses AI agents in its development workflow.** GitHub Copilot, Claude, GPT, and other AI tools are used to implement features, write and validate code, update documentation, and run builds — all under direct human direction.
 
-**This is not "vibe coding."** Every product decision, architectural choice, security model, policy, and judgment call is made by the project owner. All visual assets, all audio assets, and direct code contributions where they matter most come from the project owner. The AI executes under explicit direction. If its output is wrong, it gets corrected. The human is in the loop at all times.
+**This is not "vibe coding."** Product decisions, architecture, security policy, and final judgment stay with the project owner. AI output is reviewed, corrected, and used only when it meets the bar.
 
-**If you have a problem with AI tooling being used this way** — in a workflow where a human directs every decision and reviews every output — you are welcome to feel that way. You are not welcome to harass contributors about it, derail project spaces with arguments about it, or treat it as grounds for bad-faith engagement. AI is part of software development now. This project has chosen to use it deliberately and transparently. That choice stands.
+**If you dislike AI tooling in software work, that's your call.** What is not acceptable here is harassing contributors, derailing technical spaces, or engaging in bad faith over that disagreement. Zer0Talk uses AI deliberately and transparently, and the project stands by that.
 
 The full disclosure is in [DEVELOPER-BIBLE.md § 21](DEVELOPER-BIBLE.md#21-ai-in-the-development-workflow).
 
