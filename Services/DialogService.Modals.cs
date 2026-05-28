@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Avalonia;
@@ -287,14 +288,106 @@ namespace Zer0Talk.Services
             var actions = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8 };
             var cancel = new Button { Content = "Cancel" };
             var verify = new Button { Content = "Verify", IsDefault = true };
+
+            var statusText = new TextBlock
+            {
+                Opacity = 0.86,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                MaxWidth = 520,
+                Text = AppServices.ContactRequests.HasPeerVerificationIntent(peerUid)
+                    ? $"{peerDisplay} already pressed Verify. Press Verify to complete verification."
+                    : $"Press Verify after confirming fingerprints. If one side delays, verification fails after 35 seconds."
+            };
+
+            root.Children.Add(statusText);
             actions.Children.Add(cancel);
             actions.Children.Add(verify);
             root.Children.Add(actions);
             dialog.Content = root;
 
             bool result = false;
-            cancel.Click += (_, __) => { result = false; dialog.Close(); };
-            verify.Click += (_, __) => { result = true; dialog.Close(); };
+            bool verificationStarted = false;
+            bool verificationFailureShown = false;
+
+            Action<string>? peerIntentHandler = null;
+            peerIntentHandler = uid =>
+            {
+                try
+                {
+                    if (!string.Equals(uid, peerUid, StringComparison.OrdinalIgnoreCase)) return;
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        try
+                        {
+                            if (!verificationStarted)
+                            {
+                                statusText.Text = $"{peerDisplay} pressed Verify and is waiting for you.";
+                            }
+                        }
+                        catch { }
+                    });
+                }
+                catch { }
+            };
+
+            try { AppServices.ContactRequests.VerifyPeerIntentReceived += peerIntentHandler; } catch { }
+
+            cancel.Click += async (_, __) =>
+            {
+                result = false;
+                if (verificationStarted && !verificationFailureShown)
+                {
+                    try
+                    {
+                        using var cancelCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        await AppServices.ContactRequests.CancelManualVerificationAsync(peerUid, cancelCts.Token, AppServices.Identity.DisplayName ?? "You");
+                    }
+                    catch { }
+                }
+                dialog.Close();
+            };
+
+            verify.Click += async (_, __) =>
+            {
+                if (verificationStarted) return;
+                verificationStarted = true;
+                verify.IsEnabled = false;
+                statusText.Text = $"You pressed Verify. Waiting for {peerDisplay} to press Verify (35s timeout)...";
+
+                bool ok = false;
+                try
+                {
+                    using var verifyCts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                    ok = await AppServices.ContactRequests.RequestVerificationAsync(peerUid, verifyCts.Token);
+                }
+                catch { }
+
+                result = ok;
+                if (ok)
+                {
+                    statusText.Text = "Verification completed successfully.";
+                    dialog.Close();
+                    return;
+                }
+
+                verificationFailureShown = true;
+                statusText.Text = "Verification failed. Both sides must press Verify within 35 seconds.";
+                cancel.Content = "Close";
+                cancel.IsEnabled = true;
+                verify.IsEnabled = false;
+            };
+
+            dialog.Closed += (_, __) =>
+            {
+                try
+                {
+                    if (peerIntentHandler != null)
+                    {
+                        AppServices.ContactRequests.VerifyPeerIntentReceived -= peerIntentHandler;
+                    }
+                }
+                catch { }
+            };
             await dialog.ShowDialog(owner);
             return result;
         }

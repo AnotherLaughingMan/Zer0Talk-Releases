@@ -15,7 +15,7 @@ public static class AppInfo
     public const string AppUserModelId = "Zer0Talk.App";
     public const string PrototypeTag = "Alpha";
 
-    public static string PrototypeBadgeText => $"{PrototypeTag} v{Version}";
+    public static string PrototypeBadgeText => $"{PrototypeTag} v.{Version}";
     
     // Version comparison utility
     public static bool IsVersionCompatible(string version1, string version2)

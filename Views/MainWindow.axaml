@@ -1303,47 +1303,8 @@
                 </Button>
 
                 <Border Grid.Row="2" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1 1 0 0" Background="{DynamicResource App.Background}">
-                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
-                            <Button x:Name="ComposerMarkdownToggleButton"
-                                    Classes="icon-button"
-                                    Click="ToggleComposerMarkdownButtons_Click"
-                                    ToolTip.Tip="Hide markdown tools"
-                                    Focusable="False">
-                                <TextBlock x:Name="ComposerMarkdownToggleIcon" Classes="icon-mdl2" Text="&#xE76C;" FontSize="14"/>
-                            </Button>
-                            <Button x:Name="ComposerMarkdownPreviewToggleButton"
-                                    Classes="icon-button"
-                                    Click="ToggleComposerMarkdownPreview_Click"
-                                    ToolTip.Tip="Hide markdown preview"
-                                    Focusable="False">
-                                <TextBlock x:Name="ComposerMarkdownPreviewToggleIcon" Classes="icon-mdl2" Text="&#xE890;" FontSize="14"/>
-                            </Button>
-                            <StackPanel x:Name="ComposerMarkdownButtonsPanel" Orientation="Horizontal" Spacing="6">
-                                <Button Classes="icon-button" Click="BoldButton_Click" ToolTip.Tip="{Binding LocalizedBold}" Focusable="False">
-                                    <TextBlock Text="B" FontWeight="Bold" FontSize="13"/>
-                                </Button>
-                                <Button Classes="icon-button" Click="ItalicButton_Click" ToolTip.Tip="{Binding LocalizedItalic}" Focusable="False">
-                                    <TextBlock Text="I" FontStyle="Italic" FontSize="13"/>
-                                </Button>
-                                <Button Classes="icon-button" Click="UnderlineButton_Click" ToolTip.Tip="Underline (++text++)" Focusable="False">
-                                    <TextBlock Text="U" TextDecorations="Underline" FontSize="13"/>
-                                </Button>
-                                <Button Classes="icon-button" Click="StrikeButton_Click" ToolTip.Tip="{Binding LocalizedStrikeThrough}" Focusable="False">
-                                    <TextBlock Text="S" TextDecorations="Strikethrough" FontSize="13"/>
-                                </Button>
-                                <Button Classes="icon-button" Click="QuoteButton_Click" ToolTip.Tip="{Binding LocalizedQuote}" Focusable="False">
-                                    <TextBlock Text="&gt;" FontSize="13"/>
-                                </Button>
-                                <Button Classes="icon-button" Click="CodeButton_Click" ToolTip.Tip="{Binding LocalizedCode}" Focusable="False">
-                                    <TextBlock Text="&lt;/&gt;" FontFamily="Consolas" FontSize="11"/>
-                                </Button>
-                                <Button Classes="icon-button" Click="SpoilerButton_Click" ToolTip.Tip="{Binding LocalizedSpoiler}" Focusable="False">
-                                    <TextBlock Text="||" FontSize="13"/>
-                                </Button>
-                            </StackPanel>
-                        </StackPanel>
-                        <Border Grid.Row="1" CornerRadius="4" Padding="8,6" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
+                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                        <Border Grid.Row="0" CornerRadius="4" Padding="8,6" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                 IsVisible="{Binding IsReplyMode}">
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
                                 <TextBlock Grid.Column="0" Classes="icon-mdl2" Text="&#xE248;" Opacity="0.75"/>
@@ -1353,7 +1314,7 @@
                                 </Button>
                             </Grid>
                         </Border>
-                        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
                             <Image Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center" ToolTip.Tip="{Binding LocalizedChatEncryptedTransport}" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
                             <TextBox Grid.Column="1"
                                      x:Name="MessageInput"
@@ -1368,12 +1329,21 @@
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      TextChanged="MessageInput_TextChanged"/>
-                            <Button Grid.Column="2" x:Name="ComposerEmojiPickerButton" Classes="icon-button" Margin="8 0 0 0" Click="ComposerEmojiPickerButton_Click" ToolTip.Tip="Insert emoji" Opacity="0.5">
+                            <Button Grid.Column="2"
+                                    x:Name="ComposerMarkdownPreviewToggleButton"
+                                    Classes="icon-button"
+                                    Margin="8 0 0 0"
+                                    Click="ToggleComposerMarkdownPreview_Click"
+                                    ToolTip.Tip="Hide markdown preview"
+                                    Focusable="False">
+                                <TextBlock x:Name="ComposerMarkdownPreviewToggleIcon" Classes="icon-mdl2" Text="&#xE890;" FontSize="14"/>
+                            </Button>
+                            <Button Grid.Column="3" x:Name="ComposerEmojiPickerButton" Classes="icon-button" Margin="8 0 0 0" Click="ComposerEmojiPickerButton_Click" ToolTip.Tip="Insert emoji" Opacity="0.5">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE76E;"/>
                             </Button>
                         </Grid>
                         <Border x:Name="ComposerMarkdownPreviewPanel"
-                                Grid.Row="3"
+                                Grid.Row="2"
                                 CornerRadius="4"
                                 Padding="8,6"
                                 Background="{DynamicResource App.Surface}"
@@ -1397,16 +1367,72 @@
                         </Border>
                     </Grid>
                 </Border>
-                
-                <!-- Floating Markdown Toolbar (Discord-style, shows on text selection) -->
-                <Popup x:Name="MarkdownToolbarPopup"
+
+                <!-- Floating Markdown Edit Bar (opens at cursor on right-click selection) -->
+                <Popup x:Name="ComposerMarkdownEditPopup"
                        PlacementTarget="{Binding #MessageInput}"
-                       Placement="Top"
-                       VerticalOffset="-8"
-                       IsLightDismissEnabled="False"
+                       Placement="AnchorAndGravity"
+                       PlacementAnchor="TopLeft"
+                       PlacementGravity="TopLeft"
+                       IsLightDismissEnabled="True"
                        IsOpen="False">
-                    <c:MarkdownToolbar x:Name="MarkdownFloatingToolbar"
-                                       TargetTextBox="{Binding #MessageInput}"/>
+                    <Border Background="{DynamicResource App.Surface}"
+                            BorderBrush="{DynamicResource App.Border}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="6"
+                            BoxShadow="0 6 20 0 #44000000">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Button x:Name="MarkdownHeaderButton"
+                                    Classes="icon-button"
+                                    Width="34"
+                                    Height="34"
+                                    ToolTip.Tip="Header Size"
+                                    Click="MarkdownHeaderButton_Click">
+                                <TextBlock Text="H" FontWeight="Bold" FontSize="14"/>
+                                <Button.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Heading 1" Tag="1" Click="MarkdownHeaderSize_Click"/>
+                                        <MenuItem Header="Heading 2" Tag="2" Click="MarkdownHeaderSize_Click"/>
+                                        <MenuItem Header="Heading 3" Tag="3" Click="MarkdownHeaderSize_Click"/>
+                                        <MenuItem Header="Heading 4" Tag="4" Click="MarkdownHeaderSize_Click"/>
+                                        <MenuItem Header="Heading 5" Tag="5" Click="MarkdownHeaderSize_Click"/>
+                                        <MenuItem Header="Heading 6" Tag="6" Click="MarkdownHeaderSize_Click"/>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Bold" Click="MarkdownEditBold_Click">
+                                <TextBlock Text="B" FontWeight="Bold" FontSize="14"/>
+                            </Button>
+                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Italic" Click="MarkdownEditItalic_Click">
+                                <TextBlock Text="I" FontStyle="Italic" FontSize="14"/>
+                            </Button>
+                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Underline" Click="MarkdownEditUnderline_Click">
+                                <TextBlock Text="U" TextDecorations="Underline" FontSize="14"/>
+                            </Button>
+                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Strikethrough" Click="MarkdownEditStrike_Click">
+                                <TextBlock Text="S" TextDecorations="Strikethrough" FontSize="14"/>
+                            </Button>
+                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Spoiler" Click="MarkdownEditSpoiler_Click">
+                                <TextBlock Text="||" FontSize="13"/>
+                            </Button>
+                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Link" Click="MarkdownEditLink_Click">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE71B;" FontSize="14"/>
+                            </Button>
+                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Quote" Click="MarkdownEditQuote_Click">
+                                <TextBlock Text="&gt;" FontSize="14"/>
+                            </Button>
+                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Inline Code" Click="MarkdownEditInlineCode_Click">
+                                <TextBlock Text="&lt;/&gt;" FontSize="11" FontFamily="Consolas"/>
+                            </Button>
+                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Code Block" Click="MarkdownEditCodeBlock_Click">
+                                <TextBlock Text="&#123;&#125;" FontSize="12" FontFamily="Consolas"/>
+                            </Button>
+                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Mini Markdown Editor" Click="MarkdownEditMiniEditor_Click">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE70F;" FontSize="14"/>
+                            </Button>
+                        </StackPanel>
+                    </Border>
                 </Popup>
                 
                 <!-- Composer Emoji Picker Popup (for inserting emojis into messages) -->

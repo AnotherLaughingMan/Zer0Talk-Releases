@@ -27,6 +27,16 @@ Run this checklist before creating a release tag.
 ## [Unreleased]
 
 ### Added
+- **Hybrid markdown adapter facade**: added `HybridShellMarkdownAdapterService` with a dedicated shell IPC client and unified adapter state for markdown capabilities/snapshots (ui config, draft, preview state, toolbar state, mini-editor state), plus lifecycle wiring in `AppServices` startup/shutdown.
+- **Hybrid markdown state contract (Tauri path)**: added markdown draft/state IPC commands for shell-owned composer behavior: `markdown.draft.get|set`, `markdown.preview.state.get|set`, `markdown.toolbar.state.get|set`, and `markdown.mini-editor.state.get|set`.
+- **Markdown composer state service**: added `MarkdownComposerStateService` as canonical in-process state for shell-driven markdown draft, preview toggle, toolbar visibility/pinning, and mini-editor session content/open state.
+- **Hybrid Markdown shell contract expansion (Tauri path)**: added IPC markdown commands for render (`markdown.render.get`), formatting actions (`markdown.format.apply`), and UI composition/config (`markdown.ui.config.get`) so preview toggle behavior, toolbar action sets, and mini-editor capabilities are shell-driven rather than Avalonia-driven.
+- **Hybrid markdown shell client helpers**: `HybridShellIpcClientService` now exposes typed markdown request helpers for render, format application, and UI config retrieval to accelerate Tauri frontend wiring.
+- **Floating right-click Markdown edit toolbar for composer text**: right-clicking selected text in the composer now opens a markdown edit menu at cursor location with actions for header sizing (`H1`-`H6`), bold, italic, underline, strikethrough, spoiler, link, quote, inline code, and fenced code block.
+- **Mini Markdown Editor scaffold (preview + send path)**: added a starter mini-editor window from composer markdown menu that supports split editor/preview, inserts draft markdown back into composer, and can send markdown directly to chat canvas via existing send command.
+- **Two-party verification ceremony coordination (35s window)**: verification now requires both participants to press **Verify** within a shared 35-second window; local verify enters a waiting state until peer intent arrives, and stale intent state is ignored so previous attempts cannot auto-complete new ceremonies.
+- **Verification pending/cancel event channel**: added peer-intent signaling and ceremony coordination state so dialogs can show live "waiting for peer" indicators and complete only after fresh mutual intent.
+- **Verification cancellation notification flow**: cancellation now emits bilateral security events (`Verification Cancelled`) and a sender-only confirmation event (`Cancellation Notice Sent`) when the cancel notice is successfully transmitted.
 - **Hybrid IPC runtime host (Slice 2)**: added `HybridIpcHostService` (named-pipe, newline-delimited JSON) with request/response routing for `contacts.list.get` and `unread.snapshot.get`, plus push-event broadcast envelopes for `contacts.list.changed` and `unread.snapshot.changed`.
 - **Hybrid migration feature flags**: added `AppSettings` gates (`EnableHybridContactsShell`, `EnableHybridUnreadShell`, `EnableHybridIpcHost`) to support controlled rollout and rollback of shell/IPC migration paths.
 - **Hybrid IPC host tests**: added focused transport-host tests covering request/response behavior, unknown-command errors, and contacts change event broadcast over the runtime pipe host.
@@ -40,6 +50,12 @@ Run this checklist before creating a release tag.
 - **Stable shell adapter facade**: added `HybridShellAdapterService` as a single shell-facing state surface over the consumer, with normalized contact/unread lookup APIs and unified `StateChanged` lifecycle/state telemetry.
 
 ### Updated
+- **Composer markdown execution mode gating**: when `EnableHybridMarkdownShell` is enabled, Avalonia markdown preview/toolbar/mini-editor interactions in `MainWindow` are disabled so markdown interaction is expected to come from the hybrid shell path.
+- **Chat composer markdown UX simplification**: removed the legacy inline markdown button bar and floating selection toolbar from chat composer; markdown formatting is now applied through the message input right-click context menu on selected text.
+- **Composer Markdown keyboard workflow**: added editor-style shortcuts in the message composer for markdown actions: `Ctrl+B` (bold), `Ctrl+I` (italic), `Ctrl+U` (underline), `Ctrl+Shift+X` (strikethrough), `Ctrl+Shift+Q` (quote), `Ctrl+Shift+C` (code), and `Ctrl+Shift+S` (spoiler).
+- **Verification dialog ceremony UX**: the verify modal now remains open after local Verify, shows explicit waiting state while the peer has not yet verified, and only closes on successful mutual completion or explicit cancel/timeout outcome.
+- **Security event semantics for verification lifecycle**: alerts now classify verification request/success/failure/cancel/cancel-notice states with clearer titles and icon/color intent (`Security Event: Verification Request`, `Verification Success`, `Verification Failure`, `Verification Cancelled`, `Cancellation Notice Sent`).
+- **Version alignment to Alpha v.0.0.4.09**: shared project version (`Directory.Build.props`), client/relay prototype badge format (`Alpha v.0.0.4.09`), and installer `displayVersion` now align to `0.0.4.09`.
 - **Contacts snapshot ordering parity**: `ContactsBridgeService` now sorts using main-contact-list parity (online-priority states first, then `LastMessageUtc` descending, then display name/UID), aligning snapshot consumers with current in-app ordering behavior.
 - **Hybrid IPC host lifecycle wiring**: startup now conditionally starts the runtime host via settings gate (`EnableHybridIpcHost`) during post-initialization, and shutdown now explicitly stops the host.
 - **Settings save/apply integration for hybrid rollout**: saving settings now persists all hybrid toggles and applies IPC host start/stop immediately based on `EnableHybridIpcHost`.
@@ -49,6 +65,11 @@ Run this checklist before creating a release tag.
 - **Adapter-owned shell lifecycle wiring**: startup/settings-save/shutdown flows now drive the adapter service directly, with back-compat wrappers retained in `AppServices` during migration.
 
 ### Fixed
+- **Verification dialog premature close regression**: fixed a stale-intent edge case where Verify could immediately complete and close the dialog before the peer verified; verification intent now uses timestamp freshness checks bounded by the ceremony timeout.
+- **Main window dragbar regression**: restored expected main window drag behavior after drag helper precedence changes.
+- **Queued-delivery banner accuracy**: send-failure messaging no longer incorrectly implies a peer is offline when session/presence state indicates otherwise.
+- **Verification success severity mapping**: verification completion events no longer surface as warning-style alerts and now map to explicit success semantics.
+- **Contact filtering resilience**: hardened contact-filter refresh/fallback behavior to prevent transient empty-list states when filtering exceptions occur.
 - **Contacts snapshot UID normalization mismatch**: `ContactsBridgeService` now uses canonical case-insensitive UID normalization, fixing mixed-case `USR-` prefix handling so unread/contact snapshot joins are stable.
 - **Canonical UID trim consistency**: `Contact` and `AppServices` UID normalization paths now use the shared `UidNormalization` utility to avoid future prefix/case drift across layers.
 - **Hybrid IPC host standard hardening**: host now enforces max concurrent clients, per-client request rate limiting, and max frame size validation to reduce abuse and malformed-frame risk.

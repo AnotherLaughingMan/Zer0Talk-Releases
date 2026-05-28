@@ -2112,6 +2112,7 @@ namespace Zer0Talk.ViewModels
 
                 _ = Task.Run(async () =>
                 {
+                    var queuedBanner = BuildQueuedDeliveryBanner(recipientUid, contact);
                     try
                     {
                         Logger.NetworkLog($"SendAttempt: peer={recipientUid} id={message.Id} contentLen={message.Content?.Length ?? 0}");
@@ -2125,17 +2126,37 @@ namespace Zer0Talk.ViewModels
                         else
                         {
                             try { Logger.NetworkLog($"SendResult: Queued | peer={recipientUid} id={message.Id}"); } catch { }
-                            QueueOutgoingMessage(recipientUid, message, "Contact offline. Message queued for delivery.");
+                            QueueOutgoingMessage(recipientUid, message, queuedBanner);
                         }
                     }
                     catch (Exception ex)
                     {
                         try { Logger.NetworkLog($"SendResult: Exception | peer={recipientUid} id={message.Id} ex={ex.Message}"); } catch { }
-                        QueueOutgoingMessage(recipientUid, message, "Contact offline. Message queued for delivery.");
+                        QueueOutgoingMessage(recipientUid, message, queuedBanner);
                     }
                 });
             }
             catch { }
+        }
+
+        private string BuildQueuedDeliveryBanner(string recipientUid, Contact? contact)
+        {
+            try
+            {
+                var normalized = TrimUidPrefix(recipientUid);
+                var hasSession = AppServices.Network.HasEncryptedSession(normalized);
+                var connectionMode = AppServices.Network.GetConnectionMode(normalized);
+                var isLivePath = hasSession || connectionMode != ConnectionMode.None;
+                var isOnlinePresence = contact?.Presence == PresenceStatus.Online;
+
+                if (isLivePath || isOnlinePresence)
+                {
+                    return "Message couldn't be sent immediately. Queued for retry.";
+                }
+            }
+            catch { }
+
+            return "Contact offline. Message queued for delivery.";
         }
 
         private static bool TryFindRejectedShortUrl(string text, out string blockedUrl, out string blockedHost)
@@ -3862,26 +3883,37 @@ namespace Zer0Talk.ViewModels
         {
             try
             {
-                FilteredContacts.Clear();
+                var contactsSnapshot = Contacts.ToList();
                 var query = (_contactSearchText ?? string.Empty).Trim();
+                List<Contact> filtered;
                 if (string.IsNullOrEmpty(query))
                 {
-                    foreach (var c in Contacts) FilteredContacts.Add(c);
+                    filtered = contactsSnapshot;
                 }
                 else
                 {
-                    foreach (var c in Contacts)
-                    {
-                        if ((c.DisplayName ?? string.Empty).Contains(query, StringComparison.OrdinalIgnoreCase)
+                    filtered = contactsSnapshot
+                        .Where(c => (c.DisplayName ?? string.Empty).Contains(query, StringComparison.OrdinalIgnoreCase)
                             || (c.UID ?? string.Empty).Contains(query, StringComparison.OrdinalIgnoreCase))
-                        {
-                            FilteredContacts.Add(c);
-                        }
-                    }
+                        .ToList();
                 }
+
+                FilteredContacts.Clear();
+                foreach (var c in filtered) FilteredContacts.Add(c);
                 ValidateContactReferences();
             }
-            catch { }
+            catch
+            {
+                // Avoid presenting an empty list due to transient filtering errors.
+                try
+                {
+                    if (FilteredContacts.Count == 0)
+                    {
+                        foreach (var c in Contacts) FilteredContacts.Add(c);
+                    }
+                }
+                catch { }
+            }
         }
 
         /// <summary>Load last message preview for all contacts (fire-and-forget, background).</summary>

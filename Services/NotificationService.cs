@@ -22,7 +22,7 @@ namespace Zer0Talk.Services
     public partial class NotificationService
     {
     public sealed record NotificationItem(Guid Id, string Title, string Body, string? OriginUid, DateTime Utc, string? FullBody = null, bool IsUnread = false, bool IsMessage = false, bool IsIncoming = false, Guid? MessageId = null, DateTime? ReadUtc = null, bool IsPersistent = true, Models.NotificationType? Type = null, bool IsPriority = false, bool IsMention = false);
-    public sealed record SecurityEventItem(Guid Id, string AccountName, string PeerUid, string Summary, string Details, DateTime Utc, bool IsUnread = true);
+    public sealed record SecurityEventItem(Guid Id, string AccountName, string PeerUid, string Summary, string Details, DateTime Utc, bool IsUnread = true, Models.NotificationType Type = Models.NotificationType.Warning);
 
     private readonly List<NotificationItem> _notices = new();
     private readonly List<SecurityEventItem> _securityEvents = new();
@@ -648,7 +648,7 @@ namespace Zer0Talk.Services
             catch { }
         }
 
-        public void PostSecurityEvent(string? peerUid, string? accountName, string summary, string details)
+        public void PostSecurityEvent(string? peerUid, string? accountName, string summary, string details, Models.NotificationType type = Models.NotificationType.Warning)
         {
             try
             {
@@ -668,7 +668,8 @@ namespace Zer0Talk.Services
                         resolvedSummary,
                         resolvedDetails,
                         DateTime.UtcNow,
-                        IsUnread: true));
+                        IsUnread: true,
+                        Type: type));
                 }
 
                 QueueSecurityEventsChanged();
@@ -676,7 +677,7 @@ namespace Zer0Talk.Services
                 var toastBody = string.IsNullOrWhiteSpace(normalizedUid)
                     ? $"{resolvedAccount}: {resolvedSummary}"
                     : $"{resolvedAccount} ({normalizedUid}): {resolvedSummary}";
-                try { PostNotice(Models.NotificationType.Warning, toastBody, originUid: normalizedUid, fullBody: resolvedDetails, isPersistent: false); } catch { }
+                try { PostNotice(type, toastBody, originUid: normalizedUid, fullBody: resolvedDetails, isPersistent: false); } catch { }
             }
             catch { }
         }

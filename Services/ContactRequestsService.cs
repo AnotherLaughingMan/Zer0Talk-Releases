@@ -34,9 +34,11 @@ namespace Zer0Talk.Services
     private readonly ConcurrentDictionary<string, PendingContactRequest> _pendingInbound = new();
     // Map UID -> latest nonce (helps with de-dupe)
     private readonly ConcurrentDictionary<string, string> _uidToNonce = new(StringComparer.OrdinalIgnoreCase);
-    // Verification state (ephemeral, session-based). When both sides indicate intent, mark verified.
-    private readonly ConcurrentDictionary<string, bool> _verifyInitiated = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, bool> _verifyReceived = new(StringComparer.OrdinalIgnoreCase);
+    // Verification state (ephemeral, session-based). Keep timestamps so stale intents cannot auto-complete new ceremonies.
+    private readonly ConcurrentDictionary<string, DateTime> _verifyInitiatedUtc = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTime> _verifyReceivedUtc = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<bool>> _verifyCompletion = new(StringComparer.OrdinalIgnoreCase);
+    private const int VerificationMutualTimeoutSeconds = 35;
     // Manual verification requests (peer asks to open dialog). Track pending by UID.
     private readonly ConcurrentDictionary<string, bool> _verifyRequestPending = new(StringComparer.OrdinalIgnoreCase);
     // Offline contact request queue: UID -> (nonce, displayName, timestamp)
@@ -57,9 +59,23 @@ namespace Zer0Talk.Services
     // Raised when a manual verification request arrives (show in notifications)
     public event Action<string>? VerifyRequestReceived; // arg: uid
     public event Action<string>? VerifyRequestCancelled; // arg: uid
+    public event Action<string>? VerifyPeerIntentReceived; // arg: uid
 
     public IReadOnlyCollection<PendingContactRequest> PendingInboundRequests => _pendingInbound.Values.ToArray();
     public string LastSendDiagnostic => _lastSendDiagnostic;
+
+        public bool HasPeerVerificationIntent(string uid)
+        {
+            uid = Trim(uid);
+            if (string.IsNullOrWhiteSpace(uid)) return false;
+            if (!_verifyReceivedUtc.TryGetValue(uid, out var receivedUtc)) return false;
+            if ((DateTime.UtcNow - receivedUtc) > TimeSpan.FromSeconds(VerificationMutualTimeoutSeconds))
+            {
+                _verifyReceivedUtc.TryRemove(uid, out _);
+                return false;
+            }
+            return true;
+        }
 
         // [VERIFY] expectedPublicKeyHex: optional hex public key provided by user to validate identity. Lowercase, no separators.
         // Simple per-UID throttle to avoid spamming the same peer with requests due to UI retries or flaky sessions.

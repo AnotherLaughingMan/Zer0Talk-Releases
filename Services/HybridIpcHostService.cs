@@ -23,6 +23,7 @@ namespace Zer0Talk.Services
 
         private readonly ContactsIpcEndpointService _contactsEndpoint;
         private readonly UnreadIpcEndpointService _unreadEndpoint;
+        private readonly MarkdownIpcEndpointService _markdownEndpoint;
         private readonly string _pipeName;
         private readonly ConcurrentDictionary<Guid, ClientConnection> _clients = new();
 
@@ -36,10 +37,12 @@ namespace Zer0Talk.Services
         public HybridIpcHostService(
             ContactsIpcEndpointService contactsEndpoint,
             UnreadIpcEndpointService unreadEndpoint,
+            MarkdownIpcEndpointService markdownEndpoint,
             string? pipeName = null)
         {
             _contactsEndpoint = contactsEndpoint ?? throw new ArgumentNullException(nameof(contactsEndpoint));
             _unreadEndpoint = unreadEndpoint ?? throw new ArgumentNullException(nameof(unreadEndpoint));
+            _markdownEndpoint = markdownEndpoint ?? throw new ArgumentNullException(nameof(markdownEndpoint));
             _pipeName = string.IsNullOrWhiteSpace(pipeName) ? DefaultPipeName : pipeName;
 
             _contactsEventHandler = OnEndpointNotification;
@@ -235,6 +238,11 @@ namespace Zer0Talk.Services
                     return BuildOkResponse(requestId, command, unreadPayload);
                 }
 
+                if (_markdownEndpoint.TryHandleRequest(command, root, out var markdownPayload))
+                {
+                    return BuildOkResponse(requestId, command, markdownPayload);
+                }
+
                 return BuildErrorResponse(requestId, command, "unknown-command");
             }
             catch
@@ -295,7 +303,18 @@ namespace Zer0Talk.Services
                 {
                     CommandGetCapabilities,
                     ContactsIpcEndpointService.CommandGetContactsList,
-                    UnreadIpcEndpointService.CommandGetSnapshot
+                    UnreadIpcEndpointService.CommandGetSnapshot,
+                    MarkdownIpcEndpointService.CommandRender,
+                    MarkdownIpcEndpointService.CommandFormatApply,
+                    MarkdownIpcEndpointService.CommandUiConfigGet,
+                    MarkdownIpcEndpointService.CommandDraftGet,
+                    MarkdownIpcEndpointService.CommandDraftSet,
+                    MarkdownIpcEndpointService.CommandPreviewStateGet,
+                    MarkdownIpcEndpointService.CommandPreviewStateSet,
+                    MarkdownIpcEndpointService.CommandToolbarStateGet,
+                    MarkdownIpcEndpointService.CommandToolbarStateSet,
+                    MarkdownIpcEndpointService.CommandMiniEditorStateGet,
+                    MarkdownIpcEndpointService.CommandMiniEditorStateSet
                 },
                 events = new[]
                 {
@@ -309,7 +328,11 @@ namespace Zer0Talk.Services
                     contactsSnapshot = ContactsBridgeService.SnapshotSchemaVersion,
                     contactsDelta = ContactsIpcEndpointService.DeltaSchemaVersion,
                     unreadSnapshot = UnreadBridgeService.SnapshotSchemaVersion,
-                    unreadCountDelta = UnreadIpcEndpointService.CountDeltaSchemaVersion
+                    unreadCountDelta = UnreadIpcEndpointService.CountDeltaSchemaVersion,
+                    markdownRender = MarkdownIpcEndpointService.RenderSchemaVersion,
+                    markdownFormat = MarkdownIpcEndpointService.FormatSchemaVersion,
+                    markdownUiConfig = MarkdownIpcEndpointService.UiConfigSchemaVersion,
+                    markdownState = MarkdownIpcEndpointService.StateSchemaVersion
                 },
                 limits = new
                 {

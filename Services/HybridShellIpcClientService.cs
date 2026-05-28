@@ -51,6 +51,24 @@ namespace Zer0Talk.Services
 
         public bool SupportsUnreadCountDelta => Capabilities.Events.Contains(UnreadIpcEndpointService.EventCountChanged);
 
+        public bool SupportsMarkdownRender => Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandRender);
+
+        public bool SupportsMarkdownFormatApply => Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandFormatApply);
+
+        public bool SupportsMarkdownUiConfig => Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandUiConfigGet);
+
+        public bool SupportsMarkdownDraftState => Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandDraftGet)
+                            && Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandDraftSet);
+
+        public bool SupportsMarkdownPreviewState => Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandPreviewStateGet)
+                              && Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandPreviewStateSet);
+
+        public bool SupportsMarkdownToolbarState => Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandToolbarStateGet)
+                              && Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandToolbarStateSet);
+
+        public bool SupportsMarkdownMiniEditorState => Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandMiniEditorStateGet)
+                                 && Capabilities.Commands.Contains(MarkdownIpcEndpointService.CommandMiniEditorStateSet);
+
         public event Action<HybridIpcCapabilities>? CapabilitiesNegotiated;
         public event Action<ContactsSnapshotDto>? ContactsSnapshotReceived;
         public event Action<ContactsIpcEndpointService.ContactsListDeltaDto>? ContactsDeltaReceived;
@@ -159,6 +177,205 @@ namespace Zer0Talk.Services
             try
             {
                 return JsonSerializer.Deserialize<UnreadSnapshotDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownRenderResponseDto?> RequestMarkdownRenderAsync(string markdown, CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var payloadJson = $"{{\"markdown\":{JsonSerializer.Serialize(markdown ?? string.Empty)}}}";
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandRender, payloadJson, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownRenderResponseDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownFormatResponseDto?> ApplyMarkdownFormatAsync(string markdown, int selectionStart, int selectionEnd, string kind, int level = 1, CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var payloadJson =
+                $"{{\"markdown\":{JsonSerializer.Serialize(markdown ?? string.Empty)},\"selectionStart\":{selectionStart},\"selectionEnd\":{selectionEnd},\"kind\":{JsonSerializer.Serialize(kind ?? string.Empty)},\"level\":{level}}}";
+
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandFormatApply, payloadJson, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownFormatResponseDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownUiConfigResponseDto?> RequestMarkdownUiConfigAsync(CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandUiConfigGet, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownUiConfigResponseDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownDraftStateResponseDto?> RequestMarkdownDraftAsync(CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandDraftGet, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownDraftStateResponseDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownDraftStateResponseDto?> SetMarkdownDraftAsync(string markdown, int selectionStart, int selectionEnd, CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var payloadJson =
+                $"{{\"markdown\":{JsonSerializer.Serialize(markdown ?? string.Empty)},\"selectionStart\":{selectionStart},\"selectionEnd\":{selectionEnd}}}";
+
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandDraftSet, payloadJson, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownDraftStateResponseDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownPreviewStateResponseDto?> RequestMarkdownPreviewStateAsync(CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandPreviewStateGet, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownPreviewStateResponseDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownPreviewStateResponseDto?> SetMarkdownPreviewStateAsync(bool visible, CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var payloadJson = $"{{\"visible\":{(visible ? "true" : "false")}}}";
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandPreviewStateSet, payloadJson, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownPreviewStateResponseDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownToolbarStateResponseDto?> RequestMarkdownToolbarStateAsync(CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandToolbarStateGet, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownToolbarStateResponseDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownToolbarStateResponseDto?> SetMarkdownToolbarStateAsync(bool visible, bool pinned, CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var payloadJson = $"{{\"visible\":{(visible ? "true" : "false")},\"pinned\":{(pinned ? "true" : "false")}}}";
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandToolbarStateSet, payloadJson, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownToolbarStateResponseDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownMiniEditorStateResponseDto?> RequestMarkdownMiniEditorStateAsync(CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandMiniEditorStateGet, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownMiniEditorStateResponseDto>(payload.GetRawText(), DeserializeOptions);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<MarkdownMiniEditorStateResponseDto?> SetMarkdownMiniEditorStateAsync(bool open, bool pinned, string content, CancellationToken cancellationToken = default)
+        {
+            if (!IsConnected) return null;
+
+            var payloadJson =
+                $"{{\"open\":{(open ? "true" : "false")},\"pinned\":{(pinned ? "true" : "false")},\"content\":{JsonSerializer.Serialize(content ?? string.Empty)}}}";
+
+            var responseLine = await SendRequestAsync(MarkdownIpcEndpointService.CommandMiniEditorStateSet, payloadJson, DefaultRequestTimeoutMs, cancellationToken).ConfigureAwait(false);
+            if (!TryParseResponsePayload(responseLine, out var payload)) return null;
+
+            try
+            {
+                return JsonSerializer.Deserialize<MarkdownMiniEditorStateResponseDto>(payload.GetRawText(), DeserializeOptions);
             }
             catch
             {
@@ -290,11 +507,15 @@ namespace Zer0Talk.Services
         }
 
         private async Task<string> SendRequestAsync(string command, int timeoutMs, CancellationToken cancellationToken)
+            => await SendRequestAsync(command, payloadJson: null, timeoutMs, cancellationToken).ConfigureAwait(false);
+
+        private async Task<string> SendRequestAsync(string command, string? payloadJson, int timeoutMs, CancellationToken cancellationToken)
         {
             if (_writer == null) throw new InvalidOperationException("IPC client is not connected.");
 
             var requestId = Interlocked.Increment(ref _requestSequence).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            var request = $"{{\"type\":\"request\",\"id\":\"{requestId}\",\"command\":{JsonSerializer.Serialize(command)}}}";
+            var payloadSegment = string.IsNullOrWhiteSpace(payloadJson) ? string.Empty : $",\"payload\":{payloadJson}";
+            var request = $"{{\"type\":\"request\",\"id\":\"{requestId}\",\"command\":{JsonSerializer.Serialize(command)}{payloadSegment}}}";
             var tcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
             _pendingResponses[requestId] = tcs;
 
@@ -321,6 +542,33 @@ namespace Zer0Talk.Services
                 _pendingResponses.TryRemove(requestId, out _);
             }
         }
+
+        public sealed record MarkdownRenderResponseDto(int SchemaVersion, DateTime GeneratedUtc, string Markdown, string Html);
+
+        public sealed record MarkdownFormatResponseDto(int SchemaVersion, DateTime GeneratedUtc, string Markdown, int SelectionStart, int SelectionEnd, string Kind, int Level);
+
+        public sealed record MarkdownUiConfigResponseDto(
+            int SchemaVersion,
+            DateTime GeneratedUtc,
+            PreviewButtonConfigDto PreviewButton,
+            ToolbarConfigDto Toolbar,
+            MiniEditorConfigDto MiniEditor);
+
+        public sealed record PreviewButtonConfigDto(string Id, string Icon, string Tooltip, bool Enabled);
+
+        public sealed record ToolbarConfigDto(bool AutoHideOnSelectionClear, bool PinWhileApplyingActions, ToolbarActionConfigDto[] Actions);
+
+        public sealed record ToolbarActionConfigDto(string Kind, string Icon, string Tooltip, bool SupportsLevel, int MaxLevel);
+
+        public sealed record MiniEditorConfigDto(bool Enabled, string Mode, bool AutoHideToolbarOnSelectionClear, bool PinToolbarForSequentialActions, bool SupportsNotepadSurface, bool SupportsSendToCanvas, bool UsesSplitPreviewPane);
+
+        public sealed record MarkdownDraftStateResponseDto(int SchemaVersion, DateTime GeneratedUtc, string Markdown, int SelectionStart, int SelectionEnd);
+
+        public sealed record MarkdownPreviewStateResponseDto(int SchemaVersion, DateTime GeneratedUtc, bool Visible);
+
+        public sealed record MarkdownToolbarStateResponseDto(int SchemaVersion, DateTime GeneratedUtc, bool Visible, bool Pinned);
+
+        public sealed record MarkdownMiniEditorStateResponseDto(int SchemaVersion, DateTime GeneratedUtc, bool Open, bool Pinned, string Content);
 
         private static bool TryParseResponsePayload(string responseLine, out JsonElement payload)
         {

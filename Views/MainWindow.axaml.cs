@@ -49,6 +49,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private const double ChatInputDefaultMinHeight = 56d;
     private const double ChatInputDefaultMaxHeight = 200d;
     private bool _composerMarkdownPreviewEnabled = true;
+    private bool _hybridMarkdownShellEnabled;
     // Geometry is now persisted via lightweight LayoutCache on close only (no runtime throttled writes)
     // NOTE: We intentionally removed frequent writes to settings.p2e to avoid I/O overhead.
     // Remember last non-zero width of the Notification Center (right) panel within the session
@@ -145,9 +146,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             this.Opened += (_, __) => AttachFlickerWatchers();
             this.Opened += (_, __) => InitializeMessageInputSizing();
-            this.Opened += (_, __) => RestoreComposerMarkdownToolsVisibility();
             this.Opened += (_, __) => RestoreComposerMarkdownPreviewVisibility();
-            this.Opened += (_, __) => InitializeMarkdownToolbar();
+            this.Opened += (_, __) => ConfigureMarkdownComposerMode();
             this.Opened += (_, __) => InitializeNotificationBellFlash();
             this.Activated += (_, __) => WriteUiCategory("[Window]", "Activated");
             this.Deactivated += (_, __) => WriteUiCategory("[Window]", "Deactivated");
@@ -2928,41 +2928,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    private void BoldButton_Click(object? sender, RoutedEventArgs e)
-    {
-        ApplyInlineFormatting("**", "**", "bold text", sender);
-        e.Handled = true;
-    }
-
-    private void ItalicButton_Click(object? sender, RoutedEventArgs e)
-    {
-        ApplyInlineFormatting("*", "*", "italic text", sender);
-        e.Handled = true;
-    }
-
-    private void UnderlineButton_Click(object? sender, RoutedEventArgs e)
-    {
-        ApplyInlineFormatting("++", "++", "underline", sender);
-        e.Handled = true;
-    }
-
-    private void ToggleComposerMarkdownButtons_Click(object? sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var panel = this.FindControl<StackPanel>("ComposerMarkdownButtonsPanel");
-            if (panel == null) return;
-
-            var showButtons = !panel.IsVisible;
-            UpdateComposerMarkdownToolsUi(showButtons);
-            PersistComposerMarkdownToolsVisibility(showButtons);
-            e.Handled = true;
-        }
-        catch { }
-    }
-
     private void ToggleComposerMarkdownPreview_Click(object? sender, RoutedEventArgs e)
     {
+        if (IsHybridMarkdownComposerEnabled())
+        {
+            return;
+        }
+
         try
         {
             var showPreview = !_composerMarkdownPreviewEnabled;
@@ -2973,31 +2945,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
-    private void RestoreComposerMarkdownToolsVisibility()
-    {
-        try
-        {
-            var visible = AppServices.Settings.Settings.ComposerMarkdownToolsVisible;
-            UpdateComposerMarkdownToolsUi(visible);
-        }
-        catch
-        {
-            try { UpdateComposerMarkdownToolsUi(true); } catch { }
-        }
-    }
-
-    private void PersistComposerMarkdownToolsVisibility(bool visible)
-    {
-        try
-        {
-            AppServices.Settings.Settings.ComposerMarkdownToolsVisible = visible;
-            _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
-        }
-        catch { }
-    }
-
     private void RestoreComposerMarkdownPreviewVisibility()
     {
+        if (IsHybridMarkdownComposerEnabled())
+        {
+            UpdateComposerMarkdownPreviewUi(false);
+            return;
+        }
+
         try
         {
             var visible = AppServices.Settings.Settings.ComposerMarkdownPreviewVisible;
@@ -3011,6 +2966,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void PersistComposerMarkdownPreviewVisibility(bool visible)
     {
+        if (IsHybridMarkdownComposerEnabled())
+        {
+            return;
+        }
+
         try
         {
             AppServices.Settings.Settings.ComposerMarkdownPreviewVisible = visible;
@@ -3019,36 +2979,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
-    private void UpdateComposerMarkdownToolsUi(bool visible)
-    {
-        try
-        {
-            var panel = this.FindControl<StackPanel>("ComposerMarkdownButtonsPanel");
-            var icon = this.FindControl<TextBlock>("ComposerMarkdownToggleIcon");
-            var toggleButton = this.FindControl<Button>("ComposerMarkdownToggleButton");
-            if (panel != null)
-            {
-                panel.IsVisible = visible;
-            }
-
-            if (icon != null)
-            {
-                // Fluent MDL2: ChevronRight when expanded, ChevronLeft when collapsed.
-                icon.Text = visible ? "\uE76C" : "\uE76B";
-            }
-
-            if (toggleButton != null)
-            {
-                ToolTip.SetTip(toggleButton, visible ? "Hide markdown tools" : "Show markdown tools");
-            }
-        }
-        catch { }
-    }
-
     private void UpdateComposerMarkdownPreviewUi(bool visible)
     {
         try
         {
+            if (IsHybridMarkdownComposerEnabled())
+            {
+                visible = false;
+            }
+
             _composerMarkdownPreviewEnabled = visible;
 
             var icon = this.FindControl<TextBlock>("ComposerMarkdownPreviewToggleIcon");
@@ -3080,33 +3019,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 return;
             }
 
-            panel.IsVisible = _composerMarkdownPreviewEnabled && !string.IsNullOrWhiteSpace(input.Text);
+            panel.IsVisible = !IsHybridMarkdownComposerEnabled() && _composerMarkdownPreviewEnabled && !string.IsNullOrWhiteSpace(input.Text);
         }
         catch { }
-    }
-
-    private void StrikeButton_Click(object? sender, RoutedEventArgs e)
-    {
-        ApplyInlineFormatting("~~", "~~", "strike", sender);
-        e.Handled = true;
-    }
-
-    private void SpoilerButton_Click(object? sender, RoutedEventArgs e)
-    {
-        ApplySpoilerFormatting(sender);
-        e.Handled = true;
-    }
-
-    private void QuoteButton_Click(object? sender, RoutedEventArgs e)
-    {
-        ApplyQuoteFormatting("quote text", sender);
-        e.Handled = true;
-    }
-
-    private void CodeButton_Click(object? sender, RoutedEventArgs e)
-    {
-        ApplyCodeFormatting(sender);
-        e.Handled = true;
     }
 
     private TextBox? GetMessageInput()
@@ -3126,8 +3041,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     if (input != null)
                     {
                         AdjustMessageInputHeight(input);
-                        // Add context menu with Clear option
-                        input.ContextMenu = CreateMessageInputContextMenu(input);
+                        if (!IsHybridMarkdownComposerEnabled())
+                        {
+                            AttachComposerMarkdownEditBar(input);
+                        }
                     }
                 }
                 catch { }
@@ -3138,6 +3055,154 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private System.Threading.CancellationTokenSource? _inputResizeCts;
     private DateTime _lastInputResize = DateTime.MinValue;
+    private bool _messageInputMarkdownHooksAttached;
+
+    private void AttachComposerMarkdownEditBar(TextBox input)
+    {
+        if (IsHybridMarkdownComposerEnabled())
+        {
+            return;
+        }
+
+        try
+        {
+            if (_messageInputMarkdownHooksAttached)
+            {
+                return;
+            }
+
+            input.ContextMenu = null;
+            input.AddHandler(Control.ContextRequestedEvent, MessageInput_ContextRequested, RoutingStrategies.Bubble, handledEventsToo: true);
+            input.AddHandler(InputElement.PointerReleasedEvent, (_, __) => UpdateComposerMarkdownEditBarVisibility(input), RoutingStrategies.Bubble, handledEventsToo: true);
+            input.AddHandler(InputElement.KeyUpEvent, (_, __) => UpdateComposerMarkdownEditBarVisibility(input), RoutingStrategies.Bubble, handledEventsToo: true);
+            input.PropertyChanged += MessageInputSelection_PropertyChanged;
+            input.LostFocus += (_, __) => Dispatcher.UIThread.Post(() => UpdateComposerMarkdownEditBarVisibility(input), DispatcherPriority.Background);
+            _messageInputMarkdownHooksAttached = true;
+        }
+        catch { }
+    }
+
+    private void MessageInputSelection_PropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        try
+        {
+            if (sender is not TextBox input) return;
+            if (e.Property == TextBox.SelectionStartProperty || e.Property == TextBox.SelectionEndProperty)
+            {
+                UpdateComposerMarkdownEditBarVisibility(input);
+            }
+        }
+        catch { }
+    }
+
+    private void MessageInput_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled())
+        {
+            return;
+        }
+
+        try
+        {
+            if (sender is not TextBox input)
+            {
+                return;
+            }
+
+            if (input.SelectionStart == input.SelectionEnd)
+            {
+                CloseComposerMarkdownEditPopup();
+                return;
+            }
+
+            CaptureMessageSelectionSnapshot(input);
+
+            if (!e.TryGetPosition(input, out var pointer))
+            {
+                pointer = new Point(Math.Max(0, input.Bounds.Width * 0.5), 0);
+            }
+
+            ShowComposerMarkdownEditPopup(input, pointer);
+            e.Handled = true;
+        }
+        catch { }
+    }
+
+    private void ShowComposerMarkdownEditPopup(TextBox input, Point pointer)
+    {
+        if (IsHybridMarkdownComposerEnabled())
+        {
+            return;
+        }
+
+        try
+        {
+            var popup = this.FindControl<Popup>("ComposerMarkdownEditPopup");
+            if (popup == null) return;
+
+            var anchorX = Math.Max(0, Math.Min(pointer.X, Math.Max(0, input.Bounds.Width - 1)));
+            var anchorY = Math.Max(0, Math.Min(pointer.Y, Math.Max(0, input.Bounds.Height - 1)));
+
+            popup.PlacementTarget = input;
+            popup.Placement = PlacementMode.AnchorAndGravity;
+            popup.PlacementRect = new Rect(anchorX, anchorY, 1, 1);
+            popup.PlacementAnchor = PopupAnchor.TopLeft;
+            popup.PlacementGravity = PopupGravity.BottomLeft;
+            popup.PlacementConstraintAdjustment = PopupPositionerConstraintAdjustment.FlipY | PopupPositionerConstraintAdjustment.SlideX;
+            popup.HorizontalOffset = 0;
+            popup.VerticalOffset = 8;
+            popup.IsOpen = true;
+        }
+        catch { }
+    }
+
+    private void UpdateComposerMarkdownEditBarVisibility(TextBox input)
+    {
+        if (IsHybridMarkdownComposerEnabled())
+        {
+            CloseComposerMarkdownEditPopup();
+            return;
+        }
+
+        try
+        {
+            var popup = this.FindControl<Popup>("ComposerMarkdownEditPopup");
+            if (popup == null)
+            {
+                return;
+            }
+
+            var hasSelection = input.SelectionStart != input.SelectionEnd;
+            if (!hasSelection)
+            {
+                popup.IsOpen = false;
+                return;
+            }
+
+            if (!popup.IsOpen)
+            {
+                if (input.Bounds.Width > 0)
+                {
+                    var pointer = new Point(Math.Max(0, Math.Min(input.Bounds.Width * 0.5, input.Bounds.Width - 1)), 0);
+                    ShowComposerMarkdownEditPopup(input, pointer);
+                }
+            }
+        }
+        catch { }
+    }
+
+    private void CloseComposerMarkdownEditPopup()
+    {
+        try
+        {
+            var popup = this.FindControl<Popup>("ComposerMarkdownEditPopup");
+            if (popup != null)
+            {
+                popup.IsOpen = false;
+            }
+        }
+        catch { }
+    }
 
     private void MessageInput_TextChanged(object? sender, TextChangedEventArgs e)
     {
@@ -3147,6 +3212,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         UpdateComposerPreviewVisibility();
+        if (!IsHybridMarkdownComposerEnabled())
+        {
+            UpdateComposerMarkdownEditBarVisibility(input);
+        }
 
         // Skip resize during active text selection to prevent freezing
         if (input.SelectionStart != input.SelectionEnd)
@@ -3284,27 +3353,683 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
 
 
-    private ContextMenu CreateMessageInputContextMenu(TextBox input)
+    private void MarkdownHeaderButton_Click(object? sender, RoutedEventArgs e)
     {
-        var menu = new ContextMenu();
-        
-        var clearItem = new MenuItem
+        if (IsHybridMarkdownComposerEnabled()) return;
+
+        try
         {
-            Header = "Clear",
-            Icon = new TextBlock { Text = "🗑️" }
-        };
-        clearItem.Click += async (s, e) =>
-        {
-            input.Text = string.Empty;
-            try
+            if (sender is Button button && button.ContextMenu != null)
             {
-                await AppServices.Dialogs.ShowCenteredToastAsync("Input cleared", 1500);
+                button.ContextMenu.PlacementTarget = button;
+                button.ContextMenu.Open(button);
+                e.Handled = true;
             }
-            catch { }
+        }
+        catch { }
+    }
+
+    private void MarkdownHeaderSize_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+
+        try
+        {
+            if (sender is MenuItem item && item.Tag is string levelText && int.TryParse(levelText, out var level))
+            {
+                ApplyHeaderFormatting(level, item);
+                KeepComposerMarkdownBarPinned();
+            }
+        }
+        catch { }
+    }
+
+    private void MarkdownEditBold_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+        ApplyInlineFormatting("**", "**", "bold text", sender);
+        KeepComposerMarkdownBarPinned();
+    }
+
+    private void MarkdownEditItalic_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+        ApplyInlineFormatting("*", "*", "italic text", sender);
+        KeepComposerMarkdownBarPinned();
+    }
+
+    private void MarkdownEditUnderline_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+        ApplyInlineFormatting("++", "++", "underline", sender);
+        KeepComposerMarkdownBarPinned();
+    }
+
+    private void MarkdownEditStrike_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+        ApplyInlineFormatting("~~", "~~", "strike", sender);
+        KeepComposerMarkdownBarPinned();
+    }
+
+    private void MarkdownEditSpoiler_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+        ApplySpoilerFormatting(sender);
+        KeepComposerMarkdownBarPinned();
+    }
+
+    private void MarkdownEditLink_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+        ApplyLinkFormatting(sender);
+        KeepComposerMarkdownBarPinned();
+    }
+
+    private void MarkdownEditQuote_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+        ApplyQuoteFormatting("quote text", sender);
+        KeepComposerMarkdownBarPinned();
+    }
+
+    private void MarkdownEditInlineCode_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+        ApplyCodeFormatting(sender);
+        KeepComposerMarkdownBarPinned();
+    }
+
+    private void MarkdownEditCodeBlock_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+        ApplyCodeBlockFormatting(sender);
+        KeepComposerMarkdownBarPinned();
+    }
+
+    private void MarkdownEditMiniEditor_Click(object? sender, RoutedEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+
+        try
+        {
+            var input = GetMessageInput();
+            if (input != null)
+            {
+                OpenMiniMarkdownEditor(input);
+            }
+        }
+        catch { }
+    }
+
+    private void KeepComposerMarkdownBarPinned()
+    {
+        if (IsHybridMarkdownComposerEnabled()) return;
+
+        try
+        {
+            var input = GetMessageInput();
+            if (input != null)
+            {
+                UpdateComposerMarkdownEditBarVisibility(input);
+            }
+        }
+        catch { }
+    }
+
+    private void ApplyHeaderFormatting(int level, object? source)
+    {
+        try
+        {
+            var input = GetMessageInput();
+            if (input is null) return;
+
+            level = Math.Clamp(level, 1, 6);
+            var headerPrefix = new string('#', level) + " ";
+            var text = input.Text ?? string.Empty;
+            var hasSelection = TryResolveMessageSelectionForFormatting(input, source, out var start, out var end);
+
+            if (!hasSelection)
+            {
+                var placeholder = "heading";
+                var insertion = headerPrefix + placeholder;
+                var updated = text.Insert(start, insertion);
+                input.Text = updated;
+                var selectionStart = start + headerPrefix.Length;
+                var selectionEnd = selectionStart + placeholder.Length;
+                input.SelectionStart = selectionStart;
+                input.SelectionEnd = selectionEnd;
+                input.CaretIndex = selectionEnd;
+                CaptureMessageSelectionSnapshot(input);
+                input.Focus();
+                return;
+            }
+
+            var selectedText = text.Substring(start, end - start);
+            var normalized = selectedText.Replace("\r\n", "\n").Replace('\r', '\n');
+            var endsWithBreak = normalized.EndsWith("\n", StringComparison.Ordinal);
+            var lines = normalized.Split('\n');
+            if (endsWithBreak && lines.Length > 0 && lines[^1].Length == 0)
+            {
+                lines = lines[..^1];
+            }
+
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var trimmed = lines[i].TrimStart();
+                lines[i] = headerPrefix + trimmed.TrimStart('#').TrimStart();
+            }
+
+            var replacement = string.Join(Environment.NewLine, lines);
+            if (endsWithBreak)
+            {
+                replacement += Environment.NewLine;
+            }
+
+            var updatedText = text.Remove(start, end - start).Insert(start, replacement);
+            input.Text = updatedText;
+            input.SelectionStart = start;
+            input.SelectionEnd = start + replacement.Length;
+            input.CaretIndex = start + replacement.Length;
+            CaptureMessageSelectionSnapshot(input);
+            input.Focus();
+        }
+        catch (Exception ex)
+        {
+            SafeLogContextError(ex, source);
+        }
+    }
+
+    private void ApplyLinkFormatting(object? source)
+    {
+        try
+        {
+            var input = GetMessageInput();
+            if (input is null) return;
+
+            var text = input.Text ?? string.Empty;
+            var hasSelection = TryResolveMessageSelectionForFormatting(input, source, out var start, out var end);
+
+            if (hasSelection)
+            {
+                var selectedText = text.Substring(start, end - start);
+                var replacement = $"[{selectedText}](https://example.com)";
+                var updatedText = text.Remove(start, end - start).Insert(start, replacement);
+                input.Text = updatedText;
+
+                var urlStart = start + selectedText.Length + 3;
+                const string defaultUrl = "https://example.com";
+                input.SelectionStart = urlStart;
+                input.SelectionEnd = urlStart + defaultUrl.Length;
+                input.CaretIndex = input.SelectionEnd;
+                CaptureMessageSelectionSnapshot(input);
+            }
+            else
+            {
+                const string placeholder = "link text";
+                const string defaultUrl = "https://example.com";
+                var insertion = $"[{placeholder}]({defaultUrl})";
+                var updatedText = text.Insert(start, insertion);
+                input.Text = updatedText;
+                input.SelectionStart = start + 1;
+                input.SelectionEnd = start + 1 + placeholder.Length;
+                input.CaretIndex = input.SelectionEnd;
+                CaptureMessageSelectionSnapshot(input);
+            }
+
+            input.Focus();
+        }
+        catch (Exception ex)
+        {
+            SafeLogContextError(ex, source);
+        }
+    }
+
+    private void ApplyCodeBlockFormatting(object? source)
+    {
+        try
+        {
+            var input = GetMessageInput();
+            if (input is null) return;
+
+            var text = input.Text ?? string.Empty;
+            _ = TryResolveMessageSelectionForFormatting(input, source, out var start, out var end);
+            var selectionLength = end - start;
+            var selectedText = selectionLength > 0 ? text.Substring(start, selectionLength) : "code";
+
+            var normalized = selectedText.Replace("\r\n", "\n").Replace('\r', '\n');
+            var lines = normalized.Split('\n');
+            var content = string.Join(Environment.NewLine, lines);
+
+            var block = $"```{Environment.NewLine}{content}{Environment.NewLine}```";
+            var needsLeading = RequiresLeadingNewline(text, start);
+            var needsTrailing = RequiresTrailingNewline(text, end);
+            var replacement = string.Concat(needsLeading ? Environment.NewLine : string.Empty,
+                                            block,
+                                            needsTrailing ? Environment.NewLine : string.Empty);
+
+            var updated = text.Remove(start, selectionLength).Insert(start, replacement);
+            input.Text = updated;
+            var contentStart = start + (needsLeading ? Environment.NewLine.Length : 0) + 3 + Environment.NewLine.Length;
+            input.SelectionStart = contentStart;
+            input.SelectionEnd = contentStart + content.Length;
+            input.CaretIndex = input.SelectionEnd;
+            CaptureMessageSelectionSnapshot(input);
+            input.Focus();
+        }
+        catch (Exception ex)
+        {
+            SafeLogContextError(ex, source);
+        }
+    }
+
+    private void OpenMiniMarkdownEditor(TextBox input)
+    {
+        try
+        {
+            var vm = DataContext as MainWindowViewModel;
+            if (vm is null) return;
+
+            var editorWindow = new Window
+            {
+                Title = "Mini Markdown Editor",
+                Width = 860,
+                Height = 560,
+                MinWidth = 700,
+                MinHeight = 460,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner
+            };
+
+            var editorText = new TextBox
+            {
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Text = vm.OutgoingMessage ?? string.Empty,
+                Watermark = "Write markdown here..."
+            };
+
+            var miniHeaderButton = new Button
+            {
+                Width = 32,
+                Height = 32,
+                Content = new TextBlock { Text = "H", FontWeight = FontWeight.Bold }
+            };
+            miniHeaderButton.Classes.Add("icon-button");
+            ToolTip.SetTip(miniHeaderButton, "Header Size");
+            var miniHeaderMenu = new ContextMenu
+            {
+                ItemsSource = new object[]
+                {
+                    new MenuItem { Header = "Heading 1", Tag = "1" },
+                    new MenuItem { Header = "Heading 2", Tag = "2" },
+                    new MenuItem { Header = "Heading 3", Tag = "3" },
+                    new MenuItem { Header = "Heading 4", Tag = "4" },
+                    new MenuItem { Header = "Heading 5", Tag = "5" },
+                    new MenuItem { Header = "Heading 6", Tag = "6" }
+                }
+            };
+            miniHeaderButton.ContextMenu = miniHeaderMenu;
+
+            void WireMiniHeaderMenu()
+            {
+                try
+                {
+                    if (miniHeaderMenu.ItemsSource is not IEnumerable<object> items) return;
+                    foreach (var item in items.OfType<MenuItem>())
+                    {
+                        item.Click += (_, __) =>
+                        {
+                            if (item.Tag is string levelText && int.TryParse(levelText, out var level))
+                            {
+                                ApplyHeaderFormattingToTextBox(editorText, level);
+                                UpdateMiniToolbarVisibility();
+                            }
+                        };
+                    }
+                }
+                catch { }
+            }
+
+            var miniBoldButton = CreateMiniEditorIconButton("B", "Bold", () => ApplyInlineFormattingToTextBox(editorText, "**", "**", "bold text"));
+            var miniItalicButton = CreateMiniEditorIconButton("I", "Italic", () => ApplyInlineFormattingToTextBox(editorText, "*", "*", "italic text"), italic: true);
+            var miniUnderlineButton = CreateMiniEditorIconButton("U", "Underline", () => ApplyInlineFormattingToTextBox(editorText, "++", "++", "underline"), underline: true);
+            var miniStrikeButton = CreateMiniEditorIconButton("S", "Strikethrough", () => ApplyInlineFormattingToTextBox(editorText, "~~", "~~", "strike"), strike: true);
+            var miniSpoilerButton = CreateMiniEditorIconButton("||", "Spoiler", () => ApplySpoilerFormattingToTextBox(editorText));
+            var miniLinkButton = CreateMiniEditorIconButton("\uE71B", "Link", () => ApplyLinkFormattingToTextBox(editorText), mdl2: true);
+            var miniQuoteButton = CreateMiniEditorIconButton(">", "Quote", () => ApplyQuoteFormattingToTextBox(editorText));
+            var miniCodeButton = CreateMiniEditorIconButton("</>", "Inline Code", () => ApplyInlineCodeFormattingToTextBox(editorText), monospace: true);
+            var miniCodeBlockButton = CreateMiniEditorIconButton("{}", "Code Block", () => ApplyCodeBlockFormattingToTextBox(editorText), monospace: true);
+
+            var miniToolbar = new Border
+            {
+                Background = (IBrush?)Application.Current?.Resources["App.Surface"],
+                BorderBrush = (IBrush?)Application.Current?.Resources["App.Border"],
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(6),
+                IsVisible = false,
+                Child = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 4,
+                    Children =
+                    {
+                        miniHeaderButton,
+                        miniBoldButton,
+                        miniItalicButton,
+                        miniUnderlineButton,
+                        miniStrikeButton,
+                        miniSpoilerButton,
+                        miniLinkButton,
+                        miniQuoteButton,
+                        miniCodeButton,
+                        miniCodeBlockButton
+                    }
+                }
+            };
+
+            void UpdateMiniToolbarVisibility()
+            {
+                try
+                {
+                    miniToolbar.IsVisible = editorText.SelectionStart != editorText.SelectionEnd;
+                }
+                catch { }
+            }
+
+            void KeepMiniToolbarPinned()
+            {
+                try
+                {
+                    UpdateMiniToolbarVisibility();
+                    editorText.Focus();
+                }
+                catch { }
+            }
+
+            miniHeaderButton.Click += (_, __) =>
+            {
+                try
+                {
+                    miniHeaderMenu.PlacementTarget = miniHeaderButton;
+                    miniHeaderMenu.Open(miniHeaderButton);
+                }
+                catch { }
+            };
+
+            miniBoldButton.Click += (_, __) => KeepMiniToolbarPinned();
+            miniItalicButton.Click += (_, __) => KeepMiniToolbarPinned();
+            miniUnderlineButton.Click += (_, __) => KeepMiniToolbarPinned();
+            miniStrikeButton.Click += (_, __) => KeepMiniToolbarPinned();
+            miniSpoilerButton.Click += (_, __) => KeepMiniToolbarPinned();
+            miniLinkButton.Click += (_, __) => KeepMiniToolbarPinned();
+            miniQuoteButton.Click += (_, __) => KeepMiniToolbarPinned();
+            miniCodeButton.Click += (_, __) => KeepMiniToolbarPinned();
+            miniCodeBlockButton.Click += (_, __) => KeepMiniToolbarPinned();
+
+            editorText.PropertyChanged += (_, args) =>
+            {
+                if (args.Property == TextBox.SelectionStartProperty || args.Property == TextBox.SelectionEndProperty || args.Property == TextBox.TextProperty)
+                {
+                    UpdateMiniToolbarVisibility();
+                }
+            };
+
+            var insertButton = new Button
+            {
+                Content = "Insert To Composer",
+                MinWidth = 130,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            insertButton.Click += (_, _) =>
+            {
+                vm.OutgoingMessage = editorText.Text ?? string.Empty;
+            };
+
+            var sendButton = new Button
+            {
+                Content = "Send To Canvas",
+                MinWidth = 120,
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+            sendButton.Click += (_, _) =>
+            {
+                vm.OutgoingMessage = editorText.Text ?? string.Empty;
+                if (vm.SendCommand?.CanExecute(null) ?? false)
+                {
+                    vm.SendCommand.Execute(null);
+                    editorWindow.Close();
+                }
+            };
+
+            var closeButton = new Button
+            {
+                Content = "Close",
+                MinWidth = 90
+            };
+            closeButton.Click += (_, _) => editorWindow.Close();
+
+            var actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Spacing = 0
+            };
+            actions.Children.Add(insertButton);
+            actions.Children.Add(sendButton);
+            actions.Children.Add(closeButton);
+
+            var editorPane = new Border
+            {
+                BorderBrush = Brushes.Gray,
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(8),
+                Child = editorText
+            };
+
+            var root = new Grid
+            {
+                RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"),
+                Margin = new Thickness(12)
+            };
+
+            root.Children.Add(new TextBlock
+            {
+                Text = "Mini Markdown Editor: select text to reveal formatting toolbar. Use actions to format without typing markdown tags manually.",
+                Margin = new Thickness(0, 0, 0, 10),
+                TextWrapping = TextWrapping.Wrap,
+                Opacity = 0.8
+            });
+
+            Grid.SetRow(miniToolbar, 1);
+            miniToolbar.Margin = new Thickness(0, 0, 0, 8);
+            root.Children.Add(miniToolbar);
+
+            Grid.SetRow(editorPane, 2);
+            root.Children.Add(editorPane);
+
+            Grid.SetRow(actions, 3);
+            actions.Margin = new Thickness(0, 10, 0, 0);
+            root.Children.Add(actions);
+
+            WireMiniHeaderMenu();
+            UpdateMiniToolbarVisibility();
+
+            editorWindow.Content = root;
+            editorWindow.ShowDialog(this);
+            input.Focus();
+        }
+        catch (Exception ex)
+        {
+            SafeLogContextError(ex, input);
+        }
+    }
+
+    private static Button CreateMiniEditorIconButton(string text, string tooltip, Action onClick, bool italic = false, bool underline = false, bool strike = false, bool monospace = false, bool mdl2 = false)
+    {
+        var block = new TextBlock
+        {
+            Text = text,
+            FontSize = 13
         };
-        
-        menu.Items.Add(clearItem);
-        return menu;
+        if (italic) block.FontStyle = FontStyle.Italic;
+        if (underline) block.TextDecorations = TextDecorations.Underline;
+        if (strike) block.TextDecorations = TextDecorations.Strikethrough;
+        if (monospace) block.FontFamily = new FontFamily("Consolas");
+        if (mdl2) block.Classes.Add("icon-mdl2");
+
+        var button = new Button
+        {
+            Width = 32,
+            Height = 32,
+            Content = block
+        };
+        button.Classes.Add("icon-button");
+        ToolTip.SetTip(button, tooltip);
+        button.Click += (_, __) => onClick();
+        return button;
+    }
+
+    private static (int Start, int End) GetMiniSelection(TextBox input)
+    {
+        var text = input.Text ?? string.Empty;
+        var start = Math.Max(0, Math.Min(input.SelectionStart, text.Length));
+        var end = Math.Max(0, Math.Min(input.SelectionEnd, text.Length));
+        if (end < start)
+        {
+            (start, end) = (end, start);
+        }
+
+        return (start, end);
+    }
+
+    private static void ApplyInlineFormattingToTextBox(TextBox input, string prefix, string suffix, string placeholder)
+    {
+        var text = input.Text ?? string.Empty;
+        var (start, end) = GetMiniSelection(input);
+        if (start == end)
+        {
+            var insertion = string.Concat(prefix, placeholder, suffix);
+            input.Text = text.Insert(start, insertion);
+            input.SelectionStart = start + prefix.Length;
+            input.SelectionEnd = input.SelectionStart + placeholder.Length;
+            input.CaretIndex = input.SelectionEnd;
+            return;
+        }
+
+        var selected = text.Substring(start, end - start);
+        var replacement = string.Concat(prefix, selected, suffix);
+        input.Text = text.Remove(start, end - start).Insert(start, replacement);
+        input.SelectionStart = start + prefix.Length;
+        input.SelectionEnd = input.SelectionStart + selected.Length;
+        input.CaretIndex = input.SelectionEnd;
+    }
+
+    private static void ApplyHeaderFormattingToTextBox(TextBox input, int level)
+    {
+        var text = input.Text ?? string.Empty;
+        var (start, end) = GetMiniSelection(input);
+        level = Math.Clamp(level, 1, 6);
+        var prefix = new string('#', level) + " ";
+
+        if (start == end)
+        {
+            const string placeholder = "heading";
+            var insertion = prefix + placeholder;
+            input.Text = text.Insert(start, insertion);
+            input.SelectionStart = start + prefix.Length;
+            input.SelectionEnd = input.SelectionStart + placeholder.Length;
+            input.CaretIndex = input.SelectionEnd;
+            return;
+        }
+
+        var selected = text.Substring(start, end - start).Replace("\r\n", "\n").Replace('\r', '\n');
+        var lines = selected.Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].TrimStart();
+            lines[i] = prefix + trimmed.TrimStart('#').TrimStart();
+        }
+
+        var replacement = string.Join(Environment.NewLine, lines);
+        input.Text = text.Remove(start, end - start).Insert(start, replacement);
+        input.SelectionStart = start;
+        input.SelectionEnd = start + replacement.Length;
+        input.CaretIndex = input.SelectionEnd;
+    }
+
+    private static void ApplySpoilerFormattingToTextBox(TextBox input)
+    {
+        ApplyInlineFormattingToTextBox(input, "||", "||", "spoiler");
+    }
+
+    private static void ApplyInlineCodeFormattingToTextBox(TextBox input)
+    {
+        ApplyInlineFormattingToTextBox(input, "`", "`", "code");
+    }
+
+    private static void ApplyLinkFormattingToTextBox(TextBox input)
+    {
+        var text = input.Text ?? string.Empty;
+        var (start, end) = GetMiniSelection(input);
+        const string url = "https://example.com";
+        if (start == end)
+        {
+            const string label = "link text";
+            var insertion = $"[{label}]({url})";
+            input.Text = text.Insert(start, insertion);
+            input.SelectionStart = start + 1;
+            input.SelectionEnd = input.SelectionStart + label.Length;
+            input.CaretIndex = input.SelectionEnd;
+            return;
+        }
+
+        var selected = text.Substring(start, end - start);
+        var replacement = $"[{selected}]({url})";
+        input.Text = text.Remove(start, end - start).Insert(start, replacement);
+        var urlStart = start + selected.Length + 3;
+        input.SelectionStart = urlStart;
+        input.SelectionEnd = urlStart + url.Length;
+        input.CaretIndex = input.SelectionEnd;
+    }
+
+    private static void ApplyQuoteFormattingToTextBox(TextBox input)
+    {
+        var text = input.Text ?? string.Empty;
+        var (start, end) = GetMiniSelection(input);
+        if (start == end)
+        {
+            const string placeholder = "quote text";
+            var insertion = $"> {placeholder}{Environment.NewLine}";
+            input.Text = text.Insert(start, insertion);
+            input.SelectionStart = start + 2;
+            input.SelectionEnd = input.SelectionStart + placeholder.Length;
+            input.CaretIndex = input.SelectionEnd;
+            return;
+        }
+
+        var selected = text.Substring(start, end - start).Replace("\r\n", "\n").Replace('\r', '\n');
+        var replacement = string.Join(Environment.NewLine, selected.Split('\n').Select(line => $"> {line}"));
+        input.Text = text.Remove(start, end - start).Insert(start, replacement);
+        input.SelectionStart = start;
+        input.SelectionEnd = start + replacement.Length;
+        input.CaretIndex = input.SelectionEnd;
+    }
+
+    private static void ApplyCodeBlockFormattingToTextBox(TextBox input)
+    {
+        var text = input.Text ?? string.Empty;
+        var (start, end) = GetMiniSelection(input);
+        var selected = start == end ? "code" : text.Substring(start, end - start);
+        var content = selected.Replace("\r\n", "\n").Replace('\r', '\n');
+        var block = $"```{Environment.NewLine}{content}{Environment.NewLine}```";
+        input.Text = text.Remove(start, end - start).Insert(start, block);
+        var contentStart = start + 3 + Environment.NewLine.Length;
+        input.SelectionStart = contentStart;
+        input.SelectionEnd = contentStart + content.Length;
+        input.CaretIndex = input.SelectionEnd;
     }
 
     private void ApplyInlineFormatting(string prefix, string suffix, string placeholder, object? source)
@@ -3554,6 +4279,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
     private void OnMessageInputKeyDown(object? sender, KeyEventArgs e)
     {
+        if (TryHandleComposerMarkdownShortcut(e))
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != Key.Enter) return;
         // Shift+Enter should insert a new line
         if ((e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift) return;
@@ -3564,6 +4295,113 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             vm.SendCommand.Execute(null);
         }
+    }
+
+    private bool TryHandleComposerMarkdownShortcut(KeyEventArgs e)
+    {
+        if (IsHybridMarkdownComposerEnabled())
+        {
+            return false;
+        }
+
+        try
+        {
+            var modifiers = e.KeyModifiers;
+            var hasControl = (modifiers & KeyModifiers.Control) == KeyModifiers.Control;
+            var hasShift = (modifiers & KeyModifiers.Shift) == KeyModifiers.Shift;
+            if (!hasControl) return false;
+
+            switch (e.Key)
+            {
+                case Key.B:
+                    ApplyInlineFormatting("**", "**", "bold text", this);
+                    return true;
+                case Key.I:
+                    ApplyInlineFormatting("*", "*", "italic text", this);
+                    return true;
+                case Key.U:
+                    ApplyInlineFormatting("++", "++", "underline", this);
+                    return true;
+                case Key.Q when hasShift:
+                    ApplyQuoteFormatting("quote text", this);
+                    return true;
+                case Key.C when hasShift:
+                    ApplyCodeFormatting(this);
+                    return true;
+                case Key.X when hasShift:
+                    ApplyInlineFormatting("~~", "~~", "strike", this);
+                    return true;
+                case Key.S when hasShift:
+                    ApplySpoilerFormatting(this);
+                    return true;
+                case Key.P when hasShift:
+                    var previewVisible = !_composerMarkdownPreviewEnabled;
+                    UpdateComposerMarkdownPreviewUi(previewVisible);
+                    PersistComposerMarkdownPreviewVisibility(previewVisible);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool IsHybridMarkdownComposerEnabled()
+    {
+        try
+        {
+            _hybridMarkdownShellEnabled = AppServices.Settings.Settings.EnableHybridMarkdownShell;
+            return _hybridMarkdownShellEnabled;
+        }
+        catch
+        {
+            return _hybridMarkdownShellEnabled;
+        }
+    }
+
+    private void ConfigureMarkdownComposerMode()
+    {
+        try
+        {
+            _hybridMarkdownShellEnabled = IsHybridMarkdownComposerEnabled();
+
+            var previewToggle = this.FindControl<Button>("ComposerMarkdownPreviewToggleButton");
+            if (previewToggle != null)
+            {
+                previewToggle.IsVisible = !_hybridMarkdownShellEnabled;
+            }
+
+            var previewPanel = this.FindControl<Border>("ComposerMarkdownPreviewPanel");
+            if (previewPanel != null)
+            {
+                previewPanel.IsVisible = false;
+            }
+
+            var popup = this.FindControl<Popup>("ComposerMarkdownEditPopup");
+            if (popup != null)
+            {
+                popup.IsOpen = false;
+            }
+
+            var input = GetMessageInput();
+            if (input != null)
+            {
+                if (_hybridMarkdownShellEnabled)
+                {
+                    input.ContextMenu = null;
+                }
+                else
+                {
+                    AttachComposerMarkdownEditBar(input);
+                }
+            }
+
+            UpdateComposerPreviewVisibility();
+        }
+        catch { }
     }
 
     private void RegisterLockHotkey()
@@ -4860,17 +5698,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 try
                 {
-                    using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(15));
                     // Open local verification modal; do not resend 0xC4 (peer already asked)
-                    var ok = await AppServices.Dialogs.ShowVerificationDialogAsync(dn, uid);
-                    if (ok)
-                    {
-                        await AppServices.ContactRequests.RequestVerificationAsync(uid, cts.Token);
-                    }
-                    else
-                    {
-                        await AppServices.ContactRequests.CancelManualVerificationAsync(uid, cts.Token, AppServices.Identity.DisplayName ?? "You");
-                    }
+                    _ = await AppServices.Dialogs.ShowVerificationDialogAsync(dn, uid);
                 }
                 catch { }
                 finally { win.Close(); _verifyReqPopup = null; _verifyReqUid = null; }
@@ -4913,21 +5742,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (c == null) return;
             var uid = c.UID;
             var dn = c.DisplayName ?? uid;
-            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(15));
+            using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(45));
             // Send a manual verification request (0xC4) so the peer sees a notification
             try { await AppServices.ContactRequests.StartManualVerificationAsync(uid, cts.Token); } catch { }
-            // Open local modal
-            var ok = await AppServices.Dialogs.ShowVerificationDialogAsync(dn, uid);
-            if (ok)
-            {
-                // User clicked Verify: send verification intent (0xC3)
-                try { await AppServices.ContactRequests.RequestVerificationAsync(uid, cts.Token); } catch { }
-            }
-            else
-            {
-                // User cancelled locally; inform peer and log
-                try { await AppServices.ContactRequests.CancelManualVerificationAsync(uid, cts.Token, AppServices.Identity.DisplayName ?? "You"); } catch { }
-            }
+            // Open local modal and run coordinated verify flow (both sides must press Verify)
+            _ = await AppServices.Dialogs.ShowVerificationDialogAsync(dn, uid);
         }
         catch { }
     }
@@ -6049,7 +6868,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         var surfaceBrush = (IBrush?)Application.Current?.FindResource("App.Surface") ?? Brushes.Transparent;
         var foregroundBrush = (IBrush?)Application.Current?.FindResource("App.ForegroundPrimary") ?? Brushes.White;
-        var borderBrush = new SolidColorBrush(Color.FromArgb(255, 211, 47, 47));
+        var (eventHeader, eventIcon, borderBrush) = GetSecurityEventVisuals(securityEvent);
 
         var contentBorder = new Border
         {
@@ -6066,12 +6885,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         var root = new StackPanel { Spacing = 6 };
 
         var topRow = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), ColumnSpacing = 8 };
-        var securityEventLabel = Services.AppServices.Localization.GetString("MainWindow.SecurityEvent", "Security Event");
         var openChatLabel = Services.AppServices.Localization.GetString("MainWindow.OpenChat", "Open Chat");
         var uidPrefix = Services.AppServices.Localization.GetString("MainWindow.UidPrefix", "UID:");
         topRow.Children.Add(new TextBlock
         {
-            Text = GetFluentNotificationGlyph(Models.NotificationType.Warning, isMessage: false, isSecurityEvent: true),
+            Text = eventIcon,
             FontFamily = new FontFamily("Segoe Fluent Icons, Segoe MDL2 Assets"),
             FontSize = 15,
             Foreground = borderBrush,
@@ -6080,7 +6898,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         var securityTitle = new TextBlock
         {
-            Text = securityEventLabel,
+            Text = eventHeader,
             FontWeight = FontWeight.SemiBold,
             Foreground = borderBrush
         };
@@ -6184,6 +7002,83 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         contentBorder.Child = root;
         return contentBorder;
+    }
+
+    private static (string Header, string Icon, IBrush BorderBrush) GetSecurityEventVisuals(NotificationService.SecurityEventItem securityEvent)
+    {
+        var summary = securityEvent.Summary ?? string.Empty;
+        var details = securityEvent.Details ?? string.Empty;
+        var combined = $"{summary} {details}";
+
+        static bool ContainsAny(string value, params string[] tokens)
+        {
+            foreach (var token in tokens)
+            {
+                if (value.Contains(token, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
+        }
+
+        var isVerification = ContainsAny(combined, "verification", "verified", "trust ceremony");
+        var isRequest = isVerification && ContainsAny(combined, "request", "requested", "asks", "ask");
+        var isCancelNoticeSent = isVerification && ContainsAny(combined, "cancellation notice sent", "notice was sent");
+        var isCancellation = isVerification && ContainsAny(combined, "cancelled", "canceled", "cancelled verification", "canceled verification");
+        var isFailure = securityEvent.Type == Models.NotificationType.Error
+            || (isVerification && ContainsAny(combined, "failed", "failure", "rejected", "declined", "cancelled", "canceled", "mismatch"));
+        var isSuccess = securityEvent.Type == Models.NotificationType.Success
+            || (isVerification && ContainsAny(combined, "success", "verified", "completed", "completion"));
+
+        if (isRequest)
+        {
+            return (
+                Services.AppServices.Localization.GetString("MainWindow.SecurityEventVerificationRequest", "Security Event: Verification Request"),
+                "\uEA18",
+                new SolidColorBrush(Color.FromArgb(255, 30, 136, 229)));
+        }
+
+        if (isSuccess)
+        {
+            return (
+                Services.AppServices.Localization.GetString("MainWindow.SecurityEventVerificationSuccess", "Security Event: Verification Success"),
+                "\uE73E",
+                new SolidColorBrush(Color.FromArgb(255, 56, 142, 60)));
+        }
+
+        if (isCancelNoticeSent)
+        {
+            return (
+                Services.AppServices.Localization.GetString("MainWindow.SecurityEventCancellationNoticeSent", "Security Event: Cancellation Notice Sent"),
+                "\uE122",
+                new SolidColorBrush(Color.FromArgb(255, 30, 136, 229)));
+        }
+
+        if (isCancellation)
+        {
+            return (
+                Services.AppServices.Localization.GetString("MainWindow.SecurityEventVerificationCancelled", "Security Event: Verification Cancelled"),
+                "\uE7BA",
+                new SolidColorBrush(Color.FromArgb(255, 255, 143, 0)));
+        }
+
+        if (isFailure)
+        {
+            return (
+                Services.AppServices.Localization.GetString("MainWindow.SecurityEventVerificationFailure", "Security Event: Verification Failure"),
+                "\uE7BA",
+                new SolidColorBrush(Color.FromArgb(255, 255, 143, 0)));
+        }
+
+        return (
+            Services.AppServices.Localization.GetString("MainWindow.SecurityEvent", "Security Event"),
+            GetFluentNotificationGlyph(securityEvent.Type, isMessage: false, isSecurityEvent: true),
+            securityEvent.Type switch
+            {
+                Models.NotificationType.Information => new SolidColorBrush(Color.FromArgb(255, 30, 136, 229)),
+                Models.NotificationType.Warning => new SolidColorBrush(Color.FromArgb(255, 255, 143, 0)),
+                Models.NotificationType.Error => new SolidColorBrush(Color.FromArgb(255, 198, 40, 40)),
+                Models.NotificationType.Success => new SolidColorBrush(Color.FromArgb(255, 56, 142, 60)),
+                _ => new SolidColorBrush(Color.FromArgb(255, 255, 143, 0))
+            });
     }
 
     private void NotificationMessage_Click(object? sender, RoutedEventArgs e)
@@ -6424,16 +7319,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
     }
 
-    // Floating Markdown Toolbar (Discord-style)
-    private System.Threading.CancellationTokenSource? _toolbarUpdateCts;
-    private DateTime _lastToolbarUpdate = DateTime.MinValue;
+    // Composer markdown selection snapshots (used by context menu formatting actions)
     private int? _messageSelectionSnapshotStart;
     private int? _messageSelectionSnapshotEnd;
     private DateTime _messageSelectionSnapshotAt = DateTime.MinValue;
-    private Point? _messageSelectionPointerAnchor;
-    private DateTime _messageSelectionPointerAnchorAt = DateTime.MinValue;
     private const int MessageSelectionSnapshotTtlMs = 3000;
-    private const int MessageSelectionPointerAnchorTtlMs = 1200;
 
     private static (int Start, int End) GetClampedSelection(TextBox input, int textLength)
     {
@@ -6478,7 +7368,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return true;
         }
 
-        var isButtonInvoke = source is Button;
+        var isButtonInvoke = source is Button || source is MenuItem;
         var snapshotIsFresh = (DateTime.UtcNow - _messageSelectionSnapshotAt).TotalMilliseconds <= MessageSelectionSnapshotTtlMs;
         if (!isButtonInvoke || !snapshotIsFresh || !_messageSelectionSnapshotStart.HasValue || !_messageSelectionSnapshotEnd.HasValue)
         {
@@ -6495,200 +7385,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         return true;
-    }
-
-    private bool IsFocusWithinMarkdownToolbar()
-    {
-        try
-        {
-            var focused = this.FocusManager?.GetFocusedElement();
-            if (focused is not Visual focusedVisual)
-            {
-                return false;
-            }
-
-            var toolbar = this.FindControl<Zer0Talk.Controls.MarkdownToolbar>("MarkdownFloatingToolbar");
-            if (toolbar is null)
-            {
-                return false;
-            }
-
-            return ReferenceEquals(focusedVisual, toolbar) ||
-                   focusedVisual.FindAncestorOfType<Zer0Talk.Controls.MarkdownToolbar>() == toolbar;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private void InitializeMarkdownToolbar()
-    {
-        try
-        {
-            var input = GetMessageInput();
-            var popup = this.FindControl<Popup>("MarkdownToolbarPopup");
-            
-            if (input == null || popup == null) return;
-
-            // Show toolbar when text is selected (throttled to prevent freeze)
-            input.AddHandler(InputElement.PointerReleasedEvent, (s, e) =>
-            {
-                try
-                {
-                    try
-                    {
-                        _messageSelectionPointerAnchor = e.GetPosition(input);
-                        _messageSelectionPointerAnchorAt = DateTime.UtcNow;
-                    }
-                    catch { }
-
-                    // Throttle to prevent excessive updates
-                    var now = DateTime.UtcNow;
-                    if ((now - _lastToolbarUpdate).TotalMilliseconds < 100)
-                    {
-                        return;
-                    }
-                    _lastToolbarUpdate = now;
-
-                    _toolbarUpdateCts?.Cancel();
-                    _toolbarUpdateCts = new System.Threading.CancellationTokenSource();
-                    var token = _toolbarUpdateCts.Token;
-
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        try
-                        {
-                            if (!token.IsCancellationRequested)
-                            {
-                                CaptureMessageSelectionSnapshot(input);
-                                UpdateMarkdownToolbarVisibility(input, popup);
-                            }
-                        }
-                        catch { }
-                    }, DispatcherPriority.Background);
-                }
-                catch { }
-            }, RoutingStrategies.Tunnel);
-
-            // Hide toolbar when selection is lost
-            input.AddHandler(InputElement.PointerPressedEvent, (s, e) =>
-            {
-                try
-                {
-                    _messageSelectionPointerAnchor = null;
-                    popup.IsOpen = false;
-                }
-                catch { }
-            }, RoutingStrategies.Tunnel);
-
-            // Handle keyboard selection (Shift+Arrow keys) - throttled
-            input.AddHandler(InputElement.KeyUpEvent, (s, e) =>
-            {
-                try
-                {
-                    if (e.KeyModifiers == KeyModifiers.Shift)
-                    {
-                        // Throttle to prevent excessive updates
-                        var now = DateTime.UtcNow;
-                        if ((now - _lastToolbarUpdate).TotalMilliseconds < 100)
-                        {
-                            return;
-                        }
-                        _lastToolbarUpdate = now;
-
-                        _toolbarUpdateCts?.Cancel();
-                        _toolbarUpdateCts = new System.Threading.CancellationTokenSource();
-                        var token = _toolbarUpdateCts.Token;
-
-                        Dispatcher.UIThread.Post(() =>
-                        {
-                            try
-                            {
-                                if (!token.IsCancellationRequested)
-                                {
-                                    CaptureMessageSelectionSnapshot(input);
-                                    UpdateMarkdownToolbarVisibility(input, popup);
-                                }
-                            }
-                            catch { }
-                        }, DispatcherPriority.Background);
-                    }
-                }
-                catch { }
-            }, RoutingStrategies.Tunnel);
-
-            // Hide on focus loss
-            input.LostFocus += (s, e) =>
-            {
-                try
-                {
-                    // Keep popup alive while focus is moving to a floating toolbar button.
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        try
-                        {
-                            if (IsFocusWithinMarkdownToolbar())
-                            {
-                                return;
-                            }
-
-                            popup.IsOpen = false;
-                        }
-                        catch { }
-                    }, DispatcherPriority.Background);
-                }
-                catch { }
-            };
-        }
-        catch { }
-    }
-
-    private void UpdateMarkdownToolbarVisibility(TextBox input, Popup popup)
-    {
-        try
-        {
-            var hasSelection = input.SelectionStart != input.SelectionEnd;
-            
-            if (hasSelection)
-            {
-                // If the selection was made via pointer, anchor popup to the pointer position
-                // inside the composer so it floats over the selected text region.
-                var pointerAnchorIsFresh = (DateTime.UtcNow - _messageSelectionPointerAnchorAt).TotalMilliseconds <= MessageSelectionPointerAnchorTtlMs;
-                if (pointerAnchorIsFresh && _messageSelectionPointerAnchor.HasValue)
-                {
-                    var anchor = _messageSelectionPointerAnchor.Value;
-                    var anchorX = Math.Max(0, Math.Min(anchor.X, Math.Max(0, input.Bounds.Width - 1)));
-                    var anchorY = Math.Max(0, Math.Min(anchor.Y, Math.Max(0, input.Bounds.Height - 1)));
-                    popup.PlacementTarget = input;
-                    popup.Placement = PlacementMode.AnchorAndGravity;
-                    popup.PlacementRect = new Rect(anchorX, anchorY, 1, 1);
-                    popup.PlacementAnchor = PopupAnchor.Top;
-                    popup.PlacementGravity = PopupGravity.Top;
-                    popup.PlacementConstraintAdjustment = PopupPositionerConstraintAdjustment.FlipY | PopupPositionerConstraintAdjustment.SlideX;
-                    popup.HorizontalOffset = 0;
-                    popup.VerticalOffset = -10;
-                }
-                else
-                {
-                    popup.PlacementTarget = input;
-                    popup.Placement = PlacementMode.Top;
-                    popup.HorizontalOffset = 0;
-                    popup.VerticalOffset = -8;
-                }
-
-                popup.IsOpen = true;
-            }
-            else
-            {
-                // Hide toolbar when no selection
-                popup.IsOpen = false;
-            }
-        }
-        catch
-        {
-            popup.IsOpen = false;
-        }
     }
 
     public void Dispose()

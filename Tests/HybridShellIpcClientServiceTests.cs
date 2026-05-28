@@ -44,6 +44,9 @@ public sealed class HybridShellIpcClientServiceTests
         Assert.Contains(HybridIpcHostService.CommandGetCapabilities, client.Capabilities.Commands);
         Assert.True(client.SupportsContactsDelta);
         Assert.True(client.SupportsUnreadCountDelta);
+        Assert.True(client.SupportsMarkdownRender);
+        Assert.True(client.SupportsMarkdownFormatApply);
+        Assert.True(client.SupportsMarkdownUiConfig);
     }
 
     [Fact]
@@ -80,6 +83,90 @@ public sealed class HybridShellIpcClientServiceTests
         Assert.NotNull(snapshot.Contacts);
     }
 
+    [Fact]
+    public async Task RequestMarkdownRenderAsync_ReturnsHtml()
+    {
+        using var fixture = new HybridIpcFixture();
+
+        using var client = new HybridShellIpcClientService(fixture.PipeName);
+        Assert.True(await client.ConnectAsync());
+
+        var rendered = await client.RequestMarkdownRenderAsync("# Hello");
+
+        Assert.NotNull(rendered);
+        Assert.Contains("<h1", rendered!.Html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ApplyMarkdownFormatAsync_ReturnsFormattedMarkdown()
+    {
+        using var fixture = new HybridIpcFixture();
+
+        using var client = new HybridShellIpcClientService(fixture.PipeName);
+        Assert.True(await client.ConnectAsync());
+
+        var formatted = await client.ApplyMarkdownFormatAsync("hello", 0, 5, "bold");
+
+        Assert.NotNull(formatted);
+        Assert.Equal("**hello**", formatted!.Markdown);
+        Assert.Equal("bold", formatted.Kind);
+    }
+
+    [Fact]
+    public async Task RequestMarkdownUiConfigAsync_ReturnsToolbarAndMiniEditorSettings()
+    {
+        using var fixture = new HybridIpcFixture();
+
+        using var client = new HybridShellIpcClientService(fixture.PipeName);
+        Assert.True(await client.ConnectAsync());
+
+        var config = await client.RequestMarkdownUiConfigAsync();
+
+        Assert.NotNull(config);
+        Assert.True(config!.PreviewButton.Enabled);
+        Assert.True(config.Toolbar.AutoHideOnSelectionClear);
+        Assert.True(config.Toolbar.PinWhileApplyingActions);
+        Assert.True(config.MiniEditor.Enabled);
+        Assert.False(config.MiniEditor.UsesSplitPreviewPane);
+    }
+
+    [Fact]
+    public async Task MarkdownStateCommands_RoundTripThroughClient()
+    {
+        using var fixture = new HybridIpcFixture();
+
+        using var client = new HybridShellIpcClientService(fixture.PipeName);
+        Assert.True(await client.ConnectAsync());
+
+        Assert.True(client.SupportsMarkdownDraftState);
+        Assert.True(client.SupportsMarkdownPreviewState);
+        Assert.True(client.SupportsMarkdownToolbarState);
+        Assert.True(client.SupportsMarkdownMiniEditorState);
+
+        var draftSet = await client.SetMarkdownDraftAsync("tauri draft", 1, 5);
+        Assert.NotNull(draftSet);
+        Assert.Equal("tauri draft", draftSet!.Markdown);
+
+        var draftGet = await client.RequestMarkdownDraftAsync();
+        Assert.NotNull(draftGet);
+        Assert.Equal(1, draftGet!.SelectionStart);
+        Assert.Equal(5, draftGet.SelectionEnd);
+
+        var preview = await client.SetMarkdownPreviewStateAsync(false);
+        Assert.NotNull(preview);
+        Assert.False(preview!.Visible);
+
+        var toolbar = await client.SetMarkdownToolbarStateAsync(true, true);
+        Assert.NotNull(toolbar);
+        Assert.True(toolbar!.Visible);
+        Assert.True(toolbar.Pinned);
+
+        var mini = await client.SetMarkdownMiniEditorStateAsync(true, true, "note");
+        Assert.NotNull(mini);
+        Assert.True(mini!.Open);
+        Assert.Equal("note", mini.Content);
+    }
+
     private sealed class HybridIpcFixture : IDisposable
     {
         public string PipeName { get; } = $"zer0talk-shell-client-tests-{Guid.NewGuid():N}";
@@ -92,6 +179,7 @@ public sealed class HybridShellIpcClientServiceTests
         private readonly UnreadStateService _unreadState;
         private readonly UnreadBridgeService _unreadBridge;
         private readonly UnreadIpcEndpointService _unreadEndpoint;
+        private readonly MarkdownIpcEndpointService _markdownEndpoint;
         private readonly HybridIpcHostService _host;
 
         public HybridIpcFixture()
@@ -101,7 +189,8 @@ public sealed class HybridShellIpcClientServiceTests
             _unreadState = new UnreadStateService(Notifications);
             _unreadBridge = new UnreadBridgeService(_unreadState, Hub);
             _unreadEndpoint = new UnreadIpcEndpointService(_unreadBridge, Hub);
-            _host = new HybridIpcHostService(_contactsEndpoint, _unreadEndpoint, PipeName);
+            _markdownEndpoint = new MarkdownIpcEndpointService();
+            _host = new HybridIpcHostService(_contactsEndpoint, _unreadEndpoint, _markdownEndpoint, PipeName);
             _host.Start();
         }
 

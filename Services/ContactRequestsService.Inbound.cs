@@ -238,9 +238,68 @@ namespace Zer0Talk.Services
             // Must have an active session (otherwise we cannot send encrypted frame).
             var ok = await _net.SendVerifyIntentAsync(uid, ct);
             if (!ok) return false;
-            _verifyInitiated[uid] = true;
+
+            var now = DateTime.UtcNow;
+            _verifyInitiatedUtc[uid] = now;
+            if (_verifyReceivedUtc.TryGetValue(uid, out var receivedUtc)
+                && (now - receivedUtc) > TimeSpan.FromSeconds(VerificationMutualTimeoutSeconds))
+            {
+                _verifyReceivedUtc.TryRemove(uid, out _);
+            }
+            var completion = GetOrCreateVerificationCompletion(uid);
+
+            if (!_verifyReceivedUtc.ContainsKey(uid))
+            {
+                try
+                {
+                    var accountName = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(Trim(c.UID), uid, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? uid;
+                    AppServices.Notifications.PostSecurityEvent(
+                        uid,
+                        accountName,
+                        "Verification Pending",
+                        $"You pressed Verify. Waiting for {accountName} to press Verify ({VerificationMutualTimeoutSeconds}s timeout).",
+                        Models.NotificationType.Information);
+                }
+                catch { }
+            }
+
             EvaluateMutualVerification(uid);
-            return true;
+            if (completion.Task.IsCompleted)
+            {
+                try { return await completion.Task.ConfigureAwait(false); } catch { return false; }
+            }
+
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(VerificationMutualTimeoutSeconds));
+            var done = await Task.WhenAny(completion.Task, timeoutTask).ConfigureAwait(false);
+            if (done == completion.Task)
+            {
+                try { return await completion.Task.ConfigureAwait(false); } catch { return false; }
+            }
+
+            CompleteVerification(uid, false);
+            ClearVerificationState(uid);
+
+            try
+            {
+                var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                _ = _net.SendVerifyCancelAsync(uid, timeoutCts.Token);
+            }
+            catch { }
+
+            try
+            {
+                var accountName = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(Trim(c.UID), uid, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? uid;
+                AppServices.Notifications.PostSecurityEvent(
+                    uid,
+                    accountName,
+                    "Verification Failure",
+                    $"Verification timed out. Both sides must press Verify within {VerificationMutualTimeoutSeconds} seconds.",
+                    Models.NotificationType.Warning);
+            }
+            catch { }
+
+            try { VerifyRequestCancelled?.Invoke(uid); } catch { }
+            return false;
         }
 
         // Start the manual verification UX with the peer (sends 0xC4). Caller should also open local dialog.
@@ -260,8 +319,35 @@ namespace Zer0Talk.Services
         public async Task CancelManualVerificationAsync(string uid, CancellationToken ct, string? cancelledBy = null)
         {
             uid = Trim(uid);
-            try { await _net.SendVerifyCancelAsync(uid, ct); } catch { }
+            var cancelNoticeSent = false;
+            try { cancelNoticeSent = await _net.SendVerifyCancelAsync(uid, ct); } catch { }
+            CompleteVerification(uid, false);
+            ClearVerificationState(uid);
             _verifyRequestPending.TryRemove(uid, out _);
+
+            try
+            {
+                var accountName = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(Trim(c.UID), uid, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? uid;
+                var cancelledLabel = string.IsNullOrWhiteSpace(cancelledBy) ? "You" : cancelledBy.Trim();
+                AppServices.Notifications.PostSecurityEvent(
+                    uid,
+                    accountName,
+                    "Verification Cancelled",
+                    $"{cancelledLabel} cancelled verification before both sides pressed Verify.",
+                    Models.NotificationType.Warning);
+
+                if (cancelNoticeSent)
+                {
+                    AppServices.Notifications.PostSecurityEvent(
+                        uid,
+                        accountName,
+                        "Cancellation Notice Sent",
+                        $"Verification cancellation notice was sent to {accountName}.",
+                        Models.NotificationType.Information);
+                }
+            }
+            catch { }
+
             try { VerifyRequestCancelled?.Invoke(uid); } catch { }
             if (!string.IsNullOrWhiteSpace(cancelledBy))
             {
@@ -273,7 +359,31 @@ namespace Zer0Talk.Services
         public void OnInboundVerifyIntent(string uid)
         {
             uid = Trim(uid);
-            _verifyReceived[uid] = true;
+            var now = DateTime.UtcNow;
+            _verifyReceivedUtc[uid] = now;
+
+            if (_verifyInitiatedUtc.TryGetValue(uid, out var initiatedUtc)
+                && (now - initiatedUtc) > TimeSpan.FromSeconds(VerificationMutualTimeoutSeconds))
+            {
+                _verifyInitiatedUtc.TryRemove(uid, out _);
+            }
+
+            try
+            {
+                if (!_verifyInitiatedUtc.ContainsKey(uid))
+                {
+                    var accountName = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(Trim(c.UID), uid, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? uid;
+                    AppServices.Notifications.PostSecurityEvent(
+                        uid,
+                        accountName,
+                        "Verification Pending",
+                        $"{accountName} pressed Verify and is waiting for you.",
+                        Models.NotificationType.Information);
+                }
+            }
+            catch { }
+
+            try { VerifyPeerIntentReceived?.Invoke(uid); } catch { }
             EvaluateMutualVerification(uid);
         }
 
@@ -282,6 +392,18 @@ namespace Zer0Talk.Services
         {
             uid = Trim(uid);
             _verifyRequestPending[uid] = true;
+            try
+            {
+                var contact = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(Trim(c.UID), uid, StringComparison.OrdinalIgnoreCase));
+                var accountName = string.IsNullOrWhiteSpace(contact?.DisplayName) ? uid : contact!.DisplayName;
+                AppServices.Notifications.PostSecurityEvent(
+                    uid,
+                    accountName,
+                    "Verification Request",
+                    $"{accountName} requested identity verification.",
+                    Models.NotificationType.Information);
+            }
+            catch { }
             try { VerifyRequestReceived?.Invoke(uid); } catch { }
         }
 
@@ -289,7 +411,22 @@ namespace Zer0Talk.Services
         public void OnInboundVerifyCancel(string uid)
         {
             uid = Trim(uid);
+            CompleteVerification(uid, false);
+            ClearVerificationState(uid);
             _verifyRequestPending.TryRemove(uid, out _);
+
+            try
+            {
+                var accountName = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(Trim(c.UID), uid, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? uid;
+                AppServices.Notifications.PostSecurityEvent(
+                    uid,
+                    accountName,
+                    "Verification Cancelled",
+                    $"{accountName} cancelled verification before both sides pressed Verify.",
+                    Models.NotificationType.Warning);
+            }
+            catch { }
+
             try { VerifyRequestCancelled?.Invoke(uid); } catch { }
         }
 
@@ -333,10 +470,14 @@ namespace Zer0Talk.Services
                         AppServices.Notifications.PostSecurityEvent(
                             uid,
                             AppServices.Identity.DisplayName,
-                            "Identity verification updated",
-                            $"{uid} confirmed verification completion.");
+                            "Verification Success",
+                            $"{uid} confirmed verification completion.",
+                            Models.NotificationType.Success);
                     }
                     catch { }
+
+                    CompleteVerification(uid, true);
+                    ClearVerificationState(uid);
                 }
             }
             catch { }
@@ -346,8 +487,18 @@ namespace Zer0Talk.Services
         {
             try
             {
-                if (_verifyInitiated.ContainsKey(uid) && _verifyReceived.ContainsKey(uid))
+                if (_verifyInitiatedUtc.TryGetValue(uid, out var initiatedUtc)
+                    && _verifyReceivedUtc.TryGetValue(uid, out var receivedUtc))
                 {
+                    var now = DateTime.UtcNow;
+                    if ((now - initiatedUtc) > TimeSpan.FromSeconds(VerificationMutualTimeoutSeconds)
+                        || (now - receivedUtc) > TimeSpan.FromSeconds(VerificationMutualTimeoutSeconds))
+                    {
+                        _verifyInitiatedUtc.TryRemove(uid, out _);
+                        _verifyReceivedUtc.TryRemove(uid, out _);
+                        return;
+                    }
+
                     // Only mark verified if we have observed a public key for the peer.
                     var peer = AppServices.Peers.Peers.Find(p => string.Equals(p.UID, uid, StringComparison.OrdinalIgnoreCase));
                     if (peer?.PublicKey is { Length: > 0 })
@@ -400,14 +551,38 @@ namespace Zer0Talk.Services
                             AppServices.Notifications.PostSecurityEvent(
                                 uid,
                                 AppServices.Identity.DisplayName,
-                                "Identity verified",
-                                $"Mutual trust ceremony completed with {uid}.");
+                                "Verification Success",
+                                $"Mutual trust ceremony completed with {uid}.",
+                                Models.NotificationType.Success);
                         }
                         catch { }
+
+                        CompleteVerification(uid, true);
+                        ClearVerificationState(uid);
                     }
                 }
             }
             catch { }
+        }
+
+        private TaskCompletionSource<bool> GetOrCreateVerificationCompletion(string uid)
+        {
+            return _verifyCompletion.GetOrAdd(uid, _ => new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously));
+        }
+
+        private void CompleteVerification(string uid, bool success)
+        {
+            if (_verifyCompletion.TryRemove(uid, out var tcs))
+            {
+                tcs.TrySetResult(success);
+            }
+        }
+
+        private void ClearVerificationState(string uid)
+        {
+            _verifyInitiatedUtc.TryRemove(uid, out _);
+            _verifyReceivedUtc.TryRemove(uid, out _);
+            _verifyRequestPending.TryRemove(uid, out _);
         }
 
         private void TryRecordVerificationHistory(string uid, string? publicKeyHex, string method)

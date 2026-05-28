@@ -27,16 +27,19 @@ internal static class WindowDragHelper
                 return false;
             }
 
-            if (OperatingSystem.IsWindows() && TryBeginMoveDragWin32(window))
-            {
-                return true;
-            }
-
+            // Prefer Avalonia-native drag initiation first; it is more reliable across
+            // custom chrome states for the main window.
             window.BeginMoveDrag(e);
             return true;
         }
         catch
         {
+            // Fallback: some edge cases on Windows may require explicit non-client caption drag.
+            if (OperatingSystem.IsWindows() && TryBeginMoveDragWin32(window))
+            {
+                return true;
+            }
+
             return false;
         }
     }

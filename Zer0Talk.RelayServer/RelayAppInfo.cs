@@ -15,7 +15,7 @@ public static class RelayAppInfo
     public const string PrototypeTag = "Alpha";
     public const string AppUserModelId = "Zer0Talk.Relay";
 
-    public static string PrototypeBadgeText => $"{PrototypeTag} v{Version}";
+    public static string PrototypeBadgeText => $"{PrototypeTag} v.{Version}";
 
     public static bool IsVersionCompatible(string version1, string version2)
     {

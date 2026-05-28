@@ -87,6 +87,7 @@ public sealed class HybridShellAdapterServiceTests
         private readonly UnreadStateService _unreadState;
         private readonly UnreadBridgeService _unreadBridge;
         private readonly UnreadIpcEndpointService _unreadEndpoint;
+        private readonly MarkdownIpcEndpointService _markdownEndpoint;
         private readonly HybridIpcHostService _host;
 
         public HybridIpcFixture()
@@ -97,7 +98,8 @@ public sealed class HybridShellAdapterServiceTests
             _unreadBridge = new UnreadBridgeService(_unreadState, Hub);
             _unreadBridge.SnapshotChanged += dto => Hub.RaiseUnreadSnapshotDtoChanged(dto);
             _unreadEndpoint = new UnreadIpcEndpointService(_unreadBridge, Hub);
-            _host = new HybridIpcHostService(_contactsEndpoint, _unreadEndpoint, PipeName);
+            _markdownEndpoint = new MarkdownIpcEndpointService();
+            _host = new HybridIpcHostService(_contactsEndpoint, _unreadEndpoint, _markdownEndpoint, PipeName);
             _host.Start();
         }
 

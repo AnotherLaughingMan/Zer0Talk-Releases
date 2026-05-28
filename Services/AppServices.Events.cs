@@ -264,6 +264,8 @@ public static partial class AppServices
         try { LinkPreview.Dispose(); } catch { }
         try { TrayIcon.Dispose(); } catch { }
         try { StopHybridShellAdapter(); } catch { }
+        try { HybridShellMarkdownAdapter.Dispose(); } catch { }
+        try { HybridShellMarkdownIpcClient.Dispose(); } catch { }
         try { HybridShellAdapter.Dispose(); } catch { }
         try { HybridShellConsumer.Dispose(); } catch { }
         try { HybridShellIpcClient.Dispose(); } catch { }

@@ -145,6 +145,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(EnableHybridContactsShell),
         nameof(EnableHybridUnreadShell),
         nameof(EnableHybridIpcHost),
+        nameof(EnableHybridMarkdownShell),
         nameof(SuppressNotificationsInDnd),
         nameof(NotificationDurationSeconds),
         nameof(EnableNotificationBellFlash),
@@ -324,6 +325,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private bool _baseEnableHybridContactsShell;
     private bool _baseEnableHybridUnreadShell;
     private bool _baseEnableHybridIpcHost;
+    private bool _baseEnableHybridMarkdownShell;
     private bool _baseSuppressNotificationsInDnd;
     private double _baseNotificationDurationSeconds;
     private bool _baseEnableNotificationBellFlash;
@@ -456,6 +458,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             EnableHybridContactsShell = settings.EnableHybridContactsShell;
             EnableHybridUnreadShell = settings.EnableHybridUnreadShell;
             EnableHybridIpcHost = settings.EnableHybridIpcHost;
+            EnableHybridMarkdownShell = settings.EnableHybridMarkdownShell;
             UpdateLastAutoUpdateCheckDisplay(settings.LastAutoUpdateCheckUtc);
             SuppressNotificationsInDnd = settings.SuppressNotificationsInDnd;
             NotificationDurationSeconds = Math.Clamp(settings.NotificationDurationSeconds, 0.5, 30.0);
@@ -770,6 +773,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             EnableHybridContactsShell = s.EnableHybridContactsShell;
             EnableHybridUnreadShell = s.EnableHybridUnreadShell;
             EnableHybridIpcHost = s.EnableHybridIpcHost;
+            EnableHybridMarkdownShell = s.EnableHybridMarkdownShell;
             UpdateLastAutoUpdateCheckDisplay(s.LastAutoUpdateCheckUtc);
             SuppressNotificationsInDnd = s.SuppressNotificationsInDnd;
             NotificationDurationSeconds = Math.Clamp(s.NotificationDurationSeconds, 0.5, 30.0);
@@ -3081,6 +3085,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private bool _enableHybridIpcHost;
     public bool EnableHybridIpcHost { get => _enableHybridIpcHost; set { if (_enableHybridIpcHost != value) { _enableHybridIpcHost = value; OnPropertyChanged(); } } }
 
+    private bool _enableHybridMarkdownShell;
+    public bool EnableHybridMarkdownShell { get => _enableHybridMarkdownShell; set { if (_enableHybridMarkdownShell != value) { _enableHybridMarkdownShell = value; OnPropertyChanged(); } } }
+
     private string? _lastAutoUpdateCheckUtcRaw;
     private string _lastAutoUpdateCheckDisplay = "Never";
     public string LastAutoUpdateCheckDisplay
@@ -3758,6 +3765,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.EnableHybridContactsShell = EnableHybridContactsShell;
             s.EnableHybridUnreadShell = EnableHybridUnreadShell;
             s.EnableHybridIpcHost = EnableHybridIpcHost;
+            s.EnableHybridMarkdownShell = EnableHybridMarkdownShell;
             s.SuppressNotificationsInDnd = SuppressNotificationsInDnd;
             s.NotificationDurationSeconds = Math.Clamp(NotificationDurationSeconds, 0.5, 30.0);
             s.EnableNotificationBellFlash = EnableNotificationBellFlash;
@@ -4082,6 +4090,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseEnableHybridContactsShell != _enableHybridContactsShell) return true;
             if (_baseEnableHybridUnreadShell != _enableHybridUnreadShell) return true;
             if (_baseEnableHybridIpcHost != _enableHybridIpcHost) return true;
+            if (_baseEnableHybridMarkdownShell != _enableHybridMarkdownShell) return true;
             if (_baseSuppressNotificationsInDnd != _suppressNotificationsInDnd) return true;
             if (Math.Abs(_baseNotificationDurationSeconds - _notificationDurationSeconds) > 0.01) return true;
             if (_baseAutoLockEnabled != _autoLockEnabled) return true;
@@ -4175,6 +4184,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseEnableHybridContactsShell = _enableHybridContactsShell;
             _baseEnableHybridUnreadShell = _enableHybridUnreadShell;
             _baseEnableHybridIpcHost = _enableHybridIpcHost;
+            _baseEnableHybridMarkdownShell = _enableHybridMarkdownShell;
             _baseSuppressNotificationsInDnd = _suppressNotificationsInDnd;
             _baseNotificationDurationSeconds = _notificationDurationSeconds;
             _baseEnableNotificationBellFlash = _enableNotificationBellFlash;

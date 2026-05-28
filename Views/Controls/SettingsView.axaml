@@ -250,6 +250,14 @@
                 </StackPanel>
               </Grid>
 
+              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12" Margin="0,8,0,0">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding EnableHybridMarkdownShell}" ToolTip.Tip="Enable hybrid markdown shell surface (opt-in)."/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="Enable hybrid markdown shell" VerticalAlignment="Center"/>
+                  <TextBlock Text="Routes markdown preview, toolbar, and mini-editor behavior through shell migration-safe contracts." FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
+
               <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
                 <Button Content="{Binding LocalizedCheckForUpdatesNow}"
                         Command="{Binding CheckForUpdatesNowCommand}"

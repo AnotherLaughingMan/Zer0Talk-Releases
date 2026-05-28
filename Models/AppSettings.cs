@@ -90,8 +90,6 @@ public class AppSettings
     public double? MainRightWidth { get; set; }
     // Notification center sub-view persistence: 0=Invites, 1=Messages, 2=Alerts
     public int LastNotificationCenterView { get; set; } = 0;
-    // Composer markdown toolbar row visibility persistence
-    public bool ComposerMarkdownToolsVisible { get; set; } = true;
     // Composer markdown live preview visibility persistence
     public bool ComposerMarkdownPreviewVisible { get; set; } = true;
 
@@ -105,6 +103,7 @@ public class AppSettings
     public bool EnableHybridContactsShell { get; set; } = false;
     public bool EnableHybridUnreadShell { get; set; } = false;
     public bool EnableHybridIpcHost { get; set; } = false;
+    public bool EnableHybridMarkdownShell { get; set; } = true;
     // Optional WAN bootstrap seed nodes used to discover peers when no known endpoints are available.
     // Format: "host:port" (e.g., "seed1.example.net:443").
     // These are not forced by default; they are used opportunistically when needed.
