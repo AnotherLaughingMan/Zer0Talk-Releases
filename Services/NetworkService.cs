@@ -1127,15 +1127,17 @@ private double _relayPairWaitMsEwma = 20000;
                     }
                     finally
                     {
-                        var removed = _sessions.TryRemove(Trim(peerUid), out _);
-                        try { _sessionModes.TryRemove(Trim(peerUid), out _); } catch { }
-                        try { if (removed) Logger.Log($"[sess] remove | mode=relay | peer={Trim(peerUid)} | reason=reader-exit | ts={DateTime.UtcNow:o}"); } catch { }
+                        var normalizedUid = Trim(peerUid);
+                        var removed = _sessions.TryRemove(normalizedUid, out _);
+                        try { _sessionModes.TryRemove(normalizedUid, out _); } catch { }
+                        try { if (removed) Logger.Log($"[sess] remove | mode=relay | peer={normalizedUid} | reason=reader-exit | ts={DateTime.UtcNow:o}"); } catch { }
                         if (removed) RaiseSessionCountChanged();
                         try { _diag.DecSessionsActive(); } catch { }
                         try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
-                        try { AppServices.Contacts.SetLastKnownEncrypted(Trim(peerUid), false, AppServices.Passphrase); } catch { }
+                        try { AppServices.Contacts.SetLastKnownEncrypted(normalizedUid, false, AppServices.Passphrase); } catch { }
+                        try { AppServices.Contacts.SetPresence(normalizedUid, Models.PresenceStatus.Offline, TimeSpan.FromSeconds(3), Models.PresenceSource.Session); } catch { }
                         // On session close: mark peer Offline immediately
-                        try { AppServices.Peers.SetPeerStatus(Trim(peerUid), "Offline"); } catch { }
+                        try { AppServices.Peers.SetPeerStatus(normalizedUid, "Offline"); } catch { }
                         try { sessionCts.Dispose(); } catch { }
                         try { relayClient.Close(); } catch { }
                     }
@@ -2801,6 +2803,7 @@ private double _relayPairWaitMsEwma = 20000;
                         if (removed) RaiseSessionCountChanged();
                     }
                     try { if (!string.IsNullOrEmpty(boundUid)) Zer0Talk.Services.AppServices.Contacts.SetLastKnownEncrypted(boundUid, false, Zer0Talk.Services.AppServices.Passphrase); } catch { }
+                    try { if (!string.IsNullOrEmpty(boundUid)) Zer0Talk.Services.AppServices.Contacts.SetPresence(boundUid, Models.PresenceStatus.Offline, TimeSpan.FromSeconds(3), Models.PresenceSource.Session); } catch { }
                     try { _handshakePeerKeys.TryRemove(transport, out _); } catch { }
                     try { _transportEndpoints.TryRemove(transport, out _); } catch { }
                     try { _diag.DecSessionsActive(); } catch { }
@@ -3026,6 +3029,7 @@ private double _relayPairWaitMsEwma = 20000;
                     try { transport.Dispose(); } catch { }
                     try { client?.Close(); } catch { }
                     try { AppServices.Contacts.SetLastKnownEncrypted(normalizedUid, false, AppServices.Passphrase); } catch { }
+                    try { AppServices.Contacts.SetPresence(normalizedUid, Models.PresenceStatus.Offline, TimeSpan.FromSeconds(3), Models.PresenceSource.Session); } catch { }
                     try { AppServices.Peers.SetPeerStatus(normalizedUid, "Offline"); } catch { }
                 }
                 catch { }
@@ -4187,6 +4191,10 @@ private double _relayPairWaitMsEwma = 20000;
                 {
                     try { _sessionModes.TryRemove(key, out _); } catch { }
                     try { transport?.Dispose(); } catch { }
+                    try { AppServices.Contacts.SetLastKnownEncrypted(key, false, AppServices.Passphrase); } catch { }
+                    try { AppServices.Contacts.SetPresence(key, Models.PresenceStatus.Offline, TimeSpan.FromSeconds(3), Models.PresenceSource.Session); } catch { }
+                    try { AppServices.Peers.SetPeerStatus(key, "Offline"); } catch { }
+                    try { RaiseSessionCountChanged(); } catch { }
                     Logger.Log($"Disconnected session with blocked peer: {key}");
                     SafeNetLog($"session disconnect | peer={key} | reason=blocked");
                 }

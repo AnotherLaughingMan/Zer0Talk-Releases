@@ -46,6 +46,9 @@ namespace Zer0Talk.Models
         [JsonIgnore]
         private bool _publicKeyVerified;
         public bool PublicKeyVerified { get => _publicKeyVerified; set { if (_publicKeyVerified != value) { _publicKeyVerified = value; OnPropertyChanged(nameof(PublicKeyVerified)); } } }
+        // Persisted: true once both sides have acknowledged the contact relation.
+        private bool _isMutual;
+        public bool IsMutual { get => _isMutual; set { if (_isMutual != value) { _isMutual = value; OnPropertyChanged(nameof(IsMutual)); } } }
         // Persisted: last-known observed public key (hex, lowercase, no separators) for offline display
         private string? _lastKnownPublicKeyHex;
         public string? LastKnownPublicKeyHex { get => _lastKnownPublicKeyHex; set { if (_lastKnownPublicKeyHex != value) { _lastKnownPublicKeyHex = value; OnPropertyChanged(nameof(LastKnownPublicKeyHex)); } } }

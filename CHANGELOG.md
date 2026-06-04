@@ -35,6 +35,23 @@ Run this checklist before creating a release tag.
 ### Fixed
 - _None yet._
 
+## [0.0.4.09-Alpha HOTFIX-1] - 2026-06-03
+
+### Added
+- **Contact context-menu resend action**: added `Resend Invite` to contact right-click actions for recovery when an invite path stalls.
+- **Mutual-contact relationship flag**: added persisted `Contact.IsMutual` state and merge-safe handling so duplicate contact consolidation preserves relationship status.
+
+### Updated
+- **Invite acceptance now establishes mutual state consistently**: accepted contact requests now persist mutual relationship status in both inbound and outbound acceptance paths.
+- **Duplicate-contact safety in contact workflows**: add/import/sanitize paths now merge duplicates instead of dropping data, preserving names, trust/verification flags, and relay preferences.
+
+### Fixed
+- **Resend-invite safety gating**: blocked contacts cannot be re-invited, and resend is disabled for already-mutual contacts.
+- **One-way add regression**: add-contact flows now rely on request/accept handshake semantics instead of local-only insertion for unreachable peers.
+- **Connection edge-case polish**: improved direct/relay indicator correctness, disconnect-driven presence demotion, and unverified-banner/profile refresh behavior to reduce stale UI states.
+- **Chat error-banner placement**: connection/add-contact errors now surface in the chat banner area above the message canvas rather than under the contacts search field.
+- **Avatar share/display consistency**: incoming peer avatars now follow normalized UID cache paths and trigger UI refresh reliably, preventing avatar mismatch/stale-display edge cases.
+
 ## [0.0.4.09-Alpha] - 2026-06-03
 
 ### Added

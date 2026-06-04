@@ -62,8 +62,9 @@ namespace Zer0Talk.Services
                 catch { }
                 await _net.SendContactAcceptAsync(Trim(req.Uid), nonce, CancellationToken.None);
                 var dn2 = string.IsNullOrWhiteSpace(req.DisplayName) ? Trim(req.Uid) : req.DisplayName;
-                var contact = new Models.Contact { UID = Trim(req.Uid), DisplayName = dn2, ExpectedPublicKeyHex = null };
-                _contacts.AddContact(contact, AppServices.Passphrase);
+                var contact = new Models.Contact { UID = Trim(req.Uid), DisplayName = dn2, ExpectedPublicKeyHex = null, IsMutual = true };
+                _contacts.AddOrMergeContact(contact, AppServices.Passphrase);
+                try { _contacts.SetIsMutual(Trim(req.Uid), true, AppServices.Passphrase); } catch { }
                 AppServices.Peers.IncludeContacts();
                 // Try immediate peer verification if peer is present
                 TryImmediatePeerVerification(contact);
@@ -152,52 +153,40 @@ namespace Zer0Talk.Services
                 var uid = Trim(accepterUid);
                 var dn = string.IsNullOrWhiteSpace(accepterDisplayName) ? uid : accepterDisplayName;
                 
-                // Check if already a contact to avoid duplicates (compare trimmed UIDs)
-                bool alreadyExists = _contacts.Contacts.Any(c => 
+                var contact = new Models.Contact { UID = uid, DisplayName = dn, ExpectedPublicKeyHex = null, IsMutual = true };
+                var outcome = _contacts.AddOrMergeContact(contact, AppServices.Passphrase);
+                try { _contacts.SetIsMutual(uid, true, AppServices.Passphrase); } catch { }
+                AppServices.Peers.IncludeContacts();
+                try { Utilities.Logger.Log($"Auto-add/merge {dn} ({uid}) after accept outcome={outcome}"); } catch { }
+
+                if (outcome == AddContactOutcome.Added)
                 {
-                    var contactUid = Trim(c.UID);
-                    return string.Equals(contactUid, uid, StringComparison.OrdinalIgnoreCase);
-                });
-                
-                if (!alreadyExists)
-                {
-                    var contact = new Models.Contact { UID = uid, DisplayName = dn, ExpectedPublicKeyHex = null };
-                    bool added = _contacts.AddContact(contact, AppServices.Passphrase);
-                    AppServices.Peers.IncludeContacts();
-                    try { Utilities.Logger.Log($"Auto-added {dn} ({uid}) to contacts after they accepted our request (added={added})"); } catch { }
                     
                     // Immediate verification if peer is present
                     TryImmediatePeerVerification(contact);
                     
                     // Force UI refresh on main thread to ensure contact list updates immediately
-                    if (added)
+                    try
                     {
-                        try
+                        Dispatcher.UIThread.Post(() =>
                         {
-                            Dispatcher.UIThread.Post(() =>
+                            try
                             {
-                                try
+                                // Restore focus to MainWindow to prevent dialogs from blocking updates
+                                var lifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+                                if (lifetime?.MainWindow is Avalonia.Controls.Window mainWindow)
                                 {
-                                    // Restore focus to MainWindow to prevent dialogs from blocking updates
-                                    var lifetime = Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
-                                    if (lifetime?.MainWindow is Avalonia.Controls.Window mainWindow)
-                                    {
-                                        mainWindow.Activate();
-                                        mainWindow.Focus();
-                                    }
-                                    
-                                    // Trigger changed event again on UI thread to ensure UI updates
-                                    AppServices.Contacts.NotifyChanged();
+                                    mainWindow.Activate();
+                                    mainWindow.Focus();
                                 }
-                                catch { }
-                            }, DispatcherPriority.Normal);
-                        }
-                        catch { }
+
+                                // Trigger changed event again on UI thread to ensure UI updates
+                                AppServices.Contacts.NotifyChanged();
+                            }
+                            catch { }
+                        }, DispatcherPriority.Normal);
                     }
-                }
-                else
-                {
-                    try { Utilities.Logger.Log($"Skipped adding {dn} ({uid}) - already a contact"); } catch { }
+                    catch { }
                 }
             }
             catch (Exception ex)

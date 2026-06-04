@@ -33,7 +33,8 @@ pwsh .\scripts\federation_smoke_check.ps1
 **Commit Guidelines**
 - Keep commits small and focused. Use imperative subject lines (e.g., "Add X feature").
 - In the commit body, explain *why* the change was made, not just *what* changed.
-- Update `CHANGELOG.md` under the Unreleased section for user‑facing changes.
+- Update `CHANGELOG.md` under `## [Unreleased]` for every user-facing change.
+- PRs that ship user-facing behavior without a changelog entry are considered incomplete.
 
 **Pull Requests**
 - Open a PR against `main` (unless an issue requests a different branch).

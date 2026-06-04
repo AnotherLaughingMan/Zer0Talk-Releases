@@ -486,7 +486,6 @@
                             <TextBlock Grid.Column="0" Text="{Binding LocalizedContacts}" FontWeight="SemiBold"/>
                         </Grid>
                         <TextBox Text="{Binding ContactSearchText, Mode=TwoWay}" Watermark="{Binding LocalizedSearchContacts}" Margin="0,4,0,0" Padding="8,6"/>
-                        <TextBlock Text="{Binding ErrorMessage}" Foreground="#F66"/>
                     </StackPanel>
                 </Border>
 
@@ -562,6 +561,13 @@
                                                           Command="{Binding $parent[v:MainWindow].DataContext.SetSimulatedContactOfflineCommand}"
                                                           CommandParameter="{Binding UID}"/>
                                             </MenuItem.Items>
+                                        </MenuItem>
+                                        <MenuItem Header="Resend Invite"
+                                                  Command="{Binding $parent[v:MainWindow].DataContext.ResendInviteCommand}"
+                                                  CommandParameter="{Binding UID}">
+                                            <MenuItem.Icon>
+                                                <TextBlock Classes="icon-mdl2" Text="&#xE8FA;"/>
+                                            </MenuItem.Icon>
                                         </MenuItem>
                                         <Separator/>
                                         <MenuItem Header="{Binding $parent[v:MainWindow].DataContext.LocalizedRemoveContact}"
@@ -666,8 +672,8 @@
                                                 <TextBlock Classes="icon-mdl2" Text="&#xE72E;" FontSize="12" Opacity="0.7"
                                                            IsVisible="{Binding IsEncryptionIndicatorVisible}"
                                                            ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedEncrypted}"/>
-                                                <!-- Connection mode: direct (globe) or relay (sync) -->
-                                                <TextBlock Classes="icon-mdl2" Text="&#xE774;" FontSize="11" Opacity="0.55"
+                                                <!-- Connection mode: direct (wired) or relay (sync) -->
+                                                <TextBlock Classes="icon-mdl2" Text="&#xE839;" FontSize="11" Opacity="0.55"
                                                            IsVisible="{Binding ConnectionMode, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Direct}"
                                                            ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedConnectionDirect}"/>
                                                 <TextBlock Classes="icon-mdl2" Text="&#xE895;" FontSize="11" Opacity="0.55"
@@ -817,6 +823,27 @@
                             <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center" ColumnSpacing="8">
                                 <TextBlock Grid.Column="0" Text="&#xE70B;" Classes="icon-mdl2"/>
                                 <TextBlock Grid.Column="1" Text="{Binding OfflineBannerText}"/>
+                            </Grid>
+                        </Border>
+                        <Border CornerRadius="6" Padding="10,6" HorizontalAlignment="Stretch"
+                                Background="#4A6A1A"
+                                BorderBrush="#96C43D"
+                                BorderThickness="1"
+                                IsVisible="{Binding IsSelectedContactUnverified}">
+                            <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center" ColumnSpacing="8">
+                                <TextBlock Grid.Column="0" Text="&#xE8FB;" Classes="icon-mdl2" Foreground="White"/>
+                                <TextBlock Grid.Column="1" Text="{Binding LocalizedContactNotVerifiedBanner}" Foreground="White" TextWrapping="Wrap"/>
+                                <Button Grid.Column="2" Content="{Binding LocalizedVerify}" Click="StartVerification_Click" MinWidth="0" Padding="8,4"/>
+                            </Grid>
+                        </Border>
+                        <Border CornerRadius="6" Padding="10,6" HorizontalAlignment="Stretch"
+                                Background="#5C1E1E"
+                                BorderBrush="#C94B4B"
+                                BorderThickness="1"
+                                IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                            <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center" ColumnSpacing="8">
+                                <TextBlock Grid.Column="0" Text="&#xE783;" Classes="icon-mdl2" Foreground="#FFD6D6"/>
+                                <TextBlock Grid.Column="1" Text="{Binding ErrorMessage}" Foreground="#FFD6D6" TextWrapping="Wrap"/>
                             </Grid>
                         </Border>
                         <Border Background="#DA7C19" CornerRadius="4" Padding="6,2" IsVisible="{Binding IsSelectedContactSimulated}" HorizontalAlignment="Left">

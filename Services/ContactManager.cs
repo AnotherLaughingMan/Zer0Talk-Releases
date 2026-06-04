@@ -17,6 +17,13 @@ using Zer0Talk.Utilities;
 
 namespace Zer0Talk.Services
 {
+    public enum AddContactOutcome
+    {
+        Invalid = 0,
+        Added = 1,
+        MergedExisting = 2,
+    }
+
     public partial class ContactManager
     {
         private const string FileName = "contacts.p2e";
@@ -221,7 +228,7 @@ namespace Zer0Talk.Services
         private static string TrimUidPrefix(string uid)
         {
             if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
-            return uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+            return uid.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) && uid.Length > 4 ? uid.Substring(4) : uid;
         }
 
         private static string NormalizeUid(string? uid)
@@ -232,18 +239,17 @@ namespace Zer0Talk.Services
         private sealed class SanitizeReport
         {
             public int DroppedNullOrEmpty { get; set; }
-            public int DuplicatesRemoved { get; set; }
+            public int DuplicatesMerged { get; set; }
             public int DisplayNamesDefaulted { get; set; }
             public int UidsTrimmed { get; set; }
-            public bool Changed => DroppedNullOrEmpty > 0 || DuplicatesRemoved > 0 || DisplayNamesDefaulted > 0 || UidsTrimmed > 0;
-            public override string ToString() => $"Dropped={DroppedNullOrEmpty}, DuplicatesRemoved={DuplicatesRemoved}, DefaultedNames={DisplayNamesDefaulted}, UidsTrimmed={UidsTrimmed}";
+            public bool Changed => DroppedNullOrEmpty > 0 || DuplicatesMerged > 0 || DisplayNamesDefaulted > 0 || UidsTrimmed > 0;
+            public override string ToString() => $"Dropped={DroppedNullOrEmpty}, DuplicatesMerged={DuplicatesMerged}, DefaultedNames={DisplayNamesDefaulted}, UidsTrimmed={UidsTrimmed}";
         }
 
         private static List<Contact> SanitizeContacts(List<Contact> list, out SanitizeReport report)
         {
             report = new SanitizeReport();
-            var result = new List<Contact>();
-            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var merged = new Dictionary<string, Contact>(StringComparer.OrdinalIgnoreCase);
             foreach (var c in list)
             {
                 if (c == null) { report.DroppedNullOrEmpty++; continue; }
@@ -252,13 +258,109 @@ namespace Zer0Talk.Services
                 var trimmed = TrimUidPrefix(uid);
                 if (!string.Equals(uid, trimmed, StringComparison.Ordinal)) report.UidsTrimmed++;
                 uid = trimmed;
-                if (!seen.Add(uid)) { report.DuplicatesRemoved++; continue; }
-                c.UID = uid;
-                if (string.IsNullOrWhiteSpace(c.DisplayName)) { c.DisplayName = uid; report.DisplayNamesDefaulted++; }
-                // Leave flags (IsSimulated/IsTrusted/IsVerified) as-is
-                result.Add(c);
+
+                if (!merged.TryGetValue(uid, out var existing))
+                {
+                    c.UID = uid;
+                    if (string.IsNullOrWhiteSpace(c.DisplayName))
+                    {
+                        c.DisplayName = uid;
+                        report.DisplayNamesDefaulted++;
+                    }
+                    merged[uid] = c;
+                    continue;
+                }
+
+                report.DuplicatesMerged++;
+                MergeContact(existing, c, uid, report);
             }
-            return result;
+
+            return merged.Values.ToList();
+        }
+
+        private static void MergeContact(Contact target, Contact incoming, string uid, SanitizeReport report)
+        {
+            // Prefer a non-placeholder display name; keep stable UID identity.
+            var targetName = (target.DisplayName ?? string.Empty).Trim();
+            var incomingName = (incoming.DisplayName ?? string.Empty).Trim();
+            var targetIsPlaceholder = string.IsNullOrWhiteSpace(targetName) || string.Equals(targetName, uid, StringComparison.OrdinalIgnoreCase);
+            var incomingIsPlaceholder = string.IsNullOrWhiteSpace(incomingName) || string.Equals(incomingName, uid, StringComparison.OrdinalIgnoreCase);
+            if ((targetIsPlaceholder && !incomingIsPlaceholder)
+                || (targetIsPlaceholder && incomingIsPlaceholder && incomingName.Length > targetName.Length)
+                || (!incomingIsPlaceholder && incomingName.Length > targetName.Length && string.Equals(targetName, uid, StringComparison.OrdinalIgnoreCase)))
+            {
+                target.DisplayName = incomingName;
+            }
+
+            if (string.IsNullOrWhiteSpace(target.DisplayName))
+            {
+                target.DisplayName = uid;
+                report.DisplayNamesDefaulted++;
+            }
+
+            if (string.IsNullOrWhiteSpace(target.Bio) && !string.IsNullOrWhiteSpace(incoming.Bio))
+            {
+                target.Bio = incoming.Bio;
+            }
+            else if (!string.IsNullOrWhiteSpace(target.Bio) && !string.IsNullOrWhiteSpace(incoming.Bio) && incoming.Bio!.Length > target.Bio!.Length)
+            {
+                target.Bio = incoming.Bio;
+            }
+
+            target.IsTrusted = target.IsTrusted || incoming.IsTrusted;
+            target.IsVerified = target.IsVerified || incoming.IsVerified;
+            target.IsMutual = target.IsMutual || incoming.IsMutual;
+            target.IsSimulated = target.IsSimulated || incoming.IsSimulated;
+            target.MuteNotifications = target.MuteNotifications || incoming.MuteNotifications;
+            target.PriorityNotifications = target.PriorityNotifications || incoming.PriorityNotifications;
+            target.LastKnownEncrypted = target.LastKnownEncrypted || incoming.LastKnownEncrypted;
+
+            if (string.IsNullOrWhiteSpace(target.ExpectedPublicKeyHex) && !string.IsNullOrWhiteSpace(incoming.ExpectedPublicKeyHex))
+            {
+                target.ExpectedPublicKeyHex = incoming.ExpectedPublicKeyHex;
+            }
+            if (string.IsNullOrWhiteSpace(target.LastKnownPublicKeyHex) && !string.IsNullOrWhiteSpace(incoming.LastKnownPublicKeyHex))
+            {
+                target.LastKnownPublicKeyHex = incoming.LastKnownPublicKeyHex;
+            }
+            if (string.IsNullOrWhiteSpace(target.PreferredRelay) && !string.IsNullOrWhiteSpace(incoming.PreferredRelay))
+            {
+                target.PreferredRelay = incoming.PreferredRelay;
+            }
+
+            target.DisplayNameChangeCount = Math.Max(target.DisplayNameChangeCount, incoming.DisplayNameChangeCount);
+
+            if (!target.LastVerifiedUtc.HasValue || (incoming.LastVerifiedUtc.HasValue && incoming.LastVerifiedUtc.Value > target.LastVerifiedUtc.Value))
+            {
+                target.LastVerifiedUtc = incoming.LastVerifiedUtc;
+            }
+
+            var mergedDisplayHistory = new List<DisplayNameRecord>();
+            if (target.DisplayNameHistory != null) mergedDisplayHistory.AddRange(target.DisplayNameHistory);
+            if (incoming.DisplayNameHistory != null) mergedDisplayHistory.AddRange(incoming.DisplayNameHistory);
+            if (mergedDisplayHistory.Count > 0)
+            {
+                target.DisplayNameHistory = mergedDisplayHistory
+                    .Where(h => h != null && !string.IsNullOrWhiteSpace(h.Name))
+                    .GroupBy(h => $"{h.Name}|{h.ChangedAtUtc:o}", StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.First())
+                    .OrderByDescending(h => h.ChangedAtUtc)
+                    .ToList();
+            }
+
+            var mergedVerificationHistory = new List<VerificationHistoryEntry>();
+            if (target.VerificationHistory != null) mergedVerificationHistory.AddRange(target.VerificationHistory);
+            if (incoming.VerificationHistory != null) mergedVerificationHistory.AddRange(incoming.VerificationHistory);
+            if (mergedVerificationHistory.Count > 0)
+            {
+                target.VerificationHistory = mergedVerificationHistory
+                    .Where(v => v != null)
+                    .GroupBy(v => $"{v.VerifiedAtUtc:o}|{v.Fingerprint}|{v.Method}", StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.First())
+                    .OrderByDescending(v => v.VerifiedAtUtc)
+                    .Take(20)
+                    .ToList();
+            }
         }
 
         public void Save(string passphrase)
@@ -299,22 +401,41 @@ namespace Zer0Talk.Services
 
         public bool AddContact(Contact contact, string passphrase)
         {
+            return AddOrMergeContact(contact, passphrase) == AddContactOutcome.Added;
+        }
+
+        public AddContactOutcome AddOrMergeContact(Contact? contact, string passphrase)
+        {
+            if (contact == null) return AddContactOutcome.Invalid;
+
             contact.UID = NormalizeUid(contact.UID);
-            if (string.IsNullOrWhiteSpace(contact.UID)) return false;
+            if (string.IsNullOrWhiteSpace(contact.UID)) return AddContactOutcome.Invalid;
             if (string.IsNullOrWhiteSpace(contact.DisplayName)) contact.DisplayName = contact.UID;
+
+            AddContactOutcome outcome;
             lock (_saveLock)
             {
-                if (_contacts.Any(c => string.Equals(c.UID, contact.UID, StringComparison.OrdinalIgnoreCase))) return false;
-                _contacts.Add(contact);
+                var existing = _contacts.FirstOrDefault(c => string.Equals(c.UID, contact.UID, StringComparison.OrdinalIgnoreCase));
+                if (existing == null)
+                {
+                    _contacts.Add(contact);
+                    outcome = AddContactOutcome.Added;
+                }
+                else
+                {
+                    var report = new SanitizeReport();
+                    MergeContact(existing, contact, existing.UID, report);
+                    outcome = AddContactOutcome.MergedExisting;
+                }
             }
-            // Notify UI immediately so the new contact appears without waiting for disk I/O.
+
             Changed?.Invoke();
-            // Persist asynchronously to avoid blocking UI while encrypting/writing to disk.
             _ = System.Threading.Tasks.Task.Run(() =>
             {
                 try { Save(passphrase); } catch { }
             });
-            return true;
+
+            return outcome;
         }
 
         // Force trigger the Changed event (for external UI refresh when needed)
@@ -327,6 +448,7 @@ namespace Zer0Talk.Services
         {
             importedCount = 0;
             readableSourceCount = 0;
+            var mergedCount = 0;
 
             try
             {
@@ -370,23 +492,35 @@ namespace Zer0Talk.Services
 
                     lock (_saveLock)
                     {
-                        var existing = new HashSet<string>(_contacts.Select(c => NormalizeUid(c.UID)), StringComparer.OrdinalIgnoreCase);
+                        var existing = _contacts
+                            .Where(c => c != null)
+                            .GroupBy(c => NormalizeUid(c.UID), StringComparer.OrdinalIgnoreCase)
+                            .Where(g => !string.IsNullOrWhiteSpace(g.Key))
+                            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+                        var report = new SanitizeReport();
                         foreach (var contact in loadedContacts)
                         {
                             var uid = NormalizeUid(contact.UID);
                             if (string.IsNullOrWhiteSpace(uid)) continue;
-                            if (!existing.Add(uid)) continue;
+                            if (existing.TryGetValue(uid, out var current))
+                            {
+                                MergeContact(current, contact, uid, report);
+                                mergedCount++;
+                                continue;
+                            }
 
                             contact.UID = uid;
                             if (string.IsNullOrWhiteSpace(contact.DisplayName)) contact.DisplayName = uid;
                             contact.PublicKeyVerified = contact.IsVerified || contact.PublicKeyVerified;
                             _contacts.Add(contact);
+                            existing[uid] = contact;
                             importedCount++;
                         }
                     }
                 }
 
-                if (importedCount > 0)
+                if (importedCount > 0 || mergedCount > 0)
                 {
                     Save(passphrase);
                     Changed?.Invoke();
@@ -543,6 +677,25 @@ namespace Zer0Talk.Services
                 if (c == null) return false;
                 if (c.IsVerified == isVerified) return true;
                 c.IsVerified = isVerified;
+                Save(passphrase);
+                Changed?.Invoke();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public bool SetIsMutual(string uid, bool isMutual, string passphrase)
+        {
+            try
+            {
+                uid = NormalizeUid(uid);
+                var c = _contacts.FirstOrDefault(x => string.Equals(x.UID, uid, StringComparison.OrdinalIgnoreCase));
+                if (c == null) return false;
+                if (c.IsMutual == isMutual) return true;
+                c.IsMutual = isMutual;
                 Save(passphrase);
                 Changed?.Invoke();
                 return true;

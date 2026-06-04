@@ -82,28 +82,43 @@ namespace Zer0Talk.Services
 
         public static string GetAvatarPath(string uid)
         {
-            if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
-            var safe = uid.StartsWith("usr-", StringComparison.Ordinal) && uid.Length > 4 ? uid.Substring(4) : uid;
+            var safe = NormalizeUid(uid);
+            if (string.IsNullOrWhiteSpace(safe)) return string.Empty;
             return Path.Combine(GetCacheDir(), safe + ".bin");
+        }
+
+        private static string NormalizeUid(string? uid)
+        {
+            if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
+            var trimmed = uid.Trim();
+            if (trimmed.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) && trimmed.Length > 4)
+            {
+                return trimmed.Substring(4);
+            }
+
+            return trimmed;
         }
 
         public static bool Save(string uid, byte[] bytes)
         {
             try
             {
+                var normalizedUid = NormalizeUid(uid);
+                if (string.IsNullOrWhiteSpace(normalizedUid)) return false;
+
                 if (bytes == null || bytes.Length == 0)
                 {
-                    return Delete(uid);
+                    return Delete(normalizedUid);
                 }
 
-                var path = GetAvatarPath(uid);
+                var path = GetAvatarPath(normalizedUid);
                 if (string.IsNullOrWhiteSpace(path)) return false;
 
                 var dir = Path.GetDirectoryName(path);
                 if (!string.IsNullOrWhiteSpace(dir)) Directory.CreateDirectory(dir);
 
                 File.WriteAllBytes(path, bytes);
-                Bump(uid);
+                Bump(normalizedUid);
                 return true;
             }
             catch { return false; }
@@ -113,10 +128,11 @@ namespace Zer0Talk.Services
         {
             try
             {
-                var path = GetAvatarPath(uid);
+                var normalizedUid = NormalizeUid(uid);
+                var path = GetAvatarPath(normalizedUid);
                 if (string.IsNullOrWhiteSpace(path))
                 {
-                    Bump(uid);
+                    Bump(normalizedUid);
                     return false;
                 }
 
@@ -125,12 +141,12 @@ namespace Zer0Talk.Services
                     File.Delete(path);
                 }
 
-                Bump(uid);
+                Bump(normalizedUid);
                 return true;
             }
             catch
             {
-                try { Bump(uid); } catch { }
+                try { Bump(NormalizeUid(uid)); } catch { }
                 return false;
             }
         }
@@ -139,7 +155,7 @@ namespace Zer0Talk.Services
         {
             try
             {
-                var path = GetAvatarPath(uid);
+                var path = GetAvatarPath(NormalizeUid(uid));
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
                 using var fs = File.OpenRead(path);
                 return new Bitmap(fs);

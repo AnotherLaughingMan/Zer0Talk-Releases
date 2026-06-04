@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -106,11 +107,19 @@ namespace Zer0Talk.ViewModels
                     }
                     // Default display name for simulated contacts unless a custom name was provided
                     var display = !string.IsNullOrWhiteSpace(name) ? name! : uid;
-                    var added = AppServices.Contacts.AddContact(new Models.Contact { UID = uid, DisplayName = display, ExpectedPublicKeyHex = null, IsSimulated = true }, AppServices.Passphrase);
-                    if (added)
+                    var outcome = AppServices.Contacts.AddOrMergeContact(new Models.Contact
+                    {
+                        UID = uid,
+                        DisplayName = display,
+                        ExpectedPublicKeyHex = null,
+                        IsSimulated = true
+                    }, AppServices.Passphrase);
+                    if (outcome == AddContactOutcome.Added || outcome == AddContactOutcome.MergedExisting)
                     {
                         AppServices.Peers.IncludeContacts();
-                        Status = "Simulated contact added.";
+                        Status = outcome == AddContactOutcome.MergedExisting
+                            ? "A contact with this UID already existed. Existing entry was merged."
+                            : "Simulated contact added.";
                         
                         // Force immediate contact list refresh to ensure UI updates
                         try
@@ -122,11 +131,14 @@ namespace Zer0Talk.ViewModels
                         }
                         catch { }
                         
-                        CloseRequested?.Invoke(true);
+                        if (outcome == AddContactOutcome.Added)
+                        {
+                            CloseRequested?.Invoke(true);
+                        }
                     }
                     else
                     {
-                        Status = "Contact already exists or invalid.";
+                        Status = "Invalid UID.";
                     }
                 }
                 catch { Status = "Failed to add simulated contact."; }
@@ -137,6 +149,31 @@ namespace Zer0Talk.ViewModels
             IsBusy = true; Status = "Requesting permission…";
             try
             {
+                var normalizedUid = Trim(UID);
+                var existing = AppServices.Contacts.Contacts.FirstOrDefault(c =>
+                    string.Equals(Trim(c.UID), normalizedUid, StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    var normalizedExpected = NormalizeHex(ExpectedPublicKeyHex);
+                    if (!string.IsNullOrWhiteSpace(normalizedExpected))
+                    {
+                        var outcome = AppServices.Contacts.AddOrMergeContact(new Models.Contact
+                        {
+                            UID = normalizedUid,
+                            DisplayName = existing.DisplayName,
+                            ExpectedPublicKeyHex = normalizedExpected,
+                            IsSimulated = existing.IsSimulated,
+                        }, AppServices.Passphrase);
+                        if (outcome == AddContactOutcome.MergedExisting)
+                        {
+                            AppServices.Peers.IncludeContacts();
+                        }
+                    }
+
+                    Status = "A contact with this UID already exists. Existing entry was kept/merged.";
+                    return;
+                }
+
                 string? host = string.IsNullOrWhiteSpace(Host) ? null : Host;
                 int? port = Port > 0 ? Port : null;
                 var result = await AppServices.ContactRequests.SendRequestAsync(UID, host, port, TimeSpan.FromSeconds(20), ExpectedPublicKeyHex);
@@ -173,14 +210,14 @@ namespace Zer0Talk.ViewModels
         private static string Trim(string uid)
         {
             var s = (uid ?? string.Empty).Trim();
-            return s.StartsWith("usr-", StringComparison.Ordinal) && s.Length > 4 ? s.Substring(4) : s;
+            return s.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) && s.Length > 4 ? s.Substring(4) : s;
         }
 
         private static bool IsUid(string s)
         {
             if (string.IsNullOrWhiteSpace(s)) return false;
             // Normalize optional legacy prefix for validation
-            if (s.StartsWith("usr-", StringComparison.Ordinal) && s.Length > 4) s = s.Substring(4);
+            if (s.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) && s.Length > 4) s = s.Substring(4);
             if (s.Contains('-')) return false;
             if (s.Length < 8) return false;
             foreach (var ch in s)
@@ -188,6 +225,13 @@ namespace Zer0Talk.ViewModels
                 if (!char.IsLetterOrDigit(ch)) return false;
             }
             return true;
+        }
+
+        private static string? NormalizeHex(string? hex)
+        {
+            if (string.IsNullOrWhiteSpace(hex)) return null;
+            var s = hex.Trim().ToLowerInvariant();
+            return s.Replace("-", string.Empty).Replace(":", string.Empty).Replace(" ", string.Empty);
         }
 
         private static string BuildNotFoundStatus(string? detail)

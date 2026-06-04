@@ -121,6 +121,7 @@ namespace Zer0Talk.ViewModels
         private CancellationTokenSource? _contactsRefreshCts;
         private DateTime _lastContactsRefreshScheduledAtUtc = DateTime.MinValue;
         private static readonly TimeSpan ContactsRefreshDebounce = TimeSpan.FromMilliseconds(180);
+        private bool _addContactRequestInFlight;
 
         // Selection-freeze guard to prevent focus shifts during transient UI (context/hover)
         private int _selectionFreezeCount;
@@ -344,6 +345,7 @@ namespace Zer0Talk.ViewModels
                     OnPropertyChanged(nameof(SelectedContactVerificationHistory));
                     OnPropertyChanged(nameof(HasSelectedContactVerificationHistory));
                     OnPropertyChanged(nameof(IsChatEncrypted));
+                    OnPropertyChanged(nameof(IsSelectedContactUnverified));
                     if (_selectedContact != null)
                     {
                         LoadConversation(_selectedContact.UID);
@@ -360,6 +362,12 @@ namespace Zer0Talk.ViewModels
                             if (e.PropertyName == nameof(Contact.Presence))
                             {
                                 Avalonia.Threading.Dispatcher.UIThread.Post(() => UpdatePresenceBanner(_selectedContact));
+                            }
+                            else if (e.PropertyName == nameof(Contact.IsVerified)
+                                || e.PropertyName == nameof(Contact.PublicKeyVerified)
+                                || e.PropertyName == nameof(Contact.IsSimulated))
+                            {
+                                Avalonia.Threading.Dispatcher.UIThread.Post(() => OnPropertyChanged(nameof(IsSelectedContactUnverified)));
                             }
                         };
                         _selectedContact.PropertyChanged += _selectedContactPresenceHandler;
@@ -701,6 +709,7 @@ namespace Zer0Talk.ViewModels
     public ICommand ToggleFireReactionCommand { get; }
     public ICommand ToggleContactMuteNotificationsCommand { get; }
     public ICommand ToggleContactPriorityNotificationsCommand { get; }
+    public ICommand ResendInviteCommand { get; }
     public ICommand RecoverLocalContactsCommand { get; }
 
         private bool _isRecoveringLocalContacts;
@@ -922,7 +931,7 @@ namespace Zer0Talk.ViewModels
             try { IsStreamerMode = AppServices.Settings.Settings.StreamerMode; } catch { }
 
             SendCommand = new RelayCommand(_ => SendMessage(), _ => CanSend());
-            AddContactCommand = new RelayCommand(_ => AddContact(), _ => CanAddContact());
+            AddContactCommand = new RelayCommand(async _ => await AddContactAsync(), _ => CanAddContact());
             SetSimulatedContactOnlineCommand = new RelayCommand(p =>
             {
                 var uid = (p as string) ?? SelectedContact?.UID;
@@ -1146,6 +1155,11 @@ namespace Zer0Talk.ViewModels
                     contact.PriorityNotifications = target;
                 }
             });
+
+            ResendInviteCommand = new RelayCommand(async p =>
+            {
+                try { await ResendInviteAsync(p as string); } catch { }
+            }, p => CanResendInvite(p as string));
 
             RecoverLocalContactsCommand = new RelayCommand(async _ => await RecoverLocalContactsAsync(), _ => !IsRecoveringLocalContacts);
 
@@ -1960,6 +1974,20 @@ namespace Zer0Talk.ViewModels
                     if (AppServices.Network.HasEncryptedSession(uid)) return true;
                     // Offline hint: show last-known encrypted if no live session
                     return SelectedContact?.LastKnownEncrypted == true;
+                }
+                catch { return false; }
+            }
+        }
+
+        public bool IsSelectedContactUnverified
+        {
+            get
+            {
+                try
+                {
+                    var contact = SelectedContact;
+                    if (contact == null || contact.IsSimulated) return false;
+                    return !contact.IsVerified && !contact.PublicKeyVerified;
                 }
                 catch { return false; }
             }
@@ -3777,6 +3805,7 @@ namespace Zer0Talk.ViewModels
         public string LocalizedMessageSent => Services.AppServices.Localization.GetString("MainWindow.MessageSent", "Message sent");
         public string LocalizedMessageRead => Services.AppServices.Localization.GetString("MainWindow.MessageRead", "Message read by contact");
         public string LocalizedMessageReceived => Services.AppServices.Localization.GetString("MainWindow.MessageReceived", "Message received");
+        public string LocalizedContactNotVerifiedBanner => Services.AppServices.Localization.GetString("MainWindow.ContactNotVerifiedBanner", "This contact is not verified yet. Verify now to confirm identity.");
         public string LocalizedEdited => Services.AppServices.Localization.GetString("MainWindow.Edited", "(edited)");
         public string LocalizedEdit => Services.AppServices.Localization.GetString("MainWindow.Edit", "Edit");
         public string LocalizedDelete => Services.AppServices.Localization.GetString("MainWindow.Delete", "Delete");
@@ -3873,6 +3902,7 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedMessageSent));
             OnPropertyChanged(nameof(LocalizedMessageRead));
             OnPropertyChanged(nameof(LocalizedMessageReceived));
+            OnPropertyChanged(nameof(LocalizedContactNotVerifiedBanner));
             OnPropertyChanged(nameof(LocalizedEdited));
             OnPropertyChanged(nameof(LocalizedEdit));
             OnPropertyChanged(nameof(LocalizedDelete));
@@ -4030,14 +4060,37 @@ namespace Zer0Talk.ViewModels
         {
             try
             {
+                var now = DateTime.UtcNow;
                 foreach (var c in Contacts)
                 {
                     try
                     {
                         var uid = TrimUidPrefix(c.UID);
+                        var hasSession = AppServices.Network.HasEncryptedSession(uid);
+                        var connectionMode = AppServices.Network.GetConnectionMode(uid);
                         var newUnreadCount = AppServices.Notifications.GetUnreadCountForPeer(uid);
-                        var selectedUid = TrimUidPrefix(SelectedContact?.UID ?? string.Empty);
-                        var isSelectedContact = string.Equals(uid, selectedUid, StringComparison.OrdinalIgnoreCase);
+                        var hasLivePath = hasSession || connectionMode != ConnectionMode.None;
+
+                        // Keep presence synchronized with real encrypted transport state to avoid
+                        // stale/false-positive online indicators after session teardown.
+                        if (hasLivePath)
+                        {
+                            if (c.Presence == PresenceStatus.Offline || c.Presence == PresenceStatus.Invisible)
+                            {
+                                c.Presence = PresenceStatus.Online;
+                            }
+
+                            c.PresenceSource = PresenceSource.Session;
+                            c.LastPresenceUtc = now;
+                            c.PresenceExpiresUtc = now + TimeSpan.FromMinutes(2);
+                        }
+                        else if (c.PresenceSource == PresenceSource.Session
+                            && (c.Presence == PresenceStatus.Online || c.Presence == PresenceStatus.Idle || c.Presence == PresenceStatus.DoNotDisturb))
+                        {
+                            c.Presence = PresenceStatus.Offline;
+                            c.PresenceSource = PresenceSource.Unknown;
+                            c.PresenceExpiresUtc = null;
+                        }
                         
                         // Diagnostic: log if unread count changed or is non-zero
                         if (newUnreadCount != c.UnreadCount || newUnreadCount > 0)
@@ -4047,7 +4100,7 @@ namespace Zer0Talk.ViewModels
                         
                         // Canonical model: unread count is derived from notifications service state.
                         c.UnreadCount = newUnreadCount;
-                        c.ConnectionMode = AppServices.Network.GetConnectionMode(uid);
+                        c.ConnectionMode = connectionMode;
                         c.PeerVersion = AppServices.Network.GetPeerVersion(uid);
                     }
                     catch (Exception ex) 
@@ -4058,6 +4111,7 @@ namespace Zer0Talk.ViewModels
                 
                 // Fallback: ensure FilteredContacts stays in sync with Contacts
                 SynchronizeUnreadCountsToFilteredContacts();
+                OnPropertyChanged(nameof(IsSelectedContactUnverified));
             }
             catch (Exception ex)
             {
@@ -4124,10 +4178,27 @@ namespace Zer0Talk.ViewModels
                 {
                     var original = Contacts.FirstOrDefault(c =>
                         string.Equals(TrimUidPrefix(c.UID ?? string.Empty), TrimUidPrefix(fc.UID ?? string.Empty), StringComparison.OrdinalIgnoreCase));
-                    if (original != null && original.UnreadCount != fc.UnreadCount)
+                    if (original == null) continue;
+
+                    if (original.UnreadCount != fc.UnreadCount)
                     {
                         fc.UnreadCount = original.UnreadCount;
                         try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Unread] FALLBACK SYNC: {fc.DisplayName} unread={original.UnreadCount}\n"); } catch { }
+                    }
+
+                    if (original.ConnectionMode != fc.ConnectionMode)
+                    {
+                        fc.ConnectionMode = original.ConnectionMode;
+                    }
+
+                    if (!string.Equals(original.PeerVersion, fc.PeerVersion, StringComparison.Ordinal))
+                    {
+                        fc.PeerVersion = original.PeerVersion;
+                    }
+
+                    if (original.Presence != fc.Presence)
+                    {
+                        fc.Presence = original.Presence;
                     }
                 }
             }
@@ -4221,6 +4292,7 @@ namespace Zer0Talk.ViewModels
 
         private bool CanAddContact()
         {
+            if (_addContactRequestInFlight) return false;
             if (string.IsNullOrWhiteSpace(AddContactInput)) return false;
             var input = AddContactInput.Trim();
             // Accept UID only, or name-UID
@@ -4234,11 +4306,109 @@ namespace Zer0Talk.ViewModels
             return false;
         }
 
-        private void AddContact()
+        private static bool IsBlockedUid(string uid)
         {
+            try
+            {
+                var norm = TrimUidPrefix(uid ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(norm)) return false;
+                var blocked = AppServices.Settings.Settings.BlockList ?? new List<string>();
+                return blocked.Any(b => string.Equals(TrimUidPrefix(b ?? string.Empty), norm, StringComparison.OrdinalIgnoreCase));
+            }
+            catch { return false; }
+        }
+
+        public bool CanResendInvite(string? uid)
+        {
+            try
+            {
+                uid = TrimUidPrefix(uid ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(uid)) return false;
+                if (IsBlockedUid(uid)) return false;
+
+                var contact = Contacts.FirstOrDefault(c =>
+                    string.Equals(TrimUidPrefix(c.UID ?? string.Empty), uid, StringComparison.OrdinalIgnoreCase));
+                if (contact == null) return false;
+                if (contact.IsSimulated) return false;
+                if (contact.IsMutual) return false;
+                return true;
+            }
+            catch { return false; }
+        }
+
+        private async Task ResendInviteAsync(string? uid)
+        {
+            uid = TrimUidPrefix(uid ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(uid))
+            {
+                ErrorMessage = "Invalid contact UID.";
+                return;
+            }
+
+            if (IsBlockedUid(uid))
+            {
+                ErrorMessage = "Cannot resend invite to a blocked contact.";
+                return;
+            }
+
+            var contact = Contacts.FirstOrDefault(c =>
+                string.Equals(TrimUidPrefix(c.UID ?? string.Empty), uid, StringComparison.OrdinalIgnoreCase));
+            if (contact == null)
+            {
+                ErrorMessage = "Contact not found.";
+                return;
+            }
+
+            if (contact.IsMutual)
+            {
+                ErrorMessage = "Contact is already mutual. No resend needed.";
+                return;
+            }
+
+            ErrorMessage = "Resending invite...";
+            var result = await AppServices.ContactRequests.SendRequestAsync(uid, null, null, TimeSpan.FromSeconds(20), contact.ExpectedPublicKeyHex);
+            switch (result)
+            {
+                case Services.ContactRequestResult.Accepted:
+                    try
+                    {
+                        AppServices.Contacts.SetIsMutual(uid, true, AppServices.Passphrase);
+                        contact.IsMutual = true;
+                    }
+                    catch { }
+                    ErrorMessage = "Invite accepted. Contact is now mutual.";
+                    break;
+                case Services.ContactRequestResult.Rejected:
+                    ErrorMessage = "Invite was rejected.";
+                    break;
+                case Services.ContactRequestResult.Timeout:
+                    ErrorMessage = "No response (timeout).";
+                    break;
+                case Services.ContactRequestResult.NotFound:
+                    ErrorMessage = "Could not reach contact right now. Ask them to come online and retry.";
+                    break;
+                default:
+                    ErrorMessage = "Failed to resend invite.";
+                    break;
+            }
+
+            try { (ResendInviteCommand as RelayCommand)?.RaiseCanExecuteChanged(); } catch { }
+        }
+
+        private async Task AddContactAsync()
+        {
+            if (_addContactRequestInFlight) return;
+            _addContactRequestInFlight = true;
+            (AddContactCommand as RelayCommand)?.RaiseCanExecuteChanged();
             ErrorMessage = string.Empty;
             var input = AddContactInput?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(input)) { ErrorMessage = "Enter a UID or username-UID (e.g., bob-45K5w52g)."; return; }
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                ErrorMessage = "Enter a UID or username-UID (e.g., bob-45K5w52g).";
+                _addContactRequestInFlight = false;
+                (AddContactCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                return;
+            }
             string uid;
             string displayName;
             if (IsUid(input))
@@ -4252,30 +4422,84 @@ namespace Zer0Talk.ViewModels
                 if (idx <= 0 || idx >= input.Length - 1)
                 {
                     ErrorMessage = "Enter UID or username-UID (e.g., bob-45K5w52g).";
+                    _addContactRequestInFlight = false;
+                    (AddContactCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     return;
                 }
                 uid = input[(idx + 1)..];
                 if (!IsUid(uid))
                 {
                     ErrorMessage = "Invalid UID. Expected 8+ alphanumeric characters.";
+                    _addContactRequestInFlight = false;
+                    (AddContactCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     return;
                 }
                 displayName = input[..idx];
                 if (string.IsNullOrWhiteSpace(displayName))
                 {
                     ErrorMessage = "Username required with UID or provide UID alone.";
+                    _addContactRequestInFlight = false;
+                    (AddContactCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     return;
                 }
             }
 
-            var added = AppServices.Contacts.AddContact(new Contact { UID = uid, DisplayName = displayName }, AppServices.Passphrase);
-            if (!added)
+            try
             {
-                ErrorMessage = "Contact already exists or invalid.";
-                return;
+                var existing = AppServices.Contacts.Contacts.FirstOrDefault(c =>
+                    string.Equals(TrimUidPrefix(c.UID ?? string.Empty), uid, StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    var mergeOutcome = AppServices.Contacts.AddOrMergeContact(new Contact
+                    {
+                        UID = uid,
+                        DisplayName = displayName,
+                        IsSimulated = existing.IsSimulated,
+                    }, AppServices.Passphrase);
+
+                    if (mergeOutcome == AddContactOutcome.MergedExisting)
+                    {
+                        AppServices.Peers.IncludeContacts();
+                        ErrorMessage = "A contact with that UID already exists. Existing entry was merged.";
+                    }
+                    else
+                    {
+                        ErrorMessage = "Contact already exists or invalid.";
+                    }
+                    return;
+                }
+
+                ErrorMessage = "Requesting permission...";
+                var result = await AppServices.ContactRequests.SendRequestAsync(uid, null, null, TimeSpan.FromSeconds(20), null);
+                switch (result)
+                {
+                    case Services.ContactRequestResult.Accepted:
+                        ErrorMessage = "Added!";
+                        AddContactInput = string.Empty;
+                        break;
+                    case Services.ContactRequestResult.Rejected:
+                        ErrorMessage = "Request rejected.";
+                        break;
+                    case Services.ContactRequestResult.NotFound:
+                        ErrorMessage = "Could not reach that UID right now. Ask them to come online and retry.";
+                        break;
+                    case Services.ContactRequestResult.Timeout:
+                        ErrorMessage = "No response (timeout).";
+                        break;
+                    default:
+                        ErrorMessage = "Request failed.";
+                        break;
+                }
             }
-            AppServices.Peers.IncludeContacts();
-            AddContactInput = string.Empty;
+            catch
+            {
+                ErrorMessage = "Failed to send request.";
+            }
+            finally
+            {
+                _addContactRequestInFlight = false;
+                (AddContactCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            }
         }
 
         private void LoadConversation(string peerUid)

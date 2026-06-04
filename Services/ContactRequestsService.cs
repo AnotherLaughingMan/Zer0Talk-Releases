@@ -205,6 +205,10 @@ namespace Zer0Talk.Services
                 var result = await tcs.Task;
                 SetSendDiagnostic($"result uid={uid} outcome={result}");
                 // OnInboundAccept will have already added the contact when C1 frame arrives
+                if (result == ContactRequestResult.Accepted)
+                {
+                    try { _contacts.SetIsMutual(uid, true, AppServices.Passphrase); } catch { }
+                }
                 // If successful, just update ExpectedPublicKeyHex if provided and verify
                 if (result == ContactRequestResult.Accepted && !string.IsNullOrWhiteSpace(expectedPublicKeyHex))
                 {
