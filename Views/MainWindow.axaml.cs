@@ -6472,11 +6472,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         Grid.SetColumn(closeButton, 2);
 
         var showUpdateDecision = AppServices.AutoUpdate.IsUpdatePromptOrigin(alert.OriginUid);
-        var isSimulatedUpdate = alert.Type == Models.NotificationType.Update && !showUpdateDecision;
 
         // Body
         var bodyText = alert.FullBody ?? alert.Body;
-        if (!string.IsNullOrWhiteSpace(bodyText) && !isSimulatedUpdate)
+        if (!string.IsNullOrWhiteSpace(bodyText))
         {
             var bodyBlock = new TextBlock
             {
@@ -6492,62 +6491,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         }
 
         var showRetryUpdate = !showUpdateDecision && ShouldShowRetryUpdateAction(alert);
-        if (isSimulatedUpdate)
-        {
-            var simulatedMessage = "Update is available, would you like to Automatically download and apply it? (note this will restart your app)";
-            if (mainGrid.RowDefinitions.Count < 4)
-            {
-                mainGrid.RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto");
-            }
-
-            var simulatedBodyBlock = new TextBlock
-            {
-                Text = simulatedMessage,
-                TextWrapping = TextWrapping.Wrap,
-                Foreground = foregroundBrush,
-                Margin = new Thickness(0, 6, 0, 0)
-            };
-            Grid.SetRow(simulatedBodyBlock, 1);
-            Grid.SetColumn(simulatedBodyBlock, 0);
-            Grid.SetColumnSpan(simulatedBodyBlock, 3);
-            mainGrid.Children.Add(simulatedBodyBlock);
-
-            var actionRow = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 16,
-                Margin = new Thickness(0, 12, 0, 0)
-            };
-
-            var yesButton = new Button
-            {
-                Content = "Yes",
-                IsEnabled = false,
-                Opacity = 0.45,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Padding = new Thickness(12, 4),
-                MinWidth = 52
-            };
-
-            var noButton = new Button
-            {
-                Content = "No",
-                IsEnabled = false,
-                Opacity = 0.45,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Padding = new Thickness(12, 4),
-                MinWidth = 52
-            };
-
-            actionRow.Children.Add(yesButton);
-            actionRow.Children.Add(noButton);
-
-            Grid.SetRow(actionRow, 2);
-            Grid.SetColumn(actionRow, 0);
-            Grid.SetColumnSpan(actionRow, 3);
-            mainGrid.Children.Add(actionRow);
-        }
-        else if (showUpdateDecision)
+        if (showUpdateDecision)
         {
             var actionRow = new StackPanel
             {
@@ -6689,7 +6633,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             Opacity = 0.6,
             Margin = new Thickness(0, 8, 0, 0)
         };
-        Grid.SetRow(timestampBlock, (showRetryUpdate || showUpdateDecision || isSimulatedUpdate) ? 3 : 2);
+        Grid.SetRow(timestampBlock, (showRetryUpdate || showUpdateDecision) ? 3 : 2);
         Grid.SetColumn(timestampBlock, 0);
         Grid.SetColumnSpan(timestampBlock, 3);
 

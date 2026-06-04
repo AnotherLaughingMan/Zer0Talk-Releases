@@ -346,6 +346,7 @@ namespace Zer0Talk.ViewModels
                     OnPropertyChanged(nameof(HasSelectedContactVerificationHistory));
                     OnPropertyChanged(nameof(IsChatEncrypted));
                     OnPropertyChanged(nameof(IsSelectedContactUnverified));
+                    OnPropertyChanged(nameof(ShowSelectedContactErrorBanner));
                     if (_selectedContact != null)
                     {
                         LoadConversation(_selectedContact.UID);
@@ -776,7 +777,28 @@ namespace Zer0Talk.ViewModels
         private string _addContactInput = string.Empty;
         public string AddContactInput { get => _addContactInput; set { _addContactInput = value; OnPropertyChanged(); (AddContactCommand as RelayCommand)?.RaiseCanExecuteChanged(); } }
         private string _errorMessage = string.Empty;
-        public string ErrorMessage { get => _errorMessage; set { _errorMessage = value; OnPropertyChanged(); } }
+        private string? _errorMessageOriginUid;
+        public string ErrorMessage { get => _errorMessage; set { _errorMessage = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowSelectedContactErrorBanner)); } }
+        public bool ShowSelectedContactErrorBanner
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(_errorMessage)) return false;
+                var selected = TrimUidPrefix(SelectedContact?.UID ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(selected)) return false;
+                var origin = TrimUidPrefix(_errorMessageOriginUid ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(origin)) return true;
+                return string.Equals(origin, selected, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private void SetErrorMessageForContact(string message, string? uid)
+        {
+            _errorMessage = message ?? string.Empty;
+            _errorMessageOriginUid = TrimUidPrefix(uid ?? string.Empty);
+            OnPropertyChanged(nameof(ErrorMessage));
+            OnPropertyChanged(nameof(ShowSelectedContactErrorBanner));
+        }
 
         public MainWindowViewModel()
         {
@@ -4341,13 +4363,13 @@ namespace Zer0Talk.ViewModels
             uid = TrimUidPrefix(uid ?? string.Empty);
             if (string.IsNullOrWhiteSpace(uid))
             {
-                ErrorMessage = "Invalid contact UID.";
+                SetErrorMessageForContact("Invalid contact UID.", uid);
                 return;
             }
 
             if (IsBlockedUid(uid))
             {
-                ErrorMessage = "Cannot resend invite to a blocked contact.";
+                SetErrorMessageForContact("Cannot resend invite to a blocked contact.", uid);
                 return;
             }
 
@@ -4355,17 +4377,17 @@ namespace Zer0Talk.ViewModels
                 string.Equals(TrimUidPrefix(c.UID ?? string.Empty), uid, StringComparison.OrdinalIgnoreCase));
             if (contact == null)
             {
-                ErrorMessage = "Contact not found.";
+                SetErrorMessageForContact("Contact not found.", uid);
                 return;
             }
 
             if (contact.IsMutual)
             {
-                ErrorMessage = "Contact is already mutual. No resend needed.";
+                SetErrorMessageForContact("Contact is already mutual. No resend needed.", uid);
                 return;
             }
 
-            ErrorMessage = "Resending invite...";
+            SetErrorMessageForContact("Resending invite...", uid);
             var result = await AppServices.ContactRequests.SendRequestAsync(uid, null, null, TimeSpan.FromSeconds(20), contact.ExpectedPublicKeyHex);
             switch (result)
             {
@@ -4376,19 +4398,19 @@ namespace Zer0Talk.ViewModels
                         contact.IsMutual = true;
                     }
                     catch { }
-                    ErrorMessage = "Invite accepted. Contact is now mutual.";
+                    SetErrorMessageForContact("Invite accepted. Contact is now mutual.", uid);
                     break;
                 case Services.ContactRequestResult.Rejected:
-                    ErrorMessage = "Invite was rejected.";
+                    SetErrorMessageForContact("Invite was rejected.", uid);
                     break;
                 case Services.ContactRequestResult.Timeout:
-                    ErrorMessage = "No response (timeout).";
+                    SetErrorMessageForContact("No response (timeout).", uid);
                     break;
                 case Services.ContactRequestResult.NotFound:
-                    ErrorMessage = "Could not reach contact right now. Ask them to come online and retry.";
+                    SetErrorMessageForContact("Could not reach contact right now. Ask them to come online and retry.", uid);
                     break;
                 default:
-                    ErrorMessage = "Failed to resend invite.";
+                    SetErrorMessageForContact("Failed to resend invite.", uid);
                     break;
             }
 

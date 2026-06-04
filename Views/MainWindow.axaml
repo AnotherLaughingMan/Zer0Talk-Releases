@@ -840,7 +840,7 @@
                                 Background="#5C1E1E"
                                 BorderBrush="#C94B4B"
                                 BorderThickness="1"
-                                IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotNullOrEmptyConverter}}">
+                                IsVisible="{Binding ShowSelectedContactErrorBanner}">
                             <Grid ColumnDefinitions="Auto,*" VerticalAlignment="Center" ColumnSpacing="8">
                                 <TextBlock Grid.Column="0" Text="&#xE783;" Classes="icon-mdl2" Foreground="#FFD6D6"/>
                                 <TextBlock Grid.Column="1" Text="{Binding ErrorMessage}" Foreground="#FFD6D6" TextWrapping="Wrap"/>

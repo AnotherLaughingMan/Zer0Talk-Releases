@@ -362,6 +362,34 @@ public sealed partial class AutoUpdateService : IDisposable
             _pendingUpdateRelease = release;
         }
 
+        var origin = BuildUpdatePromptOrigin(release.Version);
+
+        try
+        {
+            var existing = AppServices.Notifications.Notices?
+                .Any(n => n.Type == NotificationType.Update
+                    && string.Equals(n.OriginUid, origin, StringComparison.OrdinalIgnoreCase)) == true;
+            if (existing)
+            {
+                return;
+            }
+
+            var staleOrigins = AppServices.Notifications.Notices?
+                .Where(n => n.Type == NotificationType.Update
+                    && IsUpdatePromptOrigin(n.OriginUid)
+                    && !string.Equals(n.OriginUid, origin, StringComparison.OrdinalIgnoreCase))
+                .Select(n => n.OriginUid)
+                .Where(o => !string.IsNullOrWhiteSpace(o))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Cast<string>()
+                .ToList();
+            if (staleOrigins is { Count: > 0 })
+            {
+                AppServices.Notifications.RemoveNoticesForOrigins(staleOrigins);
+            }
+        }
+        catch { }
+
         var body = $"Update {release.Version} is ready to install.";
         var details =
             $"Current: {AppInfo.Version}\n" +
@@ -374,7 +402,7 @@ public sealed partial class AutoUpdateService : IDisposable
             AppServices.Notifications.PostNotice(
                 NotificationType.Update,
                 body,
-                originUid: BuildUpdatePromptOrigin(release.Version),
+                originUid: origin,
                 fullBody: details,
                 isPersistent: true);
         }

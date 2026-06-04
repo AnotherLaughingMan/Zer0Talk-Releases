@@ -4048,7 +4048,14 @@ private double _relayPairWaitMsEwma = 20000;
         public Models.ConnectionMode GetConnectionMode(string peerUid)
         {
             var key = Trim(peerUid);
-            return _sessionModes.TryGetValue(key, out var mode) ? mode : Models.ConnectionMode.None;
+            if (_sessionModes.TryGetValue(key, out var mode)) return mode;
+            if (!key.StartsWith("usr-", StringComparison.Ordinal) && _sessionModes.TryGetValue("usr-" + key, out mode)) return mode;
+            if (key.StartsWith("usr-", StringComparison.Ordinal) && key.Length > 4)
+            {
+                var alt = key.Substring(4);
+                if (_sessionModes.TryGetValue(alt, out mode)) return mode;
+            }
+            return Models.ConnectionMode.None;
         }
 
         public (long BytesIn, long BytesOut) GetSessionBytes(string peerUid)
