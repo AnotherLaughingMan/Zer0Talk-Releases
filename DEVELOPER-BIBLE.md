@@ -1,4 +1,4 @@
-# Zer0Talk — Developer Bible
+# Zer0Talk - Developer Bible
 
 **Version:** 0.0.4.08-Alpha  
 **Last Audited:** 2026-05-14  
@@ -38,12 +38,12 @@ Every contributor is expected to read, understand, and follow this document. It 
 
 ## 1. What Zer0Talk Is
 
-Zer0Talk is a **private, end-to-end encrypted peer-to-peer messaging application** for Windows. There is no central server that stores, routes, or mediates your messages. Every message is encrypted before it leaves the sender's machine and decrypted only on the recipient's machine. No third party — including relay operators — can read the content of conversations.
+Zer0Talk is a **private, end-to-end encrypted peer-to-peer messaging application** for Windows. There is no central server that stores, routes, or mediates your messages. Every message is encrypted before it leaves the sender's machine and decrypted only on the recipient's machine. No third party - including relay operators - can read the content of conversations.
 
 **Core properties:**
 
 - **Keypair-based identity.** Each account is an Ed25519 keypair. Your UID is deterministically derived from your public key. There are no usernames or email addresses registered with any central authority.
-- **Blind relay, zero knowledge.** Optional relay infrastructure can be self-hosted. Relays are not servers in the traditional sense — they retain no data and serve no content. A relay only facilitates the initial TCP connection request and forwards an opaque encrypted byte stream. The ECDH handshake and session keys are established end-to-end, through the relay-forwarded stream. The relay is provably blind to all plaintext.
+- **Blind relay, zero knowledge.** Optional relay infrastructure can be self-hosted. Relays are not servers in the traditional sense - they retain no data and serve no content. A relay only facilitates the initial TCP connection request and forwards an opaque encrypted byte stream. The ECDH handshake and session keys are established end-to-end, through the relay-forwarded stream. The relay is provably blind to all plaintext.
 - **All data encrypted at rest.** Every persistent file is encrypted using XChaCha20-Poly1305 with Argon2id key derivation. Nothing is stored in plaintext.
 - **Self-sovereign.** Users control their data directory, their keys, their relay, and their contacts. Account deletion is performed via **Settings → Danger Zone → Delete Account**, which performs a secure multi-pass wipe of all identity and data files.
 - **Alpha stage.** The current version (`0.0.4.08-Alpha`) is pre-release. Breaking changes may occur between versions.
@@ -52,7 +52,7 @@ Zer0Talk is a **private, end-to-end encrypted peer-to-peer messaging application
 
 ## 2. What Zer0Talk Is Not
 
-These are explicit, decided policy rejections — not omissions:
+These are explicit, decided policy rejections - not omissions:
 
 | Feature | Status | Reason |
 |---|---|---|
@@ -67,7 +67,7 @@ These are explicit, decided policy rejections — not omissions:
 ## 3. Repository Layout
 
 ```
-Zer0Talk/                          ← Main client core (WinExe, .NET 9; Avalonia runtime shell while hybrid Tauri migration is in progress)
+Zer0Talk/                          ← Main client core (WinExe, .NET 9; Avalonia runtime shell)
   App.axaml / App.axaml.cs         ← Application root
   Program.cs                       ← Entry point, single-instance guard, client host bootstrap
   AppInfo.cs                       ← Version and build constants
@@ -99,10 +99,8 @@ Zer0Talk/                          ← Main client core (WinExe, .NET 9; Avaloni
 |---|---|
 | Runtime | .NET 9 |
 | UI framework (current shell) | Avalonia 11.3.7 (Fluent theme) |
-| UI migration target | Tauri shell (hybrid rollout via IPC/adapter feature gates) |
 | UI icons | Material.Icons.Avalonia |
-| Markdown | Markdig 0.37 |
-| Symmetric crypto | libsodium (Sodium.Core) — XChaCha20-Poly1305 |
+| Symmetric crypto | libsodium (Sodium.Core) - XChaCha20-Poly1305 |
 | KDF | Argon2id (Konscious.Security.Cryptography) |
 | Signing | Ed25519 via libsodium |
 | KDF (transport) | HKDF-SHA256 (custom `Utilities/Hkdf.cs`) |
@@ -127,7 +125,7 @@ This section is mandatory reading. Any change to cryptographic code requires del
 Every account is an Ed25519 keypair generated at account creation using libsodium's `PublicKeyAuth.GenerateKeyPair()`. The private key (64 bytes) lives **only** inside the encrypted `user.p2e` container. It is never written anywhere else and never transmitted.
 
 The **UID** is derived from the public key (32 bytes):
-- Encode the first N bytes of the public key in a compact mixed-case Base32 alphabet (no ambiguous characters — no `0/O`, `1/I/L`).
+- Encode the first N bytes of the public key in a compact mixed-case Base32 alphabet (no ambiguous characters - no `0/O`, `1/I/L`).
 - Prefix with `usr-`.
 - Example: `usr-Xk7mN3pQ...`
 
@@ -163,8 +161,9 @@ When two peers connect:
 3. **AeadTransport** (`Utilities/AeadTransport.cs`) wraps the TCP stream. Every frame:
    - Header: `[0x01 type][8-byte counter BE][4-byte ciphertext length BE]`
    - Body: `XChaCha20-Poly1305(plaintext, nonce=base||counter, key=txKey, aad=type||counter)`
-   - Counter is monotonically increasing. Inbound counters must strictly exceed the last seen value — out-of-order or replayed frames are rejected with `InvalidDataException`.
+   - Counter is monotonically increasing. Inbound counters must strictly exceed the last seen value - out-of-order or replayed frames are rejected with `InvalidDataException`.
 4. **Identity binding.** After handshake, the derived UID from the peer's ephemeral public key is checked against the expected contact UID. Mismatches trigger a security alert frame (`0xE0`, reason `0x01 = KeyMismatch`) and disconnect.
+5. **Optional DH ratchet.** New peers append a capability byte and a session-scoped ratchet public key to the encrypted `0xA1` identity-announce frame. Once both sides advertise support, `AeadTransport` injects an encrypted `0xA3` ratchet update frame before the next outbound payload and then rotates the sending direction onto fresh DH-derived key material. The receiver applies the new inbound keys after consuming `0xA3`. Old peers ignore the extra `0xA1` tail and never see `0xA3` unless they opted in.
 
 The relay server never participates in key exchange. ECDH happens directly between client sockets, over the relay-forwarded TCP stream. The relay is provably blind to plaintext.
 
@@ -282,10 +281,6 @@ AppServices.UnreadBridge   // UnreadBridgeService – DTO/JSON unread transport 
 AppServices.UnreadIpcEndpoint // UnreadIpcEndpointService – unread IPC command/event contract
 AppServices.ContactsBridge // ContactsBridgeService – contacts snapshot transport surface
 AppServices.ContactsIpcEndpoint // ContactsIpcEndpointService – contacts IPC command/event contract
-AppServices.HybridIpcHost  // HybridIpcHostService – runtime named-pipe host for hybrid shell
-AppServices.HybridShellIpcClient // HybridShellIpcClientService – shell-side IPC consumer client
-AppServices.HybridShellConsumer // HybridShellConsumerService – snapshot/delta consume coordinator
-AppServices.HybridShellAdapter // HybridShellAdapterService – stable shell-facing state facade
 AppServices.AutoUpdate     // AutoUpdateService – GitHub release feed check
 AppServices.IpBlocking     // IpBlockingService – per-IP and CIDR blocking
 AppServices.Localization   // LocalizationService – i18n string lookup
@@ -310,14 +305,14 @@ Key events:
 
 **Rule:** All event raises are wrapped in `try { ... } catch { }`. Handlers must not throw.
 
-### AppServices.Events — Presence Pipeline
+### AppServices.Events - Presence Pipeline
 
 The presence pipeline is the primary driver of auto-connection attempts. It has internal debounce and concurrency controls:
 
 - `PresenceEventDebounce`: 2 seconds (suppress duplicate triggers)
 - `PresenceConnectDebounce`: 5 seconds per UID (prevent hammering a specific peer)
-- `PresenceConnectLimiter`: `SemaphoreSlim(3,3)` — max 3 concurrent connect attempts
-- `OutboxDrainLimiter`: `SemaphoreSlim(2,2)` — max 2 concurrent outbox drains
+- `PresenceConnectLimiter`: `SemaphoreSlim(3,3)` - max 3 concurrent connect attempts
+- `OutboxDrainLimiter`: `SemaphoreSlim(2,2)` - max 2 concurrent outbox drains
 
 ---
 
@@ -325,26 +320,26 @@ The presence pipeline is the primary driver of auto-connection attempts. It has 
 
 Connections are attempted in a deterministic priority order. Each tier is tried and only falls through if it fails.
 
-### Tier 1 — Direct TCP
+### Tier 1 - Direct TCP
 
 The app listens on the configured TCP port (default 26264). If a peer's address is known (via LAN discovery, WAN directory lookup, or manual entry), a direct TCP connection is attempted.
 
-### Tier 2 — NAT Traversal
+### Tier 2 - NAT Traversal
 
 `NatTraversalService` attempts UPnP/PCP port mapping through the router. If a mapping is obtained, the external IP:port is registered with the WAN directory (relay server LOOKUP/REG protocol). The mapping is periodically verified with a hairpin test.
 
 UPnP state machine (`MappingState`): `Idle → Discovering → GatewayDiscovered → Mapping → Mapped → Verified` (or failure paths `Failed`, `NoGateway`, `HairpinFailed`).
 
-### Tier 3 — Relay Fallback
+### Tier 3 - Relay Fallback
 
 If direct and NAT both fail, the relay is used. The full end-to-end protocol is:
 
 1. Client A calls `TryOfferRendezvousAsync()`, which sends `OFFER <sourceUid> <sessionKey>` to the relay directory. The call retries **up to 3 times** (2-second delay between each attempt). If all retries fail the relay connection is abandoned.
 2. Client B receives the invite via `POLL <targetUid>` or `WAITPOLL <targetUid>` (long-poll variant).
 3. Both clients independently connect to the relay and send `RELAY <sessionKey>`.
-4. The relay responds `QUEUED\n` to whichever client arrives first. **That client blocks and waits for `PAIRED\n` — it does not begin ECDH yet.**
+4. The relay responds `QUEUED\n` to whichever client arrives first. **That client blocks and waits for `PAIRED\n` - it does not begin ECDH yet.**
 5. When the second client arrives, the relay sends `PAIRED\n` to **both** clients simultaneously.
-6. **ECDH handshake begins only after receiving `PAIRED`.** This is non-negotiable — starting before pairing is confirmed is a protocol invariant violation.
+6. **ECDH handshake begins only after receiving `PAIRED`.** This is non-negotiable - starting before pairing is confirmed is a protocol invariant violation.
 7. The relay forwards bytes bidirectionally with no interpretation. The relay is blind to all plaintext.
 
 Error responses from the relay (`ERR <reason>\n`) cause structured log entries. Specific handling:
@@ -361,12 +356,12 @@ The relay falls back to port 8443 if no explicit relay port is configured.
 
 `NetworkService._sessionModes` tracks whether each active session is `Direct`, `NAT`, or `Relay`. This is surfaced in the UI via contact card connection mode icons and summarised in the monitoring window connection-stats view.
 
-### Relay Candidate Selection — Happy Eyeballs
+### Relay Candidate Selection - Happy Eyeballs
 
 When connecting to a relay, `NetworkService.ConnectToFirstRelayAsync()` fires all candidates in parallel with a **250 ms stagger** between each attempt (applied in candidate order). The first TCP connection that completes wins; all others are cancelled. This mirrors the Happy Eyeballs algorithm (RFC 8305) applied to relay endpoints instead of IPv4/IPv6 races.
 
 Candidates are pre-sorted by:
-1. Health score descending (`GetRelayHealthScore` — EWMA of success rate / latency)
+1. Health score descending (`GetRelayHealthScore` - EWMA of success rate / latency)
 2. Distance from the preferred relay ascending
 
 This means the healthiest, closest relay gets the first attempt, while slower candidates start with a small delay rather than being tried sequentially.
@@ -385,7 +380,7 @@ Updated via `ObserveRelayAckWait()` and `ObserveRelayPairWait()` called on every
 
 ### Keepalive Frames
 
-After a session is established — for **both relay and direct connections** — a background task sends an **empty (zero-byte) frame every 30 seconds**. If the write fails, the session `CancellationToken` is cancelled immediately, tearing down the session. This prevents ghost sessions (TCP connections that appear open but are silently dead due to NAT expiration or network interruption) from accumulating in the active session table.
+After a session is established - for **both relay and direct connections** - a background task sends an **empty (zero-byte) frame every 30 seconds**. If the write fails, the session `CancellationToken` is cancelled immediately, tearing down the session. This prevents ghost sessions (TCP connections that appear open but are silently dead due to NAT expiration or network interruption) from accumulating in the active session table.
 
 The 30-second interval is intentionally shorter than typical NAT TCP mapping lifetimes (60–300 s), ensuring dead paths are detected well before the mapping expires.
 
@@ -411,6 +406,7 @@ The nonce for each frame is `txBase (16 bytes) || counter (8 bytes)` = 24 bytes 
 | `0xB0` | Chat | Both | Chat message payload |
 | `0xB1` | Edit | Both | Edit existing message by GUID |
 | `0xB2` | Delete | Both | Delete message by GUID |
+| `0xA3` | DH Ratchet | Both | Optional encrypted transport ratchet update carrying the sender's next session-scoped P-256 public key |
 | `0xB3` | Presence | Both | Presence status token |
 | `0xB4` | Avatar | Both | Avatar image blob |
 | `0xB5` | Delivered ACK | Both | Delivery receipt for a message GUID |
@@ -454,7 +450,7 @@ The binary now serves **two distinct roles**, each behind its own feature flag:
 | **P2P Relay** | (always on) | 443 | Client-to-client session pairing and WAN directory (REG/LOOKUP/OFFER/POLL) |
 | **Relay Federation** | `EnableFederation` | 8443 | Relay-to-relay coordination (cross-relay session bridging, federated OFFER forwarding) |
 
-When both modes are on, two or three TCP listeners run simultaneously (relay port + optional separate federation port). End-to-end encryption is preserved across all modes — the server never sees plaintext.
+When both modes are on, two or three TCP listeners run simultaneously (relay port + optional separate federation port). End-to-end encryption is preserved across all modes - the server never sees plaintext.
 
 ### Configuration (`relay-config.json`)
 
@@ -511,12 +507,12 @@ Client B arrives with RELAY <key>
   → Pending found: RelaySession created
   → "PAIRED\n" sent to BOTH A and B simultaneously
   → Both clients unblock and begin ECDH handshake
-  → RelayForwarder.StartForwardingAsync() — bidirectional byte copy
+  → RelayForwarder.StartForwardingAsync() - bidirectional byte copy
 ```
 
 **Protocol invariant:** `PAIRED` must be sent to both sides before the forwarder starts. The relay guarantees this ordering. Clients must not send any ECDH bytes until `PAIRED` is received.
 
-**Dead session detection:** `RelaySession.IsConnected` checks `TcpClient.Connected` on both sides. If a new client arrives with the same session key and `IsConnected` is false, the dead session is evicted immediately — no waiting. Pending (un-paired) sessions are also evicted if their TCP is dead **or** they are older than **2 seconds**, allowing the incoming client to take their place.
+**Dead session detection:** `RelaySession.IsConnected` checks `TcpClient.Connected` on both sides. If a new client arrives with the same session key and `IsConnected` is false, the dead session is evicted immediately - no waiting. Pending (un-paired) sessions are also evicted if their TCP is dead **or** they are older than **2 seconds**, allowing the incoming client to take their place.
 
 Session outcomes (`PairOutcome`): `Paired`, `Queued`, `RejectedAlreadyQueued`, `RejectedCapacity`, `RejectedAlreadyActive`, `RejectedIncompatible`, `RejectedCooldown`.
 
@@ -547,8 +543,8 @@ Client-side handling:
 UDP multicast on group `239.255.42.42`, port `38384`. The relay advertises itself on the local network. Clients listen for these announcements to discover relay endpoints without manual configuration.
 
 `NetworkService.GetLanDiscoveredRelays()` returns beacon-discovered entries after applying two filters:
-- **Virtual adapter exclusion** — uses `System.Net.NetworkInformation.NetworkInterface` to identify adapter descriptions containing `VMware`, `Hyper-V`, or `Virtual`, and adapter names containing `vEthernet` or `Loopback`. All unicast addresses belonging to matching adapters are excluded from results.
-- **Link-local exclusion** — IPv4 addresses in the `169.254.0.0/16` (APIPA) range and IPv6 link-local addresses are always excluded, regardless of adapter type.
+- **Virtual adapter exclusion** - uses `System.Net.NetworkInformation.NetworkInterface` to identify adapter descriptions containing `VMware`, `Hyper-V`, or `Virtual`, and adapter names containing `vEthernet` or `Loopback`. All unicast addresses belonging to matching adapters are excluded from results.
+- **Link-local exclusion** - IPv4 addresses in the `169.254.0.0/16` (APIPA) range and IPv6 link-local addresses are always excluded, regardless of adapter type.
 
 This ensures that only real physical / Wi-Fi adapter addresses appear as LAN relay candidates, preventing noise from hypervisor bridges and Docker virtual adapters.
 
@@ -558,7 +554,7 @@ Optional server-to-server coordination (`EnableFederation = true`). Peer relays 
 - `AllowList`: only listed peers are accepted.
 - `OpenNetwork`: any peer relay can connect.
 
-Federation does **not** break end-to-end encryption — it only forwards opaque bytes and directory entries.
+Federation does **not** break end-to-end encryption - it only forwards opaque bytes and directory entries.
 
 #### Federation Protocol Commands
 
@@ -566,14 +562,14 @@ All federation commands are sent over TCP and require a shared secret (`Federati
 
 | Command | Description |
 |---|---|
-| `RELAY-HELLO <secret>` | Identity handshake — returns `OK-HELLO <token> <maxSessions> <activeSessions>` |
-| `RELAY-LOOKUP <uid> <secret>` | Look up a UID in the peer's directory — returns `PEER <uid> <host> <port> <age>` or `MISS` |
-| `RELAY-HEALTH <secret>` | Peer load stats — returns `HEALTH <load%> <pending> <active> <max>` |
-| `RELAY-DIR-DUMP <secret>` | Bulk directory sync — returns all registered UIDs as a semicolon-delimited list |
+| `RELAY-HELLO <secret>` | Identity handshake - returns `OK-HELLO <token> <maxSessions> <activeSessions>` |
+| `RELAY-LOOKUP <uid> <secret>` | Look up a UID in the peer's directory - returns `PEER <uid> <host> <port> <age>` or `MISS` |
+| `RELAY-HEALTH <secret>` | Peer load stats - returns `HEALTH <load%> <pending> <active> <max>` |
+| `RELAY-DIR-DUMP <secret>` | Bulk directory sync - returns all registered UIDs as a semicolon-delimited list |
 | `RELAY-DISCONNECT <uid> <secret>` | Tell a peer to evict a UID from its local cache |
-| `RELAY-SESSION-QUERY <sessionKey> <secret>` | Check whether a session key has a pending client on the peer — returns `HAS <key>` or `MISS` |
-| `RELAY-BRIDGE <sessionKey> <secret>` | Claim the peer's pending session, pipe both streams together — returns `OK-BRIDGE` then raw TCP |
-| `RELAY-OFFER <targetUid> <sourceUid> <sessionKey> <secret>` | Forward a rendezvous invite to a peer serving the target UID — returns `OK <inviteId>` |
+| `RELAY-SESSION-QUERY <sessionKey> <secret>` | Check whether a session key has a pending client on the peer - returns `HAS <key>` or `MISS` |
+| `RELAY-BRIDGE <sessionKey> <secret>` | Claim the peer's pending session, pipe both streams together - returns `OK-BRIDGE` then raw TCP |
+| `RELAY-OFFER <targetUid> <sourceUid> <sessionKey> <secret>` | Forward a rendezvous invite to a peer serving the target UID - returns `OK <inviteId>` |
 
 #### Federation Optimizations
 
@@ -609,16 +605,12 @@ The `FilteredDiscoveredRelays` observable collection (`SettingsViewModel`) is po
 
 Current production UI shell is Avalonia 11.3.7 with `FluentTheme`. Compiled bindings are enabled by default (`AvaloniaUseCompiledBindingsByDefault=true` in the client `.csproj`).
 
-Migration direction is a hybrid Tauri shell rollout (slice-by-slice), with .NET services and protocol logic retained as the source of truth during transition.
-
 ### Pattern
 
 Current shell pattern (Avalonia): strict MVVM.
 - **Views** (`.axaml` + `.axaml.cs`): Only UI wiring. No business logic. Subscribes to EventHub or ViewModel events.
-- **ViewModels** (`.cs`): Implements `INotifyPropertyChanged`. Contains presentation logic. No direct network or IO calls — delegates to services.
-- **Services**: All logic. No Avalonia dependencies. (Exception: `AppServices.Events.RaiseUiPulse` may be called from a background service, but it only dispatches a signal — no UI manipulation from services.)
-
-Migration rule (Tauri slices): shell-side UI consumes state via adapter/IPC contracts rather than duplicating network or crypto behavior in the frontend.
+- **ViewModels** (`.cs`): Implements `INotifyPropertyChanged`. Contains presentation logic. No direct network or IO calls - delegates to services.
+- **Services**: All logic. No Avalonia dependencies. (Exception: `AppServices.Events.RaiseUiPulse` may be called from a background service, but it only dispatches a signal - no UI manipulation from services.)
 
 ### Window Inventory
 
@@ -648,43 +640,20 @@ Migration rule (Tauri slices): shell-side UI consumes state via adapter/IPC cont
 | `VerifiedBadge` | `Controls/VerifiedBadge.axaml` | Shield icon for verified contacts |
 | `PresenceDndIcon` | `Controls/PresenceDndIcon.axaml` | Do-Not-Disturb indicator |
 | `PresenceIdleIcon` | `Controls/PresenceIdleIcon.axaml` | Idle indicator |
-| `Zer0TalkMarkdownViewer` | `Controls/Markdown/ZTalkMarkdownViewer.cs` | Safe markdown viewer (Markdig parser -> render model -> Avalonia controls) |
 
-### Composer Markdown UX (Current)
+### Composer UX (Current)
 
-- Hybrid markdown shell mode is now the preferred path for composer markdown UX (`EnableHybridMarkdownShell`).
-- Tauri-facing markdown IPC contract includes:
-  - `markdown.render.get` (preview html generation)
-  - `markdown.format.apply` (toolbar/header/inline action application)
-  - `markdown.ui.config.get` (preview button + toolbar + mini-editor capability/config surface)
-  - `markdown.draft.get|set` (composer markdown + selection state)
-  - `markdown.preview.state.get|set` (preview button state)
-  - `markdown.toolbar.state.get|set` (toolbar visibility + pin state)
-  - `markdown.mini-editor.state.get|set` (mini-editor open/pin/content state)
-- When hybrid markdown shell mode is enabled, Avalonia preview/toggle/toolbar/mini-editor composer interactions are gated off in `MainWindow` so shell behavior is the source of truth.
-
-`MarkdownComposerStateService` is the runtime state holder for shell-driven markdown composer flows.
-
-`HybridShellMarkdownAdapterService` is the shell-facing adapter facade for markdown slice state and command orchestration. It is wired in `AppServices` with a dedicated shell IPC client so markdown lifecycle does not contend with contacts/unread shell consumer state.
-
-### Hybrid UI Migration Gates (Current)
-
-`AppSettings` now contains feature flags used for controlled rollout of shell migration slices:
-
-- `EnableHybridContactsShell`
-- `EnableHybridUnreadShell`
-- `EnableHybridIpcHost`
-- `EnableHybridMarkdownShell`
-
-These gates allow gradual Tauri shell adoption with rollback control per slice.
+- The composer is handled directly in the Avalonia client.
+- Formatting actions are local UI behaviors and do not depend on shell IPC.
 
 ### Theme System
 
-`ThemeEngine` operates in three phases:
+`ThemeEngine` is the production theming system.
 
-- **Phase 1 (current):** Legacy wrapper — all calls route to `ThemeService`. Built-in themes: Dark, Light, Sandy, Butter.
-- **Phase 2 (planned):** Hybrid — new `.zttheme` definitions coexist with legacy themes.
-- **Phase 3 (planned):** Full engine with dynamic palettes and user-authored themes.
+- Uses engine theme definitions (`.zttheme`) plus legacy theme compatibility.
+- Built-in legacy themes remain supported: Dark, Light, Sandy, Butter.
+- Runtime applies theme resources through the engine path with guarded fallback to legacy behavior if a theme apply fails.
+- `FullEngine` is not an active rollout target; production behavior is the engine+legacy compatibility path.
 
 Custom `.zttheme` files are stored in `%APPDATA%\Zer0Talk\Themes\`. The theme save pipeline auto-backfills required compatibility color keys (`App.ItemHover`, `App.ItemSelected`, `App.AccentLight`, `App.Border`, etc.) to prevent Fluent default blue bleed.
 
@@ -705,13 +674,13 @@ Custom `.zttheme` files are stored in `%APPDATA%\Zer0Talk\Themes\`. The theme sa
 | `Id` | `Guid` | Unique message identifier |
 | `SenderUID` | `string` | Sender UID (full, with `usr-` prefix) |
 | `RecipientUID` | `string` | Recipient UID |
-| `Content` | `string` | Raw markdown content |
-| `RenderedContent` | `string` | Post-processed markdown (code block annotation, etc.) |
+| `Content` | `string` | Message text content |
+| `RenderedContent` | `string` | Display-ready message text |
 | `Timestamp` | `DateTime` | Sender-local time |
 | `ReceivedUtc` | `DateTime?` | UTC time of receipt on local machine |
 | `DeliveryStatus` | `MessageDeliveryStatus` | `Pending`, `Sent`, `Delivered` |
 
-`Content` setter automatically populates `RenderedContent` via `MarkdownCodeBlockLanguageAnnotator.Annotate()`.
+`Content` setter updates `RenderedContent` for UI binding consistency.
 
 ### Delivery States
 
@@ -733,9 +702,7 @@ Outbox drain is subject to `OutboxDrainLimiter (2,2)` and `OutboxDrainDebounce (
 
 | Feature | Status | Notes |
 |---|---|---|
-| Markdown rendering | Live | Markdig via custom inline renderer |
 | Spoilers | Live | `||text||` syntax, click-to-reveal |
-| Code blocks | Live | Language detection + syntax annotation |
 | Reply | Live (v1) | Lightweight metadata, no nested threads |
 | Edit | Live | Content update + network sync (`0xB1`) |
 | Delete | Live | Network sync (`0xB2`) |
@@ -745,7 +712,6 @@ Outbox drain is subject to `OutboxDrainLimiter (2,2)` and `OutboxDrainDebounce (
 | Conversation search | Live (v1) | In-thread search, next/prev navigation |
 | Message space filters | Live | All, Unread, Pinned, Starred |
 | Delivery ACK | Live | `0xB5` frame → Delivered status |
-| Composer live markdown preview | Live | Toggleable preview panel above composer input; visibility persisted in settings |
 | File/image transfer | **Rejected** | See [Section 2](#2-what-zer0talk-is-not) |
 
 ---
@@ -774,7 +740,7 @@ Both `Zer0Talk.csproj` and `Zer0Talk.RelayServer.csproj` inherit these values. A
 | Debug | Off | Enabled | Avalonia diagnostics included for the current runtime shell |
 | Release | Recommended | Enabled | Analyzers on, optimized |
 
-**Always build both configurations before declaring work done.** This is a standing requirement — never ship Debug-only validation.
+**Always build both configurations before declaring work done.** This is a standing requirement - never ship Debug-only validation.
 
 #### Build Commands
 
@@ -799,7 +765,7 @@ Or use the `dotnet: build debug+release clean-lock` task defined in `.vscode/tas
 
 ### Test Project
 
-`Tests/Zer0Talk.Tests.csproj` — xUnit 2.9, targeting .NET 9. References the main `Zer0Talk.csproj` directly.
+`Tests/Zer0Talk.Tests.csproj` - xUnit 2.9, targeting .NET 9. References the main `Zer0Talk.csproj` directly.
 
 ### Coverage Areas
 
@@ -836,9 +802,9 @@ Defined as VS Code tasks and PowerShell scripts in `scripts/`:
 
 Runs on every push and pull request to `main`:
 
-1. `dotnet build` — Debug configuration
-2. `dotnet build` — Release configuration
-3. `dotnet test` — xUnit test suite
+1. `dotnet build` - Debug configuration
+2. `dotnet build` - Release configuration
+3. `dotnet test` - xUnit test suite
 4. Federation smoke test (`scripts/federation_smoke_check.ps1`)
 
 Artifacts uploaded: `.trx` test results, federation smoke log.
@@ -865,7 +831,7 @@ These are requirements, not suggestions.
 
 ### File Size
 
-Files over **600 lines are too long.** Split into focused partial classes (the codebase already does this extensively — e.g., `NetworkService.cs` + sub-files, `ThemeEngine.cs` + `.Loading.cs` + `.Resources.cs`). Allow slack up to 600 lines. Do not let files grow unbounded.
+Files over **600 lines are too long.** Split into focused partial classes (the codebase already does this extensively - e.g., `NetworkService.cs` + sub-files, `ThemeEngine.cs` + `.Loading.cs` + `.Resources.cs`). Allow slack up to 600 lines. Do not let files grow unbounded.
 
 ### Naming
 
@@ -880,7 +846,7 @@ Files over **600 lines are too long.** Split into focused partial classes (the c
 ### Error Handling
 
 - **Never use bare `catch { }`** in `Services/`, `ViewModels/`, or application logic. At minimum, log the exception.
-- All `EventHub.Raise*()` methods wrap in `try { ... } catch { }` — this is the one permitted exception to the rule, as event handler failure must never crash callers.
+- All `EventHub.Raise*()` methods wrap in `try { ... } catch { }` - this is the one permitted exception to the rule, as event handler failure must never crash callers.
 - Use `CancellationToken` on every async operation that could block.
 - Set explicit timeouts; no infinite waits.
 - Fail fast on invalid input at system boundaries (user input, inbound network data). Trust internal code.
@@ -896,7 +862,6 @@ Files over **600 lines are too long.** Split into focused partial classes (the c
 ### Threading
 
 - For the current Avalonia shell, UI updates must happen on the Avalonia UI thread. Use `Dispatcher.UIThread.Post()` or `InvokeAsync()` when transitioning from background tasks.
-- For hybrid/Tauri shell slices, marshal UI updates through the shell runtime event loop; do not call Avalonia UI APIs from shell-side code.
 - All cross-thread shared state uses `ConcurrentDictionary`, `Interlocked`, or `lock`.
 - `SemaphoreSlim` is used to bound concurrency on network operations (never unbounded `Task.Run` floods).
 
@@ -917,7 +882,7 @@ Files over **600 lines are too long.** Split into focused partial classes (the c
 
 ## 18. Security Requirements
 
-Security is not a layer — it is the foundation. Every change must be evaluated for:
+Security is not a layer - it is the foundation. Every change must be evaluated for:
 
 | Threat | Mitigation in place |
 |---|---|
@@ -926,7 +891,7 @@ Security is not a layer — it is the foundation. Every change must be evaluated
 | Replay attacks | Monotonic AeadTransport counter; message-ID dedup window (30 min) |
 | Data theft at rest | All .p2e files are P2E3-encrypted with Argon2id + XChaCha20-Poly1305 |
 | Passphrase exposure | DPAPI protection; buffers zeroed after use |
-| Injection (UI) | No eval of user content as code; current Avalonia shell uses compiled bindings, hybrid shell slices must preserve the same no-eval policy |
+| Injection (UI) | No eval of user content as code; Avalonia shell uses compiled bindings and preserves a strict no-eval policy |
 | SSRF | Allowlist for all outbound HTTP; private IP ranges rejected |
 | Protocol handler abuse | UrlLauncher enforces http/https scheme only |
 | DoS (connection flood) | 15 connections/5 min per IP client-side; relay rate limiter per IP + UID |
@@ -934,7 +899,7 @@ Security is not a layer — it is the foundation. Every change must be evaluated
 | Update chain attack | Trusted HTTPS hosts allowlist + Authenticode verify before exec |
 | Storage tampering | Corrupt/unreadable conversation files are quarantined, not fail-opened |
 
-Any security regression — even minor — must be documented in `CHANGELOG.md` under `### Fixed` with explicit `Security audit remediation:` prefix.
+Any security regression - even minor - must be documented in `CHANGELOG.md` under `### Fixed` with explicit `Security audit remediation:` prefix.
 
 ---
 
@@ -951,7 +916,7 @@ These are binding decisions made by the project owner. Proposals to change them 
 
 These must never be violated:
 
-1. **ECDH handshake starts only after relay sends `PAIRED`.** Clients receiving `QUEUED` must block and wait for a subsequent `PAIRED`. Sending ECDH bytes before `PAIRED` desynchronises both sides — the relay has not yet connected them. This invariant is enforced in code inside `TryConnectViaRelaySessionAsync`; it is not merely a convention.
+1. **ECDH handshake starts only after relay sends `PAIRED`.** Clients receiving `QUEUED` must block and wait for a subsequent `PAIRED`. Sending ECDH bytes before `PAIRED` desynchronises both sides - the relay has not yet connected them. This invariant is enforced in code inside `TryConnectViaRelaySessionAsync`; it is not merely a convention.
 2. **Relay operators never see plaintext.** ECDH is performed over the relay-forwarded TCP stream. The relay pipes opaque bytes. Session keys are derived end-to-end between clients.
 3. **UID is derived from public key.** It cannot be chosen arbitrarily. Changing the derivation algorithm breaks compatibility.
 4. **Active sessions must send keepalive frames.** All relay and direct sessions run a 30-second keepalive loop. Suppressing keepalives allows ghost sessions to accumulate, blocking new connections from the same peer.
@@ -964,7 +929,7 @@ These must never be violated:
 
 The client and relay server are separate binaries. They share `Directory.Build.props` for version alignment but have no shared runtime code. This separation is intentional: relay operators should not need the full client to run a relay.
 
-### AMD CPU CCD Affinity — Why V-Cache Is Preferred
+### AMD CPU CCD Affinity - Why V-Cache Is Preferred
 
 Zer0Talk exposes a **CCD Affinity** setting for AMD multi-CCD processors (Ryzen 7000X3D / 9000X3D series). The default is **Auto**, which detects the 3D V-Cache CCD at runtime and pins the process to it.
 
@@ -972,10 +937,10 @@ Zer0Talk exposes a **CCD Affinity** setting for AMD multi-CCD processors (Ryzen 
 
 Zer0Talk's hot paths are dominated by work that is sensitive to L3 cache availability, not raw clock speed:
 
-- **XChaCha20-Poly1305** encryption/decryption — cipher state fits in L3; cache misses are the bottleneck
-- **X25519/Ed25519** key operations — elliptic-curve arithmetic benefits from keeping the working set resident
-- **Message indexing and contact lookups** — repeated reads of in-memory structures that reward a large L3
-- **UI rendering pipeline** — layout and composition passes reuse the same data structures repeatedly
+- **XChaCha20-Poly1305** encryption/decryption - cipher state fits in L3; cache misses are the bottleneck
+- **X25519/Ed25519** key operations - elliptic-curve arithmetic benefits from keeping the working set resident
+- **Message indexing and contact lookups** - repeated reads of in-memory structures that reward a large L3
+- **UI rendering pipeline** - layout and composition passes reuse the same data structures repeatedly
 
 The 3D V-Cache die carries approximately **96 MB of L3 per CCD** versus ~32 MB on the non-V-Cache die. The non-V-Cache die has a modest clock advantage (~200–400 MHz higher boost), which helps single-thread latency but provides negligible gain when the workload is already L3-bound.
 
@@ -989,7 +954,7 @@ The 3D V-Cache die carries approximately **96 MB of L3 per CCD** versus ~32 MB o
 
 **Rules:**
 
-1. Every unit of shipped work gets a `CHANGELOG.md` entry under `## [Unreleased]` before the PR merges — not after.
+1. Every unit of shipped work gets a `CHANGELOG.md` entry under `## [Unreleased]` before the PR merges - not after.
 2. On release day: copy `[Unreleased]` into a new `[version-Alpha] - YYYY-MM-DD` section and reset `[Unreleased]` to empty placeholders.
 3. Security regressions fixed must use the prefix `Security audit remediation:` in the `### Fixed` entry.
 4. Relay reliability fixes use the prefix `Relay reliability remediation:`.
@@ -1001,7 +966,7 @@ The 3D V-Cache die carries approximately **96 MB of L3 per CCD** versus ~32 MB o
 
 > **This is not "vibe coding."**
 >
-> Vibe coding is the practice of throwing prompts at an AI and shipping whatever comes out. That is not what happens here. The project owner directly directs the AI at every step: deciding what to build, what not to build, how it should work, what the security model is, and whether any given output is acceptable. The project owner also contributes directly — code where needed, all graphics, all sounds, all product and policy decisions. The AI executes under that direction. If the output is wrong, it gets corrected. If the approach is wrong, the AI is redirected. The human is in the loop at all times.
+> Vibe coding is the practice of throwing prompts at an AI and shipping whatever comes out. That is not what happens here. The project owner directly directs the AI at every step: deciding what to build, what not to build, how it should work, what the security model is, and whether any given output is acceptable. The project owner also contributes directly - code where needed, all graphics, all sounds, all product and policy decisions. The AI executes under that direction. If the output is wrong, it gets corrected. If the approach is wrong, the AI is redirected. The human is in the loop at all times.
 
 This project uses AI coding agents as an active part of the development workflow. This includes but is not limited to GitHub Copilot (with various underlying models including Claude, GPT, and others), and any other AI agent that proves useful. This is a deliberate choice, made transparently.
 
@@ -1017,7 +982,7 @@ This project uses AI coding agents as an active part of the development workflow
 **What the project owner contributes directly:**
 
 - All product and policy decisions (what gets built, what gets rejected, why)
-- All architectural decisions — including the entire security and cryptography model
+- All architectural decisions - including the entire security and cryptography model
 - All visual assets: graphics, icons, UI design, avatars, flags
 - All audio assets: sounds, notifications, audio integration
 - Code contributions where judgment, context, or security sensitivity demands direct authorship
@@ -1033,12 +998,12 @@ This project uses AI coding agents as an active part of the development workflow
 
 **On transparency:**
 
-The use of AI tooling in this workflow is stated here openly. Contributors and users who have concerns are encouraged to review the output — the code, tests, documentation, and commit history — on its own merits. AI-assisted code is subject to the same standards as any other code in this repository: it must be correct, secure, and maintainable. Authorship of a line tells you nothing about its quality; reading it does.
+The use of AI tooling in this workflow is stated here openly. Contributors and users who have concerns are encouraged to review the output - the code, tests, documentation, and commit history - on its own merits. AI-assisted code is subject to the same standards as any other code in this repository: it must be correct, secure, and maintainable. Authorship of a line tells you nothing about its quality; reading it does.
 
 **AI in the product vs. AI in the workflow:**
 
-These are separate concerns. AI-assist *features inside Zer0Talk* remain deferred (see Section 19 — privacy trust model not yet defined). AI *as a development tool* for building Zer0Talk is already in use and will continue to be.
+These are separate concerns. AI-assist *features inside Zer0Talk* remain deferred (see Section 19 - privacy trust model not yet defined). AI *as a development tool* for building Zer0Talk is already in use and will continue to be.
 
 ---
 
-*End of Developer Bible — keep this document current as the product evolves.*
+*End of Developer Bible - keep this document current as the product evolves.*

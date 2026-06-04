@@ -51,6 +51,7 @@ namespace Zer0Talk.Services
     // Presence liveness tracking
     private readonly ConcurrentDictionary<string, DateTime> _presenceLastSeenUtc = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTime> _presenceLastSentUtc = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _peerConnectGates = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DiscoveredRelay> _discoveredRelays = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, RelayHealthEntry> _relayHealth = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, DateTime> _outsideLanDirectSuccessByHost = new(StringComparer.OrdinalIgnoreCase);
@@ -91,8 +92,12 @@ private double _relayPairWaitMsEwma = 20000;
     // [AUTO-CONNECT] Throttled sweep to proactively establish sessions without user action
     private readonly ConcurrentDictionary<string, DateTime> _autoConnLastAttempt = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _relaySessionConnectInFlight = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTime> _netLogThrottleUtc = new(StringComparer.OrdinalIgnoreCase);
     private static readonly TimeSpan AutoConnectBackoff = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan AutoConnectSweepMinInterval = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan ShutdownAnnounceLogMinInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan RelayInvalidEndpointLogMinInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan PreBindSessionNoiseLogMinInterval = TimeSpan.FromSeconds(10);
     private volatile int _autoConnSweepRunning;
     private DateTime _lastAutoConnSweepUtc = DateTime.MinValue;
 
@@ -121,6 +126,15 @@ private double _relayPairWaitMsEwma = 20000;
         public DateTime CreatedUtc { get; init; }
     }
 
+    private sealed class IdentityAnnounceFrame
+    {
+        public required byte[] IdentityPublicKey { get; init; }
+        public required byte[] Signature { get; init; }
+        public string? Version { get; init; }
+        public byte[] Capabilities { get; init; } = Array.Empty<byte>();
+        public byte[]? RatchetPublicKey { get; init; }
+    }
+
     // Avatar receive throttling (avoid network/disk churn)
     private readonly ConcurrentDictionary<string, DateTime> _avatarLastAcceptedUtc = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, string> _avatarLastSignature = new(StringComparer.OrdinalIgnoreCase);
@@ -139,9 +153,10 @@ private double _relayPairWaitMsEwma = 20000;
     private const int MaxBioBytes = 512; // max UTF-8 bytes for bio payload
     private const byte SecurityAlertFrameType = 0xE0;
     private const byte SecurityReasonKeyMismatch = 0x01;
+    private const byte IdentityCapabilityDhRatchet = 0x01;
 
     // [RATE-LIMITING] Connection attempt tracking per IP address
-    private class ConnectionAttemptTracker
+    private sealed class ConnectionAttemptTracker
     {
         public int Count { get; set; }
         public DateTime WindowStart { get; set; }
@@ -434,7 +449,7 @@ private double _relayPairWaitMsEwma = 20000;
                 {
                     _ = TrySendEncryptedAsync(uid, frame, CancellationToken.None);
                 }
-                try { SafeNetLog($"shutdown announce-inv | peers={peers.Length}"); } catch { }
+                SafeNetLogThrottled("shutdown-announce-inv", ShutdownAnnounceLogMinInterval, $"shutdown announce-inv | peers={peers.Length}");
             }
             catch { }
             try { _cts?.Cancel(); } catch { }
@@ -543,148 +558,172 @@ private double _relayPairWaitMsEwma = 20000;
         {
             // Block check: Refuse to connect to blocked peers
             var expectedKey = Trim(peerUid);
+            if (string.IsNullOrWhiteSpace(expectedKey)) return false;
+
             if (AppServices.Settings.Settings.BlockList?.Contains(expectedKey) == true)
             {
                 Logger.Log($"Refusing connection attempt to blocked peer: {expectedKey}");
                 return false;
             }
+
+            var gate = _peerConnectGates.GetOrAdd(expectedKey, _ => new SemaphoreSlim(1, 1));
+            var gateWaitStart = DateTime.UtcNow;
+            await gate.WaitAsync(ct).ConfigureAwait(false);
             
-            // First try the existing direct/NAT path
             try
             {
-                var beforeKeys = _sessions.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
-                var client = await ConnectWithNatFallbackAsync(hostOrIp, port, ct);
-                if (client != null)
+                var waited = DateTime.UtcNow - gateWaitStart;
+                if (waited > TimeSpan.FromMilliseconds(150))
                 {
                     try
                     {
-                        var ep = client.Client.RemoteEndPoint?.ToString();
-                        RegisterPendingOutboundExpectation(ep, expectedKey);
+                        SafeNetLog($"connect coalesced | peer={expectedKey} | waitMs={waited.TotalMilliseconds:F0}");
                     }
                     catch { }
-                    // Wait for handshake to register expected session or detect mismatch
-                    var directWaitTimeout = GetDirectSessionWaitTimeout();
-                    var deadline = DateTime.UtcNow + directWaitTimeout;
-                    var directWaitStart = DateTime.UtcNow;
-                    bool reportedMismatch = false;
-                    while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+                }
+
+                if (HasEncryptedSession(expectedKey))
+                {
+                    SafeNetLog($"connect skip already-session | peer={expectedKey}");
+                    return true;
+                }
+
+                // First try the existing direct/NAT path
+                try
+                {
+                    var beforeKeys = _sessions.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var client = await ConnectWithNatFallbackAsync(hostOrIp, port, ct);
+                    if (client != null)
                     {
-                        if (_sessions.ContainsKey(expectedKey))
+                        try
                         {
-                            ObserveDirectSessionWait(DateTime.UtcNow - directWaitStart);
+                            var ep = client.Client.RemoteEndPoint?.ToString();
+                            RegisterPendingOutboundExpectation(ep, expectedKey);
+                        }
+                        catch { }
+                        // Wait for handshake to register expected session or detect mismatch
+                        var directWaitTimeout = GetDirectSessionWaitTimeout();
+                        var deadline = DateTime.UtcNow + directWaitTimeout;
+                        var directWaitStart = DateTime.UtcNow;
+                        bool reportedMismatch = false;
+                        while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+                        {
+                            if (_sessions.ContainsKey(expectedKey))
+                            {
+                                ObserveDirectSessionWait(DateTime.UtcNow - directWaitStart);
+                                MarkOutsideLanDirectSuccess(hostOrIp);
+                                try { _diag.IncDirectSuccess(); } catch { }
+                                SafeNetLog($"connect direct/nat success | peer={peerUid} | endpoint={hostOrIp}:{port}");
+                                return true;
+                            }
+                            // Only flag UID mismatch if the specific endpoint we connected to completed
+                            // a handshake with a different UID. Ignore unrelated concurrent sessions.
+                            var ep2 = client.Client.RemoteEndPoint?.ToString();
+                            if (ep2 != null && _endpointLastUid.TryGetValue(ep2, out var epUid)
+                                && !string.Equals(Trim(epUid), expectedKey, StringComparison.OrdinalIgnoreCase))
+                            {
+                                SafeNetLog($"connect direct uid-mismatch | peer={peerUid} | got={epUid}");
+                                Logger.Log($"Direct/NAT handshake UID mismatch: expected={peerUid} got={epUid} from {hostOrIp}:{port}");
+                                try { _diag.IncUidMismatch(); } catch { }
+                                try { AppServices.Events.RaiseFirewallPrompt($"Peer identity mismatch: expected {expectedKey}, got {epUid} from {hostOrIp}:{port}. Your contact may be stale."); } catch { }
+                                reportedMismatch = true;
+                                break;
+                            }
+                            try { await Task.Delay(75, ct); } catch { }
+                        }
+                        if (!reportedMismatch)
+                        {
+                            try { _diag.IncDirectFail(); } catch { }
+                            SafeNetLog($"connect direct timeout-wait-session | peer={peerUid}");
+                            Logger.Log($"Direct connect: timeout waiting for session {expectedKey}");
+                        }
+                        else
+                        {
+                            try { _diag.IncDirectFail(); } catch { }
+                        }
+                        return false;
+                    }
+                }
+                catch { try { _diag.IncDirectFail(); } catch { } }
+
+                // Quick second attempt in case auto-mapping succeeded moments later
+                try
+                {
+                    await Task.Delay(400, ct);
+                    var client2 = await ConnectWithNatFallbackAsync(hostOrIp, port, ct);
+                    if (client2 != null)
+                    {
+                        try
+                        {
+                            var ep2 = client2.Client.RemoteEndPoint?.ToString();
+                            RegisterPendingOutboundExpectation(ep2, Trim(peerUid));
+                        }
+                        catch { }
+                        var okSession = await WaitForEncryptedSessionAsync(Trim(peerUid), GetDirectRetrySessionWaitTimeout(), ct);
+                        if (okSession)
+                        {
                             MarkOutsideLanDirectSuccess(hostOrIp);
-                            try { _diag.IncDirectSuccess(); } catch { }
-                            SafeNetLog($"connect direct/nat success | peer={peerUid} | endpoint={hostOrIp}:{port}");
+                            SafeNetLog($"connect direct retry success | peer={peerUid}");
                             return true;
                         }
-                        // Only flag UID mismatch if the specific endpoint we connected to completed
-                        // a handshake with a different UID. Ignore unrelated concurrent sessions.
-                        var ep2 = client.Client.RemoteEndPoint?.ToString();
-                        if (ep2 != null && _endpointLastUid.TryGetValue(ep2, out var epUid)
-                            && !string.Equals(Trim(epUid), expectedKey, StringComparison.OrdinalIgnoreCase))
-                        {
-                            SafeNetLog($"connect direct uid-mismatch | peer={peerUid} | got={epUid}");
-                            Logger.Log($"Direct/NAT handshake UID mismatch: expected={peerUid} got={epUid} from {hostOrIp}:{port}");
-                            try { _diag.IncUidMismatch(); } catch { }
-                            try { AppServices.Events.RaiseFirewallPrompt($"Peer identity mismatch: expected {expectedKey}, got {epUid} from {hostOrIp}:{port}. Your contact may be stale."); } catch { }
-                            reportedMismatch = true;
-                            break;
-                        }
-                        try { await Task.Delay(75, ct); } catch { }
                     }
-                    if (!reportedMismatch)
-                    {
-                        try { _diag.IncDirectFail(); } catch { }
-                        SafeNetLog($"connect direct timeout-wait-session | peer={peerUid}");
-                        Logger.Log($"Direct connect: timeout waiting for session {expectedKey}");
-                    }
-                    else
-                    {
-                        try { _diag.IncDirectFail(); } catch { }
-                    }
+                }
+                catch { }
+
+                // If disabled or no server configured, stop here
+                var s = AppServices.Settings.Settings;
+                if (!ShouldAttemptRelayFallback(hostOrIp))
+                {
+                    SafeNetLog($"connect relay skipped | peer={peerUid} | reason=outside-lan-direct-available");
                     return false;
                 }
-            }
-            catch { try { _diag.IncDirectFail(); } catch { } }
-
-            // Quick second attempt in case auto-mapping succeeded moments later
-            try
-            {
-                await Task.Delay(400, ct);
-                var client2 = await ConnectWithNatFallbackAsync(hostOrIp, port, ct);
-                if (client2 != null)
+                if (!s.RelayFallbackEnabled)
                 {
-                    try
-                    {
-                        var ep2 = client2.Client.RemoteEndPoint?.ToString();
-                        RegisterPendingOutboundExpectation(ep2, Trim(peerUid));
-                    }
-                    catch { }
-                    var okSession = await WaitForEncryptedSessionAsync(Trim(peerUid), GetDirectRetrySessionWaitTimeout(), ct);
-                    if (okSession)
-                    {
-                        MarkOutsideLanDirectSuccess(hostOrIp);
-                        SafeNetLog($"connect direct retry success | peer={peerUid}");
-                        return true;
-                    }
+                    SafeNetLog($"connect relay skipped | peer={peerUid} | reason=disabled");
+                    return false;
                 }
-            }
-            catch { }
 
-            // If disabled or no server configured, stop here
-            var s = AppServices.Settings.Settings;
-            if (!ShouldAttemptRelayFallback(hostOrIp))
-            {
-                SafeNetLog($"connect relay skipped | peer={peerUid} | reason=outside-lan-direct-available");
-                return false;
-            }
-            if (!s.RelayFallbackEnabled)
-            {
-                SafeNetLog($"connect relay skipped | peer={peerUid} | reason=disabled");
-                return false;
-            }
+                // Skip relay if this peer has had repeated relay failures (offline) and backoff hasn't elapsed.
+                if (IsRelayBackedOff(Trim(peerUid)))
+                {
+                    SafeNetLog($"connect relay skipped | peer={peerUid} | reason=relay-backoff");
+                    return false;
+                }
 
-            // Skip relay if this peer has had repeated relay failures (offline) and backoff hasn't elapsed.
-            if (IsRelayBackedOff(Trim(peerUid)))
-            {
-                SafeNetLog($"connect relay skipped | peer={peerUid} | reason=relay-backoff");
-                return false;
-            }
+                string? contactPreferredRelay = null;
+                try { contactPreferredRelay = AppServices.Contacts.GetPreferredRelay(Trim(peerUid)); } catch { }
+                var relayCandidates = BuildRelayCandidates(s, contactPreferredRelay);
+                if (relayCandidates.Count == 0)
+                {
+                    SafeNetLogThrottled($"relay-invalid-endpoint:{Trim(peerUid)}", RelayInvalidEndpointLogMinInterval, $"connect relay skipped | peer={peerUid} | reason=invalid-endpoint");
+                    Logger.Log("Relay candidates unavailable (no valid explicit/saved/seed endpoints)");
+                    return false;
+                }
 
-            string? contactPreferredRelay = null;
-            try { contactPreferredRelay = AppServices.Contacts.GetPreferredRelay(Trim(peerUid)); } catch { }
-            var relayCandidates = BuildRelayCandidates(s, contactPreferredRelay);
-            if (relayCandidates.Count == 0)
-            {
-                SafeNetLog($"connect relay skipped | peer={peerUid} | reason=invalid-endpoint");
-                Logger.Log("Relay candidates unavailable (no valid explicit/saved/seed endpoints)");
-                return false;
-            }
+                // Ensure we're registered before relay coordination (needed for OFFER auth).
+                try { await AppServices.WanDirectory.TryRegisterSelfAsync(ct); } catch { }
 
-            // Ensure we're registered before relay coordination (needed for OFFER auth).
-            try { await AppServices.WanDirectory.TryRegisterSelfAsync(ct); } catch { }
+                // Best-effort rendezvous wakeup for the remote peer so both sides join the same relay session key.
+                var offerDelivered = false;
+                try
+                {
+                    var localUid = Trim(_identity.UID);
+                    var sessionKey = BuildRelaySessionKey(localUid, Trim(peerUid));
+                    offerDelivered = await AppServices.WanDirectory.TryOfferRendezvousAsync(Trim(peerUid), localUid, sessionKey, ct);
+                    SafeNetLog($"connect relay offer | peer={peerUid} | delivered={offerDelivered}");
+                }
+                catch { }
 
-            // Best-effort rendezvous wakeup for the remote peer so both sides join the same relay session key.
-            var offerDelivered = false;
-            try
-            {
-                var localUid = Trim(_identity.UID);
-                var sessionKey = BuildRelaySessionKey(localUid, Trim(peerUid));
-                offerDelivered = await AppServices.WanDirectory.TryOfferRendezvousAsync(Trim(peerUid), localUid, sessionKey, ct);
-                SafeNetLog($"connect relay offer | peer={peerUid} | delivered={offerDelivered}");
-            }
-            catch { }
+                // Give the remote peer time to poll the invite before we start queuing on the relay.
+                if (offerDelivered)
+                {
+                    try { await Task.Delay(2000, ct); } catch { }
+                }
 
-            // Give the remote peer time to poll the invite before we start queuing on the relay.
-            if (offerDelivered)
-            {
-                try { await Task.Delay(2000, ct); } catch { }
-            }
-
-            // Retry relay attempts with wider spacing to allow remote poll interval to pick up the invite.
-            const int relayRounds = 3;
-            for (var round = 0; round < relayRounds; round++)
-            {
+                // Retry relay attempts with wider spacing to allow remote poll interval to pick up the invite.
+                const int relayRounds = 3;
+                for (var round = 0; round < relayRounds; round++)
+                {
                 // Re-send OFFER each round in case the previous invite expired or was pruned.
                 if (round > 0)
                 {
@@ -712,8 +751,13 @@ private double _relayPairWaitMsEwma = 20000;
                 }
             }
 
-            RecordRelayFailure(Trim(peerUid));
-            return false;
+                RecordRelayFailure(Trim(peerUid));
+                return false;
+            }
+            finally
+            {
+                try { gate.Release(); } catch { }
+            }
         }
 
         /// <summary>
@@ -1173,45 +1217,23 @@ private double _relayPairWaitMsEwma = 20000;
             {
                 try
                 {
-                    int idx = 1;
-                    if (data.Length < idx + 1) return Task.CompletedTask;
-                    int pubLen = data[idx++];
-                    if (pubLen != 32 || data.Length < idx + pubLen + 1) return Task.CompletedTask;
-                    var pub = new byte[pubLen];
-                    Buffer.BlockCopy(data, idx, pub, 0, pubLen); idx += pubLen;
-                    int sigLen = data[idx++];
-                    if (sigLen != 64 || data.Length < idx + sigLen) return Task.CompletedTask;
-                    var sig = new byte[sigLen];
-                    Buffer.BlockCopy(data, idx, sig, 0, sigLen); idx += sigLen;
-                    
-                    // Parse version information (optional for backward compatibility)
-                    string? peerVersion = null;
-                    if (data.Length > idx)
-                    {
-                        int versionLen = data[idx++];
-                        if (versionLen > 0 && data.Length >= idx + versionLen)
-                        {
-                            var versionBytes = new byte[versionLen];
-                            Buffer.BlockCopy(data, idx, versionBytes, 0, versionLen);
-                            peerVersion = Encoding.UTF8.GetString(versionBytes);
-                        }
-                    }
+                    if (!TryParseIdentityAnnounceFrame(data, out var frame)) return Task.CompletedTask;
                     
                     if (!_handshakePeerKeys.TryGetValue(transport, out var peerSpki) || peerSpki == null || peerSpki.Length == 0)
                     {
                         Logger.Log("Identity announce received but missing handshake key; ignoring");
                         return Task.CompletedTask;
                     }
-                    if (!IdentityService.Verify(peerSpki, sig, pub))
+                    if (!IdentityService.Verify(peerSpki, frame.Signature, frame.IdentityPublicKey))
                     {
                         Logger.Log("Identity announce verification failed; dropping");
                         return Task.CompletedTask;
                     }
-                    var claimedUid = IdentityService.ComputeUidFromPublicKey(pub);
+                    var claimedUid = IdentityService.ComputeUidFromPublicKey(frame.IdentityPublicKey);
                     var normClaimed = Trim(claimedUid);
                     var normSession = Trim(peerUid);
 
-                    if (TryGetExpectedKeyMismatch(normClaimed, pub, out var expectedHex, out var observedHex))
+                    if (TryGetExpectedKeyMismatch(normClaimed, frame.IdentityPublicKey, out var expectedHex, out var observedHex))
                     {
                         var details = $"Expected key {expectedHex}, observed {observedHex}.";
                         EnforceKeyMismatchAndTerminate(normClaimed, transport, details, "Key mismatch detected. Conversation cannot continue.");
@@ -1219,15 +1241,15 @@ private double _relayPairWaitMsEwma = 20000;
                     }
                     
                     // Store peer version and check compatibility
-                    if (!string.IsNullOrEmpty(peerVersion))
+                    if (!string.IsNullOrEmpty(frame.Version))
                     {
-                        _peerVersions[normClaimed] = peerVersion;
+                        _peerVersions[normClaimed] = frame.Version;
                         
                         // Check for version mismatch
-                        if (!AppInfo.IsVersionCompatible(AppInfo.Version, peerVersion))
+                        if (!AppInfo.IsVersionCompatible(AppInfo.Version, frame.Version))
                         {
-                            Logger.Log($"Version mismatch detected: peer {normClaimed} version {peerVersion}, our version {AppInfo.Version}");
-                            VersionMismatchDetected?.Invoke(normClaimed, AppInfo.Version, peerVersion);
+                            Logger.Log($"Version mismatch detected: peer {normClaimed} version {frame.Version}, our version {AppInfo.Version}");
+                            VersionMismatchDetected?.Invoke(normClaimed, AppInfo.Version, frame.Version);
                         }
                     }
                     
@@ -1237,12 +1259,18 @@ private double _relayPairWaitMsEwma = 20000;
                         EnforceKeyMismatchAndTerminate(normSession, transport, details, "Identity/key mismatch detected. Conversation cannot continue.");
                         return Task.CompletedTask;
                     }
-                    try { AppServices.Peers.SetObservedPublicKey(normClaimed, pub); } catch { }
+                    try { AppServices.Peers.SetObservedPublicKey(normClaimed, frame.IdentityPublicKey); } catch { }
+                    TryEnableTransportDhRatchet(transport, normClaimed, frame.Capabilities, frame.RatchetPublicKey);
                 }
                 catch (Exception ex)
                 {
                     Logger.Log($"Identity announce handle error: {ex.Message}");
                 }
+                return Task.CompletedTask;
+            }
+            if (data[0] == Utilities.AeadTransport.DhRatchetFrameOpcode)
+            {
+                HandleDhRatchetFrame(transport, peerUid, data);
                 return Task.CompletedTask;
             }
             if (data[0] == 0xA2 && data.Length >= 5)
@@ -1865,11 +1893,11 @@ private double _relayPairWaitMsEwma = 20000;
                 foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
                 {
                     var isVirtual =
-                        ni.Description.IndexOf("VMware",   StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        ni.Description.IndexOf("Hyper-V",  StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        ni.Description.IndexOf("Virtual",  StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        ni.Name.IndexOf("vEthernet",       StringComparison.OrdinalIgnoreCase) >= 0 ||
-                        ni.Name.IndexOf("Loopback",        StringComparison.OrdinalIgnoreCase) >= 0;
+                        ni.Description.Contains("VMware", StringComparison.OrdinalIgnoreCase) ||
+                        ni.Description.Contains("Hyper-V", StringComparison.OrdinalIgnoreCase) ||
+                        ni.Description.Contains("Virtual", StringComparison.OrdinalIgnoreCase) ||
+                        ni.Name.Contains("vEthernet", StringComparison.OrdinalIgnoreCase) ||
+                        ni.Name.Contains("Loopback", StringComparison.OrdinalIgnoreCase);
                     if (!isVirtual) continue;
                     foreach (var ua in ni.GetIPProperties().UnicastAddresses)
                         result.Add(ua.Address.ToString());
@@ -2343,22 +2371,13 @@ private double _relayPairWaitMsEwma = 20000;
                             {
                                 try
                                 {
-                                    int idx = 1;
-                                    if (data.Length < idx + 1) continue;
-                                    int pubLen = data[idx++];
-                                    if (pubLen != 32 || data.Length < idx + pubLen + 1) continue;
-                                    var pub2 = new byte[pubLen];
-                                    Buffer.BlockCopy(data, idx, pub2, 0, pubLen); idx += pubLen;
-                                    int sigLen = data[idx++];
-                                    if (sigLen != 64 || data.Length < idx + sigLen) continue;
-                                    var sig2 = new byte[sigLen];
-                                    Buffer.BlockCopy(data, idx, sig2, 0, sigLen);
+                                    if (!TryParseIdentityAnnounceFrame(data, out var frame)) continue;
                                     if (!_handshakePeerKeys.TryGetValue(transport, out var peerSpki2) || peerSpki2 == null || peerSpki2.Length == 0) continue;
-                                    if (!IdentityService.Verify(peerSpki2, sig2, pub2)) continue;
-                                    var claimed2 = IdentityService.ComputeUidFromPublicKey(pub2);
+                                    if (!IdentityService.Verify(peerSpki2, frame.Signature, frame.IdentityPublicKey)) continue;
+                                    var claimed2 = IdentityService.ComputeUidFromPublicKey(frame.IdentityPublicKey);
                                     var normClaimed2 = Trim(claimed2);
 
-                                    if (TryGetExpectedKeyMismatch(normClaimed2, pub2, out var expectedHex2, out var observedHex2))
+                                    if (TryGetExpectedKeyMismatch(normClaimed2, frame.IdentityPublicKey, out var expectedHex2, out var observedHex2))
                                     {
                                         var details = $"Expected key {expectedHex2}, observed {observedHex2}.";
                                         EnforceKeyMismatchAndTerminate(normClaimed2, transport, details, "Key mismatch detected. Conversation cannot continue.", client: client);
@@ -2384,7 +2403,7 @@ private double _relayPairWaitMsEwma = 20000;
                                     // [TIER-1-BLOCKING] Check hardcoded security blocklist (highest priority)
                                     try
                                     {
-                                        var fingerprint = ComputePublicKeyFingerprint(pub2);
+                                        var fingerprint = ComputePublicKeyFingerprint(frame.IdentityPublicKey);
                                         if (!string.IsNullOrEmpty(fingerprint) && 
                                             SecurityBlocklistService.IsPublicKeyOnHardcodedBlocklist(fingerprint))
                                         {
@@ -2398,7 +2417,7 @@ private double _relayPairWaitMsEwma = 20000;
                                     // [TIER-1-BLOCKING] Check if public key fingerprint is blocked (user-configured)
                                     try
                                     {
-                                        if (IsPublicKeyBlocked(pub2))
+                                        if (IsPublicKeyBlocked(frame.IdentityPublicKey))
                                         {
                                             Logger.Log($"[BLOCK-PUBKEY] Blocked public key fingerprint attempted connection: {normClaimed2}");
                                             try { client.Close(); } catch { }
@@ -2445,7 +2464,17 @@ private double _relayPairWaitMsEwma = 20000;
                                         }
                                         catch { }
                                         // Observed public key is the Ed25519 identity key
-                                        try { AppServices.Peers.SetObservedPublicKey(normClaimed2, pub2); } catch { }
+                                        if (!string.IsNullOrEmpty(frame.Version))
+                                        {
+                                            _peerVersions[normClaimed2] = frame.Version;
+                                            if (!AppInfo.IsVersionCompatible(AppInfo.Version, frame.Version))
+                                            {
+                                                Logger.Log($"Version mismatch detected: peer {normClaimed2} version {frame.Version}, our version {AppInfo.Version}");
+                                                VersionMismatchDetected?.Invoke(normClaimed2, AppInfo.Version, frame.Version);
+                                            }
+                                        }
+                                        try { AppServices.Peers.SetObservedPublicKey(normClaimed2, frame.IdentityPublicKey); } catch { }
+                                        TryEnableTransportDhRatchet(transport, normClaimed2, frame.Capabilities, frame.RatchetPublicKey);
                                         try { _diag.IncHandshakeOk(); _diag.IncSessionsActive(); } catch { }
                                         try { SafeNetLog($"handshake bind-ok | peer={normClaimed2} | ms={hsWatch.ElapsedMilliseconds} | ep={epNow}"); } catch { }
                                         try { HandshakeCompleted?.Invoke(true, normClaimed2, null); } catch { }
@@ -2467,6 +2496,11 @@ private double _relayPairWaitMsEwma = 20000;
                                     }
                                 }
                                 catch { }
+                                continue;
+                            }
+                            else if (data[0] == Utilities.AeadTransport.DhRatchetFrameOpcode)
+                            {
+                                HandleDhRatchetFrame(transport, boundUid ?? remoteEp, data);
                                 continue;
                             }
                             else if (data[0] == 0xB0)
@@ -2740,10 +2774,22 @@ private double _relayPairWaitMsEwma = 20000;
                 }
                 catch (Exception ex)
                 {
-                    // Do not block peers for generic session errors; networks flap and peers may disconnect normally.
-                    // Only explicit spoofing/protocol violations trigger blocking elsewhere.
-                    Logger.Log($"Session error: {ex.Message}");
-                    try { SafeNetLog($"session error | uid={boundUid ?? "?"} | {ex.GetType().Name}:{ex.Message}"); } catch { }
+                    var isPreBind = string.IsNullOrEmpty(boundUid);
+                    if (isPreBind && IsExpectedPreBindSessionNoise(ex))
+                    {
+                        var remoteEp = (client.Client.RemoteEndPoint as IPEndPoint)?.ToString() ?? "unknown";
+                        var remoteHost = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? remoteEp;
+                        var reason = ex is OperationCanceledException ? "cancel" : "decrypt-fail";
+                        var hint = reason == "decrypt-fail" ? " | note=possible stale-session or peer-version-mismatch" : string.Empty;
+                        SafeNetLogThrottled($"session-prebind:{remoteHost}:{reason}", PreBindSessionNoiseLogMinInterval, $"session prebind {reason} | ep={remoteEp} | {ex.GetType().Name}:{ex.Message}{hint}");
+                    }
+                    else
+                    {
+                        // Do not block peers for generic session errors; networks flap and peers may disconnect normally.
+                        // Only explicit spoofing/protocol violations trigger blocking elsewhere.
+                        Logger.Log($"Session error: {ex.Message}");
+                        try { SafeNetLog($"session error | uid={boundUid ?? "?"} | {ex.GetType().Name}:{ex.Message}"); } catch { }
+                    }
                 }
                 finally
                 {
@@ -2817,6 +2863,31 @@ private double _relayPairWaitMsEwma = 20000;
             System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(buf.AsSpan(1, 4), (uint)avatarBytes.Length);
             Buffer.BlockCopy(avatarBytes, 0, buf, 5, avatarBytes.Length);
             return buf;
+        }
+
+        private void SafeNetLogThrottled(string key, TimeSpan minInterval, string message)
+        {
+            try
+            {
+                var now = DateTime.UtcNow;
+                if (_netLogThrottleUtc.TryGetValue(key, out var last) && (now - last) < minInterval)
+                {
+                    return;
+                }
+
+                _netLogThrottleUtc[key] = now;
+                SafeNetLog(message);
+            }
+            catch { }
+        }
+
+        private static bool IsExpectedPreBindSessionNoise(Exception ex)
+        {
+            if (ex is OperationCanceledException) return true;
+            if (ex is not CryptographicException) return false;
+
+            var message = ex.Message ?? string.Empty;
+            return message.Contains("Error decrypting message", StringComparison.OrdinalIgnoreCase);
         }
 
         private static byte[] BuildBioFrame(string? bio)
@@ -3098,7 +3169,7 @@ private double _relayPairWaitMsEwma = 20000;
             if (string.IsNullOrWhiteSpace(input)) return false;
 
             var text = input.Trim();
-            if (text.StartsWith("[", StringComparison.Ordinal))
+            if (text.StartsWith('['))
             {
                 var end = text.IndexOf(']');
                 if (end <= 1) return false;
@@ -3106,7 +3177,7 @@ private double _relayPairWaitMsEwma = 20000;
                 if (end + 1 < text.Length)
                 {
                     if (text[end + 1] != ':') return false;
-                    if (!int.TryParse(text.Substring(end + 2), out port)) return false;
+                    if (!int.TryParse(text.AsSpan(end + 2), out port)) return false;
                 }
             }
             else
@@ -3115,7 +3186,7 @@ private double _relayPairWaitMsEwma = 20000;
                 if (idx > 0 && idx < text.Length - 1)
                 {
                     host = text.Substring(0, idx);
-                    if (!int.TryParse(text.Substring(idx + 1), out port)) return false;
+                    if (!int.TryParse(text.AsSpan(idx + 1), out port)) return false;
                 }
                 else
                 {
@@ -3351,7 +3422,7 @@ private double _relayPairWaitMsEwma = 20000;
         {
             if (string.IsNullOrWhiteSpace(endpoint)) return false;
             var text = endpoint.Trim();
-            if (text.StartsWith("[", StringComparison.Ordinal))
+            if (text.StartsWith('['))
             {
                 var end = text.IndexOf(']');
                 return end > 0 && end + 1 < text.Length && text[end + 1] == ':';
@@ -3622,9 +3693,11 @@ private double _relayPairWaitMsEwma = 20000;
                 var pub = _identity.PublicKey; // 32 bytes Ed25519
                 var sig = _identity.Sign(myDhSpki); // sign our ECDH SPKI bytes
                 var versionBytes = Encoding.UTF8.GetBytes(AppInfo.Version);
+                var capabilities = new byte[] { IdentityCapabilityDhRatchet };
+                var ratchetPub = transport.GetRatchetPublicKey();
                 
-                // Frame: [0xA1][pub_len][pub][sig_len][sig][version_len][version]
-                var frame = new byte[1 + 1 + pub.Length + 1 + sig.Length + 1 + versionBytes.Length];
+                // Frame: [0xA1][pub_len][pub][sig_len][sig][version_len][version][cap_len][caps][ratchet_len(2)][ratchet_pub]
+                var frame = new byte[1 + 1 + pub.Length + 1 + sig.Length + 1 + versionBytes.Length + 1 + capabilities.Length + 2 + ratchetPub.Length];
                 int i = 0; 
                 frame[i++] = 0xA1; 
                 frame[i++] = (byte)pub.Length; 
@@ -3635,12 +3708,146 @@ private double _relayPairWaitMsEwma = 20000;
                 i += sig.Length;
                 frame[i++] = (byte)versionBytes.Length;
                 Buffer.BlockCopy(versionBytes, 0, frame, i, versionBytes.Length);
+                i += versionBytes.Length;
+                frame[i++] = (byte)capabilities.Length;
+                Buffer.BlockCopy(capabilities, 0, frame, i, capabilities.Length);
+                i += capabilities.Length;
+                BinaryPrimitives.WriteUInt16BigEndian(frame.AsSpan(i, 2), (ushort)ratchetPub.Length);
+                i += 2;
+                Buffer.BlockCopy(ratchetPub, 0, frame, i, ratchetPub.Length);
                 
                 await transport.WriteAsync(frame, ct);
             }
             catch (Exception ex)
             {
                 Logger.Log($"Identity announce send error: {ex.Message}");
+            }
+        }
+
+        private static bool TryParseIdentityAnnounceFrame(byte[] data, out IdentityAnnounceFrame frame)
+        {
+            frame = null!;
+            try
+            {
+                int idx = 1;
+                if (data.Length < idx + 1) return false;
+                int pubLen = data[idx++];
+                if (pubLen != 32 || data.Length < idx + pubLen + 1) return false;
+                var pub = new byte[pubLen];
+                Buffer.BlockCopy(data, idx, pub, 0, pubLen); idx += pubLen;
+                int sigLen = data[idx++];
+                if (sigLen != 64 || data.Length < idx + sigLen) return false;
+                var sig = new byte[sigLen];
+                Buffer.BlockCopy(data, idx, sig, 0, sigLen); idx += sigLen;
+
+                string? peerVersion = null;
+                if (data.Length > idx)
+                {
+                    int versionLen = data[idx++];
+                    if (versionLen > 0 && data.Length >= idx + versionLen)
+                    {
+                        var versionBytes = new byte[versionLen];
+                        Buffer.BlockCopy(data, idx, versionBytes, 0, versionLen);
+                        peerVersion = Encoding.UTF8.GetString(versionBytes);
+                        idx += versionLen;
+                    }
+                }
+
+                byte[] capabilities = Array.Empty<byte>();
+                if (data.Length > idx)
+                {
+                    int capLen = data[idx++];
+                    if (capLen > 0 && data.Length >= idx + capLen)
+                    {
+                        capabilities = new byte[capLen];
+                        Buffer.BlockCopy(data, idx, capabilities, 0, capLen);
+                        idx += capLen;
+                    }
+                }
+
+                byte[]? ratchetPublicKey = null;
+                if (data.Length >= idx + 2)
+                {
+                    ushort ratchetLen = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2));
+                    idx += 2;
+                    if (ratchetLen > 0 && data.Length >= idx + ratchetLen)
+                    {
+                        ratchetPublicKey = new byte[ratchetLen];
+                        Buffer.BlockCopy(data, idx, ratchetPublicKey, 0, ratchetLen);
+                    }
+                }
+
+                frame = new IdentityAnnounceFrame
+                {
+                    IdentityPublicKey = pub,
+                    Signature = sig,
+                    Version = peerVersion,
+                    Capabilities = capabilities,
+                    RatchetPublicKey = ratchetPublicKey
+                };
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool HasIdentityCapability(byte[] capabilities, byte flag)
+        {
+            if (capabilities == null || capabilities.Length == 0) return false;
+            foreach (var capability in capabilities)
+            {
+                if (capability == flag) return true;
+            }
+            return false;
+        }
+
+        private void TryEnableTransportDhRatchet(Utilities.AeadTransport transport, string peerUid, byte[] capabilities, byte[]? ratchetPublicKey)
+        {
+            try
+            {
+                if (!HasIdentityCapability(capabilities, IdentityCapabilityDhRatchet) || ratchetPublicKey == null || ratchetPublicKey.Length == 0)
+                {
+                    return;
+                }
+
+                if (transport.TryEnableDhRatchet(ratchetPublicKey))
+                {
+                    Logger.Log($"DH ratchet enabled for {Trim(peerUid)}");
+                }
+                else
+                {
+                    Logger.Log($"DH ratchet skipped for {Trim(peerUid)}: invalid peer ratchet key");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"DH ratchet enable error for {Trim(peerUid)}: {ex.Message}");
+            }
+        }
+
+        private void HandleDhRatchetFrame(Utilities.AeadTransport transport, string peerUid, byte[] data)
+        {
+            try
+            {
+                if (data.Length < 3) return;
+                var keyLen = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(1, 2));
+                if (keyLen == 0 || data.Length < 3 + keyLen) return;
+                var remoteRatchetPublicKey = new byte[keyLen];
+                Buffer.BlockCopy(data, 3, remoteRatchetPublicKey, 0, keyLen);
+                if (transport.ApplyInboundDhRatchet(remoteRatchetPublicKey))
+                {
+                    Logger.Log($"DH ratchet rotated inbound keys for {Trim(peerUid)}");
+                }
+                else
+                {
+                    Logger.Log($"DH ratchet frame ignored for {Trim(peerUid)}: invalid public key");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"DH ratchet frame error for {Trim(peerUid)}: {ex.Message}");
             }
         }
 

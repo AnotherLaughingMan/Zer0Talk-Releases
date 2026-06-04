@@ -23,6 +23,7 @@ Zer0Talk is designed around privacy and tamper resistance from the start. Key pr
 - No attachments or file transfers. This is intentional policy to reduce attack surface.
 
 For the full cryptographic and protocol specification, see [DEVELOPER-BIBLE.md](DEVELOPER-BIBLE.md) Section 5.
+For explicit assumptions, non-goals, and threat boundaries, see [THREAT-MODEL.md](THREAT-MODEL.md).
 
 ---
 
@@ -94,6 +95,8 @@ These are documented limitations, not vulnerabilities:
 - SSD/NVMe secure deletion. Overwrite wipes are not reliable on SSDs due to wear-leveling.
 - Relay trust. Third-party relays can observe traffic metadata (who connects and when), but cannot read message content.
 - Local OS trust boundary. Zer0Talk cannot protect against malware already running on the same machine.
+
+See [THREAT-MODEL.md](THREAT-MODEL.md) for the full statement of non-claims and operating assumptions.
 
 ---
 

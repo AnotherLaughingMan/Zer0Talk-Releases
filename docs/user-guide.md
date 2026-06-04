@@ -39,6 +39,7 @@ Relays in Zer0Talk are a **connectivity fallback**, not a central message servic
 - **Federated by design:** Multiple relay operators can run independent relays, and relay deployments can be federated instead of relying on a single authority.
 - **No user-content storage on relay:** Relay forwards encrypted traffic and keeps short-lived routing/coordination state only (for pairing and delivery flow).
 - **No private keys on relay:** Private keys remain on client devices; relays never receive or display them.
+- **Session key rotation stays end to end:** Compatible clients can rotate live transport keys during a conversation, and this still happens only between the two clients even when relay fallback is in use.
 
 In short: relays improve reliability in difficult networks while preserving the decentralized trust model.
 

@@ -1,4 +1,4 @@
-# Zer0Talk — Privacy Policy
+# Zer0Talk - Privacy Policy
 
 **Version:** 1.0  
 **Effective Date:** March 10, 2026  
@@ -21,7 +21,7 @@ Zer0Talk is a private, end-to-end encrypted peer-to-peer messaging application. 
 
 All data is stored **locally on your device only**. Your account, contacts, messages, and settings are encrypted files stored in your local app data folder. No data is uploaded to any cloud service or third-party server.
 
-Everything is encrypted at rest using **XChaCha20-Poly1305** with **Argon2id** key derivation — nothing is stored in plaintext.
+Everything is encrypted at rest using **XChaCha20-Poly1305** with **Argon2id** key derivation - nothing is stored in plaintext.
 
 ---
 
@@ -33,15 +33,15 @@ Your identity is a keypair (Ed25519). Your unique ID is derived from your public
 
 ## 3. Messaging
 
-All messages are **end-to-end encrypted**. Messages are encrypted before leaving your device and decrypted only on the recipient's device. Session keys are established via **ECDH (P-256)** — a shared secret known only to the two parties in a conversation. No message content, metadata, or delivery receipts are stored on any server.
+All messages are **end-to-end encrypted**. Messages are encrypted before leaving your device and decrypted only on the recipient's device. Session keys are established via **ECDH (P-256)** - a shared secret known only to the two parties in a conversation. Compatible clients also rotate live transport keys during the session to improve forward secrecy. No message content, metadata, or delivery receipts are stored on any server.
 
 ---
 
 ## 4. Blind Relays
 
-When a direct peer-to-peer connection is not possible (e.g., behind strict NAT or firewalls), Zer0Talk can route the connection through a **blind relay**. These are not servers in the traditional sense — they do not serve content, store data, or have any knowledge of what they are forwarding. A blind relay does one thing only: it facilitates the initial TCP connection request and then forwards an opaque, encrypted byte stream between two peers.
+When a direct peer-to-peer connection is not possible (e.g., behind strict NAT or firewalls), Zer0Talk can route the connection through a **blind relay**. These are not servers in the traditional sense - they do not serve content, store data, or have any knowledge of what they are forwarding. A blind relay does one thing only: it facilitates the initial TCP connection request and then forwards an opaque, encrypted byte stream between two peers.
 
-The relay sees only encrypted ciphertext and retains **nothing** — no logs, no session records, no metadata, no identity information. All cryptographic key exchange (ECDH) happens directly between the two clients through the relay-forwarded stream; the relay cannot participate in or observe the handshake. The relay is provably blind to all plaintext.
+The relay sees only encrypted ciphertext and retains **nothing** - no logs, no session records, no metadata, no identity information. All cryptographic key exchange and in-session key rotation happen directly between the two clients through the relay-forwarded stream; the relay cannot participate in or observe that secret material. The relay is provably blind to all plaintext.
 
 Blind relays can be self-hosted. Zer0Talk does not operate any relay infrastructure on your behalf.
 
@@ -71,7 +71,7 @@ The following features are **deliberately not implemented** due to privacy and s
 
 ## 7. Data Deletion
 
-To delete your account securely, use **Settings → Danger Zone → Delete Account**. This process cryptographically wipes your keypair, identity, messages, and contacts. Manually deleting individual files (such as `user.p2e`) is **not** a secure deletion method — it may leave recoverable data on disk and bypass the multi-pass secure erase that the in-app deletion process performs.
+To delete your account securely, use **Settings → Danger Zone → Delete Account**. This process cryptographically wipes your keypair, identity, messages, and contacts. Manually deleting individual files (such as `user.p2e`) is **not** a secure deletion method - it may leave recoverable data on disk and bypass the multi-pass secure erase that the in-app deletion process performs.
 
 Zer0Talk has no retention of your deleted data and cannot recover it once deleted. The developer has no access to your data and cannot fulfil data deletion requests on your behalf.
 
@@ -79,7 +79,7 @@ Zer0Talk has no retention of your deleted data and cannot recover it once delete
 
 ## 8. Legal Compliance
 
-Zer0Talk operates without access to user data. As a result, the developer cannot comply with subpoenas, legal orders, or governmental requests for user data — there is nothing to produce.
+Zer0Talk operates without access to user data. As a result, the developer cannot comply with subpoenas, legal orders, or governmental requests for user data - there is nothing to produce.
 
 Users are solely responsible for complying with all applicable local, national, and international laws when using Zer0Talk. Zer0Talk may not be used for surveillance, illegal activity, exploitation, or any purpose prohibited by applicable law.
 
