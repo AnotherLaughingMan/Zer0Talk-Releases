@@ -10,10 +10,11 @@ namespace Zer0Talk.Controls.ColorPicker
     using System.Reactive.Disposables;
     using System.Reactive.Linq;
 
-    public partial class ColorPickerDialog : Window
+    public partial class ColorPickerDialog : Window, IDisposable
     {
         private readonly CompositeDisposable _disposables = new();
         private bool _isUpdating;
+        private bool _disposed;
 
         public ColorPickerDialog()
         {
@@ -143,7 +144,7 @@ namespace Zer0Talk.Controls.ColorPicker
             var hex = HexInput.Text?.Trim();
             if (string.IsNullOrEmpty(hex)) return;
             
-            if (hex.StartsWith("#")) hex = hex.Substring(1);
+            if (hex.StartsWith('#')) hex = hex.Substring(1);
             
             if (hex.Length == 3)
             {
@@ -156,17 +157,17 @@ namespace Zer0Talk.Controls.ColorPicker
             bool parsed = false;
             
             if (hex.Length == 8 &&
-                byte.TryParse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out a) &&
-                byte.TryParse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out r) &&
-                byte.TryParse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, null, out g) &&
-                byte.TryParse(hex.Substring(6, 2), System.Globalization.NumberStyles.HexNumber, null, out b))
+                byte.TryParse(hex.AsSpan(0, 2), System.Globalization.NumberStyles.HexNumber, null, out a) &&
+                byte.TryParse(hex.AsSpan(2, 2), System.Globalization.NumberStyles.HexNumber, null, out r) &&
+                byte.TryParse(hex.AsSpan(4, 2), System.Globalization.NumberStyles.HexNumber, null, out g) &&
+                byte.TryParse(hex.AsSpan(6, 2), System.Globalization.NumberStyles.HexNumber, null, out b))
             {
                 parsed = true;
             }
             else if (hex.Length == 6 && 
-                byte.TryParse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber, null, out r) &&
-                byte.TryParse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out g) &&
-                byte.TryParse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, null, out b))
+                byte.TryParse(hex.AsSpan(0, 2), System.Globalization.NumberStyles.HexNumber, null, out r) &&
+                byte.TryParse(hex.AsSpan(2, 2), System.Globalization.NumberStyles.HexNumber, null, out g) &&
+                byte.TryParse(hex.AsSpan(4, 2), System.Globalization.NumberStyles.HexNumber, null, out b))
             {
                 parsed = true;
             }
@@ -270,7 +271,15 @@ namespace Zer0Talk.Controls.ColorPicker
         protected override void OnClosed(EventArgs e)
         {
             base.OnClosed(e);
+            Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
             _disposables.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

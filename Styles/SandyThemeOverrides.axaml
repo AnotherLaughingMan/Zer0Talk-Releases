@@ -37,6 +37,7 @@
   <!-- Contact list specific (sandy) -->
   <SolidColorBrush x:Key="App.ContactName" Color="#C8BFB6"/>
   <SolidColorBrush x:Key="App.ContactNameActive" Color="#FFFFFF"/>
+  <x:Double x:Key="App.ContactOfflineOpacity">0.58</x:Double>
   <!-- Accent Color primitives (Color resources required) -->
   <Color x:Key="SystemAccentColor">#B07A4A</Color>
   <Color x:Key="SystemAccentColor2">#B07A4A</Color>

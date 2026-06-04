@@ -1,6 +1,7 @@
 /*
     Contact entry: identity, display info, and trust flags.
 */
+using System.Globalization;
 using System.Text.Json.Serialization;
 using Zer0Talk.Utilities;
 
@@ -108,7 +109,7 @@ namespace Zer0Talk.Models
     [JsonIgnore]
     public bool HasLastMessage => !string.IsNullOrWhiteSpace(_lastMessagePreview);
     [JsonIgnore]
-    public string LastMessageTimeDisplay => _lastMessageUtc.HasValue ? _lastMessageUtc.Value.ToLocalTime().ToString("HH:mm") : string.Empty;
+    public string LastMessageTimeDisplay => _lastMessageUtc.HasValue ? _lastMessageUtc.Value.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty;
 
     // Transient: unread message count for badge display
     [JsonIgnore]

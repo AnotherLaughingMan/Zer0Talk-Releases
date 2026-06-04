@@ -1,0 +1,66 @@
+{
+  "id": "mercer-blue",
+  "displayName": "Mercer Blue",
+  "description": "A muted room-paint blue-gray theme inspired by #778B8F.",
+  "author": "Zer0Talk",
+  "version": "1.0.0",
+  "baseVariant": "Dark",
+  "resourceDictionaries": [
+    "avares://Zer0Talk/Styles/DarkThemeOverrides.axaml"
+  ],
+  "colorOverrides": {
+    "App.Background": "#1B2023",
+    "App.Surface": "#242D31",
+    "App.CardBackground": "#2C373C",
+    "App.ForegroundPrimary": "#E7EEF0",
+    "App.ForegroundSecondary": "#B7C3C6",
+    "App.Border": "#4A5A60",
+    "App.InputBorder": "#556970",
+    "App.Accent": "#778B8F",
+    "App.AccentLight": "#8FA1A4",
+    "App.SelectionBackground": "#4E6267",
+    "App.SelectionForeground": "#F4F8F9",
+    "App.ButtonBackground": "#344248",
+    "App.ButtonHover": "#3E5057",
+    "App.ButtonPressed": "#465A62",
+    "App.ChatSenderName": "#95AFB4",
+    "App.ChatReceiverName": "#C6D2D5",
+    "App.ContactName": "#D7E1E3",
+    "App.ContactNameActive": "#F3F8F9",
+    "App.ItemHover": "#3A4B52",
+    "App.ItemSelected": "#4A5E66",
+    "StatusBar.Background": "#1A2226",
+    "StatusBar.Foreground": "#E7EEF0",
+    "StatusBar.ForegroundSecondary": "#AAB9BD",
+    "StatusBar.StreamerBadge": "#C44556",
+    "StatusBar.StreamerBadgeForeground": "#FFFFFF"
+  },
+  "gradients": {
+    "App.TitleBarBackground": {
+      "startColor": "#334046",
+      "endColor": "#242D31",
+      "angle": 90.0,
+      "direction": null,
+      "colorStops": {}
+    }
+  },
+  "defaultFontFamily": null,
+  "defaultUiScale": 1.0,
+  "minAppVersion": null,
+  "isLegacyTheme": false,
+  "legacyThemeOption": null,
+  "allowsCustomization": false,
+  "isReadOnly": true,
+  "themeType": 0,
+  "tags": [
+    "built-in",
+    "blue",
+    "muted",
+    "dark"
+  ],
+  "metadata": {
+    "primaryHex": "#778B8F"
+  },
+  "createdAt": "2026-05-29T00:00:00Z",
+  "modifiedAt": "2026-05-29T00:00:00Z"
+}

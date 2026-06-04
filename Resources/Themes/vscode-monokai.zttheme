@@ -1,7 +1,7 @@
 {
   "id": "vscode-monokai",
-  "displayName": "VS Code Monokai",
-  "description": "VS Code-inspired Monokai variant with warm syntax-like accents.",
+  "displayName": "Monokai",
+  "description": "Monokai variant with warm syntax-like accents.",
   "author": "Zer0Talk",
   "version": "1.0.0",
   "baseVariant": "Dark",

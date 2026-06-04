@@ -28,10 +28,20 @@
     "NotificationDuration": "Notification Duration",
     "Duration": "Duration:",
     "Precise": "Precise:",
-    "NotificationDurationHelp": "Controls how long notification toasts stay visible. Slider: 0.5-20s, Input: 0.5-30s.",
+    "NotificationDurationHelp": "Controls how long notification toasts stay visible. Range: 0.1-120.0 seconds.",
+    "NotificationDurationInputTooltip": "Set duration (0.1 to 120 seconds)",
     "CurrentSetting": "Current setting:",
     "Seconds": "seconds",
     "OfflineAutomatic": "Offline is automatic only and cannot be selected.",
+    "AllowAutoUpdates": "Allow Auto Updates",
+    "AllowAutoUpdatesHelp": "Automatically check for and prompt to install new versions.",
+    "UpdatesAndScrolling": "Updates and Scrolling",
+    "Updates": "Updates",
+    "PostponeUpdateHours": "Postpone update for (hours)",
+    "Max72": "Max 72",
+    "CheckForUpdatesNow": "Check for Updates Now",
+    "CheckForUpdatesNowHelp": "Runs an immediate update check even when auto updates are disabled.",
+    "LastUpdateCheck": "Last checked:",
     "EnableNotificationBellFlash": "Enable notification bell flash",
     "NotificationBellFlashHelp": "Flash the bell icon for 10 seconds when notifications arrive",
     "AutoLock": "Auto-Lock",
@@ -99,9 +109,17 @@
     "GPU": "GPU",
     "Framerate": "Framerate",
     "CCDOffinity": "CCD Affinity:",
+    "CcdNoticeIntel": "Intel CPU detected. CCD switching is disabled because Windows already handles thread scheduling well on Intel processors.",
+    "CcdNoticeDualNonX3d": "Dual-CCD AMD CPU detected, but no X3D CCD was detected. CCD switching is disabled because neither CCD has 3D V-Cache for Zer0Talk's encryption and messaging workloads.",
+    "CcdNoticeSingleX3d": "Single-CCD X3D CPU detected; CCD switching is not applicable.",
+    "CcdNoticeSingleNoX3d": "Single-CCD CPU detected; CCD affinity requires a dual-CCD AMD X3D CPU.",
+    "CcdNoticeUnsupported": "CCD affinity is only available on supported dual-CCD AMD X3D CPUs.",
+    "DualX3dHint": "Dual X3D CCD configuration detected. Either CCD is suitable, and using Both CCDs is allowed for this CPU.",
     "IntelPCoreTargeting": "Prefer Performance Cores",
     "IntelPCoreTargetingHelp": "Target Performance cores over Efficiency cores for lower latency on Intel hybrid CPUs",
     "NotRecommended": "Not Recommended",
+    "CcdBothWarningTooltip": "Using both CCDs can increase latency due to inter-CCD data transfers.",
+    "CcdAutoRecommendation": "Leave on Auto unless CCD detection is wrong for your CPU. Auto targets the 3D V-Cache die when present - Zer0Talk's encryption and messaging workloads are cache-intensive and benefit from the larger L3, making the V-Cache die the better choice over the higher-clocked non-V-Cache die.",
     "EnforceRAMLimit": "Enforce RAM Limit",
     "RAMLimit": "RAM Limit:",
     "MBUnlimited": "MB (0 = unlimited)",
@@ -153,6 +171,7 @@
     "PerformanceWarning": "Performance Warning",
     "PerformanceWarningText": "Logging causes significant performance degradation. Only enable when actively tracking down problems or debugging issues. Disable immediately after troubleshooting is complete.",
     "LogMaintenance": "Log Maintenance",
+    "LogMaintenanceCompleteToast": "Log maintenance complete",
     "AutoTrimUILog": "Auto-trim UI log",
     "MaxEntries": "Max entries to keep",
     "RetentionDays": "Retention window (days)",
@@ -295,7 +314,25 @@
     "StreamerMode": "Streamer Mode",
     "StreamerModeHelp": "Hides sensitive information like UIDs, public keys, and IP addresses. Toggle with hotkey while streaming.",
     "StreamerModeHotkey": "Streamer Mode",
-    "StreamerModeHotkeyHelp": "Toggle streamer mode to hide sensitive information"
+    "StreamerModeHotkeyHelp": "Toggle streamer mode to hide sensitive information",
+    "UpdateCheckFailed": "Update check failed. See logs for details.",
+    "EnableSmoothScrolling": "Enable smooth scrolling",
+    "EnableSmoothScrollingHelp": "Use animated scrolling in log viewers and live feeds.",
+    "AutoContactBackups": "Auto-backup contacts before save",
+    "AutoContactBackupsHelp": "Creates rolling backups of contacts.p2e before overwriting (up to 10 files).",
+    "ContactBackupMaxFiles": "Backups to keep",
+    "ContactBackupMaxAgeDays": "Delete backups older than (days)",
+    "Backups": "Backups",
+    "DaysZeroOff": "days (0 = off)",
+    "RandomAvatar": "Random Avatar",
+    "RandomAvatarTooltip": "Assign a random bundled avatar",
+    "ImportData": "Restore Backup",
+    "ImportDataDescription": "Restore from an encrypted backup created on this profile. Existing local data in included folders will be replaced.",
+    "ImportDataButton": "Import Backup",
+    "ExportMigrationBundle": "Create Migration Bundle",
+    "ExportMigrationBundleDescription": "Create a one-time encrypted transfer bundle for moving to another device. A transfer code will be shown after export.",
+    "ExportMigrationBundleButton": "Export Migration Bundle",
+    "ImportMigrationBundleButton": "Import Backup / Migration Bundle"
   },
   "Notifications": {
     "NewMessage": "New Message",
@@ -308,7 +345,11 @@
     "SecurityEventDetected": "Security event detected.",
     "KeyMismatchBlocked": "Key mismatch detected. Conversation blocked.",
     "MessageFrom": "Message from",
-    "SentYouAMessage": "sent you a message"
+    "SentYouAMessage": "sent you a message",
+    "Reply": "Reply",
+    "Mute1h": "Mute 1h",
+    "MarkRead": "Mark read",
+    "Update": "Update"
   },
   "Common": {
     "Save": "Save",
@@ -317,7 +358,8 @@
     "Yes": "Yes",
     "No": "No",
     "Apply": "Apply",
-    "Close": "Close"
+    "Close": "Close",
+    "Never": "Never"
   },
   "Dialogs": {
     "ConfirmLogout": "Are you sure you want to log out?",
@@ -341,6 +383,7 @@
     "LockLogout": "Logout",
     "Minimize": "Minimize",
     "Maximize": "Maximize / Restore",
+    "Restore": "Restore",
     "Close": "Close",
     "Home": "Home",
     "Monitoring": "Monitoring",
@@ -406,6 +449,14 @@
     "Edit": "Edit",
     "Delete": "Delete",
     "ThemeEditor": "Theme Editor",
+    "UpdateTag": "Update",
+    "UpdateTagTooltip": "Update available",
+    "UpdateTagAccept": "Accept Update",
+    "UpdateTagRefuse": "Refuse (Postpone)",
+    "UpdateTagRetry": "Retry Update Check",
+    "UpdateTagInstallStartFailed": "Update request could not start. Please retry update check.",
+    "UpdateTagPostponedUntil": "Update postponed until {0}.",
+    "UpdateTagPostponedBody": "Update postponed. You can select Retry Update at any time to check again and install now.",
     "Identity": "Identity",
     "Presence": "Presence",
     "CopyPublicKey": "Copy Public Key",
@@ -430,7 +481,13 @@
     "NeverVerified": "Never",
     "Reverify": "Re-verify",
     "IdentityVsEncryptionHint": "Shield verifies identity; lock indicates encrypted transport.",
-    "VersionMismatchTooltip": "Version mismatch \u2014 peer is running v{0} (you: v{1})"
+    "VersionMismatchTooltip": "Version mismatch — peer is running v{0} (you: v{1})",
+    "DeliveryRead": "Read",
+    "SecurityEventVerificationRequest": "Security Event: Verification Request",
+    "SecurityEventVerificationSuccess": "Security Event: Verification Success",
+    "SecurityEventCancellationNoticeSent": "Security Event: Cancellation Notice Sent",
+    "SecurityEventVerificationCancelled": "Security Event: Verification Cancelled",
+    "SecurityEventVerificationFailure": "Security Event: Verification Failure"
   },
   "ThemeEditor": {
     "Title": "Zer0Talk Theme Editor",
@@ -531,7 +588,11 @@
     "CanRedoLabel": "Can Redo",
     "EditingColorLabel": "Editing Color",
     "EditingGradientLabel": "Editing Gradient",
-    "BatchModeLabel": "Batch Mode"
+    "BatchModeLabel": "Batch Mode",
+    "NormalizeThemes": "Normalize Themes",
+    "LastMigrationRun": "Last migration run",
+    "NotRunYet": "Not run yet",
+    "Never": "Never"
   },
   "AccountCreation": {
     "Title": "Create Account",
@@ -597,7 +658,20 @@
     "DiagnosticsLog": "Diagnostics log",
     "ShowLog": "Show log",
     "TextSizeForLog": "Text Size for Log",
-    "Close": "Close"
+    "Close": "Close",
+    "ViewMode": "View",
+    "ViewSummary": "Summary",
+    "ViewNetwork": "Network",
+    "ViewAdvanced": "Advanced",
+    "GraphStyle": "Style",
+    "GraphLine": "Line",
+    "GraphBar": "Bar",
+    "GraphShaded": "Shaded",
+    "LegendSide": "Legend",
+    "LegendLeft": "Left",
+    "LegendRight": "Right",
+    "RecvRate": "Received",
+    "PresencePipeline": "Presence pipeline:"
   },
   "LogViewer": {
     "Title": "Log Viewer",
@@ -619,7 +693,9 @@
     "JumpToBottom": "Jump to bottom",
     "Loading": "Loading...",
     "NoLogFiles": "No log files found",
-    "RefreshToScan": "Use Refresh to re-scan the logs directory."
+    "RefreshToScan": "Use Refresh to re-scan the logs directory.",
+    "Reload": "Reload",
+    "Trim": "Trim"
   },
   "LostPassphrase": {
     "Title": "Lost Passphrase Recovery",
@@ -632,6 +708,29 @@
   },
   "Loading": {
     "Title": "Zer0Talk - Loading",
-    "Initializing": "Initializing secure messaging system..."
+    "Initializing": "Initializing secure messaging system...",
+    "GettingReady": "Getting things ready for you...",
+    "InitCrypto": "Initializing cryptography",
+    "PreloadAudio": "Preloading audio system",
+    "LoadConfig": "Loading configuration",
+    "ApplyTheme": "Applying theme settings",
+    "PrepareUI": "Preparing user interface",
+    "StartNetwork": "Starting network services",
+    "ReadyOpening": "Ready! Opening Zer0Talk...",
+    "Welcome": "Welcome to Zer0Talk!",
+    "InitializationFailed": "Initialization failed. Please restart the application.",
+    "ErrorPrefix": "Error:",
+    "InitializingCryptography": "Initializing secure cryptography library...",
+    "PreloadingAudio": "Preloading audio files for instant messaging sounds...",
+    "LoadingConfiguration": "Loading application configuration...",
+    "ApplyingTheme": "Applying visual theme and performance settings...",
+    "PreparingUI": "Preparing secure messaging interface...",
+    "StartingNetwork": "Initializing secure network connections..."
+  },
+  "StatusBar": {
+    "StreamerModeActive": "STREAMER",
+    "StreamerMode": "Streamer Mode",
+    "ConnectedPeers": "Connected Peers"
   }
 }
+

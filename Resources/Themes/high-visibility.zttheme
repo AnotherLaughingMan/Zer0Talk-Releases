@@ -1,0 +1,64 @@
+{
+  "id": "high-visibility",
+  "displayName": "High Visibility",
+  "description": "A high-visibility dark theme with clear boundaries and vivid accents.",
+  "author": "Zer0Talk",
+  "version": "1.0.0",
+  "baseVariant": "Dark",
+  "resourceDictionaries": [
+    "avares://Zer0Talk/Styles/DarkThemeOverrides.axaml"
+  ],
+  "colorOverrides": {
+    "App.Background": "#101419",
+    "App.Surface": "#17202A",
+    "App.CardBackground": "#1E2935",
+    "App.ForegroundPrimary": "#F5FAFF",
+    "App.ForegroundSecondary": "#C9D6E3",
+    "App.Border": "#4D6C87",
+    "App.InputBorder": "#5B7D9A",
+    "App.Accent": "#00D4FF",
+    "App.AccentLight": "#70E8FF",
+    "App.SelectionBackground": "#FFE54F",
+    "App.SelectionForeground": "#0B0E12",
+    "App.ButtonBackground": "#223040",
+    "App.ButtonHover": "#2A3D52",
+    "App.ButtonPressed": "#304862",
+    "App.ChatSenderName": "#70E8FF",
+    "App.ChatReceiverName": "#FFD66B",
+    "App.ContactName": "#EAF3FC",
+    "App.ContactNameActive": "#FFFFFF",
+    "App.ItemHover": "#25364A",
+    "App.ItemSelected": "#2F4A66",
+    "StatusBar.Background": "#0E1520",
+    "StatusBar.Foreground": "#F5FAFF",
+    "StatusBar.ForegroundSecondary": "#BED0E2",
+    "StatusBar.StreamerBadge": "#FF3B5C",
+    "StatusBar.StreamerBadgeForeground": "#FFFFFF"
+  },
+  "gradients": {
+    "App.TitleBarBackground": {
+      "startColor": "#1E2935",
+      "endColor": "#111923",
+      "angle": 90.0,
+      "direction": null,
+      "colorStops": {}
+    }
+  },
+  "defaultFontFamily": null,
+  "defaultUiScale": 1.0,
+  "minAppVersion": null,
+  "isLegacyTheme": false,
+  "legacyThemeOption": null,
+  "allowsCustomization": false,
+  "isReadOnly": true,
+  "themeType": 0,
+  "tags": [
+    "built-in",
+    "high-visibility",
+    "accessibility",
+    "dark"
+  ],
+  "metadata": {},
+  "createdAt": "2026-05-29T00:00:00Z",
+  "modifiedAt": "2026-05-29T00:00:00Z"
+}

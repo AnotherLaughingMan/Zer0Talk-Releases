@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text.Json.Serialization;
 
 namespace Zer0Talk.Models
@@ -18,6 +19,6 @@ namespace Zer0Talk.Models
         public string VerifiedAtLocalDisplay =>
             VerifiedAtUtc == default
                 ? "Unknown"
-                : VerifiedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+                : VerifiedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
     }
 }

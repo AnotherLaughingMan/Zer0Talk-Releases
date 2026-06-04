@@ -269,7 +269,7 @@ namespace Zer0Talk.Services
                 try { return await completion.Task.ConfigureAwait(false); } catch { return false; }
             }
 
-            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(VerificationMutualTimeoutSeconds));
+            var timeoutTask = Task.Delay(TimeSpan.FromSeconds(VerificationMutualTimeoutSeconds), ct);
             var done = await Task.WhenAny(completion.Task, timeoutTask).ConfigureAwait(false);
             if (done == completion.Task)
             {

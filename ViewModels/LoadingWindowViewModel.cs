@@ -9,14 +9,14 @@ namespace Zer0Talk.ViewModels;
 
 public class LoadingWindowViewModel : INotifyPropertyChanged
 {
-    private string _mainMessage = "Getting things ready for you...";
-    private string _currentTask = "Initializing...";
-    private double _progress = 0;
+    private string _mainMessage = string.Empty;
+    private string _currentTask = string.Empty;
+    private double _progress;
 
     // Localized properties
     public string LocalizedTitle => AppServices.Localization.GetString("Loading.Title", "Loading...");
     public string LocalizedGettingReady => AppServices.Localization.GetString("Loading.GettingReady", "Getting things ready for you...");
-    public string LocalizedInitializing => AppServices.Localization.GetString("Loading.Initializing", "Initializing...");
+    public string LocalizedInitializing => AppServices.Localization.GetString("Loading.Initializing", "Initializing secure messaging system...");
     public string LocalizedInitCrypto => AppServices.Localization.GetString("Loading.InitCrypto", "Initializing cryptography");
     public string LocalizedPreloadAudio => AppServices.Localization.GetString("Loading.PreloadAudio", "Preloading audio system");
     public string LocalizedLoadConfig => AppServices.Localization.GetString("Loading.LoadConfig", "Loading configuration");
@@ -58,6 +58,8 @@ public class LoadingWindowViewModel : INotifyPropertyChanged
 
     public LoadingWindowViewModel()
     {
+        _mainMessage = LocalizedGettingReady;
+        _currentTask = LocalizedInitializing;
         InitializeLoadingSteps();
         AppServices.Localization.LanguageChanged += RefreshLocalizedStrings;
     }

@@ -701,6 +701,23 @@ namespace Zer0Talk.ViewModels
     public ICommand ToggleFireReactionCommand { get; }
     public ICommand ToggleContactMuteNotificationsCommand { get; }
     public ICommand ToggleContactPriorityNotificationsCommand { get; }
+    public ICommand RecoverLocalContactsCommand { get; }
+
+        private bool _isRecoveringLocalContacts;
+        public bool IsRecoveringLocalContacts
+        {
+            get => _isRecoveringLocalContacts;
+            private set
+            {
+                if (_isRecoveringLocalContacts == value) return;
+                _isRecoveringLocalContacts = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ShowContactRecoveryPrompt));
+            }
+        }
+
+        public bool ShowContactRecoveryPrompt => string.IsNullOrWhiteSpace(ContactSearchText) && FilteredContacts.Count == 0;
+        public bool ShowContactSearchEmptyState => !string.IsNullOrWhiteSpace(ContactSearchText) && FilteredContacts.Count == 0;
 
         private bool _hasPendingInvites;
         public bool HasPendingInvites { get => _hasPendingInvites; private set { if (_hasPendingInvites != value) { _hasPendingInvites = value; OnPropertyChanged(); } } }
@@ -752,22 +769,28 @@ namespace Zer0Talk.ViewModels
         private string _errorMessage = string.Empty;
         public string ErrorMessage { get => _errorMessage; set { _errorMessage = value; OnPropertyChanged(); } }
 
-        // Toggle to enable the new Markdig-based renderer (enabled: true)
-        private bool _useMarkdig = true;
-        public bool UseMarkdig
-        {
-            get => _useMarkdig;
-            set { if (_useMarkdig != value) { _useMarkdig = value; OnPropertyChanged(); } }
-        }
-
         public MainWindowViewModel()
         {
+            try
+            {
+                Action runtimeFlagsChanged = () =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        OnPropertyChanged(nameof(IsDebugUi));
+                    });
+                };
+                Zer0Talk.Utilities.RuntimeFlags.Changed += runtimeFlagsChanged;
+                _teardownActions.Add(() => Zer0Talk.Utilities.RuntimeFlags.Changed -= runtimeFlagsChanged);
+            }
+            catch { }
+
             _allReactionEmojiCategories = ReactionEmojiCatalogLoader.LoadCategories();
-            SelectedReactionSkinTone = ReactionSkinToneOptions.FirstOrDefault();
+            SelectedReactionSkinTone = ReactionSkinToneOptions.Count > 0 ? ReactionSkinToneOptions[0] : null;
             ApplyReactionEmojiFilter();
             
             // Initialize composer emoji picker (same catalog as reactions, separate state)
-            SelectedComposerSkinTone = ComposerSkinToneOptions.FirstOrDefault();
+            SelectedComposerSkinTone = ComposerSkinToneOptions.Count > 0 ? ComposerSkinToneOptions[0] : null;
             ApplyComposerEmojiFilter();
             
             RefreshLoggedInUsername();
@@ -1123,6 +1146,8 @@ namespace Zer0Talk.ViewModels
                     contact.PriorityNotifications = target;
                 }
             });
+
+            RecoverLocalContactsCommand = new RelayCommand(async _ => await RecoverLocalContactsAsync(), _ => !IsRecoveringLocalContacts);
 
             // Aggregation helpers: compute counts and manage optimistic clears
             // (kept as instance methods so other UI code can call them directly)
@@ -1822,7 +1847,7 @@ namespace Zer0Talk.ViewModels
             {
                 var when = SelectedContact?.LastVerifiedUtc;
                 return when.HasValue
-                    ? when.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                    ? when.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture)
                     : LocalizedNeverVerified;
             }
         }
@@ -2181,7 +2206,7 @@ namespace Zer0Talk.ViewModels
             var action = isOpenAttempt ? "Opening blocked" : "Message rejected";
             var message = $"{action}: URL host '{hostLabel}' is blocked because short links can hide final destinations. URL: {blockedUrl}";
 
-            try { AppServices.Notifications.PostNotice(Models.NotificationType.Warning, message, isPersistent: false); } catch { }
+            try { AppServices.Notifications.PostNotice(Models.NotificationType.Warning, message, isPersistent: false, playAudio: false); } catch { }
             try { _ = AppServices.Dialogs.ShowWarningAsync("Short URL blocked", message); } catch { }
             try { Logger.Log($"[SECURITY][URL] {message}"); } catch { }
         }
@@ -2461,9 +2486,9 @@ namespace Zer0Talk.ViewModels
                 var uidShort = LoggedInUidShort?.Trim() ?? string.Empty;
                 var uidFull = LoggedInUidFull?.Trim() ?? string.Empty;
 
-                if (!string.IsNullOrWhiteSpace(username) && text.IndexOf($"@{username}", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-                if (!string.IsNullOrWhiteSpace(uidShort) && text.IndexOf($"@{uidShort}", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-                if (!string.IsNullOrWhiteSpace(uidFull) && text.IndexOf($"@{uidFull}", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                if (!string.IsNullOrWhiteSpace(username) && text.Contains($"@{username}", StringComparison.OrdinalIgnoreCase)) return true;
+                if (!string.IsNullOrWhiteSpace(uidShort) && text.Contains($"@{uidShort}", StringComparison.OrdinalIgnoreCase)) return true;
+                if (!string.IsNullOrWhiteSpace(uidFull) && text.Contains($"@{uidFull}", StringComparison.OrdinalIgnoreCase)) return true;
                 return false;
             }
             catch { return false; }
@@ -2556,7 +2581,7 @@ namespace Zer0Talk.ViewModels
                     continue;
                 }
                 var text = message.Content ?? string.Empty;
-                var matched = text.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+                var matched = text.Contains(query, StringComparison.OrdinalIgnoreCase);
                 message.IsSearchMatch = matched;
                 message.IsActiveSearchMatch = false;
                 if (matched)
@@ -2886,7 +2911,7 @@ namespace Zer0Talk.ViewModels
                 if (category is null) continue;
 
                 var categoryMatches = (category.DisplayName ?? string.Empty)
-                    .IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+                    .Contains(query, StringComparison.OrdinalIgnoreCase);
 
                 if (categoryMatches)
                 {
@@ -2896,8 +2921,8 @@ namespace Zer0Talk.ViewModels
 
                 var emojiMatches = (category.Emojis ?? Array.Empty<string>())
                     .Where(emoji => !string.IsNullOrWhiteSpace(emoji)
-                        && (emoji.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
-                            || (ReactionEmojiCatalogLoader.GetEmojiDisplayName(emoji)?.IndexOf(query, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0))
+                        && (emoji.Contains(query, StringComparison.OrdinalIgnoreCase)
+                            || (ReactionEmojiCatalogLoader.GetEmojiDisplayName(emoji)?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)))
                     .ToList();
 
                 if (emojiMatches.Count == 0) continue;
@@ -2927,7 +2952,7 @@ namespace Zer0Talk.ViewModels
                 }
             }
 
-            SelectedReactionEmojiCategory = FilteredReactionEmojiCategories.FirstOrDefault();
+            SelectedReactionEmojiCategory = FilteredReactionEmojiCategories.Count > 0 ? FilteredReactionEmojiCategories[0] : null;
             if (SelectedReactionEmojiCategory is null)
             {
                 VisibleReactionItems = Array.Empty<ReactionPickerItem>();
@@ -3039,7 +3064,7 @@ namespace Zer0Talk.ViewModels
             if (string.IsNullOrWhiteSpace(toneModifier)) return baseEmoji;
             if (!SupportsSkinTone(baseEmoji)) return baseEmoji;
 
-            if (baseEmoji.EndsWith("\uFE0F", StringComparison.Ordinal))
+            if (baseEmoji.EndsWith('\uFE0F'))
             {
                 return string.Concat(baseEmoji.AsSpan(0, baseEmoji.Length - 1), toneModifier.AsSpan(), "\uFE0F");
             }
@@ -3081,7 +3106,7 @@ namespace Zer0Talk.ViewModels
                 if (category is null) continue;
 
                 var categoryMatches = (category.DisplayName ?? string.Empty)
-                    .IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+                    .Contains(query, StringComparison.OrdinalIgnoreCase);
 
                 if (categoryMatches)
                 {
@@ -3091,8 +3116,8 @@ namespace Zer0Talk.ViewModels
 
                 var emojiMatches = (category.Emojis ?? Array.Empty<string>())
                     .Where(emoji => !string.IsNullOrWhiteSpace(emoji)
-                        && (emoji.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0
-                            || (ReactionEmojiCatalogLoader.GetEmojiDisplayName(emoji)?.IndexOf(query, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0))
+                        && (emoji.Contains(query, StringComparison.OrdinalIgnoreCase)
+                            || (ReactionEmojiCatalogLoader.GetEmojiDisplayName(emoji)?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)))
                     .ToList();
 
                 if (emojiMatches.Count == 0) continue;
@@ -3122,7 +3147,7 @@ namespace Zer0Talk.ViewModels
                 }
             }
 
-            SelectedComposerEmojiCategory = FilteredComposerEmojiCategories.FirstOrDefault();
+            SelectedComposerEmojiCategory = FilteredComposerEmojiCategories.Count > 0 ? FilteredComposerEmojiCategories[0] : null;
             if (SelectedComposerEmojiCategory is null)
             {
                 VisibleComposerEmojiItems = Array.Empty<ReactionPickerItem>();
@@ -3723,6 +3748,11 @@ namespace Zer0Talk.ViewModels
         public string LocalizedMessages => Services.AppServices.Localization.GetString("MainWindow.Messages", "Messages");
         public string LocalizedAlerts => Services.AppServices.Localization.GetString("MainWindow.Alerts", "Alerts");
         public string LocalizedThemeEditor => Services.AppServices.Localization.GetString("MainWindow.ThemeEditor", "Theme Editor");
+        public string LocalizedUpdateTag => Services.AppServices.Localization.GetString("MainWindow.UpdateTag", "Update");
+        public string LocalizedUpdateTagTooltip => Services.AppServices.Localization.GetString("MainWindow.UpdateTagTooltip", "Update available");
+        public string LocalizedUpdateTagAccept => Services.AppServices.Localization.GetString("MainWindow.UpdateTagAccept", "Accept Update");
+        public string LocalizedUpdateTagRefuse => Services.AppServices.Localization.GetString("MainWindow.UpdateTagRefuse", "Refuse (Postpone)");
+        public string LocalizedUpdateTagRetry => Services.AppServices.Localization.GetString("MainWindow.UpdateTagRetry", "Retry Update Check");
         public string LocalizedAccept => Services.AppServices.Localization.GetString("MainWindow.Accept", "Accept");
         public string LocalizedReject => Services.AppServices.Localization.GetString("MainWindow.Reject", "Reject");
         public string LocalizedNoPendingInvites => Services.AppServices.Localization.GetString("MainWindow.NoPendingInvites", "No pending invites.");
@@ -3814,6 +3844,11 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedMessages));
             OnPropertyChanged(nameof(LocalizedAlerts));
             OnPropertyChanged(nameof(LocalizedThemeEditor));
+            OnPropertyChanged(nameof(LocalizedUpdateTag));
+            OnPropertyChanged(nameof(LocalizedUpdateTagTooltip));
+            OnPropertyChanged(nameof(LocalizedUpdateTagAccept));
+            OnPropertyChanged(nameof(LocalizedUpdateTagRefuse));
+            OnPropertyChanged(nameof(LocalizedUpdateTagRetry));
             OnPropertyChanged(nameof(LocalizedAccept));
             OnPropertyChanged(nameof(LocalizedReject));
             OnPropertyChanged(nameof(LocalizedNoPendingInvites));
@@ -3901,6 +3936,8 @@ namespace Zer0Talk.ViewModels
                 FilteredContacts.Clear();
                 foreach (var c in filtered) FilteredContacts.Add(c);
                 ValidateContactReferences();
+                OnPropertyChanged(nameof(ShowContactRecoveryPrompt));
+                OnPropertyChanged(nameof(ShowContactSearchEmptyState));
             }
             catch
             {
@@ -3911,8 +3948,53 @@ namespace Zer0Talk.ViewModels
                     {
                         foreach (var c in Contacts) FilteredContacts.Add(c);
                     }
+                    OnPropertyChanged(nameof(ShowContactRecoveryPrompt));
+                    OnPropertyChanged(nameof(ShowContactSearchEmptyState));
                 }
                 catch { }
+            }
+        }
+
+        private async Task RecoverLocalContactsAsync()
+        {
+            if (IsRecoveringLocalContacts) return;
+
+            IsRecoveringLocalContacts = true;
+            (RecoverLocalContactsCommand as RelayCommand)?.RaiseCanExecuteChanged();
+
+            try
+            {
+                var result = await Task.Run(() =>
+                {
+                    var readable = AppServices.Contacts.TryImportFromLocalSources(AppServices.Passphrase, out var imported, out var readableSources);
+                    return (readable, imported, readableSources);
+                }).ConfigureAwait(false);
+
+                if (result.imported > 0)
+                {
+                    ErrorMessage = string.Empty;
+                    try { AppServices.Notifications.PostNotice(Models.NotificationType.Information, $"Recovered {result.imported} contact(s) from local storage.", isPersistent: false); } catch { }
+                }
+                else if (result.readable)
+                {
+                    ErrorMessage = "No new contacts were found to import.";
+                }
+                else
+                {
+                    ErrorMessage = "No readable local contacts file was found.";
+                }
+
+                ScheduleContactsRefresh();
+                ApplyContactFilter();
+            }
+            catch
+            {
+                ErrorMessage = "Local contact recovery failed.";
+            }
+            finally
+            {
+                IsRecoveringLocalContacts = false;
+                (RecoverLocalContactsCommand as RelayCommand)?.RaiseCanExecuteChanged();
             }
         }
 
@@ -4303,7 +4385,7 @@ namespace Zer0Talk.ViewModels
                 "• Applies an alternating 1/0 sweep followed by an all-zero pass\n" +
                 "• Deletes residual message and outbox files\n\n" +
                 "Once completed, the conversation cannot be recovered.");
-            var confirmationText = string.Format(messageTemplate, display);
+            var confirmationText = string.Format(CultureInfo.CurrentCulture, messageTemplate, display);
             var burnNowText = Services.AppServices.Localization.GetString("Dialogs.BurnNow", "Burn Now");
             var cancelText = Services.AppServices.Localization.GetString("Common.Cancel", "Cancel");
 

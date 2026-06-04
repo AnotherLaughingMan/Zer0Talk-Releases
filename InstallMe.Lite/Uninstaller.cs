@@ -12,6 +12,7 @@ namespace InstallMe.Lite
     public static class Uninstaller
     {
         private const string StartupRegKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+        private const string InstallMarkerFileName = ".installme-lite.state";
         private static InstallerConfig _config = new();
 
         public static Action<string>? LogSink;
@@ -81,6 +82,57 @@ namespace InstallMe.Lite
         }
 
         public static string? GetInstallPath() => ReadInstallPathFromRegistry();
+
+        public static string GetInstallMarkerPath(string installPath)
+        {
+            return Path.Combine(installPath, InstallMarkerFileName);
+        }
+
+        public static bool IsInstallMarkerPresent(string? installPath)
+        {
+            if (string.IsNullOrWhiteSpace(installPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                return File.Exists(GetInstallMarkerPath(installPath));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool IsLikelyInstalled(string? installPath)
+        {
+            if (string.IsNullOrWhiteSpace(installPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                if (!Directory.Exists(installPath))
+                {
+                    return false;
+                }
+
+                if (IsInstallMarkerPresent(installPath))
+                {
+                    return true;
+                }
+
+                // Backward compatibility for installs created before marker support.
+                var executablePath = Path.Combine(installPath, _config.ExecutableName);
+                return File.Exists(executablePath);
+            }
+            catch
+            {
+                return false;
+            }
+        }
 
         public static void StopProcesses(string path) => TryKillProcessesUsingPath(path);
 

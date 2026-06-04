@@ -91,7 +91,7 @@ namespace Zer0Talk.Utilities
                     continue;
                 }
 
-                if (line.StartsWith("#", StringComparison.Ordinal)) continue;
+                if (line.StartsWith('#')) continue;
 
                 // Keep only fully-qualified emojis to avoid duplicate emoji variants
                 if (!line.Contains("; fully-qualified", StringComparison.Ordinal))
@@ -141,7 +141,7 @@ namespace Zer0Talk.Utilities
             foreach (var rawLine in (text ?? string.Empty).Split('\n'))
             {
                 var line = rawLine.Trim();
-                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#", StringComparison.Ordinal)) continue;
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#')) continue;
 
                 if (!(line.Contains("; fully-qualified", StringComparison.Ordinal) || line.Contains("; minimally-qualified", StringComparison.Ordinal)))
                 {

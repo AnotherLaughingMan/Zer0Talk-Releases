@@ -10,6 +10,8 @@ namespace InstallMe.Lite
     public class MainForm : Form
     {
         private readonly InstallerConfig _config;
+        private readonly InstallerLaunchOptions _launchOptions;
+        private readonly bool _nonInteractiveUpdateMode;
         private Button _btnInstall;
         private Button _btnUninstall;
         private TextBox _txtTarget;
@@ -20,9 +22,10 @@ namespace InstallMe.Lite
         private CheckBox _chkRestart;
         private bool _isFinished;
 
-        public MainForm(InstallerConfig config)
+        public MainForm(InstallerConfig config, InstallerLaunchOptions? launchOptions = null)
         {
             _config = config;
+            _launchOptions = launchOptions ?? new InstallerLaunchOptions();
 
             Text = $"{_config.AppDisplayName} Installer";
             Width = 740;
@@ -206,7 +209,19 @@ namespace InstallMe.Lite
 
             Uninstaller.LogSink = AppendLog;
             AppendLog($"Note: Your messages and settings in %APPDATA%\\{_config.AppDataFolderName} are preserved during uninstall.");
+            if (!string.IsNullOrWhiteSpace(_launchOptions.InstallPathOverride))
+            {
+                _txtTarget.Text = _launchOptions.InstallPathOverride;
+            }
+
             UpdateInstallState();
+
+            _nonInteractiveUpdateMode = _launchOptions.Silent && (_launchOptions.ForceUpdateMode || IsExistingInstallDetected());
+            if (_nonInteractiveUpdateMode)
+            {
+                ApplySilentUiState();
+                Shown += async (_, _) => await RunSilentUpdateAsync();
+            }
         }
 
         private static string BuildBannerText()
@@ -222,7 +237,7 @@ namespace InstallMe.Lite
             try
             {
                 var path = Uninstaller.GetInstallPath();
-                if (!string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
+                if (Uninstaller.IsLikelyInstalled(path))
                 {
                     _txtTarget.Text = path;
                     _btnInstall.Text = "Update";
@@ -230,6 +245,37 @@ namespace InstallMe.Lite
                 }
             }
             catch { }
+        }
+
+        private bool IsExistingInstallDetected()
+        {
+            try
+            {
+                var path = Uninstaller.GetInstallPath();
+                return Uninstaller.IsLikelyInstalled(path);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void ApplySilentUiState()
+        {
+            ShowInTaskbar = false;
+            WindowState = FormWindowState.Minimized;
+            Opacity = 0;
+            _btnInstall.Enabled = false;
+            _btnUninstall.Enabled = false;
+            _lblStatus.Text = "Status: Performing background update...";
+        }
+
+        private async System.Threading.Tasks.Task RunSilentUpdateAsync()
+        {
+            var restartAfterInstall = true;
+            var success = await InstallAsync(nonInteractive: true, forceRestart: restartAfterInstall);
+            Environment.ExitCode = success ? 0 : 1;
+            Close();
         }
 
         private void AppendLog(string message)
@@ -270,13 +316,13 @@ namespace InstallMe.Lite
             }
         }
 
-        private async System.Threading.Tasks.Task InstallAsync()
+        private async System.Threading.Tasks.Task<bool> InstallAsync(bool nonInteractive = false, bool forceRestart = false)
         {
             try
             {
-                if (!await EnsureAppClosedBeforeInstallAsync())
+                if (!await EnsureAppClosedBeforeInstallAsync(nonInteractive))
                 {
-                    return;
+                    return false;
                 }
 
                 _lblStatus.Text = "Status: Checking for legacy installations...";
@@ -290,7 +336,10 @@ namespace InstallMe.Lite
                     {
                         message += $"\n... and {removedItems.Count - 10} more items";
                     }
-                    MessageBox.Show(message, "Old Installations Removed", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    if (!nonInteractive)
+                    {
+                        MessageBox.Show(message, "Old Installations Removed", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
                     foreach (var item in removedItems.Take(50))
                     {
                         AppendLog("Removed: " + item);
@@ -324,8 +373,13 @@ namespace InstallMe.Lite
                 }
                 if (string.IsNullOrEmpty(src) || !Directory.Exists(src))
                 {
-                    MessageBox.Show($"Embedded {_config.PackageResourceName} not found inside the installer. Please embed it before publishing.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
+                    var missingPackageMessage = $"Embedded {_config.PackageResourceName} not found inside the installer. Please embed it before publishing.";
+                    AppendLog("ERROR: " + missingPackageMessage);
+                    if (!nonInteractive)
+                    {
+                        MessageBox.Show(missingPackageMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    return false;
                 }
 
                 _lblStatus.Text = "Status: Installing...";
@@ -363,6 +417,22 @@ namespace InstallMe.Lite
                 AppendLog("Writing uninstall registration...");
                 try { Uninstaller.WriteInstallPathToRegistry(dst); } catch { }
 
+                // Write install marker so update mode can be detected deterministically.
+                try
+                {
+                    var markerPath = Uninstaller.GetInstallMarkerPath(dst);
+                    var markerContent =
+                        $"installedAtUtc={DateTime.UtcNow:O}{Environment.NewLine}" +
+                        $"app={_config.AppDisplayName}{Environment.NewLine}" +
+                        $"version={_config.DisplayVersion}{Environment.NewLine}";
+                    File.WriteAllText(markerPath, markerContent);
+                    AppendLog("Wrote install marker.");
+                }
+                catch (Exception markerEx)
+                {
+                    AppendLog("WARN: Failed to write install marker: " + markerEx.Message);
+                }
+
                 _lblStatus.Text = "Status: Install complete.";
                 AppendLog("Install complete.");
                 _btnInstall.Text = "Finished";
@@ -375,7 +445,7 @@ namespace InstallMe.Lite
                 }
 
                 // Restart app if the user opted in
-                if (_chkRestart.Checked)
+                if (forceRestart || _chkRestart.Checked)
                 {
                     var exePath = Path.Combine(dst, _config.ExecutableName);
                     if (File.Exists(exePath))
@@ -385,11 +455,14 @@ namespace InstallMe.Lite
                         catch (Exception rex) { AppendLog("Failed to restart: " + rex.Message); }
                     }
                 }
+
+                return true;
             }
             catch (Exception ex)
             {
                 _lblStatus.Text = "Status: Install failed: " + ex.Message;
                 AppendLog("ERROR: " + ex.Message);
+                return false;
             }
             finally
             {
@@ -528,11 +601,28 @@ namespace InstallMe.Lite
             }
         }
 
-        private async System.Threading.Tasks.Task<bool> EnsureAppClosedBeforeInstallAsync()
+        private async System.Threading.Tasks.Task<bool> EnsureAppClosedBeforeInstallAsync(bool nonInteractive)
         {
             var running = FindRunningAppProcesses();
             if (running.Count == 0)
             {
+                return true;
+            }
+
+            if (nonInteractive)
+            {
+                _lblStatus.Text = $"Status: Closing running {_config.AppDisplayName}...";
+                AppendLog($"Attempting to close running {_config.AppDisplayName} (silent mode)...");
+                await System.Threading.Tasks.Task.Run(() => TryCloseAppProcesses(running));
+                var remainingAfterSilentClose = FindRunningAppProcesses();
+                if (remainingAfterSilentClose.Count > 0)
+                {
+                    _lblStatus.Text = $"Status: Install failed (could not close {_config.AppDisplayName}).";
+                    AppendLog($"Install failed: {_config.AppDisplayName} is still running after silent close attempt.");
+                    return false;
+                }
+
+                AppendLog($"{_config.AppDisplayName} closed successfully. Continuing install.");
                 return true;
             }
 

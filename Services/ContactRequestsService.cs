@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -86,7 +87,7 @@ namespace Zer0Talk.Services
         {
             timeout ??= TimeSpan.FromSeconds(20);
             uid = Trim(uid);
-            SetSendDiagnostic($"start uid={uid} host={(string.IsNullOrWhiteSpace(host) ? "<none>" : host)} port={(port.HasValue ? port.Value.ToString() : "<none>")}");
+            SetSendDiagnostic($"start uid={uid} host={(string.IsNullOrWhiteSpace(host) ? "<none>" : host)} port={(port.HasValue ? port.Value.ToString(CultureInfo.InvariantCulture) : "<none>")}");
             // Throttle repeated outbound requests to the same UID
             var now = DateTime.UtcNow;
             if (_lastOutboundAt.TryGetValue(uid, out var last) && (now - last) < OutboundMinInterval)
@@ -145,7 +146,7 @@ namespace Zer0Talk.Services
             using var cts = new CancellationTokenSource(timeout.Value);
             // Step 1: ensure connection + encrypted session
             var connectStart = DateTime.UtcNow;
-            SetSendDiagnostic($"connect-attempt uid={Trim(uid)} hintHost={(string.IsNullOrWhiteSpace(host) ? "<none>" : host)} hintPort={(port.HasValue ? port.Value.ToString() : "<none>")}");
+            SetSendDiagnostic($"connect-attempt uid={Trim(uid)} hintHost={(string.IsNullOrWhiteSpace(host) ? "<none>" : host)} hintPort={(port.HasValue ? port.Value.ToString(CultureInfo.InvariantCulture) : "<none>")}");
             var okRelayOrDirect = await _net.ConnectPeerWithHintsAsync(Trim(uid), host, port, cts.Token);
             if (!okRelayOrDirect)
             {

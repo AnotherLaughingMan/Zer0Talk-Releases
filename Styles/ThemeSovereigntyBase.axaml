@@ -24,6 +24,7 @@
     <SolidColorBrush x:Key="App.AccentLight" Color="#7998FF"/>
     <SolidColorBrush x:Key="App.ChatSenderName" Color="#9AB3FF"/>
     <SolidColorBrush x:Key="App.ChatReceiverName" Color="#F3AA64"/>
+    <x:Double x:Key="App.ContactOfflineOpacity">0.60</x:Double>
   </Styles.Resources>
 
   <!-- Remove focus adorners globally -->

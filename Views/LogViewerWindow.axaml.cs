@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -230,10 +231,24 @@ public partial class LogViewerWindow : Window
 
     private ScrollViewer? FindActiveScrollViewer()
     {
-        // Find the LogContentScroll ScrollViewer in the ContentControl
+        var logTextBox = this.GetVisualDescendants()
+            .OfType<TextBox>()
+            .FirstOrDefault(tb => tb.Name == "LogContentTextBox");
+
+        if (logTextBox != null)
+        {
+            var nested = logTextBox.GetVisualDescendants()
+                .OfType<ScrollViewer>()
+                .FirstOrDefault();
+            if (nested != null)
+            {
+                return nested;
+            }
+        }
+
         return this.GetVisualDescendants()
-                   .OfType<ScrollViewer>()
-                   .FirstOrDefault(s => s.Name == "LogContentScroll");
+            .OfType<ScrollViewer>()
+            .FirstOrDefault();
     }
 
     private void OnLogScrollChanged(object? sender, ScrollChangedEventArgs e)
@@ -395,7 +410,7 @@ public partial class LogViewerWindow : Window
 
         if (JumpToLatestCountText != null)
         {
-            JumpToLatestCountText.Text = count > 0 ? count.ToString() : "0";
+            JumpToLatestCountText.Text = count > 0 ? count.ToString(CultureInfo.CurrentCulture) : "0";
         }
 
         var jumpToBottomText = AppServices.Localization.GetString("LogViewer.JumpToBottom", "Jump to bottom");

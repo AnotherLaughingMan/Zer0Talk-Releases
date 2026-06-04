@@ -280,7 +280,7 @@ namespace Zer0Talk.Services
         public bool AdvancePhase()
         {
             var nextPhase = CurrentPhase + 1;
-            if (!Enum.IsDefined(typeof(EnginePhase), nextPhase))
+            if (!Enum.IsDefined((EnginePhase)nextPhase))
             {
                 LogEngine($"Cannot advance beyond Phase {CurrentPhase}");
                 return false;
@@ -297,7 +297,7 @@ namespace Zer0Talk.Services
         public bool RollbackPhase()
         {
             var prevPhase = CurrentPhase - 1;
-            if (!Enum.IsDefined(typeof(EnginePhase), prevPhase))
+            if (!Enum.IsDefined((EnginePhase)prevPhase))
             {
                 LogEngine($"Cannot rollback below Phase {CurrentPhase}");
                 return false;
@@ -332,7 +332,12 @@ namespace Zer0Talk.Services
                     "legacy-butter",
                     "vscode-dark-plus",
                     "vscode-light-plus",
-                    "vscode-monokai"
+                    "vscode-monokai",
+                    "monokai-dimmed",
+                    "high-contrast",
+                    "high-contrast-dark",
+                    "high-visibility",
+                    "mercer-blue"
                 };
 
                 foreach (var themeId in builtInIds)

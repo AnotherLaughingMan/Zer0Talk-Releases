@@ -410,7 +410,7 @@ namespace Zer0Talk.Services
                         progressCallback?.Invoke($"Searching {appDataThemes}...");
                         LogEngine($"Searching primary theme folder: {appDataThemes}");
 
-                        var themes = SearchDirectoryRecursive(appDataThemes, cancellationToken, progressCallback);
+                        var themes = SearchDirectoryRecursive(appDataThemes, progressCallback, cancellationToken);
                         foundThemes.AddRange(themes);
                         
                         LogEngine($"Found {themes.Count} themes in AppData folder");
@@ -433,7 +433,7 @@ namespace Zer0Talk.Services
                         progressCallback?.Invoke($"Searching Documents folder...");
                         LogEngine($"Searching Documents folder: {documentsFolder}");
 
-                        var themes = SearchDirectoryRecursive(documentsFolder, cancellationToken, progressCallback, maxDepth: 3);
+                        var themes = SearchDirectoryRecursive(documentsFolder, progressCallback, cancellationToken, maxDepth: 3);
                         foundThemes.AddRange(themes);
                         
                         LogEngine($"Found {themes.Count} themes in Documents folder");
@@ -464,7 +464,7 @@ namespace Zer0Talk.Services
                         progressCallback?.Invoke($"Searching {drive.Name}...");
                         LogEngine($"Scanning drive: {drive.Name}");
 
-                        var themes = SearchDirectoryRecursive(drive.RootDirectory.FullName, cancellationToken, progressCallback, maxDepth: 4);
+                        var themes = SearchDirectoryRecursive(drive.RootDirectory.FullName, progressCallback, cancellationToken, maxDepth: 4);
                         foundThemes.AddRange(themes);
                     }
                     catch (Exception ex)
@@ -485,8 +485,8 @@ namespace Zer0Talk.Services
         /// </summary>
         private List<string> SearchDirectoryRecursive(
             string path, 
-            System.Threading.CancellationToken cancellationToken, 
             Action<string>? progressCallback,
+            System.Threading.CancellationToken cancellationToken,
             int maxDepth = 10,
             int currentDepth = 0)
         {
@@ -529,7 +529,7 @@ namespace Zer0Talk.Services
                             if (cancellationToken.IsCancellationRequested)
                                 break;
 
-                            results.AddRange(SearchDirectoryRecursive(subdir, cancellationToken, progressCallback, maxDepth, currentDepth + 1));
+                            results.AddRange(SearchDirectoryRecursive(subdir, progressCallback, cancellationToken, maxDepth, currentDepth + 1));
                         }
                     }
                     catch { /* Access denied to subdirectories, skip */ }
@@ -566,7 +566,7 @@ namespace Zer0Talk.Services
                     folderName == "system volume information" ||
                     folderName == "recovery" ||
                     folderName == "perflogs" ||
-                    folderName.StartsWith("$"))
+                    folderName.StartsWith('$'))
                 {
                     return true;
                 }

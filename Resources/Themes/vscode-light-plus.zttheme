@@ -1,7 +1,7 @@
 {
   "id": "vscode-light-plus",
-  "displayName": "VS Code Light+",
-  "description": "VS Code-inspired light theme with clean contrast and blue highlights.",
+  "displayName": "Light+",
+  "description": "Light-plus inspired theme with clean contrast and blue highlights.",
   "author": "Zer0Talk",
   "version": "1.0.0",
   "baseVariant": "Light",

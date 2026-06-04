@@ -220,7 +220,7 @@ public sealed partial class WanDirectoryService
     public async Task<RelayInvite?> WaitForRelayInviteAsync(string uid, TimeSpan timeout, CancellationToken ct)
     {
         var invites = await WaitForRelayInvitesAsync(uid, timeout, ct).ConfigureAwait(false);
-        return invites.FirstOrDefault();
+        return invites.Count > 0 ? invites[0] : null;
     }
 
     public async Task<bool> TryAckRelayInviteAsync(string uid, string inviteId, CancellationToken ct)

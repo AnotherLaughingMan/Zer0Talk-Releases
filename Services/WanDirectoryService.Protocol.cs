@@ -379,7 +379,7 @@ public sealed partial class WanDirectoryService
         if (string.IsNullOrWhiteSpace(input)) return false;
 
         var text = input.Trim();
-        if (text.StartsWith("[", StringComparison.Ordinal))
+        if (text.StartsWith('['))
         {
             var end = text.IndexOf(']');
             if (end <= 1) return false;
@@ -387,7 +387,7 @@ public sealed partial class WanDirectoryService
             if (end + 1 < text.Length)
             {
                 if (text[end + 1] != ':') return false;
-                if (!int.TryParse(text.Substring(end + 2), out port)) return false;
+                if (!int.TryParse(text.AsSpan(end + 2), out port)) return false;
             }
         }
         else
@@ -396,7 +396,7 @@ public sealed partial class WanDirectoryService
             if (idx > 0 && idx < text.Length - 1)
             {
                 host = text.Substring(0, idx);
-                if (!int.TryParse(text.Substring(idx + 1), out port)) return false;
+                if (!int.TryParse(text.AsSpan(idx + 1), out port)) return false;
             }
             else
             {
@@ -445,7 +445,7 @@ public sealed partial class WanDirectoryService
     {
         if (string.IsNullOrWhiteSpace(endpoint)) return false;
         var text = endpoint.Trim();
-        if (text.StartsWith("[", StringComparison.Ordinal))
+        if (text.StartsWith('['))
         {
             var end = text.IndexOf(']');
             return end > 0 && end + 1 < text.Length && text[end + 1] == ':';

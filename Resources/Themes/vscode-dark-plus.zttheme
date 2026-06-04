@@ -1,7 +1,7 @@
 {
   "id": "vscode-dark-plus",
-  "displayName": "VS Code Dark+",
-  "description": "VS Code-inspired dark theme with crisp blue accents.",
+  "displayName": "Dark+",
+  "description": "Dark-plus inspired theme with crisp blue accents.",
   "author": "Zer0Talk",
   "version": "1.0.0",
   "baseVariant": "Dark",

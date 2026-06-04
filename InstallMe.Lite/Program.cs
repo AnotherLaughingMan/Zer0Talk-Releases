@@ -9,10 +9,11 @@ namespace InstallMe.Lite
         static void Main(string[] args)
         {
             var config = InstallerConfig.Load(args ?? Array.Empty<string>());
+            var launchOptions = InstallerLaunchOptions.Parse(args ?? Array.Empty<string>());
             Uninstaller.Configure(config);
 
             // Support a silent uninstall mode: InstallMe.Lite.exe /uninstall
-            if (args != null && args.Length > 0 && args[0].Equals("/uninstall", StringComparison.OrdinalIgnoreCase))
+            if (launchOptions.UninstallRequested)
             {
                 // Try to perform an unattended uninstall using registry-stored install path
                 try
@@ -28,7 +29,7 @@ namespace InstallMe.Lite
             }
 
             ApplicationConfiguration.Initialize();
-            Application.Run(new MainForm(config));
+            Application.Run(new MainForm(config, launchOptions));
         }
     }
 }

@@ -3,6 +3,7 @@
   <Styles.Resources>
     <SolidColorBrush x:Key="App.Background" Color="#202020" />
     <SolidColorBrush x:Key="App.ForegroundPrimary" Color="#FFFFFF" />
+    <x:Double x:Key="App.ContactOfflineOpacity">0.60</x:Double>
   </Styles.Resources>
   <Style Selector="Window">
     <Setter Property="Background" Value="{DynamicResource App.Background}" />

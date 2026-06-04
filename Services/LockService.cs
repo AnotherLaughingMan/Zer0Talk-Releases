@@ -31,17 +31,28 @@ namespace Zer0Talk.Services
             IsLocked = false;
         }
 
-        public void Lock()
+        public void Lock(bool clearStoredCredentials = false)
         {
             IsLocked = true;
-            // Do not purge remembered passphrase if user enabled Save Passphrase; respect preference for auto-login.
+
             try
             {
-                var keep = false;
-                try { keep = AppServices.Settings.GetRememberPreference(); } catch { }
-                if (!keep)
+                if (clearStoredCredentials)
                 {
-                    AppServices.Settings.PurgeRememberedPassphraseKeepPreference();
+                    // Explicit Lock & Log Out: remove remembered secret and disable remember preference.
+                    AppServices.Settings.ClearRememberedPassphrase();
+                    try { AppServices.Settings.Settings.RememberPassphrase = false; } catch { }
+                    try { AppServices.Settings.SetRememberPreference(false); } catch { }
+                }
+                else
+                {
+                    // Standard lock (e.g., hotkey): preserve remember preference and only purge secret if preference is already off.
+                    var keep = false;
+                    try { keep = AppServices.Settings.GetRememberPreference(); } catch { }
+                    if (!keep)
+                    {
+                        AppServices.Settings.PurgeRememberedPassphraseKeepPreference();
+                    }
                 }
             }
             catch { }

@@ -16,9 +16,13 @@ namespace Zer0Talk.Services
         private readonly SettingsService _settings;
         private readonly UpdateManager _updates;
         private readonly object _gate = new();
+#if DEBUG
         private bool _timerRegistered;
+#endif
         private string _lastSummary = "Log maintenance has not run yet.";
+#if DEBUG
         private DateTime? _lastRunUtc;
+#endif
 
         private const string TimerKey = "Logs.AutoTrim";
         private const int DefaultIntervalMs = 5 * 60 * 1000; // 5 minutes
@@ -30,10 +34,22 @@ namespace Zer0Talk.Services
             _updates = updates;
         }
 
-        public event Action<string>? MaintenanceCompleted;
+     #if DEBUG
+         public event Action<string>? MaintenanceCompleted;
+     #else
+         public event Action<string>? MaintenanceCompleted
+         {
+             add { }
+             remove { }
+         }
+     #endif
 
         public string LastSummary => _lastSummary;
+    #if DEBUG
         public DateTime? LastRunUtc => _lastRunUtc;
+    #else
+        public DateTime? LastRunUtc => null;
+    #endif
 
         public void TryStart()
         {

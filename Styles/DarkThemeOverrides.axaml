@@ -39,6 +39,7 @@
   <!-- Contact list specific (dark) -->
   <SolidColorBrush x:Key="App.ContactName" Color="#8A94A0"/>
   <SolidColorBrush x:Key="App.ContactNameActive" Color="#FFFFFF"/>
+  <x:Double x:Key="App.ContactOfflineOpacity">0.56</x:Double>
   <!-- Accent Color alias for BoxShadows (must be a literal Color) -->
   <Color x:Key="App.AccentColor">#5C82FF</Color>
   <!-- Semantic state colors -->

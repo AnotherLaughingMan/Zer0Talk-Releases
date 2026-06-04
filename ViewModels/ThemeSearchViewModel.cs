@@ -128,6 +128,7 @@ public class ThemeSearchViewModel : INotifyPropertyChanged, IDisposable
     {
         _cancellationTokenSource?.Cancel();
         _cancellationTokenSource?.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;

@@ -28,10 +28,12 @@ public partial class RelayMainWindow : Window
     private double _smoothScrollStartY;
     private double _smoothScrollTargetY;
     private DateTime _smoothScrollStartedAtUtc;
+    private bool _startMinimizedPending;
 
     public RelayMainWindow()
     {
         InitializeComponent();
+        _startMinimizedPending = RelayAppServices.Config.StartMinimized;
         DataContext = new RelayMainWindowViewModel();
         if (DataContext is RelayMainWindowViewModel vm)
         {
@@ -42,6 +44,7 @@ public partial class RelayMainWindow : Window
         }
         Opened += OnOpened;
         DataContextChanged += OnDataContextChanged;
+        PropertyChanged += OnWindowPropertyChanged;
         Closing += OnClosing;
         Closed += OnClosed;
     }
@@ -52,6 +55,50 @@ public partial class RelayMainWindow : Window
         ScrollRelayConsoleToBottom();
         Dispatcher.UIThread.Post(() => ScrollRelayConsoleToBottom(), DispatcherPriority.Background);
         UpdateRelayConsoleJumpToLatestVisibility();
+
+        if (_startMinimizedPending)
+        {
+            _startMinimizedPending = false;
+            if (ShouldHideToTray())
+            {
+                HideToSystemTray();
+            }
+            else
+            {
+                WindowState = WindowState.Minimized;
+            }
+        }
+    }
+
+    private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != WindowStateProperty)
+        {
+            return;
+        }
+
+        if (WindowState != WindowState.Minimized)
+        {
+            return;
+        }
+
+        if (!ShouldHideToTray())
+        {
+            return;
+        }
+
+        HideToSystemTray();
+    }
+
+    private void HideToSystemTray()
+    {
+        ShowInTaskbar = false;
+        Hide();
+    }
+
+    private static bool ShouldHideToTray()
+    {
+        return RelayAppServices.Config.MinimizeToTray && RelayAppServices.Config.ShowInSystemTray;
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -533,10 +580,10 @@ public partial class RelayMainWindow : Window
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
-        if (RelayAppServices.Config.MinimizeToTray)
+        if (ShouldHideToTray())
         {
             e.Cancel = true;
-            Hide();
+            HideToSystemTray();
             return;
         }
 

@@ -282,9 +282,10 @@ public partial class App : Application
                         var acc = AppServices.Accounts.LoadAccount(remembered);
                         AppServices.Passphrase = remembered;
                         SafeStartupLog("ShowAppropriateWindow.AutoLogin.AccountLoaded");
-                        
-                        // Load settings and apply theme (LoadingManager already did crypto/audio/theme init)
-                        try { AppServices.Settings.Load(AppServices.Passphrase); SafeStartupLog("ShowAppropriateWindow.AutoLogin.Settings.Loaded"); } catch (Exception ex) { SafeStartupLog($"ShowAppropriateWindow.AutoLogin.Settings.Error: {ex.Message}"); throw; }
+
+                        // Load persisted settings after account decrypt so language/theme/user prefs are restored.
+                        AppServices.Settings.Load(remembered);
+                        SafeStartupLog("ShowAppropriateWindow.AutoLogin.Settings.Loaded");
                         
                         // Apply language setting
                         try 
@@ -482,10 +483,13 @@ public partial class App : Application
     {
         try
         {
+            SafeStartupLog("ShowMainWindow.Begin");
             desktop.ShutdownMode = Avalonia.Controls.ShutdownMode.OnMainWindowClose;
             var mw = new MainWindow();
+            SafeStartupLog("ShowMainWindow.WindowConstructed");
             desktop.MainWindow = mw;
             mw.Show();
+            SafeStartupLog("ShowMainWindow.WindowShown");
 
             // First-run: show privacy policy dialog if the user has not dismissed it
             try
@@ -554,15 +558,24 @@ public partial class App : Application
                 catch { }
 
             };
+            SafeStartupLog("ShowMainWindow.Complete");
         }
         catch (Exception ex)
         {
+            SafeStartupLog($"ShowMainWindow.Error: {ex.GetType().Name} - {ex.Message}");
             TryWriteErrorTxt("ShowMainWindow.Error", ex);
         }
     }
     
     private static void SetupPostInitialization(IClassicDesktopStyleApplicationLifetime desktop)
     {
+        // Security hygiene: move any plaintext passphrase.txt out of AppData to Documents.
+        try
+        {
+            _ = DetectAndRelocateLegacyPassphraseFileAsync();
+        }
+        catch { }
+
         // Set up network config change handling
         try
         {
@@ -604,26 +617,6 @@ public partial class App : Application
             SafeStartupLog($"SystemTray: Failed to initialize - {ex.Message}");
         }
 
-        // Start hybrid IPC host if feature-gated on in settings.
-        try
-        {
-            AppServices.StartHybridIpcHostIfEnabled();
-        }
-        catch (Exception ex)
-        {
-            try { Logger.Log($"Hybrid IPC host start check failed: {ex.Message}"); } catch { }
-        }
-
-        // Start shell-side hybrid consumer if feature-gated on in settings.
-        try
-        {
-            AppServices.StartHybridShellAdapterIfEnabled();
-        }
-        catch (Exception ex)
-        {
-            try { Logger.Log($"Hybrid shell consumer start check failed: {ex.Message}"); } catch { }
-        }
-        
         // Setup other post-initialization tasks as needed
         _ = System.Threading.Tasks.Task.Run(() =>
         {
@@ -663,6 +656,81 @@ public partial class App : Application
         {
             try { Logger.Log($"AutoUpdate: failed to start - {ex.Message}"); } catch { }
         }
+    }
+
+    private static async Task DetectAndRelocateLegacyPassphraseFileAsync()
+    {
+        try
+        {
+            var appDataRoot = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (string.IsNullOrWhiteSpace(appDataRoot))
+            {
+                return;
+            }
+
+            var insecurePath = Path.Combine(appDataRoot, "Zer0Talk", "passphrase.txt");
+            if (!File.Exists(insecurePath))
+            {
+                return;
+            }
+
+            var docsRoot = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            if (string.IsNullOrWhiteSpace(docsRoot))
+            {
+                return;
+            }
+
+            var safeFolder = Path.Combine(docsRoot, "Zer0Talk");
+            Directory.CreateDirectory(safeFolder);
+
+            var targetPath = Path.Combine(safeFolder, "passphrase.txt");
+            if (File.Exists(targetPath))
+            {
+                var timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                targetPath = Path.Combine(safeFolder, $"passphrase-{timestamp}.txt");
+            }
+
+            try
+            {
+                File.Move(insecurePath, targetPath, overwrite: false);
+            }
+            catch
+            {
+                // Fallback for edge cases (lock/cross-volume behavior): copy then remove source.
+                File.Copy(insecurePath, targetPath, overwrite: false);
+                try { File.Delete(insecurePath); } catch { }
+            }
+
+            try
+            {
+                Logger.Log($"Security: moved plaintext passphrase file from AppData to Documents: {targetPath}");
+            }
+            catch { }
+
+            var message =
+                "For your security, Zer0Talk found passphrase.txt in AppData\\Roaming\\Zer0Talk and moved it to a safer location.\n\n" +
+                "New location:\n" + targetPath + "\n\n" +
+                "Please keep this file private and do not store passphrase files in the Zer0Talk AppData folder.";
+
+            try
+            {
+                AppServices.Notifications.PostNotice(
+                    Zer0Talk.Models.NotificationType.Warning,
+                    "Passphrase file was moved to Documents\\Zer0Talk for security.",
+                    originUid: null,
+                    fullBody: message,
+                    isPersistent: true,
+                    playAudio: false);
+            }
+            catch { }
+
+            try
+            {
+                await AppServices.Dialogs.ShowWarningAsync("Passphrase File Moved", message, 10000);
+            }
+            catch { }
+        }
+        catch { }
     }
 
     public override void OnFrameworkInitializationCompleted()

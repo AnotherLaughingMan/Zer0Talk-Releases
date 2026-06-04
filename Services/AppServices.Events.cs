@@ -8,6 +8,9 @@ namespace Zer0Talk.Services;
 
 public static partial class AppServices
 {
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> _versionMismatchAlertRecent = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan VersionMismatchAlertDedupWindow = TimeSpan.FromSeconds(30);
+
     static AppServices()
     {
         // Forward service events to centralized hub (no heavy work here)
@@ -20,12 +23,22 @@ public static partial class AppServices
         {
             Network.VersionMismatchDetected += (peerUid, ourVersion, theirVersion) =>
             {
-                System.Threading.Tasks.Task.Run(async () =>
+                System.Threading.Tasks.Task.Run(() =>
                 {
                     try
                     {
                         var contact = Contacts.Contacts.FirstOrDefault(c => string.Equals(c.UID, peerUid, System.StringComparison.OrdinalIgnoreCase));
                         if (contact != null) contact.PeerVersion = theirVersion;
+
+                        var normalizedPeer = NormalizePeerUid(peerUid) ?? peerUid ?? string.Empty;
+                        var dedupKey = $"{normalizedPeer}|{ourVersion}|{theirVersion}";
+                        var now = DateTime.UtcNow;
+                        if (_versionMismatchAlertRecent.TryGetValue(dedupKey, out var seenUtc) && (now - seenUtc) <= VersionMismatchAlertDedupWindow)
+                        {
+                            return;
+                        }
+                        _versionMismatchAlertRecent[dedupKey] = now;
+
                         var peerDisplay = contact?.DisplayName ?? peerUid;
                         var message = $"Version compatibility warning:\n\n" +
                                     $"Peer: {peerDisplay}\n" +
@@ -33,8 +46,9 @@ public static partial class AppServices
                                     $"Your version: {ourVersion}\n\n" +
                                     $"Communication may be unreliable due to version differences. " +
                                     $"Consider updating to the same version.";
-                        
-                        await Dialogs.ShowInfoAsync("Version Mismatch Detected", message, 8000);
+
+                        // Route through NotificationService so the warning appears in Alerts and as a popup toast.
+                        Notifications.PostNotice(Models.NotificationType.Warning, message, originUid: normalizedPeer, fullBody: message, isPersistent: true, playAudio: true);
                     }
                     catch (System.Exception ex)
                     {
@@ -263,13 +277,6 @@ public static partial class AppServices
         try { Settings.Save(Passphrase); } catch { }
         try { LinkPreview.Dispose(); } catch { }
         try { TrayIcon.Dispose(); } catch { }
-        try { StopHybridShellAdapter(); } catch { }
-        try { HybridShellMarkdownAdapter.Dispose(); } catch { }
-        try { HybridShellMarkdownIpcClient.Dispose(); } catch { }
-        try { HybridShellAdapter.Dispose(); } catch { }
-        try { HybridShellConsumer.Dispose(); } catch { }
-        try { HybridShellIpcClient.Dispose(); } catch { }
-        try { StopHybridIpcHost(); } catch { }
         try { ContactsIpcEndpoint.Dispose(); } catch { }
         try { ContactsBridge.Dispose(); } catch { }
         try { UnreadIpcEndpoint.Dispose(); } catch { }

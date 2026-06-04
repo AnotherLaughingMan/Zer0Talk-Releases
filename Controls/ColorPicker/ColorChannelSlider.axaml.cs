@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -125,7 +126,7 @@ public partial class ColorChannelSlider : UserControl
             _valueSlider.Value = Value;
 
         if (!_updatingFromInput && _valueInput != null)
-            _valueInput.Text = Value.ToString();
+            _valueInput.Text = Value.ToString(CultureInfo.InvariantCulture);
 
         ValueChanged?.Invoke(this, EventArgs.Empty);
     }

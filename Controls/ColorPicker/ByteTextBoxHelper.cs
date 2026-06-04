@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -66,7 +67,7 @@ namespace Zer0Talk.Controls.ColorPicker
             {
                 if (!int.TryParse(tb.Text, out var v)) v = 0;
                 v = Math.Clamp(v + step, 0, 255);
-                tb.Text = v.ToString();
+                tb.Text = v.ToString(CultureInfo.InvariantCulture);
                 ValidateAndApply(tb);
                 e.Handled = true;
                 return;
@@ -75,7 +76,7 @@ namespace Zer0Talk.Controls.ColorPicker
             {
                 if (!int.TryParse(tb.Text, out var v)) v = 0;
                 v = Math.Clamp(v - step, 0, 255);
-                tb.Text = v.ToString();
+                tb.Text = v.ToString(CultureInfo.InvariantCulture);
                 ValidateAndApply(tb);
                 e.Handled = true;
                 return;
@@ -119,7 +120,7 @@ namespace Zer0Talk.Controls.ColorPicker
             var clamped = Math.Clamp(value, 0, 255);
             if (clamped != value)
             {
-                tb.Text = clamped.ToString();
+                tb.Text = clamped.ToString(CultureInfo.InvariantCulture);
             }
 
             SetHasError(tb, false);

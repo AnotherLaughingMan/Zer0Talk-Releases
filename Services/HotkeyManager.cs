@@ -203,7 +203,7 @@ namespace Zer0Talk.Services
             return string.Join("+", parts);
         }
 
-        private class HotkeyRegistration
+        private sealed class HotkeyRegistration
         {
             public string Id { get; set; } = string.Empty;
             public Key Key { get; set; }

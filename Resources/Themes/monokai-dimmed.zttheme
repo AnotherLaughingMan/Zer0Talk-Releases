@@ -1,0 +1,64 @@
+{
+  "id": "monokai-dimmed",
+  "displayName": "Monokai Dimmed",
+  "description": "A dimmed Monokai-inspired dark theme with reduced eye strain.",
+  "author": "Zer0Talk",
+  "version": "1.0.0",
+  "baseVariant": "Dark",
+  "resourceDictionaries": [
+    "avares://Zer0Talk/Styles/DarkThemeOverrides.axaml"
+  ],
+  "colorOverrides": {
+    "App.Background": "#1E1F1A",
+    "App.Surface": "#262720",
+    "App.CardBackground": "#2C2D26",
+    "App.ForegroundPrimary": "#E2E2DA",
+    "App.ForegroundSecondary": "#B2B2A8",
+    "App.Border": "#46463D",
+    "App.InputBorder": "#4D4D43",
+    "App.Accent": "#88C252",
+    "App.AccentLight": "#5CC6D8",
+    "App.SelectionBackground": "#3F4038",
+    "App.SelectionForeground": "#FFFFFF",
+    "App.ButtonBackground": "#34352D",
+    "App.ButtonHover": "#3C3D35",
+    "App.ButtonPressed": "#44453C",
+    "App.ChatSenderName": "#5CC6D8",
+    "App.ChatReceiverName": "#D8CB73",
+    "App.ContactName": "#DCDCCC",
+    "App.ContactNameActive": "#FFFFFF",
+    "App.ItemHover": "#34352D",
+    "App.ItemSelected": "#3F4038",
+    "StatusBar.Background": "#1A1B17",
+    "StatusBar.Foreground": "#E2E2DA",
+    "StatusBar.ForegroundSecondary": "#A4A49A",
+    "StatusBar.StreamerBadge": "#E04C84",
+    "StatusBar.StreamerBadgeForeground": "#FFFFFF"
+  },
+  "gradients": {
+    "App.TitleBarBackground": {
+      "startColor": "#303129",
+      "endColor": "#1E1F1A",
+      "angle": 90.0,
+      "direction": null,
+      "colorStops": {}
+    }
+  },
+  "defaultFontFamily": null,
+  "defaultUiScale": 1.0,
+  "minAppVersion": null,
+  "isLegacyTheme": false,
+  "legacyThemeOption": null,
+  "allowsCustomization": false,
+  "isReadOnly": true,
+  "themeType": 0,
+  "tags": [
+    "built-in",
+    "dark",
+    "monokai",
+    "dimmed"
+  ],
+  "metadata": {},
+  "createdAt": "2026-05-29T00:00:00Z",
+  "modifiedAt": "2026-05-29T00:00:00Z"
+}

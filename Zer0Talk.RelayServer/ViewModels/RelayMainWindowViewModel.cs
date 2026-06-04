@@ -70,6 +70,12 @@ public sealed class RelayMainWindowViewModel : INotifyPropertyChanged
         OnClientsChanged(RelayAppServices.Host.GetRegisteredClientsSnapshot());
         StatusText = RelayAppServices.Host.IsRunning ? "Running" : "Stopped";
 
+        if (RelayDiagnostics.TryConsumeStartupAlert(out var crashSummary))
+        {
+            OnLog($"[Crash Alert] Previous relay crash detected: {crashSummary}");
+            OnLog($"[Crash Alert] See diagnostics log: {RelayDiagnostics.DiagnosticsLogPath}");
+        }
+
         StartCommand = new RelayCommand(StartRelay, () => !RelayAppServices.Host.IsRunning);
         StopCommand = new RelayCommand(RequestStopRelay, () => RelayAppServices.Host.IsRunning);
         RestartCommand = new RelayCommand(RestartRelay, () => RelayAppServices.Host.IsRunning);

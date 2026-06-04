@@ -11,6 +11,7 @@ namespace Zer0Talk.Utilities
         public const string ManifestEntryName = "backup.manifest.json";
         public const string FormatId = "Zer0TalkBackup";
         public const int FormatVersion = 1;
+        private static readonly JsonSerializerOptions ManifestWriteOptions = new() { WriteIndented = true };
 
         public static readonly string[] IncludeRoots =
         {
@@ -36,7 +37,7 @@ namespace Zer0Talk.Utilities
             if (string.IsNullOrWhiteSpace(fullName)) return string.Empty;
 
             var normalized = fullName.Replace('\\', '/').Trim();
-            while (normalized.StartsWith("/", StringComparison.Ordinal))
+            while (normalized.StartsWith('/'))
             {
                 normalized = normalized.Substring(1);
             }
@@ -83,7 +84,7 @@ namespace Zer0Talk.Utilities
 
             var entry = archive.CreateEntry(ManifestEntryName, CompressionLevel.Optimal);
             using var stream = entry.Open();
-            JsonSerializer.Serialize(stream, manifest, new JsonSerializerOptions { WriteIndented = true });
+            JsonSerializer.Serialize(stream, manifest, ManifestWriteOptions);
         }
 
         public static bool TryReadManifest(ZipArchive archive, out BackupManifest? manifest)

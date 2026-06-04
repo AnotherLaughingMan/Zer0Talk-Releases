@@ -290,6 +290,7 @@ public partial class SettingsService
             DebugUiLogMaxLines = 1000,
             DebugLogRetentionDays = 1,
             DebugLogMaxMegabytes = 16,
+            ShowDebugUiControls = false,
             // System Tray defaults
             ShowInSystemTray = true, // Default to enabled
             MinimizeToTray = false,

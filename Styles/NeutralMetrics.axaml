@@ -125,6 +125,27 @@
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
 
+  <!-- Markdown composer metrics: keep the editor surface transparent so rendered preview stays visible. -->
+  <Style Selector="TextBox.composer-markdown-editor">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+  </Style>
+  <Style Selector="TextBox.composer-markdown-editor /template/ Border">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="TextBox.composer-markdown-editor:pointerover /template/ Border">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="TextBox.composer-markdown-editor:focus /template/ Border">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="TextBox.composer-markdown-editor:focus-within /template/ Border">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="TextBox.composer-markdown-editor:focus-visible /template/ Border">
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+
   <!-- Tabs & Menus: metrics only -->
   <Style Selector="TabItem">
     <Setter Property="CornerRadius" Value="4"/>

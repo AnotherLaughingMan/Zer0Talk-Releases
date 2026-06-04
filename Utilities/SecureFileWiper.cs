@@ -7,6 +7,7 @@
 */
 using System;
 using System.Buffers;
+using System.Globalization;
 using System.IO;
 using System.Management;
 using System.Runtime.Versioning;
@@ -237,7 +238,7 @@ namespace Zer0Talk.Utilities
                                                 if (physMediaType != null)
                                                 {
                                                     // MediaType values: 3 = HDD, 4 = SSD, 5 = SCM
-                                                    var mediaTypeValue = Convert.ToUInt16(physMediaType);
+                                                    var mediaTypeValue = Convert.ToUInt16(physMediaType, CultureInfo.InvariantCulture);
                                                     if (mediaTypeValue == 4 || mediaTypeValue == 5)
                                                         return DriveType.SSD;
                                                     if (mediaTypeValue == 3)

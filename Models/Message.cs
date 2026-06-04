@@ -49,7 +49,7 @@ namespace Zer0Talk.Models
                 {
                     _content = normalized;
                     OnPropertyChanged(nameof(Content));
-                    RenderedContent = MarkdownCodeBlockLanguageAnnotator.Annotate(_content);
+                    RenderedContent = _content;
                 }
             }
         }
@@ -176,8 +176,8 @@ namespace Zer0Talk.Models
             {
                 if (HasLinkPreview) return true;
                 var text = Content ?? string.Empty;
-                return text.IndexOf("http://", StringComparison.OrdinalIgnoreCase) >= 0
-                    || text.IndexOf("https://", StringComparison.OrdinalIgnoreCase) >= 0;
+                return text.Contains("http://", StringComparison.OrdinalIgnoreCase)
+                    || text.Contains("https://", StringComparison.OrdinalIgnoreCase);
             }
         }
 

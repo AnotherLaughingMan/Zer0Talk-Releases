@@ -54,6 +54,13 @@ public partial class SettingsService
                 }
                 catch { }
 
+                try
+                {
+                    if (!Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi)
+                        Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi = Settings.ShowDebugUiControls;
+                }
+                catch { }
+
                 // Sync audio settings after creation
                 try
                 {
@@ -91,6 +98,13 @@ public partial class SettingsService
             try
             {
                 Zer0Talk.Utilities.LoggingPaths.SyncWithSettings();
+            }
+            catch { }
+
+            try
+            {
+                if (!Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi)
+                    Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi = Settings.ShowDebugUiControls;
             }
             catch { }
 

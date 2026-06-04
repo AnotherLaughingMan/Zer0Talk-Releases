@@ -220,7 +220,7 @@ public class MonitoringViewModel : INotifyPropertyChanged
     }
 
     // View mode selection: Summary (default), Network, Advanced
-    private int _viewModeIndex = 0;
+    private int _viewModeIndex;
     public int ViewModeIndex
     {
         get => _viewModeIndex;

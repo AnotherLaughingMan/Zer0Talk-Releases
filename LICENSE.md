@@ -5,7 +5,7 @@
 **Effective Date:** September 28, 2025
 **Last Revised:** March 11, 2026
 
-> **See also:** [Disclaimer.md](Disclaimer.md) — supplementary disclaimers, user responsibility, and indemnification | [Privacy Policy](docs/PRIVACY-POLICY.md)
+> **See also:** [Disclaimer.md](Disclaimer.md) - supplementary disclaimers, user responsibility, and indemnification | [Privacy Policy](docs/PRIVACY-POLICY.md)
 
 ---
 

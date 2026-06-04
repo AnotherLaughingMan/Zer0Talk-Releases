@@ -19,6 +19,8 @@ namespace Zer0Talk.Services
 {
     public partial class DialogService
     {
+        private static readonly string[] TextFilePatterns = { "*.txt" };
+
         // Simple text prompt dialog returning edited text or null if cancelled
         public async Task<string?> PromptAsync(string title, string initialText)
         {
@@ -641,7 +643,7 @@ namespace Zer0Talk.Services
                         Title = "Save passphrase",
                         SuggestedStartLocation = start,
                         SuggestedFileName = OperatingSystem.IsWindows() ? "passphrase.dpapi.txt" : "passphrase.txt",
-                        FileTypeChoices = new[] { new FilePickerFileType("Text Files") { Patterns = new[] { "*.txt" } } }
+                        FileTypeChoices = new[] { new FilePickerFileType("Text Files") { Patterns = TextFilePatterns } }
                     });
                     if (file != null)
                     {

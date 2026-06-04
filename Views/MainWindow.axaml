@@ -10,9 +10,7 @@
     xmlns:models="clr-namespace:Zer0Talk.Models"
     xmlns:util="clr-namespace:Zer0Talk.Utilities"
     xmlns:c="clr-namespace:Zer0Talk.Controls"
-    xmlns:cm="clr-namespace:Zer0Talk.Controls.Markdown"
 
-    xmlns:avedit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
     xmlns:ctb="clr-namespace:ColorTextBlock.Avalonia;assembly=ColorTextBlock.Avalonia"
 
     x:Class="Zer0Talk.Views.MainWindow"
@@ -48,6 +46,7 @@
         <!-- Additional converters for XAML bindings -->
         <util:UidToAvatarConverter x:Key="UidToAvatarConverter" />
         <util:PresenceEqualsToBoolConverter x:Key="PresenceEqualsToBoolConverter" />
+        <util:PresenceToOpacityConverter x:Key="PresenceToOpacityConverter" />
         <util:VerificationShieldVisibilityConverter x:Key="VerificationShieldVisibilityConverter" />
         <util:InverseBoolConverter x:Key="InverseBoolConverter" />
         <util:EmojiOnlyFontSizeConverter x:Key="EmojiOnlyFontSizeConverter" />
@@ -245,9 +244,35 @@
                         <Button Classes="icon-button" ToolTip.Tip="Test Message Toast" Command="{Binding TestMessageToastCommand}" IsVisible="{Binding IsDebugUi}">
                             <TextBlock Classes="icon-mdl2" Text="&#xE8BD;" Foreground="#2196F3"/>
                         </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="Test Update Notification" Click="TestUpdateNotification_Click" IsVisible="{Binding IsDebugUi}">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE895;" Foreground="#2196F3"/>
+                        </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="Toggle Update Badge Test" Click="ToggleUpdateBadge_Click" IsVisible="{Binding IsDebugUi}">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE895;" Foreground="#FFB300"/>
+                        </Button>
                     </StackPanel>
-                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedToggleContacts}" Click="ToggleLeftPanel_Click">
-                        <TextBlock Classes="icon-mdl2" Text="&#xE700;"/>
+                    <Button x:Name="UpdateTagButton"
+                            IsVisible="False"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            Padding="0"
+                            Margin="0,0,4,0"
+                            ToolTip.Tip="{Binding LocalizedUpdateTagTooltip}"
+                            Click="UpdateTagButton_Click">
+                        <Button.ContextMenu>
+                            <ContextMenu Placement="BottomEdgeAlignedRight">
+                                <MenuItem x:Name="UpdateTagAcceptMenuItem" Header="Accept Update" Click="UpdateTagAccept_Click"/>
+                                <MenuItem x:Name="UpdateTagRefuseMenuItem" Header="Refuse (Postpone)" Click="UpdateTagRefuse_Click"/>
+                                <Separator/>
+                                <MenuItem x:Name="UpdateTagRetryMenuItem" Header="Retry Update Check" Click="UpdateTagRetry_Click"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                        <Border Background="{DynamicResource App.Accent}" CornerRadius="8" Padding="10,4">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <TextBlock Classes="icon-mdl2" Text="&#xE895;" Foreground="White" FontSize="11"/>
+                                <TextBlock x:Name="UpdateTagText" Text="{Binding LocalizedUpdateTag}" Foreground="White" FontWeight="SemiBold" FontSize="11"/>
+                            </StackPanel>
+                        </Border>
                     </Button>
                     <Button x:Name="NotificationBellButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedOpenNotifications}" Click="ToggleNotifDrop_Click">
                         <!-- Bell glyph with compact red-dot badge to mirror nav rail -->
@@ -305,8 +330,11 @@
         <Grid Margin="0,12" RowDefinitions="Auto,*,Auto">
                     <!-- Primary navigation icons stay anchored to the top -->
                     <StackPanel Grid.Row="0" Spacing="6" HorizontalAlignment="Center">
-                        <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedHome}" Click="Home_Click">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE80F;" FontSize="26"/>
+                        <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedToggleContacts}" Click="ToggleLeftPanel_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE700;" FontSize="26"/>
+                        </Button>
+                        <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedAddContact}" Click="AddContact_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE8FA;" FontSize="26"/>
                         </Button>
                         <Button x:Name="LogsButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedLogs}" Click="Logs_Click" IsVisible="False">
                             <TextBlock Classes="icon-mdl2" Text="&#xE8A5;" FontSize="26"/>
@@ -453,30 +481,29 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Contacts bar: title + add button -->
-                        <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                        <!-- Contacts bar: title -->
+                        <Grid ColumnDefinitions="*" VerticalAlignment="Center">
                             <TextBlock Grid.Column="0" Text="{Binding LocalizedContacts}" FontWeight="SemiBold"/>
-                            <Button Grid.Column="1" Classes="icon-button" ToolTip.Tip="{Binding LocalizedAddContact}" Click="AddContact_Click">
-                                        <TextBlock Classes="icon-mdl2" Text="&#xE710;"/>
-                            </Button>
                         </Grid>
                         <TextBox Text="{Binding ContactSearchText, Mode=TwoWay}" Watermark="{Binding LocalizedSearchContacts}" Margin="0,4,0,0" Padding="8,6"/>
                         <TextBlock Text="{Binding ErrorMessage}" Foreground="#F66"/>
                     </StackPanel>
                 </Border>
 
-                <ListBox Grid.Row="1" x:Name="ContactsList" ItemsSource="{Binding FilteredContacts}" SelectedItem="{Binding SelectedContact}"
-                         Padding="4" BorderThickness="0" Background="Transparent">
-                    <ListBox.Styles>
-                        <Style Selector="ListBoxItem">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
-                            <Setter Property="Padding" Value="0"/>
-                        </Style>
-                    </ListBox.Styles>
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="models:Contact">
-                <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,2">
+                <Grid Grid.Row="1">
+                    <ListBox x:Name="ContactsList" ItemsSource="{Binding FilteredContacts}" SelectedItem="{Binding SelectedContact}"
+                             Padding="4" BorderThickness="0" Background="Transparent">
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="0"/>
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:Contact">
+                                <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,2"
+                                            Opacity="{Binding Presence, Converter={StaticResource PresenceToOpacityConverter}}">
                   <Border Classes="contact-indicator" Width="3" CornerRadius="1.5"
                           VerticalAlignment="Stretch" Margin="0,4"
                           HorizontalAlignment="Left"/>
@@ -679,9 +706,52 @@
                                 </Grid>
                             </Border>
                 </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <Border IsVisible="{Binding ShowContactRecoveryPrompt}"
+                            Background="Transparent"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Padding="18">
+                        <Border Background="{DynamicResource App.Surface}"
+                                BorderBrush="{DynamicResource App.Border}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="14"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                MaxWidth="260">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="No contacts found" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Try recovering contacts from local encrypted storage or backups."
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Center"
+                                           FontSize="12"
+                                           Opacity="0.75"/>
+                                <Button Command="{Binding RecoverLocalContactsCommand}" IsEnabled="{Binding IsRecoveringLocalContacts, Converter={StaticResource InverseBoolConverter}}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                        <TextBlock Classes="icon-mdl2" Text="&#xE72C;"/>
+                                        <TextBlock Text="Recover Local Contacts"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </Border>
+
+                    <Border IsVisible="{Binding ShowContactSearchEmptyState}"
+                            Background="Transparent"
+                            HorizontalAlignment="Stretch"
+                            VerticalAlignment="Stretch"
+                            Padding="18"
+                            IsHitTestVisible="False">
+                        <TextBlock Text="No contacts match your search."
+                                   Opacity="0.7"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
             </Grid>
 
             <!-- Center: Chat (simplified) with a persistent left divider -->
@@ -1010,16 +1080,9 @@
                                                             <TextBlock Text="{Binding ReplyToPreview}" TextTrimming="CharacterEllipsis" MaxWidth="560" Opacity="0.82"/>
                                                         </StackPanel>
                                                     </Border>
-                                                    <Grid>
-                                                        <cm:Zer0TalkMarkdownViewer Markdown="{Binding RenderedContent}"
-                                                                              IsEmojiOnly="{Binding IsEmojiOnly}"
-                                                                              IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig}" />
-                                                        <TextBlock Text="{Binding RenderedContent}"
-                                                                   TextWrapping="Wrap"
-                                                                   Margin="8"
-                                                                   FontSize="{Binding IsEmojiOnly, Converter={StaticResource EmojiOnlyFontSizeConverter}}"
-                                                                   IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig, Converter={StaticResource InverseBoolConverter}}" />
-                                                    </Grid>
+                                                    <TextBlock Text="{Binding RenderedContent}"
+                                                               TextWrapping="Wrap"
+                                                               FontSize="{Binding IsEmojiOnly, Converter={StaticResource EmojiOnlyFontSizeConverter}}" />
                                                     <ItemsControl ItemsSource="{Binding ReactionAggregates}"
                                                                   IsVisible="{Binding HasReactions}">
                                                         <ItemsControl.ItemsPanel>
@@ -1141,18 +1204,6 @@
                                                                         <Binding Path="$parent[v:MainWindow].DataContext.LoggedInUidFull" />
                                                                     </MultiBinding>
                                                                 </Panel.IsVisible>
-                                                                <Border Background="{DynamicResource App.ItemSelected}"
-                                                                        BorderBrush="{DynamicResource App.Accent}"
-                                                                        BorderThickness="1"
-                                                                        CornerRadius="8"
-                                                                        Padding="6,1"
-                                                                        Margin="0,0,6,0"
-                                                                        IsVisible="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusIsPendingConverter}}">
-                                                                    <TextBlock Text="Queued"
-                                                                               FontSize="10"
-                                                                               FontWeight="SemiBold"
-                                                                               Foreground="{DynamicResource App.Accent}" />
-                                                                </Border>
                                                                 <!-- Pending / Sent / Delivered: gray glyph -->
                                                                 <TextBlock Classes="icon-mdl2" FontSize="12" Opacity="0.55"
                                                                            Text="{Binding DeliveryStatus, Converter={StaticResource DeliveryStatusToGlyphConverter}}"
@@ -1303,7 +1354,7 @@
                 </Button>
 
                 <Border Grid.Row="2" Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="1 1 0 0" Background="{DynamicResource App.Background}">
-                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
                         <Border Grid.Row="0" CornerRadius="4" Padding="8,6" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1"
                                 IsVisible="{Binding IsReplyMode}">
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" VerticalAlignment="Center">
@@ -1314,7 +1365,7 @@
                                 </Button>
                             </Grid>
                         </Border>
-                        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                             <Image Grid.Column="0" Width="16" Height="16" VerticalAlignment="Center" ToolTip.Tip="{Binding LocalizedChatEncryptedTransport}" IsVisible="{Binding IsChatEncrypted}" Source="{DynamicResource Icon.Encrypted}"/>
                             <TextBox Grid.Column="1"
                                      x:Name="MessageInput"
@@ -1329,111 +1380,12 @@
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      TextChanged="MessageInput_TextChanged"/>
-                            <Button Grid.Column="2"
-                                    x:Name="ComposerMarkdownPreviewToggleButton"
-                                    Classes="icon-button"
-                                    Margin="8 0 0 0"
-                                    Click="ToggleComposerMarkdownPreview_Click"
-                                    ToolTip.Tip="Hide markdown preview"
-                                    Focusable="False">
-                                <TextBlock x:Name="ComposerMarkdownPreviewToggleIcon" Classes="icon-mdl2" Text="&#xE890;" FontSize="14"/>
-                            </Button>
-                            <Button Grid.Column="3" x:Name="ComposerEmojiPickerButton" Classes="icon-button" Margin="8 0 0 0" Click="ComposerEmojiPickerButton_Click" ToolTip.Tip="Insert emoji" Opacity="0.5">
+                            <Button Grid.Column="2" x:Name="ComposerEmojiPickerButton" Classes="icon-button" Margin="8 0 0 0" Click="ComposerEmojiPickerButton_Click" ToolTip.Tip="Insert emoji" Opacity="0.5">
                                 <TextBlock Classes="icon-mdl2" Text="&#xE76E;"/>
                             </Button>
                         </Grid>
-                        <Border x:Name="ComposerMarkdownPreviewPanel"
-                                Grid.Row="2"
-                                CornerRadius="4"
-                                Padding="8,6"
-                                Background="{DynamicResource App.Surface}"
-                                BorderBrush="{DynamicResource App.Border}"
-                                BorderThickness="1"
-                                IsVisible="False">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="Live markdown preview"
-                                           Opacity="0.75"
-                                           FontSize="11"/>
-                                <Grid>
-                                    <cm:Zer0TalkMarkdownViewer Markdown="{Binding OutgoingMessage}"
-                                                           IsEmojiOnly="{Binding IsOutgoingMessageEmojiOnly}"
-                                                           IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig}" />
-                                    <TextBlock Text="{Binding OutgoingMessage}"
-                                               TextWrapping="Wrap"
-                                               FontSize="{Binding IsOutgoingMessageEmojiOnly, Converter={StaticResource EmojiOnlyFontSizeConverter}}"
-                                               IsVisible="{Binding $parent[v:MainWindow].DataContext.UseMarkdig, Converter={StaticResource InverseBoolConverter}}" />
-                                </Grid>
-                            </StackPanel>
-                        </Border>
                     </Grid>
                 </Border>
-
-                <!-- Floating Markdown Edit Bar (opens at cursor on right-click selection) -->
-                <Popup x:Name="ComposerMarkdownEditPopup"
-                       PlacementTarget="{Binding #MessageInput}"
-                       Placement="AnchorAndGravity"
-                       PlacementAnchor="TopLeft"
-                       PlacementGravity="TopLeft"
-                       IsLightDismissEnabled="True"
-                       IsOpen="False">
-                    <Border Background="{DynamicResource App.Surface}"
-                            BorderBrush="{DynamicResource App.Border}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="6"
-                            BoxShadow="0 6 20 0 #44000000">
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                            <Button x:Name="MarkdownHeaderButton"
-                                    Classes="icon-button"
-                                    Width="34"
-                                    Height="34"
-                                    ToolTip.Tip="Header Size"
-                                    Click="MarkdownHeaderButton_Click">
-                                <TextBlock Text="H" FontWeight="Bold" FontSize="14"/>
-                                <Button.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="Heading 1" Tag="1" Click="MarkdownHeaderSize_Click"/>
-                                        <MenuItem Header="Heading 2" Tag="2" Click="MarkdownHeaderSize_Click"/>
-                                        <MenuItem Header="Heading 3" Tag="3" Click="MarkdownHeaderSize_Click"/>
-                                        <MenuItem Header="Heading 4" Tag="4" Click="MarkdownHeaderSize_Click"/>
-                                        <MenuItem Header="Heading 5" Tag="5" Click="MarkdownHeaderSize_Click"/>
-                                        <MenuItem Header="Heading 6" Tag="6" Click="MarkdownHeaderSize_Click"/>
-                                    </ContextMenu>
-                                </Button.ContextMenu>
-                            </Button>
-                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Bold" Click="MarkdownEditBold_Click">
-                                <TextBlock Text="B" FontWeight="Bold" FontSize="14"/>
-                            </Button>
-                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Italic" Click="MarkdownEditItalic_Click">
-                                <TextBlock Text="I" FontStyle="Italic" FontSize="14"/>
-                            </Button>
-                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Underline" Click="MarkdownEditUnderline_Click">
-                                <TextBlock Text="U" TextDecorations="Underline" FontSize="14"/>
-                            </Button>
-                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Strikethrough" Click="MarkdownEditStrike_Click">
-                                <TextBlock Text="S" TextDecorations="Strikethrough" FontSize="14"/>
-                            </Button>
-                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Spoiler" Click="MarkdownEditSpoiler_Click">
-                                <TextBlock Text="||" FontSize="13"/>
-                            </Button>
-                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Link" Click="MarkdownEditLink_Click">
-                                <TextBlock Classes="icon-mdl2" Text="&#xE71B;" FontSize="14"/>
-                            </Button>
-                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Quote" Click="MarkdownEditQuote_Click">
-                                <TextBlock Text="&gt;" FontSize="14"/>
-                            </Button>
-                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Inline Code" Click="MarkdownEditInlineCode_Click">
-                                <TextBlock Text="&lt;/&gt;" FontSize="11" FontFamily="Consolas"/>
-                            </Button>
-                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Code Block" Click="MarkdownEditCodeBlock_Click">
-                                <TextBlock Text="&#123;&#125;" FontSize="12" FontFamily="Consolas"/>
-                            </Button>
-                            <Button Classes="icon-button" Width="34" Height="34" ToolTip.Tip="Mini Markdown Editor" Click="MarkdownEditMiniEditor_Click">
-                                <TextBlock Classes="icon-mdl2" Text="&#xE70F;" FontSize="14"/>
-                            </Button>
-                        </StackPanel>
-                    </Border>
-                </Popup>
                 
                 <!-- Composer Emoji Picker Popup (for inserting emojis into messages) -->
                 <Popup x:Name="ComposerEmojiPickerPopup"

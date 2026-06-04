@@ -74,7 +74,12 @@ namespace Zer0Talk.Services
             "legacy-butter",
             "vscode-dark-plus",
             "vscode-light-plus",
-            "vscode-monokai"
+            "vscode-monokai",
+            "monokai-dimmed",
+            "high-contrast",
+            "high-contrast-dark",
+            "high-visibility",
+            "mercer-blue"
         };
 
         public async Task<ThemeDefinition?> LoadThemeDefinitionAsync(string themeId)

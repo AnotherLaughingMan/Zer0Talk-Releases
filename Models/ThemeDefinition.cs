@@ -20,6 +20,24 @@ namespace Zer0Talk.Models
     /// </summary>
     public class ThemeDefinition
     {
+        private static readonly string[] AccentLightKeys = { "App.AccentLight" };
+        private static readonly string[] ItemHoverKeys = { "App.ItemHover", "SystemControlHighlightListLowBrush", "App.Surface" };
+        private static readonly string[] ItemSelectedKeys = { "App.ItemSelected", "SystemControlHighlightListAccentLowBrush", "App.SelectionBackground", "App.ItemHover" };
+        private static readonly string[] BorderKeys = { "App.Border", "App.Surface" };
+        private static readonly string[] LowListBrushKeys = { "SystemControlHighlightListLowBrush", "App.ItemHover" };
+        private static readonly string[] AccentLowListBrushKeys = { "SystemControlHighlightListAccentLowBrush", "App.ItemSelected" };
+        private static readonly System.Text.Json.JsonSerializerOptions SerializeOptions = new()
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+        private static readonly System.Text.Json.JsonSerializerOptions DeserializeOptions = new()
+        {
+            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true
+        };
+
         /// <summary>
         /// Unique identifier for this theme (e.g., "dark-pro", "light-high-contrast").
         /// </summary>
@@ -153,13 +171,13 @@ namespace Zer0Talk.Models
         /// <summary>
         /// Whether this theme supports custom user modifications.
         /// </summary>
-        public bool AllowsCustomization { get; set; } = false;
+        public bool AllowsCustomization { get; set; }
 
         /// <summary>
         /// Indicates if this theme is read-only (built-in themes cannot be overwritten, only exported as new themes).
         /// Built-in themes include: Dark, Light, Sandy, Butter, and Blank template.
         /// </summary>
-        public bool IsReadOnly { get; set; } = false;
+        public bool IsReadOnly { get; set; }
 
         /// <summary>
         /// Type of theme for classification and behavior control.
@@ -235,33 +253,33 @@ namespace Zer0Talk.Models
 
             var injected = 0;
 
-            if (TryResolveColor(new[] { "App.AccentLight" }, "#7998FF", out var accentLight))
+            if (TryResolveColor(AccentLightKeys, "#7998FF", out var accentLight))
             {
                 injected += EnsureColorOverride("App.AccentLight", accentLight, warnings, "Added missing App.AccentLight for hover/selection accents");
             }
 
-            if (TryResolveColor(new[] { "App.ItemHover", "SystemControlHighlightListLowBrush", "App.Surface" }, "#2A2A2A", out var itemHover))
+            if (TryResolveColor(ItemHoverKeys, "#2A2A2A", out var itemHover))
             {
                 injected += EnsureColorOverride("App.ItemHover", itemHover, warnings, "Added missing App.ItemHover for list/contact hover state");
             }
 
-            if (TryResolveColor(new[] { "App.ItemSelected", "SystemControlHighlightListAccentLowBrush", "App.SelectionBackground", "App.ItemHover" }, "#383838", out var itemSelected))
+            if (TryResolveColor(ItemSelectedKeys, "#383838", out var itemSelected))
             {
                 injected += EnsureColorOverride("App.ItemSelected", itemSelected, warnings, "Added missing App.ItemSelected for list/contact selected state");
             }
 
-            if (TryResolveColor(new[] { "App.Border", "App.Surface" }, "#3A3A3A", out var borderColor))
+            if (TryResolveColor(BorderKeys, "#3A3A3A", out var borderColor))
             {
                 injected += EnsureColorOverride("App.Border", borderColor, warnings, "Added missing App.Border for contact card border rendering");
             }
 
             // Keep Fluent list brushes in sync with app-owned list state colors.
-            if (TryResolveColor(new[] { "SystemControlHighlightListLowBrush", "App.ItemHover" }, "#2A2A2A", out var lowListBrush))
+            if (TryResolveColor(LowListBrushKeys, "#2A2A2A", out var lowListBrush))
             {
                 injected += EnsureColorOverride("SystemControlHighlightListLowBrush", lowListBrush, warnings, "Added missing SystemControlHighlightListLowBrush from App.ItemHover");
             }
 
-            if (TryResolveColor(new[] { "SystemControlHighlightListAccentLowBrush", "App.ItemSelected" }, "#383838", out var accentLowListBrush))
+            if (TryResolveColor(AccentLowListBrushKeys, "#383838", out var accentLowListBrush))
             {
                 injected += EnsureColorOverride("SystemControlHighlightListAccentLowBrush", accentLowListBrush, warnings, "Added missing SystemControlHighlightListAccentLowBrush from App.ItemSelected");
             }
@@ -271,7 +289,7 @@ namespace Zer0Talk.Models
 
         private int EnsureColorOverride(string key, string color, List<string>? warnings, string warning)
         {
-            if (ColorOverrides.ContainsKey(key) && IsValidColor(ColorOverrides[key]))
+            if (ColorOverrides.TryGetValue(key, out var existingColor) && IsValidColor(existingColor))
             {
                 return 0;
             }
@@ -310,14 +328,7 @@ namespace Zer0Talk.Models
         /// </summary>
         public string ToJson()
         {
-            var options = new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-            };
-
-            return System.Text.Json.JsonSerializer.Serialize(this, options);
+            return System.Text.Json.JsonSerializer.Serialize(this, SerializeOptions);
         }
 
         /// <summary>
@@ -345,13 +356,7 @@ namespace Zer0Talk.Models
         /// </summary>
         public static ThemeDefinition FromJson(string json)
         {
-            var options = new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-                PropertyNameCaseInsensitive = true
-            };
-
-            var theme = System.Text.Json.JsonSerializer.Deserialize<ThemeDefinition>(json, options);
+            var theme = System.Text.Json.JsonSerializer.Deserialize<ThemeDefinition>(json, DeserializeOptions);
             if (theme == null)
             {
                 throw new InvalidOperationException("Failed to deserialize theme: result was null");
@@ -641,7 +646,7 @@ namespace Zer0Talk.Models
                 {
                     warnings.Add("Resource dictionary list contains empty path");
                 }
-                else if (!path.StartsWith("avares://") && !System.IO.File.Exists(path))
+                else if (!path.StartsWith("avares://", StringComparison.OrdinalIgnoreCase) && !System.IO.File.Exists(path))
                 {
                     warnings.Add($"Resource dictionary path may not exist: {path}");
                 }
@@ -674,7 +679,7 @@ namespace Zer0Talk.Models
             if (string.IsNullOrWhiteSpace(color))
                 return false;
 
-            if (!color.StartsWith("#"))
+            if (!color.StartsWith('#'))
                 return false;
 
             var hex = color.Substring(1);
@@ -858,7 +863,7 @@ namespace Zer0Talk.Models
         /// 45° = diagonal (top-left to bottom-right)
         /// 135° = diagonal (top-right to bottom-left)
         /// </summary>
-        public double Angle { get; set; } = 0.0;
+        public double Angle { get; set; }
 
         /// <summary>
         /// Predefined direction for convenience (overrides Angle if set).
@@ -958,7 +963,7 @@ namespace Zer0Talk.Models
         /// <summary>
         /// Allow user-created custom themes (Phase 3+).
         /// </summary>
-        public bool AllowCustomThemes { get; set; } = false;
+        public bool AllowCustomThemes { get; set; }
 
         /// <summary>
         /// Directory path for user custom themes.
@@ -978,6 +983,6 @@ namespace Zer0Talk.Models
         /// <summary>
         /// Automatically reload themes when files change (dev mode).
         /// </summary>
-        public bool EnableHotReload { get; set; } = false;
+        public bool EnableHotReload { get; set; }
     }
 }

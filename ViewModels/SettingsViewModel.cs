@@ -24,11 +24,20 @@ namespace Zer0Talk.ViewModels;
 public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly SettingsService _settings;
+    private static readonly string[] ZtBackupFilePatterns = { "*.ztbackup" };
+    private static readonly string[] ZipFilePatterns = { "*.zip" };
+    private static readonly string[] ZtMigrateFilePatterns = { "*.ztmigrate" };
+    private static readonly string[] ZtThemeFilePatterns = { "*.zttheme" };
+    private static readonly string[] AllFilePatterns = { "*" };
+    private static readonly string[] AllFilesWildcardPatterns = { "*.*" };
+    private static readonly char[] InvalidRelayChars = { ' ', '\t', '\r', '\n', '|' };
+
     private readonly ThemeService _themeService = AppServices.Theme;
     private string _errorMessage = string.Empty;
     private bool _rememberPassphrase;
     // Performance: detected CPU/GPU capabilities (static for session)
     private int _detectedCcdCount = 1; // 1 = single-CCD assumed by default
+    private int _detectedX3dCcdCount;
     private bool _isAmdX3D;
     private bool _isAmdCpu;
     private bool _isIntelCpu;
@@ -39,7 +48,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private string _vCacheInfo = string.Empty;
     public string VCacheInfo { get => _vCacheInfo; private set { _vCacheInfo = value; OnPropertyChanged(); } }
 #if DEBUG
-    // Debug-only CCD simulation state (0=Auto,1=None,2=Single X3D,3=Dual)
+    // Debug-only CCD simulation state:
+    // 0=Auto (hardware), 1=None, 2=Single X3D, 3=Dual non-X3D, 4=Dual X3D, 5=Dual X3D (X3D2)
     private int _debugCcdModeIndex = 0;
     public int DebugCcdModeIndex
     {
@@ -48,12 +58,16 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         {
             if (_debugCcdModeIndex != value)
             {
-                _debugCcdModeIndex = value < 0 ? 0 : (value > 3 ? 3 : value);
+                _debugCcdModeIndex = value < 0 ? 0 : (value > 5 ? 5 : value);
                 try { WriteDebugLog($"CCD debug mode set: {_debugCcdModeIndex}"); } catch { }
                 // Recompute dependent UI flags
                 OnPropertyChanged(nameof(CcdAffinityEnabled));
                 OnPropertyChanged(nameof(CcdAffinityNoticeVisible));
                 OnPropertyChanged(nameof(CcdAffinityNotice));
+                OnPropertyChanged(nameof(BothCcdWarningVisible));
+                OnPropertyChanged(nameof(CcdAffinityTooltip));
+                OnPropertyChanged(nameof(DualX3dHintVisible));
+                OnPropertyChanged(nameof(DualX3dHint));
             }
         }
     }
@@ -141,13 +155,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(Language),
         nameof(DefaultPresenceIndex),
         nameof(AllowAutoUpdates),
+        nameof(UpdatePostponeHours),
         nameof(EnableSmoothScrolling),
-        nameof(EnableHybridContactsShell),
-        nameof(EnableHybridUnreadShell),
-        nameof(EnableHybridIpcHost),
-        nameof(EnableHybridMarkdownShell),
+        nameof(AutoContactBackupsEnabled),
+        nameof(ContactBackupMaxFiles),
+        nameof(ContactBackupMaxAgeDays),
         nameof(SuppressNotificationsInDnd),
         nameof(NotificationDurationSeconds),
+        nameof(NotificationTrayExpirationSeconds),
         nameof(EnableNotificationBellFlash),
         nameof(AutoLockEnabled),
         nameof(AutoLockMinutes),
@@ -178,6 +193,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(DebugLogRetentionDays),
         nameof(DebugLogMaxMegabytes),
         nameof(EnableLogging),
+        nameof(ShowDebugUiControls),
         nameof(MainVolume),
         nameof(NotificationVolume),
         nameof(ChatVolume),
@@ -228,6 +244,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _baseDebugLogMaxMegabytes;
     private bool _enableLogging;
     private bool _baseEnableLogging;
+    private bool _showDebugUiControls;
+    private bool _baseShowDebugUiControls;
     private int _basePort;
     private bool _baseMajorNode;
     private bool _baseEnableGeoBlocking;
@@ -321,13 +339,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Baseline: General additions
     private int _baseDefaultPresenceIndex;
     private bool _baseAllowAutoUpdates;
+    private int _baseUpdatePostponeHours;
     private bool _baseEnableSmoothScrolling;
-    private bool _baseEnableHybridContactsShell;
-    private bool _baseEnableHybridUnreadShell;
-    private bool _baseEnableHybridIpcHost;
-    private bool _baseEnableHybridMarkdownShell;
+    private bool _baseAutoContactBackupsEnabled;
+    private int _baseContactBackupMaxFiles;
+    private int _baseContactBackupMaxAgeDays;
     private bool _baseSuppressNotificationsInDnd;
     private double _baseNotificationDurationSeconds;
+    private double _baseNotificationTrayExpirationSeconds;
     private bool _baseEnableNotificationBellFlash;
     private bool _baseAutoLockEnabled;
     private int _baseAutoLockMinutes;
@@ -454,14 +473,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             EnhancedKeyboardNavigation = settings.EnhancedKeyboardNavigation;
             DefaultPresenceIndex = PresenceToIndex(settings.Status);
             AllowAutoUpdates = settings.AutoUpdateEnabled;
+            UpdatePostponeHours = ClampRange(settings.AutoUpdatePostponeHours <= 0 ? 24 : settings.AutoUpdatePostponeHours, 1, 72);
             EnableSmoothScrolling = settings.EnableSmoothScrolling;
-            EnableHybridContactsShell = settings.EnableHybridContactsShell;
-            EnableHybridUnreadShell = settings.EnableHybridUnreadShell;
-            EnableHybridIpcHost = settings.EnableHybridIpcHost;
-            EnableHybridMarkdownShell = settings.EnableHybridMarkdownShell;
+            AutoContactBackupsEnabled = settings.AutoContactBackupsEnabled;
+            ContactBackupMaxFiles = ClampRange(settings.ContactBackupMaxFiles <= 0 ? 5 : settings.ContactBackupMaxFiles, 1, 100);
+            ContactBackupMaxAgeDays = ClampRange(settings.ContactBackupMaxAgeDays, 0, 3650);
             UpdateLastAutoUpdateCheckDisplay(settings.LastAutoUpdateCheckUtc);
             SuppressNotificationsInDnd = settings.SuppressNotificationsInDnd;
-            NotificationDurationSeconds = Math.Clamp(settings.NotificationDurationSeconds, 0.5, 30.0);
+            NotificationDurationSeconds = Math.Clamp(settings.NotificationDurationSeconds, 0.1, 120.0);
+            NotificationTrayExpirationSeconds = Math.Clamp(settings.NotificationTrayExpirationSeconds, 0.0, 3600.0);
             EnableNotificationBellFlash = settings.EnableNotificationBellFlash;
             AutoLockEnabled = settings.AutoLockEnabled;
             AutoLockMinutes = Math.Max(0, settings.AutoLockMinutes);
@@ -542,6 +562,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _debugLogMaxMegabytes = ClampRange(settings.DebugLogMaxMegabytes <= 0 ? 16 : settings.DebugLogMaxMegabytes, 1, 512);
             SyncDebugLogMegabytesToSize();
             EnableLogging = settings.EnableLogging;
+            ShowDebugUiControls = settings.ShowDebugUiControls || Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi;
 
             var persistedThemeId = NormalizeThemeId(settings.ThemeId);
             if (string.IsNullOrWhiteSpace(persistedThemeId))
@@ -566,6 +587,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             DebugLogRetentionDays = 1;
             _debugLogMaxMegabytes = 16;
             SyncDebugLogMegabytesToSize();
+            ShowDebugUiControls = Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi;
         }
 
         if (string.IsNullOrWhiteSpace(DisplayName))
@@ -769,14 +791,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             LockBlurRadius = ClampRange(s.LockBlurRadius, 0, 10);
             DefaultPresenceIndex = PresenceToIndex(s.Status);
             AllowAutoUpdates = s.AutoUpdateEnabled;
+            UpdatePostponeHours = ClampRange(s.AutoUpdatePostponeHours <= 0 ? 24 : s.AutoUpdatePostponeHours, 1, 72);
             EnableSmoothScrolling = s.EnableSmoothScrolling;
-            EnableHybridContactsShell = s.EnableHybridContactsShell;
-            EnableHybridUnreadShell = s.EnableHybridUnreadShell;
-            EnableHybridIpcHost = s.EnableHybridIpcHost;
-            EnableHybridMarkdownShell = s.EnableHybridMarkdownShell;
+            AutoContactBackupsEnabled = s.AutoContactBackupsEnabled;
+            ContactBackupMaxFiles = ClampRange(s.ContactBackupMaxFiles <= 0 ? 5 : s.ContactBackupMaxFiles, 1, 100);
+            ContactBackupMaxAgeDays = ClampRange(s.ContactBackupMaxAgeDays, 0, 3650);
             UpdateLastAutoUpdateCheckDisplay(s.LastAutoUpdateCheckUtc);
             SuppressNotificationsInDnd = s.SuppressNotificationsInDnd;
-            NotificationDurationSeconds = Math.Clamp(s.NotificationDurationSeconds, 0.5, 30.0);
+            NotificationDurationSeconds = Math.Clamp(s.NotificationDurationSeconds, 0.1, 120.0);
+            NotificationTrayExpirationSeconds = Math.Clamp(s.NotificationTrayExpirationSeconds, 0.0, 3600.0);
             AutoLockEnabled = s.AutoLockEnabled;
             AutoLockMinutes = Math.Max(0, s.AutoLockMinutes);
             LockOnMinimize = s.LockOnMinimize;
@@ -793,6 +816,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _debugLogMaxMegabytes = ClampRange(s.DebugLogMaxMegabytes <= 0 ? 16 : s.DebugLogMaxMegabytes, 1, 512);
             SyncDebugLogMegabytesToSize();
             EnableLogging = s.EnableLogging;
+            ShowDebugUiControls = s.ShowDebugUiControls || Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi;
 
             CcdAffinityIndex = ClampRange(s.CcdAffinityIndex, 0, 3);
             _intelPCoreTargeting = s.IntelPCoreTargeting;
@@ -890,16 +914,29 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             }
         }
     }
-    public bool BothCcdWarningVisible => _ccdAffinityIndex == 3 && CcdAffinityEnabled;
+    public bool BothCcdWarningVisible => _ccdAffinityIndex == 3 && CcdAffinityEnabled && !IsDualX3dCcdForUi();
     public bool CcdAffinityEnabled
     {
         get
         {
+            if (_isIntelCpu)
+            {
+                return false;
+            }
+
+            if (!_isAmdCpu)
+            {
+                return false;
+            }
+
 #if DEBUG
-            return GetCcdCountForUi() >= 2;
+            var ccdCount = GetCcdCountForUi();
 #else
-            return _detectedCcdCount >= 2;
+            var ccdCount = _detectedCcdCount;
 #endif
+
+            // CCD switching only matters for dual-CCD AMD X3D systems.
+            return ccdCount >= 2 && GetX3dForUi();
         }
     }
     public bool CcdAffinityNoticeVisible => !CcdAffinityEnabled;
@@ -908,26 +945,72 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             if (CcdAffinityEnabled) return string.Empty;
-            bool x3d = _isAmdX3D;
+
+            if (_isIntelCpu)
+            {
+                return Services.AppServices.Localization.GetString("Settings.CcdNoticeIntel", "Intel CPU detected. CCD switching is disabled because Windows already handles thread scheduling well on Intel processors.");
+            }
+
 #if DEBUG
-            // In Debug, reflect simulated single-CCD X3D state
-            if (_debugCcdModeIndex == 2) x3d = true; else if (_debugCcdModeIndex == 1 || _debugCcdModeIndex == 3) x3d = false;
+            var ccdCount = GetCcdCountForUi();
+#else
+            var ccdCount = _detectedCcdCount;
 #endif
-            if (x3d) return "This CPU appears to be a single-CCD X3D; CCD selection isn’t applicable.";
-            return "CCD affinity requires a multi-CCD CPU.";
+
+            var x3d = GetX3dForUi();
+            if (_isAmdCpu && ccdCount >= 2 && !x3d)
+            {
+                return Services.AppServices.Localization.GetString("Settings.CcdNoticeDualNonX3d", "Dual-CCD AMD CPU detected, but no X3D CCD was detected. CCD switching is disabled because neither CCD has 3D V-Cache for Zer0Talk's encryption and messaging workloads.");
+            }
+
+            if (_isAmdCpu && ccdCount < 2 && x3d)
+            {
+                return Services.AppServices.Localization.GetString("Settings.CcdNoticeSingleX3d", "Single-CCD X3D CPU detected; CCD switching is not applicable.");
+            }
+
+            if (_isAmdCpu && ccdCount < 2)
+            {
+                return Services.AppServices.Localization.GetString("Settings.CcdNoticeSingleNoX3d", "Single-CCD CPU detected; CCD affinity requires a dual-CCD AMD X3D CPU.");
+            }
+
+            return Services.AppServices.Localization.GetString("Settings.CcdNoticeUnsupported", "CCD affinity is only available on supported dual-CCD AMD X3D CPUs.");
         }
     }
-    public string? CcdAffinityTooltip => CcdAffinityEnabled ? null : "CCD Affinity not applicable for this configuration";
+    public string? CcdAffinityTooltip => CcdAffinityEnabled ? null : CcdAffinityNotice;
+    public bool DualX3dHintVisible => CcdAffinityEnabled && IsDualX3dCcdForUi();
+    public string DualX3dHint => Services.AppServices.Localization.GetString("Settings.DualX3dHint", "Dual X3D CCD configuration detected. Either CCD is suitable, and using Both CCDs is allowed for this CPU.");
 #if DEBUG
     private int GetCcdCountForUi()
         => _debugCcdModeIndex switch
         {
             1 => 0, // No CCDs
             2 => 1, // Single X3D
-            3 => 2, // Dual
+            3 => 2, // Dual non-X3D
+            4 => 2, // Dual X3D
+            5 => 2, // Dual X3D (X3D2)
             _ => _detectedCcdCount
         };
 #endif
+
+    private bool GetX3dForUi()
+    {
+        var x3d = _isAmdX3D;
+#if DEBUG
+        if (_debugCcdModeIndex == 2 || _debugCcdModeIndex == 4 || _debugCcdModeIndex == 5) x3d = true;
+        else if (_debugCcdModeIndex == 1 || _debugCcdModeIndex == 3) x3d = false;
+#endif
+        return x3d;
+    }
+
+    private bool IsDualX3dCcdForUi()
+    {
+#if DEBUG
+        if (_debugCcdModeIndex == 5) return true;
+        if (_debugCcdModeIndex is 1 or 2 or 3 or 4) return false;
+#endif
+        return _detectedX3dCcdCount >= 2;
+    }
+
     public bool DisableGpuAcceleration
     {
         get => _disableGpuAcceleration;
@@ -1108,25 +1191,41 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         catch { _isAmdX3D = false; _isAmdCpu = false; _isIntelCpu = false; }
         try
         {
-            // Heuristic: treat >=16 logical cores as likely multi-CCD (2 CCD). Otherwise assume single-CCD.
-            _detectedCcdCount = Environment.ProcessorCount >= 16 ? 2 : 1;
+            // Prefer topology-derived CCD estimate from L3 groups; fallback to core-count heuristic.
+            _detectedCcdCount = DetectCcdCount();
         }
         catch { _detectedCcdCount = 1; }
+
+        try
+        {
+            _detectedX3dCcdCount = DetectX3dCcdCount();
+            if (_detectedX3dCcdCount > 0)
+            {
+                _isAmdX3D = true;
+            }
+        }
+        catch { _detectedX3dCcdCount = _isAmdX3D ? 1 : 0; }
+
         // Attempt V-Cache detection (Windows: via L3 cache size per mask)
         try
         {
             var res = DetectVCache();
-            if (res.HasVCache)
+            if (res.HasVCache || _detectedX3dCcdCount > 0)
             {
                 _isAmdX3D = true; // refine based on cache evidence
-                if (res.CcdIndex >= 0)
+                if (_detectedX3dCcdCount >= 2)
+                    VCacheInfo = "3D V-Cache detected on both CCDs (X3D2)";
+                else if (res.CcdIndex >= 0)
                     VCacheInfo = $"3D V-Cache detected on CCD {res.CcdIndex}";
                 else
                     VCacheInfo = "3D V-Cache detected";
             }
             else
             {
-                VCacheInfo = "No 3D V-Cache present on this CPU";
+                if (_isAmdCpu && _detectedCcdCount >= 2)
+                    VCacheInfo = "No X3D CCD detected on this dual-CCD CPU";
+                else
+                    VCacheInfo = "No 3D V-Cache present on this CPU";
             }
             WritePerformanceLogSafe($"CPU model: {CpuModel}");
             WritePerformanceLogSafe($"V-Cache: {VCacheInfo}");
@@ -1138,7 +1237,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(CcdAffinityEnabled));
         OnPropertyChanged(nameof(CcdAffinityNoticeVisible));
         OnPropertyChanged(nameof(CcdAffinityNotice));
+        OnPropertyChanged(nameof(BothCcdWarningVisible));
         OnPropertyChanged(nameof(CcdAffinityTooltip));
+        OnPropertyChanged(nameof(DualX3dHintVisible));
+        OnPropertyChanged(nameof(DualX3dHint));
         try { UpdateFontSmoothingNotice(); } catch { }
     }
 
@@ -1146,7 +1248,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private bool _osFontSmoothingEnabled;
     public bool OsFontSmoothingEnabled { get => _osFontSmoothingEnabled; private set { _osFontSmoothingEnabled = value; OnPropertyChanged(); OnPropertyChanged(nameof(GpuTextNotice)); } }
     public string GpuTextNotice
-        => OsFontSmoothingEnabled ? "OS-level font smoothing is enabled; GPU acceleration won’t change text rendering." : string.Empty;
+        => OsFontSmoothingEnabled ? LocalizedFontSmoothingMessage : string.Empty;
     private void UpdateFontSmoothingNotice()
     {
         try
@@ -1287,6 +1389,78 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         return c;
     }
 
+    private int DetectCcdCount()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var infos = GetLogicalProcessorInfos();
+                if (infos != null && infos.Length > 0)
+                {
+                    var l3Masks = infos
+                        .Where(i => i.Relationship == LOGICAL_PROCESSOR_RELATIONSHIP.RelationCache && i.ProcessorInformation.Cache.Level == 3)
+                        .Select(i => (ulong)i.ProcessorMask)
+                        .Where(m => m != 0)
+                        .Distinct()
+                        .ToList();
+
+                    if (l3Masks.Count > 0)
+                    {
+                        var topologyCount = l3Masks.Count;
+                        WritePerformanceLogSafe($"CCD detection (topology): l3Groups={topologyCount}");
+                        return Math.Max(1, topologyCount);
+                    }
+                }
+            }
+        }
+        catch { }
+
+        // Fallback heuristic when topology APIs do not provide enough data.
+        return Environment.ProcessorCount >= 16 ? 2 : 1;
+    }
+
+    private int DetectX3dCcdCount()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var infos = GetLogicalProcessorInfos();
+                if (infos != null && infos.Length > 0)
+                {
+                    var x3dMasks = infos
+                        .Where(i => i.Relationship == LOGICAL_PROCESSOR_RELATIONSHIP.RelationCache
+                            && i.ProcessorInformation.Cache.Level == 3
+                            && i.ProcessorInformation.Cache.Size >= 48 * 1024 * 1024)
+                        .Select(i => (ulong)i.ProcessorMask)
+                        .Where(m => m != 0)
+                        .Distinct()
+                        .ToList();
+
+                    if (x3dMasks.Count > 0)
+                    {
+                        WritePerformanceLogSafe($"X3D detection (topology): x3dCcds={x3dMasks.Count}");
+                        return x3dMasks.Count;
+                    }
+                }
+            }
+        }
+        catch { }
+
+        var model = CpuModel ?? string.Empty;
+        if (model.Contains("X3DX2", StringComparison.OrdinalIgnoreCase)
+            || model.Contains("X3D X2", StringComparison.OrdinalIgnoreCase)
+            || model.Contains("X3D2", StringComparison.OrdinalIgnoreCase)
+            || model.Contains("2X3D", StringComparison.OrdinalIgnoreCase)
+            || model.Contains("DUAL X3D", StringComparison.OrdinalIgnoreCase))
+        {
+            return 2;
+        }
+
+        return model.Contains("X3D", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+    }
+
     // PInvoke for GetLogicalProcessorInformation (legacy but sufficient for L3 cache sizes/masks up to 64 procs)
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetLogicalProcessorInformation(IntPtr Buffer, ref uint ReturnLength);
@@ -1372,7 +1546,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             // Simulate CCD config when debug toggle is set
             if (DebugCcdModeIndex == 1) { ccds = 0; simulate = true; }
             else if (DebugCcdModeIndex == 2) { ccds = 1; simulate = true; }
-            else if (DebugCcdModeIndex == 3) { ccds = 2; simulate = true; }
+            else if (DebugCcdModeIndex == 3 || DebugCcdModeIndex == 4 || DebugCcdModeIndex == 5) { ccds = 2; simulate = true; }
             else { ccds = _detectedCcdCount; }
 #else
             ccds = _detectedCcdCount;
@@ -1382,6 +1556,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             ulong allMask = BuildMask(0, logicalCores);
             if (index == 0)
             {
+                var dualX3dDetected = IsDualX3dCcdForUi();
+                if (ccds >= 2 && dualX3dDetected)
+                {
+                    SetProcessAffinity(allMask);
+                    WritePerformanceLogSafe($"[Auto] Dual-X3D CCD configuration detected; using both CCDs → mask=0x{allMask:X}");
+                    return;
+                }
+
                 // Auto: prefer V-Cache CCD if present, otherwise prefer CCD 0 on multi-CCD CPUs
                 int preferredCcd = -1;
                 try
@@ -1997,14 +2179,28 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedNotificationDuration => Services.AppServices.Localization.GetString("Settings.NotificationDuration", "Notification Duration");
     public string LocalizedDuration => Services.AppServices.Localization.GetString("Settings.Duration", "Duration:");
     public string LocalizedPrecise => Services.AppServices.Localization.GetString("Settings.Precise", "Precise:");
-    public string LocalizedNotificationDurationHelp => Services.AppServices.Localization.GetString("Settings.NotificationDurationHelp", "Controls how long notification toasts stay visible. Slider: 0.5-20s, Input: 0.5-30s.");
+    public string LocalizedNotificationDurationHelp => Services.AppServices.Localization.GetString("Settings.NotificationDurationHelp", "Controls how long notification toasts stay visible. Range: 0.1-120.0 seconds.");
+    public string LocalizedNotificationDurationInputTooltip => Services.AppServices.Localization.GetString("Settings.NotificationDurationInputTooltip", "Set duration (0.1 to 120 seconds)");
+    public string LocalizedNotificationTrayExpiration => Services.AppServices.Localization.GetString("Settings.NotificationTrayExpiration", "Notification Tray Expiration");
+    public string LocalizedNotificationTrayExpirationHelp => Services.AppServices.Localization.GetString("Settings.NotificationTrayExpirationHelp", "Controls how long non-persistent notices stay in the tray before they are removed. Set to 0 to never auto-expire.");
+    public string LocalizedNotificationTrayExpirationInputTooltip => Services.AppServices.Localization.GetString("Settings.NotificationTrayExpirationInputTooltip", "Set tray expiration (0 to 3600 seconds)");
     public string LocalizedCurrentSetting => Services.AppServices.Localization.GetString("Settings.CurrentSetting", "Current setting:");
     public string LocalizedSeconds => Services.AppServices.Localization.GetString("Settings.Seconds", "seconds");
     public string LocalizedOfflineAutomatic => Services.AppServices.Localization.GetString("Settings.OfflineAutomatic", "Offline is automatic only and cannot be selected.");
     public string LocalizedAllowAutoUpdates => Services.AppServices.Localization.GetString("Settings.AllowAutoUpdates", "Allow Auto Updates");
     public string LocalizedAllowAutoUpdatesHelp => Services.AppServices.Localization.GetString("Settings.AllowAutoUpdatesHelp", "Automatically check for and prompt to install new versions.");
+    public string LocalizedUpdatesAndScrolling => Services.AppServices.Localization.GetString("Settings.UpdatesAndScrolling", "Updates and Scrolling");
+    public string LocalizedUpdates => Services.AppServices.Localization.GetString("Settings.Updates", "Updates");
+    public string LocalizedPostponeUpdateHours => Services.AppServices.Localization.GetString("Settings.PostponeUpdateHours", "Postpone update for (hours)");
+    public string LocalizedMax72 => Services.AppServices.Localization.GetString("Settings.Max72", "Max 72");
     public string LocalizedEnableSmoothScrolling => Services.AppServices.Localization.GetString("Settings.EnableSmoothScrolling", "Enable smooth scrolling");
     public string LocalizedEnableSmoothScrollingHelp => Services.AppServices.Localization.GetString("Settings.EnableSmoothScrollingHelp", "Use animated scrolling in log viewers and live feeds.");
+    public string LocalizedAutoContactBackups => Services.AppServices.Localization.GetString("Settings.AutoContactBackups", "Auto-backup contacts before save");
+    public string LocalizedAutoContactBackupsHelp => Services.AppServices.Localization.GetString("Settings.AutoContactBackupsHelp", "Creates rolling backups of contacts.p2e before overwriting (up to 10 files).");
+    public string LocalizedContactBackupMaxFiles => Services.AppServices.Localization.GetString("Settings.ContactBackupMaxFiles", "Backups to keep");
+    public string LocalizedContactBackupMaxAgeDays => Services.AppServices.Localization.GetString("Settings.ContactBackupMaxAgeDays", "Delete backups older than (days)");
+    public string LocalizedBackups => Services.AppServices.Localization.GetString("Settings.Backups", "Backups");
+    public string LocalizedDaysZeroOff => Services.AppServices.Localization.GetString("Settings.DaysZeroOff", "days (0 = off)");
     public string LocalizedCheckForUpdatesNow => Services.AppServices.Localization.GetString("Settings.CheckForUpdatesNow", "Check for Updates Now");
     public string LocalizedCheckForUpdatesNowHelp => Services.AppServices.Localization.GetString("Settings.CheckForUpdatesNowHelp", "Runs an immediate update check even when auto updates are disabled.");
     public string LocalizedLastUpdateCheck => Services.AppServices.Localization.GetString("Settings.LastUpdateCheck", "Last checked:");
@@ -2102,6 +2298,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedIntelPCoreTargeting => Services.AppServices.Localization.GetString("Settings.IntelPCoreTargeting", "Prefer Performance Cores");
     public string LocalizedIntelPCoreTargetingHelp => Services.AppServices.Localization.GetString("Settings.IntelPCoreTargetingHelp", "Target Performance cores over Efficiency cores for lower latency on Intel hybrid CPUs");
     public string LocalizedNotRecommended => Services.AppServices.Localization.GetString("Settings.NotRecommended", "Not Recommended");
+    public string LocalizedCcdBothWarningTooltip => Services.AppServices.Localization.GetString("Settings.CcdBothWarningTooltip", "Using both CCDs can increase latency due to inter-CCD data transfers.");
+    public string LocalizedCcdAutoRecommendation => Services.AppServices.Localization.GetString("Settings.CcdAutoRecommendation", "Leave on Auto unless CCD detection is wrong for your CPU. Auto targets the 3D V-Cache die when present - Zer0Talk's encryption and messaging workloads are cache-intensive and benefit from the larger L3, making the V-Cache die the better choice over the higher-clocked non-V-Cache die.");
     public string LocalizedEnforceRAMLimit => Services.AppServices.Localization.GetString("Settings.EnforceRAMLimit", "Enforce RAM Limit");
     public string LocalizedEnforceRAMLimitHelp => Services.AppServices.Localization.GetString("Settings.EnforceRAMLimitHelp", "Limit memory usage for the app");
     public string LocalizedRAMLimit => Services.AppServices.Localization.GetString("Settings.RAMLimit", "RAM Limit:");
@@ -2141,9 +2339,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedDebugTools => Services.AppServices.Localization.GetString("Settings.DebugTools", "Debug Tools");
     public string LocalizedLogging => Services.AppServices.Localization.GetString("Settings.Logging", "Logging");
     public string LocalizedEnableLogging => Services.AppServices.Localization.GetString("Settings.EnableLogging", "Enable logging");
+    public string LocalizedShowDebugUiControls => Services.AppServices.Localization.GetString("Settings.ShowDebugUiControls", "Show testing and simulation controls");
+    public string LocalizedShowDebugUiControlsHelp => Services.AppServices.Localization.GetString("Settings.ShowDebugUiControlsHelp", "Expose developer testing buttons and simulation controls in the main UI.");
+    public string LocalizedLoggingForcedByLaunch => Services.AppServices.Localization.GetString("Settings.LoggingForcedByLaunch", "Logging is forced ON by launch flag -debug.");
     public string LocalizedPerformanceWarning => Services.AppServices.Localization.GetString("Settings.PerformanceWarning", "Performance Warning");
     public string LocalizedPerformanceWarningText => Services.AppServices.Localization.GetString("Settings.PerformanceWarningText", "Logging causes significant performance degradation. Only enable when actively tracking down problems or debugging issues. Disable immediately after troubleshooting is complete.");
     public string LocalizedLogMaintenance => Services.AppServices.Localization.GetString("Settings.LogMaintenance", "Log Maintenance");
+    public string LocalizedLogMaintenanceCompleteToast => Services.AppServices.Localization.GetString("Settings.LogMaintenanceCompleteToast", "Log maintenance complete");
     public string LocalizedAutoTrimUILog => Services.AppServices.Localization.GetString("Settings.AutoTrimUILog", "Auto-trim UI log");
     public string LocalizedAutoTrimUILogHelp => Services.AppServices.Localization.GetString("Settings.AutoTrimUILogHelp", "Automatically trim the UI log to the limits below");
     public string LocalizedMaxEntries => Services.AppServices.Localization.GetString("Settings.MaxEntries", "Max entries to keep");
@@ -2700,13 +2902,27 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedDuration));
             OnPropertyChanged(nameof(LocalizedPrecise));
             OnPropertyChanged(nameof(LocalizedNotificationDurationHelp));
+            OnPropertyChanged(nameof(LocalizedNotificationDurationInputTooltip));
+            OnPropertyChanged(nameof(LocalizedNotificationTrayExpiration));
+            OnPropertyChanged(nameof(LocalizedNotificationTrayExpirationHelp));
+            OnPropertyChanged(nameof(LocalizedNotificationTrayExpirationInputTooltip));
             OnPropertyChanged(nameof(LocalizedCurrentSetting));
             OnPropertyChanged(nameof(LocalizedSeconds));
             OnPropertyChanged(nameof(LocalizedOfflineAutomatic));
             OnPropertyChanged(nameof(LocalizedAllowAutoUpdates));
             OnPropertyChanged(nameof(LocalizedAllowAutoUpdatesHelp));
+            OnPropertyChanged(nameof(LocalizedUpdatesAndScrolling));
+            OnPropertyChanged(nameof(LocalizedUpdates));
+            OnPropertyChanged(nameof(LocalizedPostponeUpdateHours));
+            OnPropertyChanged(nameof(LocalizedMax72));
             OnPropertyChanged(nameof(LocalizedEnableSmoothScrolling));
             OnPropertyChanged(nameof(LocalizedEnableSmoothScrollingHelp));
+            OnPropertyChanged(nameof(LocalizedAutoContactBackups));
+            OnPropertyChanged(nameof(LocalizedAutoContactBackupsHelp));
+            OnPropertyChanged(nameof(LocalizedContactBackupMaxFiles));
+            OnPropertyChanged(nameof(LocalizedContactBackupMaxAgeDays));
+            OnPropertyChanged(nameof(LocalizedBackups));
+            OnPropertyChanged(nameof(LocalizedDaysZeroOff));
             OnPropertyChanged(nameof(LocalizedCheckForUpdatesNow));
             OnPropertyChanged(nameof(LocalizedCheckForUpdatesNowHelp));
             OnPropertyChanged(nameof(LocalizedLastUpdateCheck));
@@ -2803,6 +3019,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedFramerate));
             OnPropertyChanged(nameof(LocalizedCCDOffinity));
             OnPropertyChanged(nameof(LocalizedNotRecommended));
+            OnPropertyChanged(nameof(LocalizedCcdBothWarningTooltip));
+            OnPropertyChanged(nameof(LocalizedCcdAutoRecommendation));
+            OnPropertyChanged(nameof(CcdAffinityNotice));
+            OnPropertyChanged(nameof(CcdAffinityTooltip));
+            OnPropertyChanged(nameof(DualX3dHint));
             OnPropertyChanged(nameof(LocalizedEnforceRAMLimit));
             OnPropertyChanged(nameof(LocalizedEnforceRAMLimitHelp));
             OnPropertyChanged(nameof(LocalizedRAMLimit));
@@ -2837,14 +3058,19 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedFontRendering));
             OnPropertyChanged(nameof(LocalizedOSFontSmoothing));
             OnPropertyChanged(nameof(LocalizedFontSmoothingMessage));
+            OnPropertyChanged(nameof(GpuTextNotice));
             
             // Debug/Network panels
             OnPropertyChanged(nameof(LocalizedDebugTools));
             OnPropertyChanged(nameof(LocalizedLogging));
             OnPropertyChanged(nameof(LocalizedEnableLogging));
+            OnPropertyChanged(nameof(LocalizedShowDebugUiControls));
+            OnPropertyChanged(nameof(LocalizedShowDebugUiControlsHelp));
+            OnPropertyChanged(nameof(LocalizedLoggingForcedByLaunch));
             OnPropertyChanged(nameof(LocalizedPerformanceWarning));
             OnPropertyChanged(nameof(LocalizedPerformanceWarningText));
             OnPropertyChanged(nameof(LocalizedLogMaintenance));
+            OnPropertyChanged(nameof(LocalizedLogMaintenanceCompleteToast));
             OnPropertyChanged(nameof(LocalizedAutoTrimUILog));
             OnPropertyChanged(nameof(LocalizedAutoTrimUILogHelp));
             OnPropertyChanged(nameof(LocalizedMaxEntries));
@@ -3073,20 +3299,56 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private bool _allowAutoUpdates;
     public bool AllowAutoUpdates { get => _allowAutoUpdates; set { if (_allowAutoUpdates != value) { _allowAutoUpdates = value; OnPropertyChanged(); } } }
 
+    private int _updatePostponeHours = 24;
+    public int UpdatePostponeHours
+    {
+        get => _updatePostponeHours;
+        set
+        {
+            var v = ClampRange(value, 1, 72);
+            if (_updatePostponeHours != v)
+            {
+                _updatePostponeHours = v;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     private bool _enableSmoothScrolling = true;
     public bool EnableSmoothScrolling { get => _enableSmoothScrolling; set { if (_enableSmoothScrolling != value) { _enableSmoothScrolling = value; OnPropertyChanged(); } } }
 
-    private bool _enableHybridContactsShell;
-    public bool EnableHybridContactsShell { get => _enableHybridContactsShell; set { if (_enableHybridContactsShell != value) { _enableHybridContactsShell = value; OnPropertyChanged(); } } }
+    private bool _autoContactBackupsEnabled = true;
+    public bool AutoContactBackupsEnabled { get => _autoContactBackupsEnabled; set { if (_autoContactBackupsEnabled != value) { _autoContactBackupsEnabled = value; OnPropertyChanged(); } } }
 
-    private bool _enableHybridUnreadShell;
-    public bool EnableHybridUnreadShell { get => _enableHybridUnreadShell; set { if (_enableHybridUnreadShell != value) { _enableHybridUnreadShell = value; OnPropertyChanged(); } } }
+    private int _contactBackupMaxFiles = 5;
+    public int ContactBackupMaxFiles
+    {
+        get => _contactBackupMaxFiles;
+        set
+        {
+            var v = ClampRange(value, 1, 100);
+            if (_contactBackupMaxFiles != v)
+            {
+                _contactBackupMaxFiles = v;
+                OnPropertyChanged();
+            }
+        }
+    }
 
-    private bool _enableHybridIpcHost;
-    public bool EnableHybridIpcHost { get => _enableHybridIpcHost; set { if (_enableHybridIpcHost != value) { _enableHybridIpcHost = value; OnPropertyChanged(); } } }
-
-    private bool _enableHybridMarkdownShell;
-    public bool EnableHybridMarkdownShell { get => _enableHybridMarkdownShell; set { if (_enableHybridMarkdownShell != value) { _enableHybridMarkdownShell = value; OnPropertyChanged(); } } }
+    private int _contactBackupMaxAgeDays = 30;
+    public int ContactBackupMaxAgeDays
+    {
+        get => _contactBackupMaxAgeDays;
+        set
+        {
+            var v = ClampRange(value, 0, 3650);
+            if (_contactBackupMaxAgeDays != v)
+            {
+                _contactBackupMaxAgeDays = v;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     private string? _lastAutoUpdateCheckUtcRaw;
     private string _lastAutoUpdateCheckDisplay = "Never";
@@ -3107,7 +3369,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public bool SuppressNotificationsInDnd { get => _suppressNotificationsInDnd; set { if (_suppressNotificationsInDnd != value) { _suppressNotificationsInDnd = value; OnPropertyChanged(); } } }
     
     private double _notificationDurationSeconds;
-    public double NotificationDurationSeconds { get => _notificationDurationSeconds; set { var v = Math.Clamp(value, 0.5, 30.0); if (Math.Abs(_notificationDurationSeconds - v) > 0.01) { _notificationDurationSeconds = v; OnPropertyChanged(); } } }
+    public double NotificationDurationSeconds { get => _notificationDurationSeconds; set { var v = Math.Clamp(value, 0.1, 120.0); if (Math.Abs(_notificationDurationSeconds - v) > 0.001) { _notificationDurationSeconds = v; OnPropertyChanged(); } } }
+
+    private double _notificationTrayExpirationSeconds = 60.0;
+    public double NotificationTrayExpirationSeconds { get => _notificationTrayExpirationSeconds; set { var v = Math.Clamp(value, 0.0, 3600.0); if (Math.Abs(_notificationTrayExpirationSeconds - v) > 0.001) { _notificationTrayExpirationSeconds = v; OnPropertyChanged(); } } }
     
     private bool _enableNotificationBellFlash;
     public bool EnableNotificationBellFlash { get => _enableNotificationBellFlash; set { if (_enableNotificationBellFlash != value) { _enableNotificationBellFlash = value; OnPropertyChanged(); } } }
@@ -3222,7 +3487,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         catch (Exception ex)
         {
             try { Logger.Log($"Settings: CheckForUpdatesNow failed - {ex.Message}"); } catch { }
-            try { AppServices.Notifications.PostNotice(Models.NotificationType.Warning, "Update check failed. See logs for details.", isPersistent: true); } catch { }
+            var updateCheckFailed = Services.AppServices.Localization.GetString("Settings.UpdateCheckFailed", "Update check failed. See logs for details.");
+            try { AppServices.Notifications.PostNotice(Models.NotificationType.Warning, updateCheckFailed, isPersistent: true); } catch { }
         }
     }
 
@@ -3315,11 +3581,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 {
                     new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Encrypted Backup")
                     {
-                        Patterns = new[] { "*.ztbackup" }
+                        Patterns = ZtBackupFilePatterns
                     },
                     new Avalonia.Platform.Storage.FilePickerFileType("ZIP Archive (legacy)")
                     {
-                        Patterns = new[] { "*.zip" }
+                        Patterns = ZipFilePatterns
                     }
                 }
             });
@@ -3392,7 +3658,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 {
                     new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Migration Bundle")
                     {
-                        Patterns = new[] { "*.ztmigrate" }
+                        Patterns = ZtMigrateFilePatterns
                     }
                 }
             });
@@ -3491,9 +3757,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 AllowMultiple = false,
                 FileTypeFilter = new System.Collections.Generic.List<Avalonia.Platform.Storage.FilePickerFileType>
                 {
-                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Encrypted Backup") { Patterns = new[] { "*.ztbackup" } },
-                    new Avalonia.Platform.Storage.FilePickerFileType("ZIP Archive (legacy)") { Patterns = new[] { "*.zip" } },
-                    new Avalonia.Platform.Storage.FilePickerFileType("All Files") { Patterns = new[] { "*.*" } }
+                    new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Encrypted Backup") { Patterns = ZtBackupFilePatterns },
+                    new Avalonia.Platform.Storage.FilePickerFileType("ZIP Archive (legacy)") { Patterns = ZipFilePatterns },
+                    new Avalonia.Platform.Storage.FilePickerFileType("All Files") { Patterns = AllFilesWildcardPatterns }
                 }
             });
 
@@ -3604,7 +3870,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
             foreach (var entry in archive.Entries)
             {
-                if (entry.Length == 0 && entry.FullName.EndsWith("/", StringComparison.Ordinal))
+                if (entry.Length == 0 && entry.FullName.EndsWith('/'))
                 {
                     continue;
                 }
@@ -3711,6 +3977,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
     private async System.Threading.Tasks.Task SaveAsync(bool showToast, bool close)
     {
+        await System.Threading.Tasks.Task.CompletedTask;
         try
         {
             var s = _settings.Settings;
@@ -3761,13 +4028,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             // General additions
             s.Status = IndexToPresence(DefaultPresenceIndex);
             s.AutoUpdateEnabled = AllowAutoUpdates;
+            s.AutoUpdatePostponeHours = ClampRange(UpdatePostponeHours, 1, 72);
             s.EnableSmoothScrolling = EnableSmoothScrolling;
-            s.EnableHybridContactsShell = EnableHybridContactsShell;
-            s.EnableHybridUnreadShell = EnableHybridUnreadShell;
-            s.EnableHybridIpcHost = EnableHybridIpcHost;
-            s.EnableHybridMarkdownShell = EnableHybridMarkdownShell;
+            s.AutoContactBackupsEnabled = AutoContactBackupsEnabled;
+            s.ContactBackupMaxFiles = ClampRange(ContactBackupMaxFiles, 1, 100);
+            s.ContactBackupMaxAgeDays = ClampRange(ContactBackupMaxAgeDays, 0, 3650);
             s.SuppressNotificationsInDnd = SuppressNotificationsInDnd;
             s.NotificationDurationSeconds = Math.Clamp(NotificationDurationSeconds, 0.5, 30.0);
+            s.NotificationTrayExpirationSeconds = Math.Clamp(NotificationTrayExpirationSeconds, 0.0, 3600.0);
             s.EnableNotificationBellFlash = EnableNotificationBellFlash;
             s.AutoLockEnabled = AutoLockEnabled;
             s.AutoLockMinutes = Math.Max(0, AutoLockMinutes);
@@ -3805,6 +4073,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.DebugLogRetentionDays = DebugLogRetentionDays;
             s.DebugLogMaxMegabytes = DebugLogMaxMegabytes;
             s.EnableLogging = EnableLogging;
+            s.ShowDebugUiControls = ShowDebugUiControls;
             // Apply staged Security change: RememberPassphrase
             if (RememberPassphrase != s.RememberPassphrase)
             {
@@ -3829,10 +4098,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 }
             }
             _settings.Save(AppServices.Passphrase);
-            // Apply hybrid IPC host rollout state immediately.
-            try { AppServices.StartHybridIpcHostIfEnabled(); } catch { }
-            // Apply shell-side consumer rollout state immediately.
-            try { AppServices.StartHybridShellAdapterIfEnabled(); } catch { }
             try { LogSettingsEvent($"Saved settings (ThemeId={s.ThemeId}, ThemeOption={s.Theme})"); } catch { }
             try { WritePerformanceLog($"Saved perf: CcdAffinityIndex={s.CcdAffinityIndex}, DisableGPU={s.DisableGpuAcceleration}, FPS={s.FpsThrottle}, Refresh={s.RefreshRateThrottle}, RAMmb={s.RamUsageLimitMb}, VRAMmb={s.VramUsageLimitMb}"); } catch { }
             try { ApplyGpuModeImmediate(s.DisableGpuAcceleration); } catch { }
@@ -4086,13 +4351,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (!string.Equals(_baseLanguage ?? "English (US)", Language ?? "English (US)", StringComparison.Ordinal)) return true;
             if (_baseDefaultPresenceIndex != _defaultPresenceIndex) return true;
             if (_baseAllowAutoUpdates != _allowAutoUpdates) return true;
+            if (_baseUpdatePostponeHours != _updatePostponeHours) return true;
             if (_baseEnableSmoothScrolling != _enableSmoothScrolling) return true;
-            if (_baseEnableHybridContactsShell != _enableHybridContactsShell) return true;
-            if (_baseEnableHybridUnreadShell != _enableHybridUnreadShell) return true;
-            if (_baseEnableHybridIpcHost != _enableHybridIpcHost) return true;
-            if (_baseEnableHybridMarkdownShell != _enableHybridMarkdownShell) return true;
+            if (_baseAutoContactBackupsEnabled != _autoContactBackupsEnabled) return true;
+            if (_baseContactBackupMaxFiles != _contactBackupMaxFiles) return true;
+            if (_baseContactBackupMaxAgeDays != _contactBackupMaxAgeDays) return true;
             if (_baseSuppressNotificationsInDnd != _suppressNotificationsInDnd) return true;
             if (Math.Abs(_baseNotificationDurationSeconds - _notificationDurationSeconds) > 0.01) return true;
+            if (Math.Abs(_baseNotificationTrayExpirationSeconds - _notificationTrayExpirationSeconds) > 0.01) return true;
             if (_baseAutoLockEnabled != _autoLockEnabled) return true;
             if (_baseAutoLockMinutes != _autoLockMinutes) return true;
             if (_baseLockOnMinimize != _lockOnMinimize) return true;
@@ -4124,6 +4390,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (_baseDebugLogRetentionDays != _debugLogRetentionDays) return true;
             if (_baseDebugLogMaxMegabytes != _debugLogMaxMegabytes) return true;
             if (_baseEnableLogging != _enableLogging) return true;
+            if (_baseShowDebugUiControls != _showDebugUiControls) return true;
             if (_basePort != Port) return true;
             if (_baseMajorNode != MajorNode) return true;
             if (_baseEnableGeoBlocking != EnableGeoBlocking) return true;
@@ -4180,13 +4447,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseLanguage = Language ?? "English (US)";
             _baseDefaultPresenceIndex = _defaultPresenceIndex;
             _baseAllowAutoUpdates = _allowAutoUpdates;
+            _baseUpdatePostponeHours = _updatePostponeHours;
             _baseEnableSmoothScrolling = _enableSmoothScrolling;
-            _baseEnableHybridContactsShell = _enableHybridContactsShell;
-            _baseEnableHybridUnreadShell = _enableHybridUnreadShell;
-            _baseEnableHybridIpcHost = _enableHybridIpcHost;
-            _baseEnableHybridMarkdownShell = _enableHybridMarkdownShell;
+            _baseAutoContactBackupsEnabled = _autoContactBackupsEnabled;
+            _baseContactBackupMaxFiles = _contactBackupMaxFiles;
+            _baseContactBackupMaxAgeDays = _contactBackupMaxAgeDays;
             _baseSuppressNotificationsInDnd = _suppressNotificationsInDnd;
             _baseNotificationDurationSeconds = _notificationDurationSeconds;
+            _baseNotificationTrayExpirationSeconds = _notificationTrayExpirationSeconds;
             _baseEnableNotificationBellFlash = _enableNotificationBellFlash;
             _baseAutoLockEnabled = _autoLockEnabled;
             _baseAutoLockMinutes = _autoLockMinutes;
@@ -4220,6 +4488,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseDebugLogRetentionDays = _debugLogRetentionDays;
             _baseDebugLogMaxMegabytes = _debugLogMaxMegabytes;
             _baseEnableLogging = _enableLogging;
+            _baseShowDebugUiControls = _showDebugUiControls;
             _basePort = Port;
             _baseMajorNode = MajorNode;
             _baseEnableGeoBlocking = EnableGeoBlocking;
@@ -4680,14 +4949,22 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         get => _enableLogging;
         set
         {
-            if (_enableLogging != value)
+            var effective = value || Zer0Talk.Utilities.RuntimeFlags.ForceDebugLogging;
+            if (Zer0Talk.Utilities.RuntimeFlags.ForceDebugLogging && !value)
             {
-                _enableLogging = value;
+                if (!_enableLogging) _enableLogging = true;
+                OnPropertyChanged();
+                return;
+            }
+
+            if (_enableLogging != effective)
+            {
+                _enableLogging = effective;
                 OnPropertyChanged();
                 // Update LoggingPaths immediately when toggle changes
                 try
                 {
-                    Zer0Talk.Utilities.LoggingPaths.SetEnabled(value);
+                    Zer0Talk.Utilities.LoggingPaths.SetEnabled(effective);
                 }
                 catch { }
                 // Update Logs button visibility in MainWindow
@@ -4703,7 +4980,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                             var logsButton = mainWindow?.FindControl<Avalonia.Controls.Button>("LogsButton");
                             if (logsButton != null)
                             {
-                                logsButton.IsVisible = value;
+                                logsButton.IsVisible = effective;
                             }
                         }
                         catch { }
@@ -4714,6 +4991,21 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             }
         }
     }
+
+    public bool ShowDebugUiControls
+    {
+        get => _showDebugUiControls;
+        set
+        {
+            if (_showDebugUiControls == value) return;
+            _showDebugUiControls = value;
+            OnPropertyChanged();
+            try { Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi = value; } catch { }
+        }
+    }
+
+    public bool IsEnableLoggingToggleEnabled => !Zer0Talk.Utilities.RuntimeFlags.ForceDebugLogging;
+    public bool IsLoggingForcedByLaunch => Zer0Talk.Utilities.RuntimeFlags.ForceDebugLogging;
 
     public int DebugUiLogMaxLines
     {
@@ -4957,7 +5249,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         {
             var summary = await System.Threading.Tasks.Task.Run(() => AppServices.LogMaintenance.RunMaintenanceNow("manual"));
             UpdateLogMaintenanceStatus(summary, AppServices.LogMaintenance.LastRunUtc);
-            await ShowSaveToastAsync("Log maintenance complete", 1600);
+            await ShowSaveToastAsync(LocalizedLogMaintenanceCompleteToast, 1600);
         }
         catch { }
     }
@@ -5295,10 +5587,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            // Do not clear passphrase; simply lock the app.
-            try { Logger.Log("User logout requested (lock only; passphrase retained)"); } catch { }
+            // Security-first logout: clear remembered passphrase and remember preference, then lock.
+            try { Logger.Log("User logout requested (lock + clear remembered passphrase/preference)"); } catch { }
             try { CloseRequested?.Invoke(this, EventArgs.Empty); } catch { }
-            try { new Zer0Talk.Services.LockService().Lock(); } catch { }
+            try { new Zer0Talk.Services.LockService().Lock(clearStoredCredentials: true); } catch { }
         }
         catch { }
     }
@@ -5621,14 +5913,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Phase 3 Step 4: Color editing with undo/redo
     private readonly System.Collections.Generic.Stack<ColorEditAction> _undoStack = new();
     private readonly System.Collections.Generic.Stack<ColorEditAction> _redoStack = new();
-    private ThemeColorEntry? _currentlyEditingColor = null;
+    private ThemeColorEntry? _currentlyEditingColor;
     
     public bool CanUndo => _undoStack.Count > 0;
     public bool CanRedo => _redoStack.Count > 0;
     public bool IsEditingColor => _currentlyEditingColor != null;
 
     // Phase 3 Step 5: Batch editing and advanced features
-    private bool _isBatchEditMode = false;
+    private bool _isBatchEditMode;
     public bool IsBatchEditMode
     {
         get => _isBatchEditMode;
@@ -5647,14 +5939,14 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private readonly System.Collections.ObjectModel.ObservableCollection<string> _recentColors = new();
     public System.Collections.ObjectModel.ObservableCollection<string> RecentColors => _recentColors;
 
-    private string? _copiedColor = null;
+    private string? _copiedColor;
     public bool HasCopiedColor => !string.IsNullOrEmpty(_copiedColor);
 
     public int SelectedColorCount => ThemeColors.Count(c => c.IsSelected);
     public bool HasSelectedColors => SelectedColorCount > 0;
 
     // Phase 3 Step 6: Gradient editing
-    private ThemeGradientEntry? _currentlyEditingGradient = null;
+    private ThemeGradientEntry? _currentlyEditingGradient;
     public bool IsEditingGradient => _currentlyEditingGradient != null;
 
     private readonly System.Collections.Generic.List<GradientPreset> _gradientPresets = new()
@@ -5680,7 +5972,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
     public System.Collections.Generic.IReadOnlyList<LegacyThemeOption> LegacyThemes => _legacyThemes;
 
-    private LegacyThemeOption? _selectedLegacyTheme = null;
+    private LegacyThemeOption? _selectedLegacyTheme;
     public LegacyThemeOption? SelectedLegacyTheme
     {
         get => _selectedLegacyTheme;
@@ -5727,7 +6019,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public bool CanLoadLegacyTheme => SelectedLegacyTheme != null && !IsEditingColor && !IsEditingGradient && !IsEditingMetadata;
 
     // Phase 3 Step 7: Theme management and metadata editing
-    private bool _isEditingMetadata = false;
+    private bool _isEditingMetadata;
     public bool IsEditingMetadata
     {
         get => _isEditingMetadata;
@@ -5873,11 +6165,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 {
                     new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
-                        Patterns = new[] { "*.zttheme" }
+                        Patterns = ZtThemeFilePatterns
                     },
                     new Avalonia.Platform.Storage.FilePickerFileType("All Files")
                     {
-                        Patterns = new[] { "*" }
+                        Patterns = AllFilePatterns
                     }
                 }
             });
@@ -5931,11 +6223,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 {
                     new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
-                        Patterns = new[] { "*.zttheme" }
+                        Patterns = ZtThemeFilePatterns
                     },
                     new Avalonia.Platform.Storage.FilePickerFileType("All Files")
                     {
-                        Patterns = new[] { "*" }
+                        Patterns = AllFilePatterns
                     }
                 }
             });
@@ -6750,7 +7042,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 {
                     new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
-                        Patterns = new[] { "*.zttheme" }
+                        Patterns = ZtThemeFilePatterns
                     }
                 }
             });
@@ -6859,11 +7151,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 {
                     new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
-                        Patterns = new[] { "*.zttheme" }
+                        Patterns = ZtThemeFilePatterns
                     },
                     new Avalonia.Platform.Storage.FilePickerFileType("All Files")
                     {
-                        Patterns = new[] { "*" }
+                        Patterns = AllFilePatterns
                     }
                 }
             });
@@ -6897,7 +7189,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     }
 
     // Helper class for undo/redo tracking
-    private class ColorEditAction
+    private sealed class ColorEditAction
     {
         public string ResourceKey { get; set; } = string.Empty;
         public string OldValue { get; set; } = string.Empty;
@@ -6908,8 +7200,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public class ThemeColorEntry : INotifyPropertyChanged
     {
         private string _colorValue = string.Empty;
-        private bool _isEditing = false;
-        private bool _isSelected = false;
+        private bool _isEditing;
+        private bool _isSelected;
         
         public string ResourceKey { get; set; } = string.Empty;
         
@@ -6961,7 +7253,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public class ThemeGradientEntry : INotifyPropertyChanged
     {
         private Models.GradientDefinition? _gradientDefinition;
-        private bool _isEditing = false;
+        private bool _isEditing;
         
         public string ResourceKey { get; set; } = string.Empty;
         
@@ -7012,7 +7304,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         public string Name { get; set; } = string.Empty;
         public string StartColor { get; set; } = "#000000";
         public string EndColor { get; set; } = "#FFFFFF";
-        public double Angle { get; set; } = 0.0;
+        public double Angle { get; set; }
     }
 
     // Helper class for legacy theme options in Load From dropdown
@@ -7039,6 +7331,12 @@ public record DiscoveredRelayInfo(string Display, string Endpoint, string Source
 
 public class NetworkViewModel : INotifyPropertyChanged
 {
+    private static readonly char[] InvalidRelayChars = { ' ', '\t', '\r', '\n', '|' };
+    private static readonly System.Text.Json.JsonSerializerOptions DefaultRelayJsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly SettingsService _settings;
     private string _errorMessage = string.Empty;
     private string _infoMessage = string.Empty;
@@ -7661,6 +7959,7 @@ public class NetworkViewModel : INotifyPropertyChanged
 
     private async System.Threading.Tasks.Task SaveAsync(bool showToast, bool close)
     {
+        await System.Threading.Tasks.Task.CompletedTask;
         try
         {
             var s = _settings.Settings;
@@ -8472,8 +8771,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             if (stream == null) return;
             using var reader = new StreamReader(stream);
             var json = reader.ReadToEnd();
-            var entries = System.Text.Json.JsonSerializer.Deserialize<DefaultRelayEntry[]>(json,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var entries = System.Text.Json.JsonSerializer.Deserialize<DefaultRelayEntry[]>(json, DefaultRelayJsonOptions);
             if (entries == null) return;
             foreach (var e in entries)
             {
@@ -8505,7 +8803,7 @@ public class NetworkViewModel : INotifyPropertyChanged
     {
         if (string.IsNullOrWhiteSpace(input)) return false;
         var value = input.Trim();
-        if (value.IndexOfAny(new[] { ' ', '\t', '\r', '\n', '|' }) >= 0) return false;
+        if (value.IndexOfAny(InvalidRelayChars) >= 0) return false;
         if (IsValidRelayToken(value)) return true;
         return TryParseRelayEndpoint(value, out _);
     }
@@ -8529,7 +8827,7 @@ public class NetworkViewModel : INotifyPropertyChanged
         string host;
         int port = 443;
 
-        if (value.StartsWith("[", StringComparison.Ordinal))
+        if (value.StartsWith('['))
         {
             var end = value.IndexOf(']');
             if (end <= 1) return false;
@@ -8537,7 +8835,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             if (end + 1 < value.Length)
             {
                 if (value[end + 1] != ':') return false;
-                if (!int.TryParse(value.Substring(end + 2), out port)) return false;
+                if (!int.TryParse(value.AsSpan(end + 2), out port)) return false;
             }
         }
         else
@@ -8552,7 +8850,7 @@ public class NetworkViewModel : INotifyPropertyChanged
             if (lastColon > 0 && lastColon < value.Length - 1)
             {
                 host = value.Substring(0, lastColon);
-                if (!int.TryParse(value.Substring(lastColon + 1), out port)) return false;
+                if (!int.TryParse(value.AsSpan(lastColon + 1), out port)) return false;
             }
             else
             {

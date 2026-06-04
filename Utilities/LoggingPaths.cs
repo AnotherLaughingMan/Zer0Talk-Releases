@@ -3,6 +3,7 @@
 // Release builds: logging disabled unless explicitly enabled via env var ZER0TALK_ENABLE_LOGS=1
 // or presence of an enable-logs.flag file next to the executable.
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -75,6 +76,7 @@ namespace Zer0Talk.Utilities
                     _enabled = true;
                 var flag = Path.Combine(baseDir, "enable-logs.flag");
                 if (File.Exists(flag)) _enabled = true;
+                if (RuntimeFlags.ForceDebugLogging) _enabled = true;
             }
             catch { }
 
@@ -185,7 +187,7 @@ namespace Zer0Talk.Utilities
 
                         if (File.Exists(targetPath))
                         {
-                            var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                            var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
                             var name = Path.GetFileNameWithoutExtension(fileName);
                             targetPath = Path.Combine(targetDir, $"{name}-{stamp}.log");
                         }
@@ -206,7 +208,7 @@ namespace Zer0Talk.Utilities
                         var targetPath = Path.Combine(targetDir, legacyName);
                         if (File.Exists(targetPath))
                         {
-                            var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                            var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
                             var name = Path.GetFileNameWithoutExtension(legacyName);
                             targetPath = Path.Combine(targetDir, $"{name}-{stamp}.txt");
                         }
@@ -242,7 +244,7 @@ namespace Zer0Talk.Utilities
                 var settings = Zer0Talk.Services.AppServices.Settings?.Settings;
                 if (settings != null)
                 {
-                    _enabled = settings.EnableLogging;
+                    _enabled = settings.EnableLogging || RuntimeFlags.ForceDebugLogging;
                     if (_enabled && !string.IsNullOrEmpty(_logsDir))
                     {
                         try { Directory.CreateDirectory(_logsDir); } catch { }
@@ -257,7 +259,7 @@ namespace Zer0Talk.Utilities
         public static void SetEnabled(bool enabled)
         {
 #if DEBUG
-            _enabled = enabled;
+            _enabled = enabled || RuntimeFlags.ForceDebugLogging;
             if (_enabled && !string.IsNullOrEmpty(_logsDir))
             {
                 try { Directory.CreateDirectory(_logsDir); } catch { }

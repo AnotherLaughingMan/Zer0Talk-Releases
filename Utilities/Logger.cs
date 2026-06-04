@@ -29,6 +29,7 @@ namespace Zer0Talk.Utilities
     {
         // Raised whenever a line is logged; UI can subscribe for live logs.
         public static event Action<string>? LineLogged;
+        private static readonly JsonSerializerOptions CompactJsonOptions = new() { WriteIndented = false };
         
         // Toggle between structured (JSON) and simple text format
         public static bool UseStructuredLogging { get; set; } = true;
@@ -81,7 +82,7 @@ namespace Zer0Talk.Utilities
                         }
 
                         var logContent = UseStructuredLogging 
-                            ? JsonSerializer.Serialize(entry, new JsonSerializerOptions { WriteIndented = false }) + Environment.NewLine
+                            ? JsonSerializer.Serialize(entry, CompactJsonOptions) + Environment.NewLine
                             : displayLine + Environment.NewLine;
 
                         var targetPath = GetLogFilePath(category, routeToNetwork);

@@ -58,14 +58,6 @@ public static partial class AppServices
     public static UnreadStateService UnreadState { get; } = new(Notifications);
     public static UnreadBridgeService UnreadBridge { get; } = new(UnreadState, Events);
     public static UnreadIpcEndpointService UnreadIpcEndpoint { get; } = new(UnreadBridge, Events);
-    public static MarkdownComposerStateService MarkdownComposerState { get; } = new();
-    public static MarkdownIpcEndpointService MarkdownIpcEndpoint { get; } = new(MarkdownComposerState);
-    public static HybridIpcHostService HybridIpcHost { get; } = new(ContactsIpcEndpoint, UnreadIpcEndpoint, MarkdownIpcEndpoint);
-    public static HybridShellIpcClientService HybridShellIpcClient { get; } = new();
-    public static HybridShellConsumerService HybridShellConsumer { get; } = new(HybridShellIpcClient);
-    public static HybridShellAdapterService HybridShellAdapter { get; } = new(HybridShellConsumer);
-    public static HybridShellIpcClientService HybridShellMarkdownIpcClient { get; } = new();
-    public static HybridShellMarkdownAdapterService HybridShellMarkdownAdapter { get; } = new(HybridShellMarkdownIpcClient);
     public static AudioNotificationService AudioNotifications => AudioNotificationService.Instance;
     public static IpBlockingService IpBlocking { get; } = new(Settings);
     public static LocalizationService Localization { get; } = new();
@@ -117,62 +109,6 @@ public static partial class AppServices
     {
         return UidNormalization.TrimPrefix(uid ?? string.Empty);
     }
-
-    public static void StartHybridIpcHostIfEnabled()
-    {
-        try
-        {
-            if (Settings.Settings.EnableHybridIpcHost)
-            {
-                HybridIpcHost.Start();
-            }
-            else
-            {
-                HybridIpcHost.Stop();
-            }
-        }
-        catch { }
-    }
-
-    public static void StopHybridIpcHost()
-    {
-        try { HybridIpcHost.Stop(); } catch { }
-    }
-
-    public static void StartHybridShellAdapterIfEnabled()
-    {
-        try
-        {
-            var enableContacts = Settings.Settings.EnableHybridContactsShell;
-            var enableUnread = Settings.Settings.EnableHybridUnreadShell;
-            var enableMarkdown = Settings.Settings.EnableHybridMarkdownShell;
-            _ = System.Threading.Tasks.Task.Run(async () =>
-            {
-                try
-                {
-                    await HybridShellAdapter.StartAsync(enableContacts, enableUnread).ConfigureAwait(false);
-                }
-                catch { }
-
-                try
-                {
-                    await HybridShellMarkdownAdapter.StartAsync(enableMarkdown).ConfigureAwait(false);
-                }
-                catch { }
-            });
-        }
-        catch { }
-    }
-
-    public static void StopHybridShellAdapter()
-    {
-        try { HybridShellMarkdownAdapter.StopAsync().GetAwaiter().GetResult(); } catch { }
-        try { HybridShellAdapter.StopAsync().GetAwaiter().GetResult(); } catch { }
-    }
-
-    // Back-compat wrappers for existing call sites while migration is in progress.
-    public static void StartHybridShellConsumerIfEnabled() => StartHybridShellAdapterIfEnabled();
-    public static void StopHybridShellConsumer() => StopHybridShellAdapter();
 
     private static bool TryBeginPresenceWork(string uid)
     {
@@ -394,22 +330,6 @@ public static partial class AppServices
         try
         {
             return ContactsIpcEndpoint.TryHandleRequest(command, out responseJson);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    public static bool TryHandleMarkdownIpcRequest(string command, string requestJson, out string responseJson)
-    {
-        responseJson = string.Empty;
-        try
-        {
-            using var doc = System.Text.Json.JsonDocument.Parse(string.IsNullOrWhiteSpace(requestJson)
-                ? "{}"
-                : requestJson);
-            return MarkdownIpcEndpoint.TryHandleRequest(command, doc.RootElement, out responseJson);
         }
         catch
         {

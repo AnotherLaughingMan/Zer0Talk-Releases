@@ -93,6 +93,7 @@ public static class RelayTrayHost
     {
         try
         {
+            window.ShowInTaskbar = true;
             if (!window.IsVisible) window.Show();
             window.WindowState = WindowState.Normal;
             window.Activate();

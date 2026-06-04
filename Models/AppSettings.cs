@@ -80,7 +80,7 @@ public class AppSettings
     public double MonitoringLogFontSize { get; set; } = 11;
 
     // Monitoring: graph render style (0=Line, 1=Bar, 2=Solid Lines)
-    public int MonitoringGraphStyleIndex { get; set; } = 0;
+    public int MonitoringGraphStyleIndex { get; set; }
     // Monitoring: legend side (0=Left, 1=Right)
     public int MonitoringLegendPositionIndex { get; set; } = 1;
 
@@ -89,7 +89,7 @@ public class AppSettings
     public double? MainLeftWidth { get; set; }
     public double? MainRightWidth { get; set; }
     // Notification center sub-view persistence: 0=Invites, 1=Messages, 2=Alerts
-    public int LastNotificationCenterView { get; set; } = 0;
+    public int LastNotificationCenterView { get; set; }
     // Composer markdown live preview visibility persistence
     public bool ComposerMarkdownPreviewVisible { get; set; } = true;
 
@@ -99,18 +99,13 @@ public class AppSettings
     public bool RelayFallbackEnabled { get; set; } = true;
     public string? RelayServer { get; set; }
     public System.Collections.Generic.List<string> SavedRelayServers { get; set; } = new();
-    // Hybrid shell migration feature gates.
-    public bool EnableHybridContactsShell { get; set; } = false;
-    public bool EnableHybridUnreadShell { get; set; } = false;
-    public bool EnableHybridIpcHost { get; set; } = false;
-    public bool EnableHybridMarkdownShell { get; set; } = true;
     // Optional WAN bootstrap seed nodes used to discover peers when no known endpoints are available.
     // Format: "host:port" (e.g., "seed1.example.net:443").
     // These are not forced by default; they are used opportunistically when needed.
     public System.Collections.Generic.List<string> WanSeedNodes { get; set; } = new();
     // When true, always include seed nodes in WAN bootstrap candidate set.
     // Default false: only use seeds when no explicit relay/directory endpoints are configured.
-    public bool ForceSeedBootstrap { get; set; } = false;
+    public bool ForceSeedBootstrap { get; set; }
     public int RelayPresenceTimeoutSeconds { get; set; } = 45;
     public int RelayDiscoveryTtlMinutes { get; set; } = 3;
 
@@ -155,6 +150,8 @@ public class AppSettings
     public int DebugLogMaxMegabytes { get; set; } = 16;
     // Debug-only: toggle logging on/off (default off for performance)
     public bool EnableLogging { get; set; }
+    // Debug-only: show testing/simulation controls without requiring launch args
+    public bool ShowDebugUiControls { get; set; }
 
     // Hotkey configuration (stores Key enum value as int and KeyModifiers as int for serialization)
     public int LockHotkeyKey { get; set; } = DefaultLockHotkeyKey; // Default: Ctrl+L
@@ -189,9 +186,13 @@ public class AppSettings
     // Notification behavior settings
     public bool SuppressNotificationsInDnd { get; set; } = true; // When enabled, notification toasts and audio are suppressed in Do Not Disturb mode
     public double NotificationDurationSeconds { get; set; } = 4.5; // Duration in seconds that notification toasts stay visible (0.5 to 30 seconds)
+    public double NotificationTrayExpirationSeconds { get; set; } = 60.0; // Duration in seconds that non-persistent tray notices stay visible (0 = never)
     public bool EnableNotificationBellFlash { get; set; } = true; // When enabled, the notification bell flashes for 10 seconds when new notifications arrive
     public bool EnableSmoothScrolling { get; set; } = true; // When enabled, log/auto-follow views use eased scroll animations
-    public bool NotificationQuietHoursEnabled { get; set; } = false;
+    public bool AutoContactBackupsEnabled { get; set; } = true; // When enabled, contacts.p2e is snapshotted before overwrite
+    public int ContactBackupMaxFiles { get; set; } = 5; // Number of contact backup files to keep
+    public int ContactBackupMaxAgeDays { get; set; } = 30; // Delete backups older than this many days (0 = disable age-based pruning)
+    public bool NotificationQuietHoursEnabled { get; set; }
     public int NotificationQuietHoursStartHour { get; set; } = 22; // local hour (0-23)
     public int NotificationQuietHoursEndHour { get; set; } = 7; // local hour (0-23)
     public bool NotificationQuietHoursAllowPriority { get; set; } = true;
@@ -204,14 +205,16 @@ public class AppSettings
     public string AutoUpdateOwner { get; set; } = "AnotherLaughingMan";
     public string AutoUpdateRepo { get; set; } = "Zer0Talk-Releases";
     public string AutoUpdateManifestUrl { get; set; } = "https://github.com/AnotherLaughingMan/Zer0Talk-Releases/releases/latest/download/update-manifest.json";
+    public int AutoUpdatePostponeHours { get; set; } = 24;
+    public string? AutoUpdatePostponeUntilUtc { get; set; }
     public string? LastIgnoredUpdateVersion { get; set; }
     public string? LastAutoUpdateCheckUtc { get; set; }
 
     // Security: Message burning security level (false = Standard 3-pass, true = Enhanced 6-pass)
-    public bool UseEnhancedMessageBurn { get; set; } = false; // Default to standard 3-pass for backward compatibility
+    public bool UseEnhancedMessageBurn { get; set; } // Default to standard 3-pass for backward compatibility
 
     // Privacy policy: first-run acceptance tracking
-    public bool PrivacyPolicyAccepted { get; set; } = false;
-    public bool DoNotShowPrivacyAgain { get; set; } = false;
+    public bool PrivacyPolicyAccepted { get; set; }
+    public bool DoNotShowPrivacyAgain { get; set; }
 
 }

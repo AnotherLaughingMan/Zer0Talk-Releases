@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
@@ -23,7 +24,7 @@ namespace Zer0Talk.Services
             if (messageId == Guid.Empty) messageId = Guid.NewGuid();
             var trimmedOrigin = TrimUidPrefix(originUid ?? string.Empty);
             var messageTime = timestamp ?? DateTime.UtcNow;
-            var formattedTime = messageTime.ToLocalTime().ToString("MMM d, yyyy h:mm tt");
+            var formattedTime = messageTime.ToLocalTime().ToString("MMM d, yyyy h:mm tt", CultureInfo.CurrentCulture);
             var titleWithTime = $"{title} • {formattedTime}";
 
             // Determine presence-based notification behavior FIRST (before adding to notices)

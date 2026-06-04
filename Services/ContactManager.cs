@@ -32,6 +32,145 @@ namespace Zer0Talk.Services
             return Zer0Talk.Utilities.AppDataPaths.Combine(FileName);
         }
 
+        private static string GetDefaultRoamingPath()
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            return Path.Combine(appData, Zer0Talk.Utilities.AppDataPaths.NewRootName, FileName);
+        }
+
+        private static string GetLegacyPath()
+        {
+            return Path.Combine(Zer0Talk.Utilities.AppDataPaths.OldRoot, FileName);
+        }
+
+        private static string GetBackupDirectory()
+        {
+            return Zer0Talk.Utilities.AppDataPaths.Combine("backups", "contacts");
+        }
+
+        private static string BuildBackupPath(DateTime utc)
+        {
+            return Path.Combine(GetBackupDirectory(), $"contacts-{utc:yyyyMMdd-HHmmss}.p2e");
+        }
+
+        private static void PruneBackups(int keep, int maxAgeDays)
+        {
+            try
+            {
+                var dir = GetBackupDirectory();
+                if (!Directory.Exists(dir)) return;
+
+                keep = Math.Max(1, keep);
+                maxAgeDays = Math.Max(0, maxAgeDays);
+
+                var files = Directory.GetFiles(dir, "contacts-*.p2e")
+                    .OrderByDescending(File.GetLastWriteTimeUtc)
+                    .ToList();
+
+                var nowUtc = DateTime.UtcNow;
+                var cutoffUtc = maxAgeDays > 0 ? nowUtc.AddDays(-maxAgeDays) : DateTime.MinValue;
+
+                for (var i = keep; i < files.Count; i++)
+                {
+                    try { Utilities.SecureFileWiper.SecureWipeFile(files[i]); } catch { }
+                }
+
+                if (maxAgeDays > 0)
+                {
+                    for (var i = 0; i < Math.Min(keep, files.Count); i++)
+                    {
+                        try
+                        {
+                            var path = files[i];
+                            var lastWriteUtc = File.GetLastWriteTimeUtc(path);
+                            if (lastWriteUtc <= cutoffUtc)
+                            {
+                                Utilities.SecureFileWiper.SecureWipeFile(path);
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private static void TryBackupExistingContacts(string path)
+        {
+            try
+            {
+                try
+                {
+                    if (!AppServices.Settings.Settings.AutoContactBackupsEnabled) return;
+                }
+                catch { }
+
+                if (!File.Exists(path)) return;
+                var dir = GetBackupDirectory();
+                Directory.CreateDirectory(dir);
+                var backupPath = BuildBackupPath(DateTime.UtcNow);
+                File.Copy(path, backupPath, overwrite: false);
+
+                var keep = 5;
+                var maxAgeDays = 30;
+                try
+                {
+                    var settings = AppServices.Settings.Settings;
+                    keep = Math.Max(1, settings.ContactBackupMaxFiles);
+                    maxAgeDays = Math.Max(0, settings.ContactBackupMaxAgeDays);
+                }
+                catch { }
+
+                PruneBackups(keep, maxAgeDays);
+            }
+            catch { }
+        }
+
+        private static bool TryRecoverMissingContacts(string targetPath)
+        {
+            try
+            {
+                var targetDir = Path.GetDirectoryName(targetPath);
+                if (!string.IsNullOrWhiteSpace(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
+
+                var defaultRoamingPath = GetDefaultRoamingPath();
+                if (File.Exists(defaultRoamingPath)
+                    && !string.Equals(defaultRoamingPath, targetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Copy(defaultRoamingPath, targetPath, overwrite: false);
+                    Logger.Log($"Contacts recovery: restored missing contacts from default roaming path {defaultRoamingPath}");
+                    return true;
+                }
+
+                var legacyPath = GetLegacyPath();
+                if (File.Exists(legacyPath))
+                {
+                    File.Copy(legacyPath, targetPath, overwrite: false);
+                    Logger.Log($"Contacts recovery: restored missing contacts from legacy path {legacyPath}");
+                    return true;
+                }
+
+                var backupDir = GetBackupDirectory();
+                if (!Directory.Exists(backupDir)) return false;
+
+                var latestBackup = Directory.GetFiles(backupDir, "contacts-*.p2e")
+                    .OrderByDescending(File.GetLastWriteTimeUtc)
+                    .FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(latestBackup) || !File.Exists(latestBackup)) return false;
+
+                File.Copy(latestBackup, targetPath, overwrite: false);
+                Logger.Log($"Contacts recovery: restored missing contacts from backup {latestBackup}");
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public void Load(string passphrase)
         {
             var path = GetPath();
@@ -39,8 +178,13 @@ namespace Zer0Talk.Services
             {
                 if (!File.Exists(path))
                 {
+                    TryRecoverMissingContacts(path);
+                }
+
+                if (!File.Exists(path))
+                {
                     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                    Save(passphrase); // create empty encrypted container
+                    Save(passphrase); // create empty encrypted container only when no recovery source exists
                     return;
                 }
                 var bytes = _container.LoadFile(path, passphrase);
@@ -127,6 +271,7 @@ namespace Zer0Talk.Services
                     var bytes = Encoding.UTF8.GetBytes(json);
                     var path = GetPath();
                     Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                    TryBackupExistingContacts(path);
                     var sw = Stopwatch.StartNew();
                     try
                     {
@@ -176,6 +321,101 @@ namespace Zer0Talk.Services
         public void NotifyChanged()
         {
             Changed?.Invoke();
+        }
+
+        public bool TryImportFromLocalSources(string passphrase, out int importedCount, out int readableSourceCount)
+        {
+            importedCount = 0;
+            readableSourceCount = 0;
+
+            try
+            {
+                var candidates = new List<string>();
+                var defaultRoamingPath = GetDefaultRoamingPath();
+                var primaryPath = GetPath();
+                var legacyPath = GetLegacyPath();
+                var backupDir = GetBackupDirectory();
+
+                if (!string.IsNullOrWhiteSpace(defaultRoamingPath)) candidates.Add(defaultRoamingPath);
+                if (!string.IsNullOrWhiteSpace(primaryPath)) candidates.Add(primaryPath);
+                if (!string.IsNullOrWhiteSpace(legacyPath)) candidates.Add(legacyPath);
+                if (Directory.Exists(backupDir))
+                {
+                    try
+                    {
+                        var latestBackup = Directory.GetFiles(backupDir, "contacts-*.p2e")
+                            .OrderByDescending(File.GetLastWriteTimeUtc)
+                            .FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(latestBackup))
+                        {
+                            candidates.Add(latestBackup);
+                        }
+                    }
+                    catch { }
+                }
+
+                var dedupedCandidates = candidates
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                foreach (var path in dedupedCandidates)
+                {
+                    if (!File.Exists(path)) continue;
+                    if (!TryLoadContactsFromFile(path, passphrase, out var loadedContacts)) continue;
+
+                    readableSourceCount++;
+
+                    if (loadedContacts.Count == 0) continue;
+
+                    lock (_saveLock)
+                    {
+                        var existing = new HashSet<string>(_contacts.Select(c => NormalizeUid(c.UID)), StringComparer.OrdinalIgnoreCase);
+                        foreach (var contact in loadedContacts)
+                        {
+                            var uid = NormalizeUid(contact.UID);
+                            if (string.IsNullOrWhiteSpace(uid)) continue;
+                            if (!existing.Add(uid)) continue;
+
+                            contact.UID = uid;
+                            if (string.IsNullOrWhiteSpace(contact.DisplayName)) contact.DisplayName = uid;
+                            contact.PublicKeyVerified = contact.IsVerified || contact.PublicKeyVerified;
+                            _contacts.Add(contact);
+                            importedCount++;
+                        }
+                    }
+                }
+
+                if (importedCount > 0)
+                {
+                    Save(passphrase);
+                    Changed?.Invoke();
+                }
+
+                return readableSourceCount > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool TryLoadContactsFromFile(string path, string passphrase, out List<Contact> contacts)
+        {
+            contacts = new List<Contact>();
+            try
+            {
+                var bytes = _container.LoadFile(path, passphrase);
+                var json = Encoding.UTF8.GetString(bytes);
+                var parsed = JsonSerializer.Deserialize<List<Contact>>(json) ?? new List<Contact>();
+                contacts = SanitizeContacts(parsed, out _);
+                return true;
+            }
+            catch
+            {
+                contacts = new List<Contact>();
+                return false;
+            }
         }
 
         public bool RemoveContact(string uid, string passphrase)

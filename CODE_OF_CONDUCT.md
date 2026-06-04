@@ -1,4 +1,4 @@
-# Zer0Talk — Code of Conduct
+# Zer0Talk - Code of Conduct
 
 **Version:** 1.0  
 **Effective:** 2026-03-11  
@@ -10,7 +10,7 @@
 
 Before the rules, a quick note about how this project is built.
 
-**This project uses AI agents in its development workflow.** GitHub Copilot, Claude, GPT, and other AI tools are used to implement features, write and validate code, update documentation, and run builds — all under direct human direction.
+**This project uses AI agents in its development workflow.** GitHub Copilot, Claude, GPT, and other AI tools are used to implement features, write and validate code, update documentation, and run builds - all under direct human direction.
 
 **This is not "vibe coding."** Product decisions, architecture, security policy, and final judgment stay with the project owner. AI output is reviewed, corrected, and used only when it meets the bar.
 
@@ -31,7 +31,7 @@ Zer0Talk is a privacy-focused project built for people who take their communicat
 - **Respect the project's decisions.** Some things are decided. Section 2 of the Developer Bible lists rejected features. They are rejected. Relitigating them repeatedly is not a contribution.
 - **Stay on topic.** GitHub issues are for bugs and technical discussion. Pull requests are for code. Discussions are for questions and ideas. Keep them that way.
 - **Give proper context.** When reporting a bug, include logs, steps to reproduce, and your environment. Incomplete reports waste everyone's time.
-- **Respect privacy — including your own.** Don't share other people's UIDs, relay configurations, or personal information in public spaces.
+- **Respect privacy - including your own.** Don't share other people's UIDs, relay configurations, or personal information in public spaces.
 
 ### Unacceptable Behavior
 
@@ -39,7 +39,7 @@ Zer0Talk is a privacy-focused project built for people who take their communicat
 - Discrimination on the basis of race, gender, sexuality, religion, nationality, disability, or any other characteristic.
 - Sustained disruption of discussions, issues, or pull requests.
 - Deliberate spreading of misinformation about the project, its security model, or its contributors.
-- Doxing — publishing private information about anyone without their explicit consent.
+- Doxing - publishing private information about anyone without their explicit consent.
 - Spam, off-topic promotion, or recruiting in project spaces.
 - Bad-faith engagement: submitting issues or PRs solely to provoke, not to improve.
 

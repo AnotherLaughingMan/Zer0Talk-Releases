@@ -19,11 +19,14 @@ public sealed partial class AutoUpdateService : IDisposable
 {
     private readonly HttpClient _httpClient;
     private readonly SemaphoreSlim _checkGate = new(1, 1);
+    private readonly object _pendingUpdateGate = new();
     private bool _started;
     private bool _disposed;
     private string? _lastNotifiedUpdateVersion;
+    private UpdateReleaseInfo? _pendingUpdateRelease;
 
     private const string BgIntervalKey = "AutoUpdate.PeriodicCheck";
+    private const string UpdatePromptOriginPrefix = "autoupdate:prompt:";
     private const string UserAgent = "Zer0Talk-AutoUpdate/1.0";
     private static readonly string[] InstallerNameHints = { "installer", "setup", "zer0talk" };
     private static readonly string[] TrustedUpdateHosts =
@@ -116,6 +119,11 @@ public sealed partial class AutoUpdateService : IDisposable
                 return;
             }
 
+            if (!userInitiated && IsPostponeWindowActive(settings, DateTime.UtcNow))
+            {
+                return;
+            }
+
             recordLastCheck = true;
 
             if (userInitiated)
@@ -145,66 +153,27 @@ public sealed partial class AutoUpdateService : IDisposable
                 if (userInitiated)
                 {
                     LogManualCheck("result", $"up-to-date current={AppInfo.Version} latest={latest.Version}");
-                    PostUpdateNotice(NotificationType.Update, $"You are already up to date (v{AppInfo.Version}).", isPersistent: false);
+                    PostUpdateNotice(NotificationType.Update, $"You are already up to date (v{AppInfo.Version}).", isPersistent: false, playAudio: false);
                     await AppServices.Dialogs.ShowInfoAsync("Update Check", $"You are already up to date (v{AppInfo.Version}).", 3000);
                 }
                 return;
             }
 
-            var autoInstallEnabled = settings.AutoUpdateEnabled;
-
-            if (!userInitiated &&
-                !autoInstallEnabled &&
-                !string.IsNullOrWhiteSpace(settings.LastIgnoredUpdateVersion) &&
-                string.Equals(settings.LastIgnoredUpdateVersion, latest.Version, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
-
             if (userInitiated || !string.Equals(_lastNotifiedUpdateVersion, latest.Version, StringComparison.OrdinalIgnoreCase))
             {
-                var availableBody = $"Update available: {latest.Version} (current: {AppInfo.Version}).";
-                var availableDetails = string.IsNullOrWhiteSpace(latest.ReleaseNotesUrl)
-                    ? availableBody
-                    : $"{availableBody}\n\nRelease notes:\n{latest.ReleaseNotesUrl}";
-                PostUpdateNotice(NotificationType.Update, availableBody, availableDetails);
                 _lastNotifiedUpdateVersion = latest.Version;
             }
 
             if (userInitiated)
             {
-                LogManualCheck("result", $"update-available current={AppInfo.Version} latest={latest.Version} autoInstall={(autoInstallEnabled ? "on" : "off")}");
+                LogManualCheck("result", $"update-available current={AppInfo.Version} latest={latest.Version}");
             }
 
-            if (autoInstallEnabled)
+            QueueUpdatePromptNotice(latest, settings);
+            if (userInitiated)
             {
-                PostUpdateNotice(NotificationType.Update, $"Auto update is enabled. Downloading v{latest.Version} now...");
-                await InstallAndLaunchAsync(latest, settings, cancellationToken, userInitiated: false).ConfigureAwait(false);
-                return;
+                PostUpdateNotice(NotificationType.Update, "Update decision required in Alerts. Choose Yes to update now or No to postpone.", isPersistent: false);
             }
-
-            var notes = string.IsNullOrWhiteSpace(latest.ReleaseNotesUrl) ? string.Empty : $"\n\nRelease notes:\n{latest.ReleaseNotesUrl}";
-            var promptMessage =
-                $"A new version is available.\n\n" +
-                $"Current: {AppInfo.Version}\n" +
-                $"Latest: {latest.Version}\n\n" +
-                $"Zer0Talk will close and launch the installer to continue the update.{notes}";
-
-            var shouldInstall = await AppServices.Dialogs.ConfirmAsync(
-                "Update Available",
-                promptMessage,
-                confirmText: "Install Update",
-                cancelText: "Later");
-
-            if (!shouldInstall)
-            {
-                settings.LastIgnoredUpdateVersion = latest.Version;
-                TrySaveSettings();
-                PostUpdateNotice(NotificationType.Update, $"Update {latest.Version} postponed.", isPersistent: false);
-                return;
-            }
-
-            await InstallAndLaunchAsync(latest, settings, cancellationToken, userInitiated: true).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -255,6 +224,196 @@ public sealed partial class AutoUpdateService : IDisposable
         Stop();
         try { _httpClient.Dispose(); } catch { }
         try { _checkGate.Dispose(); } catch { }
+    }
+
+    public bool IsUpdatePromptOrigin(string? originUid)
+    {
+        if (string.IsNullOrWhiteSpace(originUid)) return false;
+        return originUid.StartsWith(UpdatePromptOriginPrefix, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public bool HasPendingUpdate
+    {
+        get
+        {
+            lock (_pendingUpdateGate)
+            {
+                return _pendingUpdateRelease != null;
+            }
+        }
+    }
+
+    public string? PendingUpdateVersion
+    {
+        get
+        {
+            lock (_pendingUpdateGate)
+            {
+                return _pendingUpdateRelease?.Version;
+            }
+        }
+    }
+
+    public async Task<bool> InstallPendingUpdateAsync(CancellationToken cancellationToken)
+    {
+        if (!TryGetPendingRelease(out var release))
+        {
+            return false;
+        }
+
+        return await InstallPendingReleaseAsync(release, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<bool> InstallPendingUpdateFromPromptAsync(string? originUid, CancellationToken cancellationToken)
+    {
+        if (!TryGetPendingReleaseForOrigin(originUid, out var release))
+        {
+            return false;
+        }
+
+        return await InstallPendingReleaseAsync(release, cancellationToken).ConfigureAwait(false);
+    }
+
+    public bool PostponePendingUpdate(out DateTime postponeUntilLocal)
+    {
+        postponeUntilLocal = DateTime.MinValue;
+        if (!TryGetPendingRelease(out var release))
+        {
+            return false;
+        }
+
+        return PostponePendingRelease(release, out postponeUntilLocal);
+    }
+
+    private async Task<bool> InstallPendingReleaseAsync(UpdateReleaseInfo release, CancellationToken cancellationToken)
+    {
+
+        if (!await _checkGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        {
+            return false;
+        }
+
+        try
+        {
+            var settings = AppServices.Settings.Settings;
+            await InstallAndLaunchAsync(release, settings, userInitiated: true, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+        finally
+        {
+            try { _checkGate.Release(); } catch { }
+        }
+    }
+
+    public bool PostponePendingUpdateFromPrompt(string? originUid, out DateTime postponeUntilLocal)
+    {
+        postponeUntilLocal = DateTime.MinValue;
+        if (!TryGetPendingReleaseForOrigin(originUid, out var release))
+        {
+            return false;
+        }
+
+        return PostponePendingRelease(release, out postponeUntilLocal);
+    }
+
+    private bool PostponePendingRelease(UpdateReleaseInfo release, out DateTime postponeUntilLocal)
+    {
+        postponeUntilLocal = DateTime.MinValue;
+
+        try
+        {
+            var settings = AppServices.Settings.Settings;
+            var hours = Math.Clamp(settings.AutoUpdatePostponeHours <= 0 ? 24 : settings.AutoUpdatePostponeHours, 1, 72);
+            var untilUtc = DateTime.UtcNow.AddHours(hours);
+            settings.AutoUpdatePostponeUntilUtc = untilUtc.ToString("O", CultureInfo.InvariantCulture);
+            settings.LastIgnoredUpdateVersion = release.Version;
+            TrySaveSettings();
+            postponeUntilLocal = untilUtc.ToLocalTime();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsPostponeWindowActive(AppSettings settings, DateTime utcNow)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(settings.AutoUpdatePostponeUntilUtc)) return false;
+            if (!DateTime.TryParse(settings.AutoUpdatePostponeUntilUtc, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var untilUtc))
+            {
+                return false;
+            }
+
+            return untilUtc > utcNow;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void QueueUpdatePromptNotice(UpdateReleaseInfo release, AppSettings settings)
+    {
+        lock (_pendingUpdateGate)
+        {
+            _pendingUpdateRelease = release;
+        }
+
+        var body = $"Update {release.Version} is ready to install.";
+        var details =
+            $"Current: {AppInfo.Version}\n" +
+            $"Latest: {release.Version}\n\n" +
+            "Choose Yes to install now, or No to postpone based on your General settings." +
+            (string.IsNullOrWhiteSpace(release.ReleaseNotesUrl) ? string.Empty : $"\n\nRelease notes:\n{release.ReleaseNotesUrl}");
+
+        try
+        {
+            AppServices.Notifications.PostNotice(
+                NotificationType.Update,
+                body,
+                originUid: BuildUpdatePromptOrigin(release.Version),
+                fullBody: details,
+                isPersistent: true);
+        }
+        catch { }
+    }
+
+    private static string BuildUpdatePromptOrigin(string version)
+    {
+        var sanitized = (version ?? string.Empty).Trim();
+        return UpdatePromptOriginPrefix + sanitized;
+    }
+
+    private bool TryGetPendingRelease(out UpdateReleaseInfo release)
+    {
+        release = null!;
+
+        lock (_pendingUpdateGate)
+        {
+            if (_pendingUpdateRelease == null) return false;
+            release = _pendingUpdateRelease;
+            return true;
+        }
+    }
+
+    private bool TryGetPendingReleaseForOrigin(string? originUid, out UpdateReleaseInfo release)
+    {
+        release = null!;
+        if (string.IsNullOrWhiteSpace(originUid) || !IsUpdatePromptOrigin(originUid)) return false;
+
+        var version = originUid.Substring(UpdatePromptOriginPrefix.Length).Trim();
+        if (string.IsNullOrWhiteSpace(version)) return false;
+
+        lock (_pendingUpdateGate)
+        {
+            if (_pendingUpdateRelease == null) return false;
+            if (!string.Equals(_pendingUpdateRelease.Version, version, StringComparison.OrdinalIgnoreCase)) return false;
+            release = _pendingUpdateRelease;
+            return true;
+        }
     }
 
     private async Task<UpdateReleaseInfo?> TryResolveLatestUpdateAsync(AppSettings settings, CancellationToken cancellationToken)
@@ -436,7 +595,7 @@ public sealed partial class AutoUpdateService : IDisposable
             var name = ReadString(asset, "name") ?? string.Empty;
             var isInstallerExtension = name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
                 || name.EndsWith(".msi", StringComparison.OrdinalIgnoreCase);
-            var looksLikeInstaller = InstallerNameHints.Any(h => name.IndexOf(h, StringComparison.OrdinalIgnoreCase) >= 0);
+            var looksLikeInstaller = InstallerNameHints.Any(h => name.Contains(h, StringComparison.OrdinalIgnoreCase));
             if (!isInstallerExtension || !looksLikeInstaller)
             {
                 continue;

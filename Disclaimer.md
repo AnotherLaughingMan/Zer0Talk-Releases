@@ -5,7 +5,7 @@
 **Effective Date:** September 28, 2025
 **Last Revised:** March 11, 2026
 
-> **See also:** [LICENSE.md](LICENSE.md) — the full terms governing permitted use, restrictions, and liability | [Privacy Policy](docs/PRIVACY-POLICY.md)
+> **See also:** [LICENSE.md](LICENSE.md) - the full terms governing permitted use, restrictions, and liability | [Privacy Policy](docs/PRIVACY-POLICY.md)
 
 ---
 

@@ -36,6 +36,7 @@
   <!-- Contact list specific (light) -->
   <SolidColorBrush x:Key="App.ContactName" Color="#303030"/>
   <SolidColorBrush x:Key="App.ContactNameActive" Color="#000000"/>
+  <x:Double x:Key="App.ContactOfflineOpacity">0.72</x:Double>
   <!-- Accent Color primitives (Color resources required) -->
   <!-- Provide fallback system accent Colors so DynamicResource resolves at compile time -->
   <Color x:Key="SystemAccentColor">#3A76D5</Color>

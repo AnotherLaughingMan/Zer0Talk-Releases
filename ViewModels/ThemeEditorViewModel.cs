@@ -16,6 +16,13 @@ namespace Zer0Talk.ViewModels;
 
 public class ThemeEditorViewModel : INotifyPropertyChanged
 {
+    private static readonly string[] ZtThemeFilePatterns = { "*.zttheme" };
+    private static readonly string[] AllFilePatterns = { "*" };
+    private static readonly System.Text.Json.JsonSerializerOptions HistoryJsonOptions = new()
+    {
+        WriteIndented = true
+    };
+
     #region Properties and Collections
 
     private System.Collections.ObjectModel.ObservableCollection<ThemeColorEntry> _themeColors = new();
@@ -830,7 +837,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
 
     private readonly System.Collections.Generic.Stack<ColorEditAction> _undoStack = new();
     private readonly System.Collections.Generic.Stack<ColorEditAction> _redoStack = new();
-    private ThemeColorEntry? _currentlyEditingColor = null;
+    private ThemeColorEntry? _currentlyEditingColor;
     
     private ThemeHistoryViewModel? _historyViewModel = new();
     private Views.ThemeHistoryPanel? _historyPanel;
@@ -844,7 +851,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
     public bool CanRedo => _redoStack.Count > 0;
     public bool IsEditingColor => _currentlyEditingColor != null || _editingGradientStartColorMode || _editingGradientEndColorMode;
 
-    private bool _isBatchEditMode = false;
+    private bool _isBatchEditMode;
     public bool IsBatchEditMode
     {
         get => _isBatchEditMode;
@@ -863,13 +870,13 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
     private readonly System.Collections.ObjectModel.ObservableCollection<string> _recentColors = new();
     public System.Collections.ObjectModel.ObservableCollection<string> RecentColors => _recentColors;
 
-    private string? _copiedColor = null;
+    private string? _copiedColor;
     public bool HasCopiedColor => !string.IsNullOrEmpty(_copiedColor);
 
     public int SelectedColorCount => ThemeColors.Count(c => c.IsSelected);
     public bool HasSelectedColors => SelectedColorCount > 0;
 
-    private ThemeGradientEntry? _currentlyEditingGradient = null;
+    private ThemeGradientEntry? _currentlyEditingGradient;
     public bool IsEditingGradient => _currentlyEditingGradient != null;
 
     private readonly System.Collections.Generic.List<GradientPreset> _gradientPresets = new()
@@ -921,8 +928,8 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         }
     }
 
-    private bool _editingGradientStartColorMode = false;
-    private bool _editingGradientEndColorMode = false;
+    private bool _editingGradientStartColorMode;
+    private bool _editingGradientEndColorMode;
 
     private string _editingGradientEndColor = "#FFFFFF";
     public string EditingGradientEndColor
@@ -942,7 +949,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         }
     }
 
-    private double _editingGradientAngle = 0.0;
+    private double _editingGradientAngle;
     public double EditingGradientAngle
     {
         get => _editingGradientAngle;
@@ -960,7 +967,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         }
     }
 
-    private bool _isEditingMetadata = false;
+    private bool _isEditingMetadata;
     public bool IsEditingMetadata
     {
         get => _isEditingMetadata;
@@ -1734,10 +1741,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
                 RedoStack = _redoStack.Reverse().ToList()
             };
 
-            var json = System.Text.Json.JsonSerializer.Serialize(history, new System.Text.Json.JsonSerializerOptions 
-            { 
-                WriteIndented = true 
-            });
+            var json = System.Text.Json.JsonSerializer.Serialize(history, HistoryJsonOptions);
 
             System.IO.File.WriteAllText(HistoryFilePath, json);
         }
@@ -1793,7 +1797,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         }
     }
 
-    private class HistoryData
+    private sealed class HistoryData
     {
         public System.Collections.Generic.List<ColorEditAction> UndoStack { get; set; } = new();
         public System.Collections.Generic.List<ColorEditAction> RedoStack { get; set; } = new();
@@ -2882,11 +2886,11 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
                 {
                     new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
-                        Patterns = new[] { "*.zttheme" }
+                        Patterns = ZtThemeFilePatterns
                     },
                     new Avalonia.Platform.Storage.FilePickerFileType("All Files")
                     {
-                        Patterns = new[] { "*" }
+                        Patterns = AllFilePatterns
                     }
                 }
             });
@@ -3191,11 +3195,11 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
                 {
                     new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Theme Files")
                     {
-                        Patterns = new[] { "*.zttheme" }
+                        Patterns = ZtThemeFilePatterns
                     },
                     new Avalonia.Platform.Storage.FilePickerFileType("All Files")
                     {
-                        Patterns = new[] { "*" }
+                        Patterns = AllFilePatterns
                     }
                 }
             });
@@ -3309,7 +3313,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
 
             var summary = $"Normalized themes. Scanned: {scanned}, Updated: {updated}, Failed: {failed}, Reloaded: {loaded}.";
             LastThemeNormalizationSummary = $"Scanned {scanned}, Updated {updated}, Failed {failed}, Reloaded {loaded}";
-            LastThemeNormalizationTimestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            LastThemeNormalizationTimestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
             Logger.Log($"[Theme Normalize] {summary}", LogLevel.Info, categoryOverride: "theme");
 
             try
@@ -3662,7 +3666,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
     public class ThemeGradientEntry : INotifyPropertyChanged
     {
         private GradientDefinition? _gradientDefinition;
-        private bool _isEditing = false;
+        private bool _isEditing;
         
         public string ResourceKey { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
@@ -3712,7 +3716,7 @@ public class ThemeEditorViewModel : INotifyPropertyChanged
         public string Name { get; set; } = string.Empty;
         public string StartColor { get; set; } = "#000000";
         public string EndColor { get; set; } = "#FFFFFF";
-        public double Angle { get; set; } = 0.0;
+        public double Angle { get; set; }
     }
 
     #endregion

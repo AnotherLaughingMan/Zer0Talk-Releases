@@ -180,7 +180,7 @@ namespace Zer0Talk.Services
                                 await DrainAsync(peerUid, passphrase, CancellationToken.None).ConfigureAwait(false);
                             }
                             catch { }
-                        });
+                        }, ct);
                     }
                 }
             }

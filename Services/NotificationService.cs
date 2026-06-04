@@ -21,7 +21,7 @@ namespace Zer0Talk.Services
     // - Publishes OS notifications when available (Windows implementation here)
     public partial class NotificationService
     {
-    public sealed record NotificationItem(Guid Id, string Title, string Body, string? OriginUid, DateTime Utc, string? FullBody = null, bool IsUnread = false, bool IsMessage = false, bool IsIncoming = false, Guid? MessageId = null, DateTime? ReadUtc = null, bool IsPersistent = true, Models.NotificationType? Type = null, bool IsPriority = false, bool IsMention = false);
+    public sealed record NotificationItem(Guid Id, string Title, string Body, string? OriginUid, DateTime Utc, string? FullBody = null, bool IsUnread = false, bool IsMessage = false, bool IsIncoming = false, Guid? MessageId = null, DateTime? ReadUtc = null, bool IsPersistent = true, Models.NotificationType? Type = null, bool IsPriority = false, bool IsMention = false, DateTime? ExpiresUtc = null);
     public sealed record SecurityEventItem(Guid Id, string AccountName, string PeerUid, string Summary, string Details, DateTime Utc, bool IsUnread = true, Models.NotificationType Type = Models.NotificationType.Warning);
 
     private readonly List<NotificationItem> _notices = new();
@@ -33,6 +33,7 @@ namespace Zer0Talk.Services
     private readonly HashSet<Guid> _messageRemovalPending = new();
     private bool _messageRemovalWorkerRunning;
     private readonly List<Window> _activeToastWindows = new();
+    private readonly DispatcherTimer _noticeExpiryTimer;
     private readonly object _messageAudioDedupLock = new();
     private readonly object _uiLogThrottleLock = new();
     private readonly Dictionary<string, DateTime> _uiLogThrottleUtc = new();
@@ -48,7 +49,7 @@ namespace Zer0Talk.Services
 #if DEBUG
     private static readonly bool VerboseUiLogs = true;
 #else
-    private static readonly bool VerboseUiLogs = false;
+    private static readonly bool VerboseUiLogs = System.Diagnostics.Debugger.IsAttached;
 #endif
     private static readonly TimeSpan MessageAudioDedupWindow = TimeSpan.FromMilliseconds(300);
     private static readonly TimeSpan ToastReflowLogInterval = TimeSpan.FromMilliseconds(1200);
@@ -68,6 +69,12 @@ namespace Zer0Talk.Services
     {
         _noticesReadOnly = _notices.AsReadOnly();
         _securityEventsReadOnly = _securityEvents.AsReadOnly();
+        _noticeExpiryTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(5)
+        };
+        _noticeExpiryTimer.Tick += (_, __) => PruneExpiredNotices();
+        _noticeExpiryTimer.Start();
     }
 
     private void TryWriteUiLogThrottled(string key, TimeSpan minInterval, Func<string> messageFactory)
@@ -165,6 +172,55 @@ namespace Zer0Talk.Services
             Interlocked.Exchange(ref _unreadSnapshotChangedQueued, 0);
             try { UnreadSnapshotChanged?.Invoke(GetUnreadCountsSnapshot()); } catch { }
         }, DispatcherPriority.Background);
+    }
+
+    private void PruneExpiredNotices()
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            var removedUnreadOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var removedUnreadMessageIds = new List<Guid>();
+            var removed = false;
+
+            lock (_notices)
+            {
+                for (int i = _notices.Count - 1; i >= 0; i--)
+                {
+                    var notice = _notices[i];
+                    if (!notice.ExpiresUtc.HasValue || notice.ExpiresUtc.Value > now)
+                    {
+                        continue;
+                    }
+
+                    if (notice.IsMessage && notice.IsUnread && notice.MessageId.HasValue)
+                    {
+                        removedUnreadMessageIds.Add(notice.MessageId.Value);
+                        var origin = TrimUidPrefix(notice.OriginUid ?? string.Empty);
+                        if (!string.IsNullOrWhiteSpace(origin)) removedUnreadOrigins.Add(origin);
+                    }
+
+                    _notices.RemoveAt(i);
+                    removed = true;
+                }
+            }
+
+            if (!removed)
+            {
+                return;
+            }
+
+            QueueNoticesChanged();
+            foreach (var origin in removedUnreadOrigins)
+            {
+                QueueUnreadCountChanged(origin);
+            }
+            if (removedUnreadMessageIds.Count > 0)
+            {
+                QueueUnreadSnapshotChanged();
+            }
+        }
+        catch { }
     }
 
     public IReadOnlyDictionary<string, int> GetUnreadCountsSnapshot()
@@ -493,7 +549,7 @@ namespace Zer0Talk.Services
                     }
                     
                     // Then navigate to the chat with this user
-                    var fullUid = originUid?.StartsWith("usr-") == true ? originUid : $"usr-{originUid}";
+                    var fullUid = originUid?.StartsWith("usr-", StringComparison.Ordinal) == true ? originUid : $"usr-{originUid}";
                     AppServices.Events.RaiseOpenConversationRequested(fullUid);
                     host.Close();
                 }
@@ -516,7 +572,7 @@ namespace Zer0Talk.Services
             {
                 try
                 {
-                    var fullUid = originUid?.StartsWith("usr-") == true ? originUid : $"usr-{originUid}";
+                    var fullUid = originUid?.StartsWith("usr-", StringComparison.Ordinal) == true ? originUid : $"usr-{originUid}";
                     AppServices.Events.RaiseOpenConversationRequested(fullUid);
                     try { ReplyRequested?.Invoke(fullUid, messageId); } catch { }
                     host.Close();
@@ -746,7 +802,11 @@ namespace Zer0Talk.Services
             {
                 lock (_notices)
                 {
-                    _notices.RemoveAll(n => !n.IsMessage && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase));
+                    // Keep update notices actionable even after "Clear All Alerts".
+                    _notices.RemoveAll(n =>
+                        !n.IsMessage
+                        && n.Type != Models.NotificationType.Update
+                        && !n.Title.Contains("Invite", StringComparison.OrdinalIgnoreCase));
                 }
                 QueueNoticesChanged();
             }
@@ -756,11 +816,11 @@ namespace Zer0Talk.Services
         // Backwards-compatible convenience: post a simple notice with combined text
         public void PostNotice(string text, bool isPersistent = true)
         {
-            PostNotice(Models.NotificationType.Information, text, originUid: null, fullBody: text, isPersistent: isPersistent);
+            PostNotice(Models.NotificationType.Information, text, originUid: null, fullBody: text, isPersistent: isPersistent, playAudio: true);
         }
 
         // Structured notice post with optional origin UID (used for click-to-open)
-        public void PostNotice(Models.NotificationType type, string body, string? originUid = null, string? fullBody = null, bool isPersistent = true)
+        public void PostNotice(Models.NotificationType type, string body, string? originUid = null, string? fullBody = null, bool isPersistent = true, bool playAudio = true)
         {
             try
             {
@@ -774,7 +834,21 @@ namespace Zer0Talk.Services
                     _ => AppServices.Localization.GetString("Notifications.Information", "Information")
                 };
 
-                var item = new NotificationItem(Guid.NewGuid(), title, body ?? string.Empty, originUid, DateTime.UtcNow, fullBody, IsPersistent: isPersistent, Type: type);
+                DateTime? expiresUtc = null;
+                try
+                {
+                    if (!isPersistent)
+                    {
+                        var expirationSeconds = Math.Clamp(AppServices.Settings.Settings.NotificationTrayExpirationSeconds, 0.0, 3600.0);
+                        if (expirationSeconds > 0.0)
+                        {
+                            expiresUtc = DateTime.UtcNow.AddSeconds(expirationSeconds);
+                        }
+                    }
+                }
+                catch { }
+
+                var item = new NotificationItem(Guid.NewGuid(), title, body ?? string.Empty, originUid, DateTime.UtcNow, fullBody, IsPersistent: isPersistent, Type: type, ExpiresUtc: expiresUtc);
                 
                 // Add all notices to the in-app list so Alerts panel always reflects what user saw.
                 lock (_notices)
@@ -813,7 +887,7 @@ namespace Zer0Talk.Services
                     Utilities.Logger.Log($"NotificationService: Transient toast failed: {ex.Message}");
                 }
 
-                // Play notification sound (unless suppressed in DND mode)
+                // Play notification sound (unless suppressed in DND mode or caller disabled audio)
                 try
                 {
                     bool shouldPlayAudio = true;
@@ -828,7 +902,7 @@ namespace Zer0Talk.Services
                     }
                     catch { }
 
-                    if (shouldPlayAudio)
+                    if (playAudio && shouldPlayAudio)
                     {
                         var requestedAtUtc = DateTime.UtcNow;
                         _ = PlayToastAudioAsync(item, requestedAtUtc);

@@ -59,7 +59,11 @@ internal sealed class Program
         {
             if (OperatingSystem.IsWindows())
             {
-                SetCurrentProcessExplicitAppUserModelID(AppInfo.AppUserModelId);
+                var hr = SetCurrentProcessExplicitAppUserModelID(AppInfo.AppUserModelId);
+                if (hr != 0)
+                {
+                    try { System.Diagnostics.Debug.WriteLine($"SetCurrentProcessExplicitAppUserModelID failed: 0x{hr:X8}"); } catch { }
+                }
             }
         }
         catch { }
@@ -226,7 +230,7 @@ internal sealed class Program
         }
         catch { /* best-effort wiring; never block startup */ }
 
-        // Parse early flags (e.g., --safe-mode, --profile <name>)
+        // Parse early flags (e.g., --safe-mode, --profile <name>, -debug)
         try
         {
             var argv = args ?? Array.Empty<string>();
@@ -239,7 +243,16 @@ internal sealed class Program
                     Zer0Talk.Utilities.RuntimeFlags.SafeMode = true;
                     StartupLog("Startup.SafeMode.Enabled");
                 }
-                else if (string.Equals(a, "--dev-ui", StringComparison.OrdinalIgnoreCase)
+                else if (string.Equals(a, "-debug", StringComparison.OrdinalIgnoreCase)
+                      || string.Equals(a, "--debug", StringComparison.OrdinalIgnoreCase))
+                {
+                    Zer0Talk.Utilities.RuntimeFlags.ForceDebugLogging = true;
+                    try { Zer0Talk.Utilities.LoggingPaths.SetEnabled(true); } catch { }
+                    StartupLog("Startup.DebugLogging.Forced");
+                }
+                else if (string.Equals(a, "-dev-ui", StringComparison.OrdinalIgnoreCase)
+                      || string.Equals(a, "--dev-ui", StringComparison.OrdinalIgnoreCase)
+                      || string.Equals(a, "-show-debug-ui", StringComparison.OrdinalIgnoreCase)
                       || string.Equals(a, "--show-debug-ui", StringComparison.OrdinalIgnoreCase))
                 {
                     Zer0Talk.Utilities.RuntimeFlags.ShowDebugUi = true;

@@ -134,7 +134,7 @@ public sealed partial class AutoUpdateService
         }
     }
 
-    private static bool TryLaunchInstaller(string installerPath)
+    private static bool TryLaunchInstaller(string installerPath, params string[] arguments)
     {
         try
         {
@@ -144,6 +144,20 @@ public sealed partial class AutoUpdateService
                 UseShellExecute = true,
                 WorkingDirectory = Path.GetDirectoryName(installerPath) ?? Environment.CurrentDirectory,
             };
+
+            if (arguments != null)
+            {
+                foreach (var argument in arguments)
+                {
+                    if (string.IsNullOrWhiteSpace(argument))
+                    {
+                        continue;
+                    }
+
+                    psi.ArgumentList.Add(argument);
+                }
+            }
+
             Process.Start(psi);
             return true;
         }
@@ -355,18 +369,18 @@ public sealed partial class AutoUpdateService
         }
     }
 
-    private static void PostUpdateNotice(NotificationType type, string body, string? fullBody = null, bool isPersistent = true)
+    private static void PostUpdateNotice(NotificationType type, string body, string? fullBody = null, bool isPersistent = true, bool playAudio = true)
     {
         try
         {
-            AppServices.Notifications.PostNotice(type, body, originUid: null, fullBody: fullBody ?? body, isPersistent: isPersistent);
+            AppServices.Notifications.PostNotice(type, body, originUid: null, fullBody: fullBody ?? body, isPersistent: isPersistent, playAudio: playAudio);
         }
         catch { }
     }
 
     private static async Task ShowUpdateErrorAsync(string message, bool userInitiated)
     {
-        PostUpdateNotice(NotificationType.Error, message);
+        PostUpdateNotice(NotificationType.Error, message, playAudio: !userInitiated);
         if (userInitiated)
         {
             try { await AppServices.Dialogs.ShowErrorAsync("Update Failed", message, 4000); } catch { }
@@ -392,7 +406,7 @@ public sealed partial class AutoUpdateService
         catch { }
     }
 
-    private async Task InstallAndLaunchAsync(UpdateReleaseInfo latest, AppSettings settings, CancellationToken cancellationToken, bool userInitiated)
+    private async Task InstallAndLaunchAsync(UpdateReleaseInfo latest, AppSettings settings, bool userInitiated, CancellationToken cancellationToken)
     {
         var download = await DownloadInstallerAsync(latest, cancellationToken).ConfigureAwait(false);
         if (!download.Success || string.IsNullOrWhiteSpace(download.Path))
@@ -413,15 +427,23 @@ public sealed partial class AutoUpdateService
             return;
         }
 
-        if (!TryLaunchInstaller(downloadedInstaller))
+        var installPath = AppContext.BaseDirectory
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (!TryLaunchInstaller(downloadedInstaller, "--mode", "update", "--silent", "--restart", "--install-path", installPath))
         {
             await ShowUpdateErrorAsync("Could not launch installer.", userInitiated).ConfigureAwait(false);
             return;
         }
 
         settings.LastIgnoredUpdateVersion = null;
+        settings.AutoUpdatePostponeUntilUtc = null;
+        lock (_pendingUpdateGate)
+        {
+            _pendingUpdateRelease = null;
+        }
         TrySaveSettings();
-        PostUpdateNotice(NotificationType.Update, $"Installer launched for v{latest.Version}. Zer0Talk will now close.");
+        PostUpdateNotice(NotificationType.Update, $"Installer launched for v{latest.Version}. Zer0Talk will now close.", playAudio: !userInitiated);
 
         if (userInitiated)
         {

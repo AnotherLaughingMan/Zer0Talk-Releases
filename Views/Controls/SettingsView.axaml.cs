@@ -13,7 +13,9 @@ namespace Zer0Talk.Views.Controls
 {
     public partial class SettingsView : UserControl
     {
+#if DEBUG
         private ListBoxItem? _debugMenuItem;
+#endif
 
         public SettingsView()
         {
@@ -212,7 +214,15 @@ namespace Zer0Talk.Views.Controls
                 grid.Children.Add(label);
                 var combo = new ComboBox();
                 Grid.SetColumn(combo, 1); Grid.SetRow(combo, 0);
-                combo.ItemsSource = new[] { "Auto (Hardware)", "No CCDs", "Single CCD (X3D)", "Dual CCDs" };
+                combo.ItemsSource = new[]
+                {
+                    "Auto (Hardware)",
+                    "No CCDs",
+                    "Single CCD (X3D)",
+                    "Dual CCDs (non-X3D)",
+                    "Dual CCDs (X3D)",
+                    "Dual X3D (X3D2)"
+                };
                 // Bind to VM debug property if available
                 combo.AttachedToVisualTree += (_, __) =>
                 {
