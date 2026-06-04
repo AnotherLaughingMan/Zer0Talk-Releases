@@ -40,6 +40,8 @@ If you prefer owning your chat data and running a client that does not depend on
 - **Zero Data Collection**: No telemetry, analytics, logs, or tracking ever leaves your machine.
 - **No File or Attachment Transfers**: By design and policy. This eliminates entire classes of exploitation risk.
 
+If you want to inspect the build process itself, see `REPRODUCIBLE-BUILD.md` for the current rebuild-and-verify path and the exact limits of what is and is not reproducible today.
+
 ### 💬 Messaging
 - **Real-Time P2P Chat**: Instant delivery with delivery confirmations (both users must be online simultaneously).
 - **Edit & Delete**: Modify or remove messages on both ends.

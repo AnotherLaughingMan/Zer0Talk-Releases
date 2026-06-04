@@ -24,6 +24,7 @@ Zer0Talk is designed around privacy and tamper resistance from the start. Key pr
 
 For the full cryptographic and protocol specification, see [DEVELOPER-BIBLE.md](DEVELOPER-BIBLE.md) Section 5.
 For explicit assumptions, non-goals, and threat boundaries, see [THREAT-MODEL.md](THREAT-MODEL.md).
+For build provenance and rebuild verification limits, see [REPRODUCIBLE-BUILD.md](REPRODUCIBLE-BUILD.md).
 
 ---
 

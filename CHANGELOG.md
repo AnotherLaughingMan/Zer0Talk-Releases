@@ -29,6 +29,7 @@ Run this checklist before creating a release tag.
 ### Added
 - **Optional session forward secrecy ratchet**: compatible peers now negotiate a DH ratchet after session setup and rotate transport keys in-band during a live conversation, reducing exposure if a long-lived session key is ever compromised while preserving backward compatibility with older clients.
 - **Threat model document**: added `THREAT-MODEL.md` with explicit security assumptions, adversary model, non-goals, and plain-language statements about endpoint compromise, metadata exposure, timing analysis, and other limits that Zer0Talk does not claim to solve.
+- **Reproducible build guide**: added `REPRODUCIBLE-BUILD.md` to document the pinned SDK, rebuild-and-verify workflow, and the current limits that prevent fully bit-for-bit reproducible release artifacts.
 - **Connection telemetry and relay health surfacing**: added connection stats counters and relay health snapshots into monitoring paths.
 - **Contact recovery and backup tooling**: added local-source contact recovery and rolling encrypted contact backups with configurable retention controls.
 - **Update prompt decision flow**: added actionable update notices with install/postpone decision handling and postpone window support.
