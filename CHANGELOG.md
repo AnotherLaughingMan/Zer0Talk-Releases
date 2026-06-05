@@ -33,6 +33,18 @@ Run this checklist before creating a release tag.
 - _None yet._
 
 ### Fixed
+- _None yet._
+
+## [0.0.4.10-Alpha] - 2026-06-05
+
+### Added
+- _None yet._
+
+### Updated
+- **Version alignment to Alpha v.0.0.4.10**: shared project version (`Directory.Build.props`), client/relay prototype badge format (`Alpha v.0.0.4.10`), and installer `displayVersion` now align to `0.0.4.10`.
+
+### Fixed
+- **DH ratchet removed from transport protocol**: removed ratchet negotiation and ratchet frame processing from identity/session handling and transport decryption paths to eliminate direct-session instability that caused message/avatar propagation failures.
 - **Direct/Relay badge visibility regression**: connection mode lookup now normalizes `uid` and `usr-uid` forms consistently when reading live session mode, restoring contact-row Direct/Relay indicators when session keys use alternate UID prefixes.
 - **Update prompt action state**: Alerts update cards no longer render disabled simulated Yes/No controls for real update notices; actionable update prompts now show active decision buttons when a pending update exists.
 - **Duplicate update prompt suppression**: auto-update prompt notices are now deduplicated by update-origin/version and stale prompt origins are pruned, preventing back-to-back duplicate update cards.

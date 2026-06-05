@@ -72,7 +72,11 @@ namespace Zer0Talk.Models
         public PresenceStatus EffectivePresence
             => IsSimulated
                 ? (Presence == PresenceStatus.Invisible ? PresenceStatus.Offline : Presence)
-                : (ConnectionMode == ConnectionMode.None ? PresenceStatus.Offline : (Presence == PresenceStatus.Invisible ? PresenceStatus.Offline : Presence));
+                : ((ConnectionMode != ConnectionMode.None || LastKnownEncrypted)
+                    ? (Presence == PresenceStatus.Offline || Presence == PresenceStatus.Invisible ? PresenceStatus.Online : Presence)
+                    : (PresenceSource == PresenceSource.Session
+                        ? (Presence == PresenceStatus.Invisible ? PresenceStatus.Offline : Presence)
+                        : PresenceStatus.Offline));
 
         // Persisted: when this contact was last identity-verified by trust ceremony.
         private System.DateTime? _lastVerifiedUtc;
@@ -106,7 +110,7 @@ namespace Zer0Talk.Models
     public System.DateTime? PresenceExpiresUtc { get => _presenceExpiresUtc; set { if (_presenceExpiresUtc != value) { _presenceExpiresUtc = value; OnPropertyChanged(nameof(PresenceExpiresUtc)); } } }
     [JsonIgnore]
     private PresenceSource _presenceSource = PresenceSource.Unknown;
-    public PresenceSource PresenceSource { get => _presenceSource; set { if (_presenceSource != value) { _presenceSource = value; OnPropertyChanged(nameof(PresenceSource)); } } }
+    public PresenceSource PresenceSource { get => _presenceSource; set { if (_presenceSource != value) { _presenceSource = value; OnPropertyChanged(nameof(PresenceSource)); OnPropertyChanged(nameof(EffectivePresence)); } } }
 
     // Transient: last message preview for contact list display
     [JsonIgnore]

@@ -131,8 +131,6 @@ private double _relayPairWaitMsEwma = 20000;
         public required byte[] IdentityPublicKey { get; init; }
         public required byte[] Signature { get; init; }
         public string? Version { get; init; }
-        public byte[] Capabilities { get; init; } = Array.Empty<byte>();
-        public byte[]? RatchetPublicKey { get; init; }
     }
 
     // Avatar receive throttling (avoid network/disk churn)
@@ -153,7 +151,6 @@ private double _relayPairWaitMsEwma = 20000;
     private const int MaxBioBytes = 512; // max UTF-8 bytes for bio payload
     private const byte SecurityAlertFrameType = 0xE0;
     private const byte SecurityReasonKeyMismatch = 0x01;
-    private const byte IdentityCapabilityDhRatchet = 0x01;
 
     // [RATE-LIMITING] Connection attempt tracking per IP address
     private sealed class ConnectionAttemptTracker
@@ -1262,17 +1259,11 @@ private double _relayPairWaitMsEwma = 20000;
                         return Task.CompletedTask;
                     }
                     try { AppServices.Peers.SetObservedPublicKey(normClaimed, frame.IdentityPublicKey); } catch { }
-                    TryEnableTransportDhRatchet(transport, normClaimed, frame.Capabilities, frame.RatchetPublicKey);
                 }
                 catch (Exception ex)
                 {
                     Logger.Log($"Identity announce handle error: {ex.Message}");
                 }
-                return Task.CompletedTask;
-            }
-            if (data[0] == Utilities.AeadTransport.DhRatchetFrameOpcode)
-            {
-                HandleDhRatchetFrame(transport, peerUid, data);
                 return Task.CompletedTask;
             }
             if (data[0] == 0xA2 && data.Length >= 5)
@@ -1990,17 +1981,23 @@ private double _relayPairWaitMsEwma = 20000;
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var mode = "none";
             var outcome = "fail";
+            var failReason = "unknown";
             var uidForLog = Trim(peerUid);
             try { SafeNetLog($"connect attempt begin | peer={uidForLog}"); } catch { }
             try
             {
                 var uid = Trim(peerUid);
                 uidForLog = uid;
-                if (string.IsNullOrWhiteSpace(uid)) return false;
+                if (string.IsNullOrWhiteSpace(uid))
+                {
+                    failReason = "invalid-uid";
+                    return false;
+                }
                 if (HasEncryptedSession(uid))
                 {
                     mode = "existing-session";
                     outcome = "ok";
+                    failReason = "none";
                     try { SafeNetLog($"autoconn skip has-session | peer={uid}"); } catch { }
                     return true;
                 }
@@ -2012,6 +2009,7 @@ private double _relayPairWaitMsEwma = 20000;
                     try { SafeNetLog($"autoconn path=direct+relay-fallback | peer={uid} | endpoint={peer.Address}:{peer.Port}"); } catch { }
                     var ok = await ConnectWithRelayFallbackAsync(uid, peer.Address!, peer.Port, ct);
                     outcome = ok ? "ok" : "fail";
+                    failReason = ok ? "none" : $"direct+relay-fallback-failed endpoint={peer.Address}:{peer.Port}";
                     try { SafeNetLog($"autoconn result | peer={uid} | mode=direct+relay-fallback | ok={ok}"); } catch { }
                     return ok;
                 }
@@ -2040,12 +2038,17 @@ private double _relayPairWaitMsEwma = 20000;
 
                         var ok = await ConnectWithRelayFallbackAsync(uid, lookup.Host, lookup.Port, ct).ConfigureAwait(false);
                         outcome = ok ? "ok" : "fail";
+                        failReason = ok ? "none" : $"wan-lookup-connect-failed endpoint={lookup.Host}:{lookup.Port}";
                         try { SafeNetLog($"autoconn result | peer={uid} | mode=wan-lookup+relay-fallback | ok={ok}"); } catch { }
                         return ok;
                     }
+                    failReason = "wan-lookup-miss";
                     try { SafeNetLog($"autoconn wan-lookup miss | peer={uid}"); } catch { }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    failReason = $"wan-lookup-ex:{ex.GetType().Name}";
+                }
 
                 var s = AppServices.Settings.Settings;
                 mode = "relay-only";
@@ -2053,18 +2056,21 @@ private double _relayPairWaitMsEwma = 20000;
                 if (!ShouldAttemptRelayFallback(peer?.Address))
                 {
                     outcome = "skipped-outside-lan-direct-available";
+                    failReason = "outside-lan-direct-available";
                     try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=outside-lan-direct-available"); } catch { }
                     return false;
                 }
                 if (!s.RelayFallbackEnabled)
                 {
                     outcome = "skipped-relay-disabled";
+                    failReason = "relay-disabled";
                     try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=disabled"); } catch { }
                     return false;
                 }
                 if (IsRelayBackedOff(uid))
                 {
                     outcome = "skipped-relay-backoff";
+                    failReason = "relay-backoff";
                     try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=relay-backoff"); } catch { }
                     return false;
                 }
@@ -2074,6 +2080,7 @@ private double _relayPairWaitMsEwma = 20000;
                 if (relayCandidates.Count == 0)
                 {
                     outcome = "skipped-invalid-relay-endpoint";
+                    failReason = "invalid-relay-endpoint";
                     try { SafeNetLog($"autoconn relay-only skipped | peer={uid} | reason=invalid-endpoint"); } catch { }
                     return false;
                 }
@@ -2090,15 +2097,17 @@ private double _relayPairWaitMsEwma = 20000;
                 }
                 RecordRelayFailure(uid);
                 outcome = "fail";
+                failReason = "relay-candidates-exhausted";
                 try { SafeNetLog($"autoconn result | peer={uid} | mode=relay-only | ok=false"); } catch { }
             }
             catch (Exception ex)
             {
                 outcome = $"ex:{ex.GetType().Name}";
+                failReason = ex.Message;
             }
             finally
             {
-                try { SafeNetLog($"connect attempt done | peer={uidForLog} | mode={mode} | outcome={outcome} | ms={sw.ElapsedMilliseconds}"); } catch { }
+                try { SafeNetLog($"connect attempt done | peer={uidForLog} | mode={mode} | outcome={outcome} | reason={failReason} | ms={sw.ElapsedMilliseconds}"); } catch { }
             }
             return false;
         }
@@ -2500,7 +2509,6 @@ private double _relayPairWaitMsEwma = 20000;
                                     }
 
                                     try { AppServices.Peers.SetObservedPublicKey(normClaimed2, frame.IdentityPublicKey); } catch { }
-                                    TryEnableTransportDhRatchet(transport, normClaimed2, frame.Capabilities, frame.RatchetPublicKey);
 
                                     if (isNewSessionBinding)
                                     {
@@ -2543,11 +2551,6 @@ private double _relayPairWaitMsEwma = 20000;
                                     }
                                 }
                                 catch { }
-                                continue;
-                            }
-                            else if (data[0] == Utilities.AeadTransport.DhRatchetFrameOpcode)
-                            {
-                                HandleDhRatchetFrame(transport, boundUid ?? remoteEp, data);
                                 continue;
                             }
                             else if (data[0] == 0xB0)
@@ -3749,11 +3752,9 @@ private double _relayPairWaitMsEwma = 20000;
                 var pub = _identity.PublicKey; // 32 bytes Ed25519
                 var sig = _identity.Sign(myDhSpki); // sign our ECDH SPKI bytes
                 var versionBytes = Encoding.UTF8.GetBytes(AppInfo.Version);
-                var capabilities = new byte[] { IdentityCapabilityDhRatchet };
-                var ratchetPub = transport.GetRatchetPublicKey();
                 
-                // Frame: [0xA1][pub_len][pub][sig_len][sig][version_len][version][cap_len][caps][ratchet_len(2)][ratchet_pub]
-                var frame = new byte[1 + 1 + pub.Length + 1 + sig.Length + 1 + versionBytes.Length + 1 + capabilities.Length + 2 + ratchetPub.Length];
+                // Frame: [0xA1][pub_len][pub][sig_len][sig][version_len][version]
+                var frame = new byte[1 + 1 + pub.Length + 1 + sig.Length + 1 + versionBytes.Length];
                 int i = 0; 
                 frame[i++] = 0xA1; 
                 frame[i++] = (byte)pub.Length; 
@@ -3765,12 +3766,6 @@ private double _relayPairWaitMsEwma = 20000;
                 frame[i++] = (byte)versionBytes.Length;
                 Buffer.BlockCopy(versionBytes, 0, frame, i, versionBytes.Length);
                 i += versionBytes.Length;
-                frame[i++] = (byte)capabilities.Length;
-                Buffer.BlockCopy(capabilities, 0, frame, i, capabilities.Length);
-                i += capabilities.Length;
-                BinaryPrimitives.WriteUInt16BigEndian(frame.AsSpan(i, 2), (ushort)ratchetPub.Length);
-                i += 2;
-                Buffer.BlockCopy(ratchetPub, 0, frame, i, ratchetPub.Length);
                 
                 await transport.WriteAsync(frame, ct);
             }
@@ -3809,101 +3804,17 @@ private double _relayPairWaitMsEwma = 20000;
                     }
                 }
 
-                byte[] capabilities = Array.Empty<byte>();
-                if (data.Length > idx)
-                {
-                    int capLen = data[idx++];
-                    if (capLen > 0 && data.Length >= idx + capLen)
-                    {
-                        capabilities = new byte[capLen];
-                        Buffer.BlockCopy(data, idx, capabilities, 0, capLen);
-                        idx += capLen;
-                    }
-                }
-
-                byte[]? ratchetPublicKey = null;
-                if (data.Length >= idx + 2)
-                {
-                    ushort ratchetLen = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2));
-                    idx += 2;
-                    if (ratchetLen > 0 && data.Length >= idx + ratchetLen)
-                    {
-                        ratchetPublicKey = new byte[ratchetLen];
-                        Buffer.BlockCopy(data, idx, ratchetPublicKey, 0, ratchetLen);
-                    }
-                }
-
                 frame = new IdentityAnnounceFrame
                 {
                     IdentityPublicKey = pub,
                     Signature = sig,
-                    Version = peerVersion,
-                    Capabilities = capabilities,
-                    RatchetPublicKey = ratchetPublicKey
+                    Version = peerVersion
                 };
                 return true;
             }
             catch
             {
                 return false;
-            }
-        }
-
-        private static bool HasIdentityCapability(byte[] capabilities, byte flag)
-        {
-            if (capabilities == null || capabilities.Length == 0) return false;
-            foreach (var capability in capabilities)
-            {
-                if (capability == flag) return true;
-            }
-            return false;
-        }
-
-        private void TryEnableTransportDhRatchet(Utilities.AeadTransport transport, string peerUid, byte[] capabilities, byte[]? ratchetPublicKey)
-        {
-            try
-            {
-                if (!HasIdentityCapability(capabilities, IdentityCapabilityDhRatchet) || ratchetPublicKey == null || ratchetPublicKey.Length == 0)
-                {
-                    return;
-                }
-
-                if (transport.TryEnableDhRatchet(ratchetPublicKey))
-                {
-                    Logger.Log($"DH ratchet enabled for {Trim(peerUid)}");
-                }
-                else
-                {
-                    Logger.Log($"DH ratchet skipped for {Trim(peerUid)}: invalid peer ratchet key");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"DH ratchet enable error for {Trim(peerUid)}: {ex.Message}");
-            }
-        }
-
-        private void HandleDhRatchetFrame(Utilities.AeadTransport transport, string peerUid, byte[] data)
-        {
-            try
-            {
-                if (data.Length < 3) return;
-                var keyLen = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(1, 2));
-                if (keyLen == 0 || data.Length < 3 + keyLen) return;
-                var remoteRatchetPublicKey = new byte[keyLen];
-                Buffer.BlockCopy(data, 3, remoteRatchetPublicKey, 0, keyLen);
-                if (transport.ApplyInboundDhRatchet(remoteRatchetPublicKey))
-                {
-                    Logger.Log($"DH ratchet rotated inbound keys for {Trim(peerUid)}");
-                }
-                else
-                {
-                    Logger.Log($"DH ratchet frame ignored for {Trim(peerUid)}: invalid public key");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"DH ratchet frame error for {Trim(peerUid)}: {ex.Message}");
             }
         }
 

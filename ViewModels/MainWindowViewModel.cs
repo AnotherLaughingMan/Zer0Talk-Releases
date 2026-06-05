@@ -4097,14 +4097,11 @@ namespace Zer0Talk.ViewModels
                         // stale/false-positive online indicators after session teardown.
                         if (hasLivePath)
                         {
-                            if (c.Presence == PresenceStatus.Offline || c.Presence == PresenceStatus.Invisible)
+                            if (c.PresenceSource == PresenceSource.Session)
                             {
-                                c.Presence = PresenceStatus.Online;
+                                c.LastPresenceUtc = now;
+                                c.PresenceExpiresUtc = now + TimeSpan.FromMinutes(2);
                             }
-
-                            c.PresenceSource = PresenceSource.Session;
-                            c.LastPresenceUtc = now;
-                            c.PresenceExpiresUtc = now + TimeSpan.FromMinutes(2);
                         }
                         else if (c.PresenceSource == PresenceSource.Session
                             && (c.Presence == PresenceStatus.Online || c.Presence == PresenceStatus.Idle || c.Presence == PresenceStatus.DoNotDisturb))
