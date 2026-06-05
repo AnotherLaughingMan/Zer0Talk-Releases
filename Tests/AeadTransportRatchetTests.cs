@@ -35,8 +35,14 @@ public class AeadTransportRatchetTests
         using var transportA = new AeadTransport(clientA.GetStream(), aToBKey, bToAKey, aToBBase, bToABase, ratchetIntervalFrames: 1);
         using var transportB = new AeadTransport(clientB.GetStream(), bToAKey, aToBKey, bToABase, aToBBase, ratchetIntervalFrames: 1);
 
+        Assert.Equal(AeadTransport.DhRatchetState.Disabled, transportA.RatchetLifecycle);
+        Assert.Equal(AeadTransport.DhRatchetState.Disabled, transportB.RatchetLifecycle);
+
         Assert.True(transportA.TryEnableDhRatchet(transportB.GetRatchetPublicKey()));
         Assert.True(transportB.TryEnableDhRatchet(transportA.GetRatchetPublicKey()));
+
+        Assert.Equal(AeadTransport.DhRatchetState.Negotiating, transportA.RatchetLifecycle);
+        Assert.Equal(AeadTransport.DhRatchetState.Negotiating, transportB.RatchetLifecycle);
 
         var firstPayload = Encoding.UTF8.GetBytes("first-message");
         await transportA.WriteAsync(firstPayload, cts.Token);
@@ -53,6 +59,13 @@ public class AeadTransportRatchetTests
         Assert.True(ApplyRatchetFrame(transportA, ratchetFrameForA));
         var deliveredToA = await transportA.ReadAsync(cts.Token);
         Assert.Equal(replyPayload, deliveredToA);
+
+        Assert.Equal(AeadTransport.DhRatchetState.Active, transportA.RatchetLifecycle);
+        Assert.Equal(AeadTransport.DhRatchetState.Active, transportB.RatchetLifecycle);
+        Assert.True(transportA.OutboundRatchetRotations >= 1);
+        Assert.True(transportA.InboundRatchetRotations >= 1);
+        Assert.True(transportB.OutboundRatchetRotations >= 1);
+        Assert.True(transportB.InboundRatchetRotations >= 1);
     }
 
     private static bool ApplyRatchetFrame(AeadTransport transport, byte[] frame)

@@ -41,7 +41,7 @@ namespace Zer0Talk.Models
         public string? ExpectedPublicKeyHex { get => _expectedPublicKeyHex; set { if (_expectedPublicKeyHex != value) { _expectedPublicKeyHex = value; OnPropertyChanged(nameof(ExpectedPublicKeyHex)); } } }
         // [TEST] Simulated contact (added without peer verification). Persisted for UI tagging and logic.
         private bool _isSimulated;
-        public bool IsSimulated { get => _isSimulated; set { if (_isSimulated != value) { _isSimulated = value; OnPropertyChanged(nameof(IsSimulated)); } } }
+        public bool IsSimulated { get => _isSimulated; set { if (_isSimulated != value) { _isSimulated = value; OnPropertyChanged(nameof(IsSimulated)); OnPropertyChanged(nameof(EffectivePresence)); } } }
         // [VERIFY/UI] Transient verification result from last observed connection (not persisted).
         [JsonIgnore]
         private bool _publicKeyVerified;
@@ -68,6 +68,12 @@ namespace Zer0Talk.Models
             }
         }
 
+        [JsonIgnore]
+        public PresenceStatus EffectivePresence
+            => IsSimulated
+                ? (Presence == PresenceStatus.Invisible ? PresenceStatus.Offline : Presence)
+                : (ConnectionMode == ConnectionMode.None ? PresenceStatus.Offline : (Presence == PresenceStatus.Invisible ? PresenceStatus.Offline : Presence));
+
         // Persisted: when this contact was last identity-verified by trust ceremony.
         private System.DateTime? _lastVerifiedUtc;
         public System.DateTime? LastVerifiedUtc { get => _lastVerifiedUtc; set { if (_lastVerifiedUtc != value) { _lastVerifiedUtc = value; OnPropertyChanged(nameof(LastVerifiedUtc)); } } }
@@ -90,7 +96,7 @@ namespace Zer0Talk.Models
     // Default to Offline until a presence is observed or a direct session is active
     [JsonIgnore]
     private PresenceStatus _presence = PresenceStatus.Offline;
-    public PresenceStatus Presence { get => _presence; set { if (_presence != value) { _presence = value; OnPropertyChanged(nameof(Presence)); } } }
+    public PresenceStatus Presence { get => _presence; set { if (_presence != value) { _presence = value; OnPropertyChanged(nameof(Presence)); OnPropertyChanged(nameof(EffectivePresence)); } } }
     // Transient presence bookkeeping (not persisted)
     [JsonIgnore]
     private System.DateTime? _lastPresenceUtc;
@@ -134,6 +140,7 @@ namespace Zer0Talk.Models
                 _connectionMode = value;
                 OnPropertyChanged(nameof(ConnectionMode));
                 OnPropertyChanged(nameof(IsEncryptionIndicatorVisible));
+                OnPropertyChanged(nameof(EffectivePresence));
             }
         }
     }

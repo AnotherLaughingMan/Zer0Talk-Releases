@@ -36,6 +36,8 @@ Run this checklist before creating a release tag.
 - **Direct/Relay badge visibility regression**: connection mode lookup now normalizes `uid` and `usr-uid` forms consistently when reading live session mode, restoring contact-row Direct/Relay indicators when session keys use alternate UID prefixes.
 - **Update prompt action state**: Alerts update cards no longer render disabled simulated Yes/No controls for real update notices; actionable update prompts now show active decision buttons when a pending update exists.
 - **Duplicate update prompt suppression**: auto-update prompt notices are now deduplicated by update-origin/version and stale prompt origins are pruned, preventing back-to-back duplicate update cards.
+- **Avatar download/cache race and burst edge case**: direct-session avatar frames received before identity binding are now buffered and applied after bind, and first-time avatar receipts bypass global burst throttling so initial peer avatars are not permanently skipped under connection spikes.
+- **Contact online-state accuracy**: contacts stay dimmed/offline until a live encrypted session is established, preventing flash-online states during direct, relay, and federation connection attempts.
 
 ## [0.0.4.09-Alpha HOTFIX-1] - 2026-06-03
 

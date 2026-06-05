@@ -2329,6 +2329,7 @@ private double _relayPairWaitMsEwma = 20000;
             try { _transportEndpoints[transport] = epNow; } catch { }
             try { _ = SendIdentityAnnounceAsync(transport, pub, ct); } catch { }
             string? boundUid = null;
+            byte[]? pendingPreBindAvatar = null;
             _ = Task.Run(async () =>
             {
                 try
@@ -2354,7 +2355,15 @@ private double _relayPairWaitMsEwma = 20000;
                                 {
                                     var avatar = new byte[len];
                                     Buffer.BlockCopy(data, 5, avatar, 0, (int)len);
-                                    if (!string.IsNullOrEmpty(boundUid) && ShouldAcceptAvatar(boundUid, (int)len, avatar)) SavePeerAvatarToCache(boundUid, avatar);
+                                    if (!string.IsNullOrEmpty(boundUid))
+                                    {
+                                        if (ShouldAcceptAvatar(boundUid, (int)len, avatar)) SavePeerAvatarToCache(boundUid, avatar);
+                                    }
+                                    else
+                                    {
+                                        // Identity announce may arrive after avatar on direct sessions; buffer latest pre-bind avatar.
+                                        pendingPreBindAvatar = avatar;
+                                    }
                                 }
                             }
                             else if (data[0] == 0xD1)
@@ -2438,11 +2447,22 @@ private double _relayPairWaitMsEwma = 20000;
                                         }
                                     }
                                     catch { }
-                                    // Register session under stable identity if not already
-                                    if (!_sessions.ContainsKey(normClaimed2))
+                                    var isNewSessionBinding = false;
+                                    if (TryGetLiveSession(normClaimed2, out var existingTransport, out _))
+                                    {
+                                        if (!ReferenceEquals(existingTransport, transport))
+                                        {
+                                            Logger.Log($"[sess] duplicate | peer={normClaimed2} | action=reject-new");
+                                            try { SafeNetLog($"session duplicate reject-new | peer={normClaimed2}"); } catch { }
+                                            try { client.Close(); } catch { }
+                                            break;
+                                        }
+                                    }
+                                    else
                                     {
                                         _sessions[normClaimed2] = transport;
                                         _sessionModes[normClaimed2] = Models.ConnectionMode.Direct;
+                                        isNewSessionBinding = true;
                                         try
                                         {
                                             Logger.Log($"[sess] add | mode=direct | peer={normClaimed2} | total={_sessions.Count} | ts={DateTime.UtcNow:o}");
@@ -2450,33 +2470,40 @@ private double _relayPairWaitMsEwma = 20000;
                                         }
                                         catch { }
                                         RaiseSessionCountChanged();
-                                        // Endpoint-based rotation detection now based on stable identity
-                                        try
+                                    }
+
+                                    // Endpoint-based rotation detection now based on stable identity
+                                    try
+                                    {
+                                        if (_transportEndpoints.TryGetValue(transport, out var epStr) && !string.IsNullOrEmpty(epStr))
                                         {
-                                            if (_transportEndpoints.TryGetValue(transport, out var epStr) && !string.IsNullOrEmpty(epStr))
+                                            if (_endpointLastUid.TryGetValue(epStr, out var last) && !string.Equals(last, normClaimed2, StringComparison.OrdinalIgnoreCase))
                                             {
-                                                if (_endpointLastUid.TryGetValue(epStr, out var last) && !string.Equals(last, normClaimed2, StringComparison.OrdinalIgnoreCase))
-                                                {
-                                                    SafeNetLog($"identity rotate detected | endpoint={epStr} | prev={last} | now={normClaimed2}");
-                                                    Logger.Log($"Identity rotation detected on endpoint {epStr}: {last} -> {normClaimed2}");
-                                                    try { AppServices.Events.RaiseFirewallPrompt($"Identity rotation detected for {epStr}: {last} → {normClaimed2}. Remote may have a new account; your contact might be stale."); } catch { }
-                                                }
-                                                _endpointLastUid[epStr] = normClaimed2;
+                                                SafeNetLog($"identity rotate detected | endpoint={epStr} | prev={last} | now={normClaimed2}");
+                                                Logger.Log($"Identity rotation detected on endpoint {epStr}: {last} -> {normClaimed2}");
+                                                try { AppServices.Events.RaiseFirewallPrompt($"Identity rotation detected for {epStr}: {last} → {normClaimed2}. Remote may have a new account; your contact might be stale."); } catch { }
                                             }
+                                            _endpointLastUid[epStr] = normClaimed2;
                                         }
-                                        catch { }
-                                        // Observed public key is the Ed25519 identity key
-                                        if (!string.IsNullOrEmpty(frame.Version))
+                                    }
+                                    catch { }
+
+                                    // Observed public key is the Ed25519 identity key
+                                    if (!string.IsNullOrEmpty(frame.Version))
+                                    {
+                                        _peerVersions[normClaimed2] = frame.Version;
+                                        if (!AppInfo.IsVersionCompatible(AppInfo.Version, frame.Version))
                                         {
-                                            _peerVersions[normClaimed2] = frame.Version;
-                                            if (!AppInfo.IsVersionCompatible(AppInfo.Version, frame.Version))
-                                            {
-                                                Logger.Log($"Version mismatch detected: peer {normClaimed2} version {frame.Version}, our version {AppInfo.Version}");
-                                                VersionMismatchDetected?.Invoke(normClaimed2, AppInfo.Version, frame.Version);
-                                            }
+                                            Logger.Log($"Version mismatch detected: peer {normClaimed2} version {frame.Version}, our version {AppInfo.Version}");
+                                            VersionMismatchDetected?.Invoke(normClaimed2, AppInfo.Version, frame.Version);
                                         }
-                                        try { AppServices.Peers.SetObservedPublicKey(normClaimed2, frame.IdentityPublicKey); } catch { }
-                                        TryEnableTransportDhRatchet(transport, normClaimed2, frame.Capabilities, frame.RatchetPublicKey);
+                                    }
+
+                                    try { AppServices.Peers.SetObservedPublicKey(normClaimed2, frame.IdentityPublicKey); } catch { }
+                                    TryEnableTransportDhRatchet(transport, normClaimed2, frame.Capabilities, frame.RatchetPublicKey);
+
+                                    if (isNewSessionBinding)
+                                    {
                                         try { _diag.IncHandshakeOk(); _diag.IncSessionsActive(); } catch { }
                                         try { SafeNetLog($"handshake bind-ok | peer={normClaimed2} | ms={hsWatch.ElapsedMilliseconds} | ep={epNow}"); } catch { }
                                         try { HandshakeCompleted?.Invoke(true, normClaimed2, null); } catch { }
@@ -2493,8 +2520,26 @@ private double _relayPairWaitMsEwma = 20000;
                                         catch (Exception ex) { Logger.Log($"Avatar send error: {ex.Message}"); }
                                         // Send our bio as part of profile sync
                                         try { var bioFrame = BuildBioFrame(_identity.Bio); await transport.WriteAsync(bioFrame, ct); } catch { }
-                                        // Mark identity as bound
-                                        boundUid = normClaimed2;
+                                    }
+
+                                    // Mark identity as bound
+                                    boundUid = normClaimed2;
+
+                                    // Apply buffered avatar received before identity binding.
+                                    if (pendingPreBindAvatar != null && pendingPreBindAvatar.Length > 0)
+                                    {
+                                        try
+                                        {
+                                            if (ShouldAcceptAvatar(boundUid, pendingPreBindAvatar.Length, pendingPreBindAvatar))
+                                            {
+                                                SavePeerAvatarToCache(boundUid, pendingPreBindAvatar);
+                                            }
+                                        }
+                                        catch { }
+                                        finally
+                                        {
+                                            pendingPreBindAvatar = null;
+                                        }
                                     }
                                 }
                                 catch { }
@@ -3062,15 +3107,22 @@ private double _relayPairWaitMsEwma = 20000;
                         // Duplicate content; skip
                         return false;
                     }
-                    // Global windowed cap
-                    while (_avatarGlobalAccepts.TryPeek(out var ts) && (now - ts) > AvatarGlobalWindow)
-                    {
-                        _avatarGlobalAccepts.TryDequeue(out _);
-                    }
-                    if (_avatarGlobalAccepts.Count >= AvatarGlobalMaxPerWindow)
-                    {
-                        return false;
-                    }
+                        // Global windowed cap (skip for first-time avatar per UID to avoid permanent cache miss under bursts).
+                        var avatarPath = AvatarCache.GetAvatarPath(uid);
+                        var isFirstSeenForUid = !_avatarLastSignature.ContainsKey(uid)
+                            && !string.IsNullOrWhiteSpace(avatarPath)
+                            && !File.Exists(avatarPath);
+                        if (!isFirstSeenForUid)
+                        {
+                            while (_avatarGlobalAccepts.TryPeek(out var ts) && (now - ts) > AvatarGlobalWindow)
+                            {
+                                _avatarGlobalAccepts.TryDequeue(out _);
+                            }
+                            if (_avatarGlobalAccepts.Count >= AvatarGlobalMaxPerWindow)
+                            {
+                                return false;
+                            }
+                        }
                     // Accept: record state
                     _avatarLastAcceptedUtc[uid] = now;
                     _avatarLastSignature[uid] = sig;
@@ -3975,23 +4027,38 @@ private double _relayPairWaitMsEwma = 20000;
             }
             
             var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-            Utilities.AeadTransport? tr = null;
             var start = DateTime.UtcNow;
             // Kick off a best-effort connection attempt in the background if we don't already have a session
             var connectStarted = false;
-            Task? connectTask = null;
             while (true)
             {
-                if (_sessions.TryGetValue(key, out tr)) break;
-                // Fallback: try opposite form (prefixed) if not already
-                if (!key.StartsWith("usr-", StringComparison.Ordinal))
+                if (TryGetLiveSession(key, out var tr, out var resolvedKey))
                 {
-                    if (_sessions.TryGetValue("usr-" + key, out tr)) break;
-                }
-                else
-                {
-                    var alt = key.StartsWith("usr-", StringComparison.Ordinal) && key.Length > 4 ? key.Substring(4) : key;
-                    if (_sessions.TryGetValue(alt, out tr)) break;
+                    EncChatLog($"TrySendEncryptedAsync: Session found consequat duis aute irure dolor in reprehenderit");
+                    EncChatLog($"TrySendEncryptedAsync: Frame type voluptate velit esse cillum dolore eu fugiat");
+
+                    try
+                    {
+                        await tr.WriteAsync(frame, ct);
+                        EncChatLog($"TrySendEncryptedAsync: Frame encrypted nulla pariatur excepteur sint occaecat");
+
+                        try
+                        {
+                            var waitedMs = (DateTime.UtcNow - start).TotalMilliseconds;
+                            if (waitedMs > 250)
+                            {
+                                Logger.Log($"[sess-send] waited {waitedMs:F0}ms for session key={key}; keys={string.Join(',', _sessions.Keys)}");
+                                SafeNetLog($"session send-wait {waitedMs:F0}ms | key={key}");
+                            }
+                        }
+                        catch { }
+                        return true;
+                    }
+                    catch (Exception ex) when (!ct.IsCancellationRequested)
+                    {
+                        RemoveSessionEntryIfMatches(resolvedKey, tr, "send-failed");
+                        try { SafeNetLog($"session write-failed | peer={key} | {ex.GetType().Name}:{ex.Message}"); } catch { }
+                    }
                 }
 
                 // If no session yet, start a one-shot connect attempt using discovered peer info
@@ -4000,7 +4067,7 @@ private double _relayPairWaitMsEwma = 20000;
                     try
                     {
                         connectStarted = true;
-                        connectTask = Task.Run(async () =>
+                        _ = Task.Run(async () =>
                         {
                             try { await ConnectPeerBestEffortAsync(key, ct); }
                             catch { }
@@ -4021,24 +4088,6 @@ private double _relayPairWaitMsEwma = 20000;
                 }
                 await Task.Delay(50, ct);
             }
-            EncChatLog($"TrySendEncryptedAsync: Session found consequat duis aute irure dolor in reprehenderit");
-            EncChatLog($"TrySendEncryptedAsync: Frame type voluptate velit esse cillum dolore eu fugiat");
-            
-            await tr!.WriteAsync(frame, ct);
-            
-            EncChatLog($"TrySendEncryptedAsync: Frame encrypted nulla pariatur excepteur sint occaecat");
-            
-            try
-            {
-                var waitedMs = (DateTime.UtcNow - start).TotalMilliseconds;
-                if (waitedMs > 250)
-                {
-                    Logger.Log($"[sess-send] waited {waitedMs:F0}ms for session key={key}; keys={string.Join(',', _sessions.Keys)}");
-                    SafeNetLog($"session send-wait {waitedMs:F0}ms | key={key}");
-                }
-            }
-            catch { }
-            return true;
         }
 
         /// <summary>Number of active encrypted sessions (connected peers).</summary>
@@ -4047,31 +4096,19 @@ private double _relayPairWaitMsEwma = 20000;
         /// <summary>Returns the connection mode (Direct/Relay/None) for a peer.</summary>
         public Models.ConnectionMode GetConnectionMode(string peerUid)
         {
-            var key = Trim(peerUid);
-            if (_sessionModes.TryGetValue(key, out var mode)) return mode;
-            if (!key.StartsWith("usr-", StringComparison.Ordinal) && _sessionModes.TryGetValue("usr-" + key, out mode)) return mode;
-            if (key.StartsWith("usr-", StringComparison.Ordinal) && key.Length > 4)
-            {
-                var alt = key.Substring(4);
-                if (_sessionModes.TryGetValue(alt, out mode)) return mode;
-            }
-            return Models.ConnectionMode.None;
+            if (!TryGetLiveSession(peerUid, out _, out var resolvedKey)) return Models.ConnectionMode.None;
+            return _sessionModes.TryGetValue(resolvedKey, out var mode) ? mode : Models.ConnectionMode.None;
         }
 
         public (long BytesIn, long BytesOut) GetSessionBytes(string peerUid)
         {
-            var key = Trim(peerUid);
-            Utilities.AeadTransport? tr = null;
-            if (_sessions.TryGetValue(key, out tr)) {}
-            else if (_sessions.TryGetValue("usr-" + key, out tr)) {}
-            else
+            if (!TryGetLiveSession(peerUid, out var tr, out _))
             {
-                var alt = key.StartsWith("usr-", StringComparison.OrdinalIgnoreCase) ? key[4..] : "usr-" + key;
-                _sessions.TryGetValue(alt, out tr);
+                return (-1L, -1L);
             }
             // Return (-1, -1) when no session exists so callers can distinguish
             // "no session" (→ displays as "—") from "session with 0 bytes" (→ "0 B").
-            return tr != null ? (tr.TotalBytesRead, tr.TotalBytesWritten) : (-1L, -1L);
+            return (tr.TotalBytesRead, tr.TotalBytesWritten);
         }
 
         /// <summary>Returns the sum of all plaintext bytes read and written across every active session.
@@ -4105,15 +4142,73 @@ private double _relayPairWaitMsEwma = 20000;
         public bool HasEncryptedSession(string peerUid)
         {
             if (string.IsNullOrWhiteSpace(peerUid)) return false;
-            var key = Trim(peerUid);
-            if (_sessions.ContainsKey(key)) return true;
-            if (!key.StartsWith("usr-", StringComparison.Ordinal) && _sessions.ContainsKey("usr-" + key)) return true;
-            if (key.StartsWith("usr-", StringComparison.Ordinal) && key.Length > 4)
+            return TryGetLiveSession(peerUid, out _, out _);
+        }
+
+        private bool TryGetLiveSession(string peerUid, out Utilities.AeadTransport transport, out string resolvedKey)
+        {
+            transport = null!;
+            resolvedKey = string.Empty;
+            if (string.IsNullOrWhiteSpace(peerUid)) return false;
+
+            var removedAny = false;
+            foreach (var candidateKey in EnumeratePeerSessionKeys(peerUid))
             {
-                var alt = key.Substring(4);
-                if (_sessions.ContainsKey(alt)) return true;
+                if (!_sessions.TryGetValue(candidateKey, out var current)) continue;
+                if (current != null && current.IsLikelyConnected)
+                {
+                    transport = current;
+                    resolvedKey = candidateKey;
+                    return true;
+                }
+
+                if (_sessions.TryGetValue(candidateKey, out var stale) && ReferenceEquals(stale, current))
+                {
+                    _sessions.TryRemove(candidateKey, out _);
+                    _sessionModes.TryRemove(candidateKey, out _);
+                    removedAny = true;
+                    try { SafeNetLog($"session stale-evict | key={candidateKey}"); } catch { }
+                }
+            }
+
+            if (removedAny)
+            {
+                RaiseSessionCountChanged();
             }
             return false;
+        }
+
+        private static IEnumerable<string> EnumeratePeerSessionKeys(string peerUid)
+        {
+            var key = Trim(peerUid);
+            if (string.IsNullOrWhiteSpace(key)) yield break;
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (seen.Add(key)) yield return key;
+
+            if (key.StartsWith("usr-", StringComparison.OrdinalIgnoreCase))
+            {
+                var noPrefix = key.Length > 4 ? key[4..] : string.Empty;
+                if (!string.IsNullOrWhiteSpace(noPrefix) && seen.Add(noPrefix)) yield return noPrefix;
+            }
+            else
+            {
+                var prefixed = "usr-" + key;
+                if (seen.Add(prefixed)) yield return prefixed;
+            }
+        }
+
+        private void RemoveSessionEntryIfMatches(string key, Utilities.AeadTransport expectedTransport, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(key)) return;
+            if (!_sessions.TryGetValue(key, out var current) || !ReferenceEquals(current, expectedTransport)) return;
+
+            if (_sessions.TryRemove(key, out _))
+            {
+                _sessionModes.TryRemove(key, out _);
+                RaiseSessionCountChanged();
+                try { SafeNetLog($"session remove | key={key} | reason={reason}"); } catch { }
+            }
         }
 
         // Await an encrypted session for the given peer UID up to timeout.

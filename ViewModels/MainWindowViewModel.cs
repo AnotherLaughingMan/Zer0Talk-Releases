@@ -360,7 +360,9 @@ namespace Zer0Talk.ViewModels
                         // Subscribe to presence changes on this contact
                         _selectedContactPresenceHandler = (s, e) =>
                         {
-                            if (e.PropertyName == nameof(Contact.Presence))
+                            if (e.PropertyName == nameof(Contact.Presence)
+                                || e.PropertyName == nameof(Contact.ConnectionMode)
+                                || e.PropertyName == nameof(Contact.IsSimulated))
                             {
                                 Avalonia.Threading.Dispatcher.UIThread.Post(() => UpdatePresenceBanner(_selectedContact));
                             }
@@ -2220,11 +2222,9 @@ namespace Zer0Talk.ViewModels
             {
                 var normalized = TrimUidPrefix(recipientUid);
                 var hasSession = AppServices.Network.HasEncryptedSession(normalized);
-                var connectionMode = AppServices.Network.GetConnectionMode(normalized);
-                var isLivePath = hasSession || connectionMode != ConnectionMode.None;
-                var isOnlinePresence = contact?.Presence == PresenceStatus.Online;
+                var isLivePath = hasSession;
 
-                if (isLivePath || isOnlinePresence)
+                if (isLivePath)
                 {
                     return "Message couldn't be sent immediately. Queued for retry.";
                 }
@@ -3660,7 +3660,7 @@ namespace Zer0Talk.ViewModels
         private void UpdatePresenceBanner(Contact? contact)
         {
             if (contact == null || contact.IsSimulated) { HideOfflineBanner(); return; }
-            switch (contact.Presence)
+                switch (contact.EffectivePresence)
             {
                 case PresenceStatus.Offline:
                 case PresenceStatus.Invisible: // Don't reveal invisible — treat as offline
@@ -4089,9 +4089,9 @@ namespace Zer0Talk.ViewModels
                     {
                         var uid = TrimUidPrefix(c.UID);
                         var hasSession = AppServices.Network.HasEncryptedSession(uid);
-                        var connectionMode = AppServices.Network.GetConnectionMode(uid);
+                        var connectionMode = hasSession ? AppServices.Network.GetConnectionMode(uid) : ConnectionMode.None;
                         var newUnreadCount = AppServices.Notifications.GetUnreadCountForPeer(uid);
-                        var hasLivePath = hasSession || connectionMode != ConnectionMode.None;
+                        var hasLivePath = hasSession;
 
                         // Keep presence synchronized with real encrypted transport state to avoid
                         // stale/false-positive online indicators after session teardown.
