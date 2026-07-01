@@ -27,15 +27,34 @@ Run this checklist before creating a release tag.
 ## [Unreleased]
 
 ### Added
+- **Compact Mode (opt-in)**: added `CompactModeEnabled` with a contacts-focused primary layout that opens conversations in dedicated compact chat windows.
+- **Compact conversation window surface**: introduced `CompactConversationWindow` with custom chrome, inline search, pinned preview strip, emoji picker, and per-window layout persistence.
+- **Window geometry autosave helper**: added `WindowLayoutAutosave` for debounced, runtime `LayoutCache` persistence.
+- **Keyboard behavior policy helpers**: introduced `ComposerEnterPolicy` and `OverlayEscapePolicy` to centralize Enter/Escape handling consistency.
+
+### Updated
+- **Main shell compact-mode behavior**: main window now supports compact-width mode, mode-aware notification/power button placement, and separate normal/compact layout cache keys.
+- **Settings > General compact toggle**: replaced the previous font-family row with localized compact-mode controls and help text.
+- **Build version target moved forward**: project version alignment now targets `0.0.4.11` for current builds (`Directory.Build.props`) and installer display version (`InstallMe.Lite/installer-config.json`).
+
+### Fixed
+- **Contact-vanish guard (empty passphrase path)**: contact load/save now explicitly skip operations when passphrase is empty, preventing accidental empty-container writes and reducing risk of contacts appearing to disappear after passphrase-state races.
+
+## [0.0.4.10-Alpha] - 2026-06-05
+
+### Added
 - _None yet._
 
 ### Updated
-- _None yet._
+- **Version alignment to Alpha v.0.0.4.10**: shared project version (`Directory.Build.props`), client/relay prototype badge format (`Alpha v.0.0.4.10`), and installer `displayVersion` now align to `0.0.4.10`.
 
 ### Fixed
+- **DH ratchet removed from transport protocol**: removed ratchet negotiation and ratchet frame processing from identity/session handling and transport decryption paths to eliminate direct-session instability that caused message/avatar propagation failures.
 - **Direct/Relay badge visibility regression**: connection mode lookup now normalizes `uid` and `usr-uid` forms consistently when reading live session mode, restoring contact-row Direct/Relay indicators when session keys use alternate UID prefixes.
 - **Update prompt action state**: Alerts update cards no longer render disabled simulated Yes/No controls for real update notices; actionable update prompts now show active decision buttons when a pending update exists.
 - **Duplicate update prompt suppression**: auto-update prompt notices are now deduplicated by update-origin/version and stale prompt origins are pruned, preventing back-to-back duplicate update cards.
+- **Avatar download/cache race and burst edge case**: direct-session avatar frames received before identity binding are now buffered and applied after bind, and first-time avatar receipts bypass global burst throttling so initial peer avatars are not permanently skipped under connection spikes.
+- **Contact online-state accuracy**: contacts stay dimmed/offline until a live encrypted session is established, preventing flash-online states during direct, relay, and federation connection attempts.
 
 ## [0.0.4.09-Alpha HOTFIX-1] - 2026-06-03
 

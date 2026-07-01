@@ -839,6 +839,18 @@ namespace Zer0Talk.ViewModels
 
             // Load contacts from manager
             AppServices.Contacts.Load(AppServices.Passphrase);
+            if (AppServices.Contacts.Contacts.Count == 0 && !string.IsNullOrWhiteSpace(AppServices.Passphrase))
+            {
+                try
+                {
+                    var recovered = AppServices.Contacts.TryImportFromLocalSources(AppServices.Passphrase, out var imported, out var _);
+                    if (recovered && imported > 0)
+                    {
+                        try { AppServices.Notifications.PostNotice(Models.NotificationType.Information, $"Recovered {imported} contact(s) from local storage on startup.", isPersistent: false); } catch { }
+                    }
+                }
+                catch { }
+            }
             foreach (var c in AppServices.Contacts.Contacts) Contacts.Add(c);
             // Ensure unread badges and connection mode metadata are correct on first paint.
             RefreshContactMetadata();

@@ -86,10 +86,20 @@
           <!-- Compact Mode Section -->
           <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Classes="general-section-title" Text="{Binding LocalizedCompactMode}"/>
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Classes="general-section-title" Text="{Binding LocalizedCompactMode}"/>
+                <Border Background="#D97706" CornerRadius="8" Padding="8,2" VerticalAlignment="Center">
+                  <TextBlock Text="Experimental" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                </Border>
+              </StackPanel>
               <ToggleSwitch IsChecked="{Binding CompactModeEnabled}"
                             Content="{Binding LocalizedCompactMode}"
                             ToolTip.Tip="{Binding LocalizedCompactModeHelp}"/>
+              <Border Background="#332D1F" BorderBrush="#A16207" BorderThickness="1" CornerRadius="6" Padding="10,8">
+                <TextBlock TextWrapping="Wrap"
+                           Foreground="#FDE68A"
+                           Text="Compact mode is experimental. Some workflows and layout behaviors may change while this mode is being validated."/>
+              </Border>
               <!-- UI Scaling removed: OS-level scaling should be used instead (Windows Display Settings, etc.) -->
               <!-- DO NOT re-add UI scaling - RenderTransform scaling causes severe layout issues, content clipping, -->
               <!-- and window sizing problems that cannot be reliably solved. Use OS accessibility features instead. -->
