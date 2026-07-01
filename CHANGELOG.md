@@ -15,16 +15,25 @@ All notable changes to Zer0Talk are documented in this file.
 
 Run this checklist before creating a release tag.
 
-- [ ] Confirm `## [Unreleased]` contains all shipped work under `Added`, `Updated`, and `Fixed`.
-- [ ] Verify app and relay versions are aligned in `Directory.Build.props` and installer display version is updated.
+- [x] Confirm `## [Unreleased]` contains all shipped work under `Added`, `Updated`, and `Fixed`.
+- [x] Verify app and relay versions are aligned in `Directory.Build.props` and installer display version is updated.
 - [ ] Run local build validation (`dotnet: build`) and resolve blocking errors.
 - [ ] Build release artifacts (zip + installer) and confirm expected file names/version.
 - [ ] Ensure release assets include updater prerequisites: installer, release archive, and `update-manifest.json`.
 - [ ] Verify `update-manifest.json` values: `version`, `tag`, `installerUrl`, `sha256`, and release notes URL.
 - [ ] Publish/tag release in `AnotherLaughingMan/Zer0Talk-Releases` and confirm assets are attached.
-- [ ] Move `Unreleased` notes into the new version section and reset `Unreleased` placeholders.
+- [x] Move `Unreleased` notes into the new version section and reset `Unreleased` placeholders.
 
 ## [Unreleased]
+
+### Added
+- _None yet._
+
+### Updated
+- _None yet._
+
+### Fixed
+- _None yet._
 
 ### Added
 - **Compact Mode (opt-in)**: added `CompactModeEnabled` with a contacts-focused primary layout that opens conversations in dedicated compact chat windows.
@@ -39,6 +48,19 @@ Run this checklist before creating a release tag.
 
 ### Fixed
 - **Contact-vanish guard (empty passphrase path)**: contact load/save now explicitly skip operations when passphrase is empty, preventing accidental empty-container writes and reducing risk of contacts appearing to disappear after passphrase-state races.
+
+## [0.0.4.11-Alpha] - 2026-06-30
+
+### Added
+- **Compact Mode (opt-in)**: added `CompactModeEnabled` with a contacts-focused primary layout that opens conversations in dedicated compact chat windows.
+- **Compact conversation window surface**: introduced `CompactConversationWindow` with custom chrome, inline search, pinned preview strip, emoji picker, and per-window layout persistence.
+- **Window geometry autosave helper**: added `WindowLayoutAutosave` for debounced, runtime `LayoutCache` persistence.
+- **Keyboard behavior policy helpers**: introduced `ComposerEnterPolicy` and `OverlayEscapePolicy` to centralize Enter/Escape handling consistency.
+
+### Updated
+- **Main shell compact-mode behavior**: main window now supports compact-width mode, mode-aware notification/power button placement, and separate normal/compact layout cache keys.
+- **Settings > General compact toggle**: replaced the previous font-family row with localized compact-mode controls and help text.
+- **Build version target moved forward**: project version alignment now targets `0.0.4.11` for current builds (`Directory.Build.props`) and installer display version (`InstallMe.Lite/installer-config.json`).
 
 ## [0.0.4.10-Alpha] - 2026-06-05
 
