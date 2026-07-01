@@ -35,6 +35,19 @@ Run this checklist before creating a release tag.
 ### Fixed
 - _None yet._
 
+## [0.0.4.11-Alpha] - 2026-06-30
+
+### Added
+- **Compact Mode (opt-in)**: added `CompactModeEnabled` with a contacts-focused primary layout that opens conversations in dedicated compact chat windows.
+- **Compact conversation window surface**: introduced `CompactConversationWindow` with custom chrome, inline search, pinned preview strip, emoji picker, and per-window layout persistence.
+- **Window geometry autosave helper**: added `WindowLayoutAutosave` for debounced, runtime `LayoutCache` persistence.
+- **Keyboard behavior policy helpers**: introduced `ComposerEnterPolicy` and `OverlayEscapePolicy` to centralize Enter/Escape handling consistency.
+
+### Updated
+- **Main shell compact-mode behavior**: main window now supports compact-width mode, mode-aware notification/power button placement, and separate normal/compact layout cache keys.
+- **Settings > General compact toggle**: replaced the previous font-family row with localized compact-mode controls and help text.
+- **Build version target moved forward**: project version alignment now targets `0.0.4.11` for current builds (`Directory.Build.props`) and installer display version (`InstallMe.Lite/installer-config.json`).
+
 ## [0.0.4.10-Alpha] - 2026-06-05
 
 ### Added
