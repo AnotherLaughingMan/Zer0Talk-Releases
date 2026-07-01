@@ -12,6 +12,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Primitives.PopupPositioning;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -49,8 +50,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     public System.Windows.Input.ICommand StatusDurationCommand { get; }
     private const double ChatInputDefaultMinHeight = 56d;
     private const double ChatInputDefaultMaxHeight = 200d;
-    // Geometry is now persisted via lightweight LayoutCache on close only (no runtime throttled writes)
-    // NOTE: We intentionally removed frequent writes to settings.p2e to avoid I/O overhead.
+    private const double CompactContactsColumnWidth = 248d;
+    private const double CompactWindowWidth = 312d;
+    private const double CompactWindowMinHeight = 460d;
+    // Geometry is persisted via lightweight LayoutCache sidecar JSON, not settings.p2e.
     // [LAYOUT] Remember last non-nav width of the left panel (contacts area) within the session
     private double? _leftPanelLastWidth;
     // [LAYOUT] Capture original MinWidth of the left panel container to restore after expand
@@ -64,7 +67,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 #endif
     // Settings overlay
     private ViewModels.SettingsViewModel? _settingsVm;
-    private ViewModels.SettingsViewModel SettingsProxy => _settingsVm ??= new ViewModels.SettingsViewModel();
+    private ViewModels.SettingsViewModel SettingsProxy
+    {
+        get
+        {
+            if (_settingsVm == null)
+            {
+                _settingsVm = new ViewModels.SettingsViewModel();
+            }
+
+            return _settingsVm;
+        }
+    }
+    private readonly Dictionary<string, CompactConversationWindow> _compactConversationWindows = new(StringComparer.OrdinalIgnoreCase);
+    private WindowLayoutAutosave? _layoutAutosave;
+    private Window? _debugToolbarWindow;
     // Regression toast
     private CancellationTokenSource? _rgToastCts;
     private Window? _inviteToastWindow;
@@ -88,6 +105,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private Action? _updateTagLanguageChangedHandler;
     private bool _simulatedUpdateBadgeVisible;
     private EventHandler? _themeAppliedHandler;
+    private bool _titleVisualBaselineCaptured;
+    private double _titleIconBaseWidth;
+    private double _titleIconBaseHeight;
+    private double _titleTextBaseSize;
+    private double _minButtonBaseWidth;
+    private double _minButtonBaseHeight;
+    private double _maxButtonBaseWidth;
+    private double _maxButtonBaseHeight;
+    private double _closeButtonBaseWidth;
+    private double _closeButtonBaseHeight;
     private Guid? _lastAutoScrolledSearchMessageId;
     private Guid? _pendingChatMessageJumpId;
     private Control? _lastReactionPickerAnchor;
@@ -95,6 +122,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     public MainWindow()
     {
         InitializeComponent();
+        _layoutAutosave = new WindowLayoutAutosave(this, GetMainWindowLayoutCacheKey);
+        this.PositionChanged += (_, __) => _layoutAutosave?.ScheduleSave();
         try { UpdateMaximizeRestoreButtonVisual(); } catch { }
 #if DEBUG
         // Show/hide Logs button based on logging enabled state (initial load)
@@ -111,10 +140,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         // Notification drop panel: attach popup placement to bell button after layout.
         try
         {
-            var bellBtn = this.FindControl<Button>("NotificationBellButton");
+            UpdateNotificationBellPlacement();
+            UpdatePowerButtonPlacement();
             var popup = this.FindControl<Popup>("NotificationDropPopup");
-            if (bellBtn != null && popup != null)
-                popup.PlacementTarget = bellBtn;
         }
         catch { }
         try
@@ -289,9 +317,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try { WriteThemeLog("[Restore] Theme: Reinforced Win11 selection/highlight override for Contacts scope"); } catch { }
         try { WriteThemeLog("[Restore] Theme: Added presence dot overlay to user avatar and increased avatar size vs contacts"); } catch { }
         try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Theme] Restore: presence dot + avatar sizing applied"), source: "Theme.Restore"); } catch { }
-        // Log layout: restored left nav rail button sizing/alignment (top-stack, horizontal center)
-        try { WriteLayoutLog("[Restore] Layout: Nav rail 64x56 buttons, icons ~26px, padding 8px, spacing 6px, top-stacked, horizontally centered"); } catch { }
-        try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException("[Restore] Layout: Nav rail top-stacked + horizontal centering applied"), source: "Layout.Restore"); } catch { }
         if (AppServices.Settings.Settings.MainWindow is { } s)
         {
             // Restore window layout from sidecar cache (fallback to previous settings values if cache missing)
@@ -339,6 +364,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
 
         // Apply saved widths (0 hides panel)
         this.Opened += (_, __) => ApplyInitialPanelVisibility();
+        this.Opened += (_, __) => ApplyCompactModeLayout();
+        this.Opened += (_, __) => UpdateDebugToolbarWindow();
     this.Opened += (_, __) => ConfigureInviteToastWindow();
         this.Opened += (_, __) =>
         {
@@ -367,8 +394,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
             catch { }
         };
-        // UI regression checkpoint + guard: ensure Nav rail layout stays as specified
-        this.Opened += (_, __) => { try { CheckpointNavRail(); } catch { } };
         // Close Full Profile overlay via Esc from the window scope
         this.AddHandler(InputElement.KeyDownEvent, OnWindowKeyDownForOverlays, RoutingStrategies.Tunnel);
         // Set top-bar app icon with fallback to embedded resource
@@ -410,9 +435,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             try
             {
-                VerifyAndGuardNavRail();
-                // Re-check once after initial layout pass
-                Dispatcher.UIThread.Post(() => { try { VerifyAndGuardNavRail(); } catch { } });
                 // Hook messages collection changes to manage scrolling
                 if (DataContext is MainWindowViewModel vm)
                 {
@@ -496,6 +518,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             if (change.Property == WindowStateProperty)
                 UpdateMaximizeRestoreButtonVisual();
+
+            if (change.Property == BoundsProperty || change.Property == WindowStateProperty)
+            {
+                _layoutAutosave?.ScheduleSave();
+            }
         }
         catch { }
     }
@@ -2136,6 +2163,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     private Models.PresenceStatus? _presenceRestoreTarget;
     // Original MinWidth values for side columns so we can restore after collapse
     private double? _leftColumnOriginalMinWidthDefinition;
+    private bool _compactWindowBoundsCaptured;
+    private double? _preCompactWindowWidth;
+    private double _preCompactMinWidth;
+    private double _preCompactMinHeight;
+    private double _preCompactMaxWidth;
 
     private void StatusDuration_Click(object? sender, RoutedEventArgs e)
     {
@@ -2233,17 +2265,29 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     // [LAYOUT] Restore geometry using lightweight cache; fallback to previous settings values; ensure visible on current monitors.
     private void RestoreLayoutFromCacheOrSettings(WindowStateSettings s)
     {
+        _layoutAutosave?.BeginRestore();
         double w = Width, h = Height;
         var pos = Position;
         try
         {
-            var cached = LayoutCache.Load("MainWindow");
+            var compactMode = IsCompactModeEnabled();
+            if (compactMode)
+            {
+                MinWidth = CompactWindowWidth;
+                MinHeight = CompactWindowMinHeight;
+            }
+
+            var cached = LayoutCache.Load(GetMainWindowLayoutCacheKey());
             if (cached is not null)
             {
                 if (cached.Width is double cw && cw > 0) w = cw;
                 if (cached.Height is double ch && ch > 0) h = ch;
                 if (cached.X is double cx && cached.Y is double cy) pos = new PixelPoint((int)cx, (int)cy);
                 if (cached.State is int cst) WindowState = (WindowState)cst;
+            }
+            else if (compactMode)
+            {
+                w = CompactWindowWidth;
             }
             else
             {
@@ -2257,6 +2301,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
         WindowBoundsHelper.EnsureVisible(this, ref w, ref h, ref pos);
         Width = w; Height = h; Position = pos;
+        _layoutAutosave?.EndRestore();
     }
     // [LAYOUT] Save current geometry to cache on close only; keep panel widths persisted via settings separately.
     private void SaveLayoutAndPanels(WindowStateSettings s)
@@ -2264,8 +2309,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             // Save geometry to cache file (not settings.p2e)
-            var layout = new LayoutCache.WindowLayout(Width, Height, Position.X, Position.Y, (int)WindowState);
-            LayoutCache.Save("MainWindow", layout);
+            _layoutAutosave?.SaveNow();
         }
         catch { }
         // Persist panel widths (this is not window geometry and remains in settings)
@@ -2283,6 +2327,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 // Right panel is a popup now; no column width to persist.
             }
             _ = System.Threading.Tasks.Task.Run(() => AppServices.Settings.Save(AppServices.Passphrase));
+        }
+        catch { }
+    }
+
+    private void FlushConversationReadStateForTransition()
+    {
+        try
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.FlushSelectedConversationReadState();
+            }
         }
         catch { }
     }
@@ -2334,6 +2390,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 
                 return; // Don't perform shutdown - app continues running in tray
             }
+
+            FlushConversationReadStateForTransition();
             // Perform graceful shutdown of services (idempotent, safe to call once).
             try { AppServices.Shutdown(); } catch { }
         }
@@ -2625,6 +2683,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                         {
                             lb2.SelectedItem = contact;
                             SafeLogContextTrace($"ContactsList_PointerPressed: selected {contact.UID}", e.Source);
+
+                            if (isLeft && IsCompactModeEnabled())
+                            {
+                                OpenOrFocusCompactConversationWindow(contact.UID, contact.DisplayName);
+                                SafeLogContextTrace("ContactsList_PointerPressed: opened compact conversation window", e.Source);
+                            }
                         }
                         if (isRight)
                         {
@@ -2903,7 +2967,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         try
         {
             var lb = this.FindControl<ListBox>("ContactsList");
-            if (lb?.SelectedItem is Contact c && c.IsSimulated)
+            if (lb?.SelectedItem is not Contact c) return;
+
+            if (IsCompactModeEnabled())
+            {
+                OpenOrFocusCompactConversationWindow(c.UID, c.DisplayName);
+                SafeLogContextTrace("ContactCard_DoubleTapped: opened compact conversation window", sender);
+                return;
+            }
+
+            if (c.IsSimulated)
             {
                 if (DataContext is MainWindowViewModel vm)
                 {
@@ -2916,6 +2989,47 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             SafeLogContextError(ex, sender);
         }
+    }
+
+    private static string NormalizeUidKey(string uid)
+    {
+        if (string.IsNullOrWhiteSpace(uid)) return string.Empty;
+        var trimmed = uid.Trim();
+        const string prefix = "usr-";
+        return trimmed.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? trimmed[prefix.Length..]
+            : trimmed;
+    }
+
+    private void OpenOrFocusCompactConversationWindow(string uid, string? displayName)
+    {
+        try
+        {
+            var key = NormalizeUidKey(uid);
+            if (string.IsNullOrWhiteSpace(key)) return;
+
+            if (_compactConversationWindows.TryGetValue(key, out var existing))
+            {
+                try
+                {
+                    existing.WindowState = WindowState.Normal;
+                    existing.Activate();
+                    existing.Focus();
+                    return;
+                }
+                catch
+                {
+                    _compactConversationWindows.Remove(key);
+                }
+            }
+
+            var window = new CompactConversationWindow(key, displayName);
+            window.Closed += (_, __) => _compactConversationWindows.Remove(key);
+            _compactConversationWindows[key] = window;
+            window.Show();
+            window.Activate();
+        }
+        catch { }
     }
 
     private async void Lock_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -2932,6 +3046,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             
             if (confirmed)
             {
+                FlushConversationReadStateForTransition();
                 try { new Zer0Talk.Services.LockService().Lock(clearStoredCredentials: true); } catch { }
             }
         }
@@ -3731,9 +3846,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             return;
         }
 
-        if (e.Key != Key.Enter) return;
-        // Shift+Enter should insert a new line
-        if ((e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift) return;
+        if (!ComposerEnterPolicy.ShouldSendOnKeyPress(e.Key, e.KeyModifiers))
+            return;
 
         // Always prevent newline for plain Enter
         e.Handled = true;
@@ -4083,6 +4197,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 modifiers,
                 () =>
                 {
+                    FlushConversationReadStateForTransition();
                     try { new Zer0Talk.Services.LockService().Lock(); }
                     catch (Exception ex) { Logger.Log($"Lock hotkey error: {ex.Message}"); }
                 },
@@ -4508,8 +4623,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var popup = this.FindControl<Popup>("NotificationDropPopup");
             if (popup != null)
             {
-                var bellBtn = this.FindControl<Button>("NotificationBellButton");
-                if (bellBtn != null) popup.PlacementTarget = bellBtn;
+                UpdateNotificationBellPlacement();
+                var targetButton = popup.PlacementTarget as Button ?? this.FindControl<Button>(IsCompactModeEnabled() ? "NotificationBellButton" : "NotificationCenterButton");
+                if (targetButton != null) popup.PlacementTarget = targetButton;
                 try { EnsureRightPanelHostsInitialized(); } catch { }
                 try { AttachRightPanelEventHandlers(); } catch { }
                 ShowInvitesHost();
@@ -4526,19 +4642,74 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
-            if (e.Key == Key.Escape)
-            {
-                if (DataContext is MainWindowViewModel vm && vm.IsFullProfileOpen)
-                {
-                    vm.CloseFullProfileCommand?.Execute(null);
-                    e.Handled = true;
-                    return;
-                }
-                HideSettingsOverlayIfConfirmed();
+            if (e.Key == Key.Escape && TryHandleEscapeForOverlayOrPopup())
                 e.Handled = true;
-            }
         }
         catch { }
+    }
+
+    private bool TryHandleEscapeForOverlayOrPopup()
+    {
+        try
+        {
+            var vm = DataContext as MainWindowViewModel;
+            var settingsVisible = this.FindControl<Grid>("SettingsOverlay")?.IsVisible == true;
+            var notifOpen = this.FindControl<Popup>("NotificationDropPopup")?.IsOpen == true;
+            var chatSearchOpen = this.FindControl<Popup>("ChatSearchPopup")?.IsOpen == true;
+            var pinnedOpen = this.FindControl<Popup>("PinnedDropPopup")?.IsOpen == true;
+
+            var action = OverlayEscapePolicy.Resolve(
+                isFullProfileOpen: vm?.IsFullProfileOpen == true,
+                isSettingsOverlayVisible: settingsVisible,
+                isNotificationDropOpen: notifOpen,
+                isChatSearchOpen: chatSearchOpen,
+                isPinnedDropOpen: pinnedOpen);
+
+            switch (action)
+            {
+                case OverlayEscapeAction.CloseFullProfile:
+                    vm?.CloseFullProfileCommand?.Execute(null);
+                    return true;
+
+                case OverlayEscapeAction.CloseSettingsOverlay:
+                    HideSettingsOverlayIfConfirmed();
+                    return true;
+
+                case OverlayEscapeAction.CloseNotificationDrop:
+                    CloseNotifDrop_Click(null, new RoutedEventArgs());
+                    return true;
+
+                case OverlayEscapeAction.CloseChatSearch:
+                {
+                    var popup = this.FindControl<Popup>("ChatSearchPopup");
+                    if (popup?.IsOpen == true)
+                    {
+                        popup.IsOpen = false;
+                        return true;
+                    }
+                    return false;
+                }
+
+                case OverlayEscapeAction.ClosePinnedDrop:
+                {
+                    var popup = this.FindControl<Popup>("PinnedDropPopup");
+                    if (popup?.IsOpen == true)
+                    {
+                        popup.IsOpen = false;
+                        return true;
+                    }
+                    return false;
+                }
+
+                case OverlayEscapeAction.None:
+                default:
+                    return false;
+            }
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     // Apply saved widths to side panels (left contacts panel only; right is now a popup)
@@ -4546,6 +4717,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
+            if (IsCompactModeEnabled())
+            {
+                ApplyCompactModeLayout();
+                return;
+            }
+
+            RestorePanelVisibilityFromSettings();
+        }
+        catch { }
+    }
+
+    private void RestorePanelVisibilityFromSettings()
+    {
+        try
+        {
+
             var grid = this.FindControl<Grid>("BodyGrid");
             if (grid?.ColumnDefinitions is { Count: >= 4 })
             {
@@ -4563,12 +4750,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                         _leftColumnOriginalMinWidthDefinition = contactsCol.MinWidth;
                     contactsCol.Width = new GridLength(leftWidth, GridUnitType.Pixel);
                     contactsCol.MinWidth = (leftWidth <= 0.1) ? 0.0 : (_leftColumnOriginalMinWidthDefinition ?? contactsCol.MinWidth);
+                    contactsCol.MaxWidth = double.PositiveInfinity;
                 }
                 if (dividerL != null)
                 {
                     dividerL.Width = (leftWidth <= 0.1) ? new GridLength(0) : new GridLength(1);
                 }
-                if (chatCol != null && leftWidth <= 0.1)
+                if (chatCol != null)
                 {
                     chatCol.Width = new GridLength(1, GridUnitType.Star);
                 }
@@ -4587,9 +4775,269 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    private bool IsCompactModeEnabled()
+    {
+        try { return AppServices.Settings?.Settings?.CompactModeEnabled == true; } catch { return false; }
+    }
+
+    private string GetMainWindowLayoutCacheKey()
+    {
+        return IsCompactModeEnabled() ? "MainWindow.Compact" : "MainWindow";
+    }
+
+    private bool IsSettingsOverlayVisible()
+    {
+        try
+        {
+            var overlay = this.FindControl<Grid>("SettingsOverlay");
+            return overlay?.IsVisible == true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void UpdateNotificationBellPlacement()
+    {
+        try
+        {
+            var compactMode = IsCompactModeEnabled();
+            var dragBarBell = this.FindControl<Button>("NotificationCenterButton");
+            var railBell = this.FindControl<Button>("NotificationBellButton");
+
+            if (dragBarBell != null)
+                dragBarBell.IsVisible = !compactMode;
+
+            if (railBell != null)
+                railBell.IsVisible = compactMode;
+
+            var popup = this.FindControl<Popup>("NotificationDropPopup");
+            if (popup != null)
+            {
+                popup.PlacementTarget = compactMode ? railBell : dragBarBell;
+            }
+        }
+        catch { }
+    }
+
+    private void UpdatePowerButtonPlacement()
+    {
+        try
+        {
+            var compactMode = IsCompactModeEnabled();
+            var dragBarPower = this.FindControl<Button>("PowerDragButton");
+            var railPower = this.FindControl<Button>("PowerRailButton");
+
+            if (dragBarPower != null)
+                dragBarPower.IsVisible = !compactMode;
+
+            if (railPower != null)
+                railPower.IsVisible = compactMode;
+        }
+        catch { }
+    }
+
+    private void ApplyCompactModeLayout(bool? overrideEnabled = null)
+    {
+        try
+        {
+            if (IsSettingsOverlayVisible())
+                return;
+
+            var compactMode = overrideEnabled ?? IsCompactModeEnabled();
+            UpdateNotificationBellPlacement();
+            UpdatePowerButtonPlacement();
+            var grid = this.FindControl<Grid>("BodyGrid");
+            var leftRoot = this.FindControl<Grid>("LeftPanelRoot");
+            var chatArea = this.FindControl<Grid>("ChatArea");
+            var toggleContactsButton = this.FindControl<Button>("ToggleContactsButton");
+            var contactsHeaderBorder = this.FindControl<Border>("ContactsHeaderBorder");
+            var contactsList = this.FindControl<ListBox>("ContactsList");
+            if (grid?.ColumnDefinitions is not { Count: >= 4 }) return;
+
+            ApplyCompactTitleBarVisuals(compactMode);
+
+            var contactsCol = grid.ColumnDefinitions[1];
+            var dividerCol = grid.ColumnDefinitions[2];
+            var chatCol = grid.ColumnDefinitions[3];
+
+            if (compactMode)
+            {
+                if (_leftColumnOriginalMinWidthDefinition is null)
+                    _leftColumnOriginalMinWidthDefinition = contactsCol.MinWidth;
+
+                if (!_compactWindowBoundsCaptured)
+                {
+                    _compactWindowBoundsCaptured = true;
+                    _preCompactWindowWidth = WindowState == WindowState.Normal ? Width : null;
+                    _preCompactMinWidth = MinWidth;
+                    _preCompactMinHeight = MinHeight;
+                    _preCompactMaxWidth = MaxWidth;
+                }
+
+                if (WindowState == WindowState.Maximized)
+                    WindowState = WindowState.Normal;
+
+                MinWidth = CompactWindowWidth;
+                MinHeight = CompactWindowMinHeight;
+                MaxWidth = CompactWindowWidth;
+                if (WindowState == WindowState.Normal)
+                    Width = CompactWindowWidth;
+
+                contactsCol.Width = new GridLength(1, GridUnitType.Star);
+                contactsCol.MinWidth = CompactContactsColumnWidth;
+                contactsCol.MaxWidth = double.PositiveInfinity;
+                dividerCol.Width = new GridLength(0, GridUnitType.Pixel);
+                chatCol.Width = new GridLength(0, GridUnitType.Pixel);
+                chatCol.MinWidth = 0;
+                if (leftRoot != null) leftRoot.IsVisible = true;
+                if (chatArea != null) chatArea.IsVisible = false;
+                if (toggleContactsButton != null) toggleContactsButton.IsVisible = false;
+                if (contactsHeaderBorder != null)
+                {
+                    contactsHeaderBorder.Width = double.NaN;
+                    contactsHeaderBorder.HorizontalAlignment = HorizontalAlignment.Stretch;
+                }
+                if (contactsList != null)
+                {
+                    contactsList.Width = double.NaN;
+                    contactsList.HorizontalAlignment = HorizontalAlignment.Stretch;
+                }
+            }
+            else
+            {
+                if (_compactWindowBoundsCaptured)
+                {
+                    MinWidth = _preCompactMinWidth;
+                    MinHeight = _preCompactMinHeight;
+                    MaxWidth = _preCompactMaxWidth;
+                    if (_preCompactWindowWidth is > 0 && WindowState == WindowState.Normal)
+                        Width = Math.Max(_preCompactWindowWidth.Value, MinWidth);
+
+                    _compactWindowBoundsCaptured = false;
+                    _preCompactWindowWidth = null;
+                }
+
+                contactsCol.MaxWidth = double.PositiveInfinity;
+                chatCol.MinWidth = 280;
+                if (chatArea != null) chatArea.IsVisible = true;
+                if (toggleContactsButton != null) toggleContactsButton.IsVisible = true;
+                if (contactsHeaderBorder != null)
+                {
+                    contactsHeaderBorder.Width = double.NaN;
+                    contactsHeaderBorder.HorizontalAlignment = HorizontalAlignment.Stretch;
+                }
+                if (contactsList != null)
+                {
+                    contactsList.Width = double.NaN;
+                    contactsList.HorizontalAlignment = HorizontalAlignment.Stretch;
+                }
+                CloseAllCompactConversationWindows();
+                RestorePanelVisibilityFromSettings();
+                return;
+            }
+
+            grid.InvalidateMeasure();
+            grid.InvalidateArrange();
+        }
+        catch { }
+    }
+
+    private void CloseAllCompactConversationWindows()
+    {
+        try
+        {
+            foreach (var kvp in _compactConversationWindows.ToArray())
+            {
+                try { kvp.Value.Close(); } catch { }
+            }
+            _compactConversationWindows.Clear();
+        }
+        catch { }
+    }
+
+    private void ApplyCompactTitleBarVisuals(bool compactMode)
+    {
+        try
+        {
+            var titleIcon = this.FindControl<Image>("TitleAppIcon");
+            var titleText = this.FindControl<TextBlock>("TitleText");
+            var prototypeBadgeHost = this.FindControl<Grid>("PrototypeBadgeHost");
+            var minButton = this.FindControl<Button>("MinimizeButton");
+            var maxButton = this.FindControl<Button>("MaximizeRestoreButton");
+            var closeButton = this.FindControl<Button>("CloseButton");
+
+            if (!_titleVisualBaselineCaptured)
+            {
+                _titleVisualBaselineCaptured = true;
+                _titleIconBaseWidth = titleIcon?.Width ?? 32;
+                _titleIconBaseHeight = titleIcon?.Height ?? 32;
+                _titleTextBaseSize = titleText?.FontSize ?? 14;
+                _minButtonBaseWidth = minButton?.Width ?? double.NaN;
+                _minButtonBaseHeight = minButton?.Height ?? double.NaN;
+                _maxButtonBaseWidth = maxButton?.Width ?? double.NaN;
+                _maxButtonBaseHeight = maxButton?.Height ?? double.NaN;
+                _closeButtonBaseWidth = closeButton?.Width ?? double.NaN;
+                _closeButtonBaseHeight = closeButton?.Height ?? double.NaN;
+            }
+
+            if (compactMode)
+            {
+                if (prototypeBadgeHost != null) prototypeBadgeHost.IsVisible = false;
+                if (titleText != null)
+                {
+                    titleText.Text = $"Zer0Talk {AppInfo.PrototypeBadgeText}";
+                    titleText.FontSize = 12;
+                }
+                if (titleIcon != null)
+                {
+                    titleIcon.Width = 24;
+                    titleIcon.Height = 24;
+                    titleIcon.MinWidth = 24;
+                    titleIcon.MinHeight = 24;
+                }
+                if (minButton != null) { minButton.Width = 30; minButton.Height = 24; }
+                if (maxButton != null) { maxButton.Width = 30; maxButton.Height = 24; }
+                if (closeButton != null) { closeButton.Width = 30; closeButton.Height = 24; }
+            }
+            else
+            {
+                if (prototypeBadgeHost != null) prototypeBadgeHost.IsVisible = true;
+                if (titleText != null)
+                {
+                    titleText.Text = "Zer0Talk";
+                    titleText.FontSize = _titleTextBaseSize;
+                }
+                if (titleIcon != null)
+                {
+                    titleIcon.Width = _titleIconBaseWidth;
+                    titleIcon.Height = _titleIconBaseHeight;
+                    titleIcon.MinWidth = _titleIconBaseWidth;
+                    titleIcon.MinHeight = _titleIconBaseHeight;
+                }
+                if (minButton != null) { minButton.Width = _minButtonBaseWidth; minButton.Height = _minButtonBaseHeight; }
+                if (maxButton != null) { maxButton.Width = _maxButtonBaseWidth; maxButton.Height = _maxButtonBaseHeight; }
+                if (closeButton != null) { closeButton.Width = _closeButtonBaseWidth; closeButton.Height = _closeButtonBaseHeight; }
+            }
+        }
+        catch { }
+    }
+
     private void ToggleMaximizeRestore()
     {
-        try { WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; } catch { }
+        try
+        {
+            if (IsCompactModeEnabled())
+            {
+                WindowState = WindowState.Normal;
+                ApplyCompactModeLayout(true);
+                return;
+            }
+
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        }
+        catch { }
     }
     private void Minimize_Click(object? sender, RoutedEventArgs e)
     {
@@ -4614,8 +5062,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
+            UpdateNotificationBellPlacement();
             var popup = this.FindControl<Popup>("NotificationDropPopup");
             if (popup == null) return;
+            var targetButton = popup.PlacementTarget as Button ?? this.FindControl<Button>(IsCompactModeEnabled() ? "NotificationBellButton" : "NotificationCenterButton");
+            if (targetButton != null) popup.PlacementTarget = targetButton;
             if (popup.IsOpen)
             {
                 popup.IsOpen = false;
@@ -4623,8 +5074,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             }
             else
             {
-                var bellBtn = this.FindControl<Button>("NotificationBellButton");
-                if (bellBtn != null) popup.PlacementTarget = bellBtn;
+                var openTargetButton = popup.PlacementTarget as Button ?? this.FindControl<Button>(IsCompactModeEnabled() ? "NotificationBellButton" : "NotificationCenterButton");
+                if (openTargetButton != null) popup.PlacementTarget = openTargetButton;
                 try { EnsureRightPanelHostsInitialized(); } catch { }
                 try { AttachRightPanelEventHandlers(); } catch { }
                 try { RestoreRightPanelViewIfNeeded(); } catch { }
@@ -4843,54 +5294,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     }
 
 
-    // [UI Guard] Capture a simple checkpoint of the Nav rail layout for traceability
-    private static void CheckpointNavRail()
-    {
-        try { WriteLayoutLog("[Checkpoint] Nav rail: expect Width=64 Height=56 Padding=8,0 Spacing=6..10 Centered Top-stacked Icons~26px"); } catch { }
-    }
-
-    // [UI Guard] Validate and correct the left nav rail layout; log any corrections
-    private void VerifyAndGuardNavRail()
-    {
-        try
-        {
-            var nav = this.FindControl<Border>("NavRail");
-            if (nav == null) return;
-            // Find the first StackPanel inside the nav rail that holds the buttons
-            var stack = nav.GetVisualDescendants().OfType<StackPanel>().FirstOrDefault();
-            if (stack == null) return;
-
-            bool corrected = false;
-
-            // Stack alignment and spacing
-            if (stack.HorizontalAlignment != HorizontalAlignment.Center) { stack.HorizontalAlignment = HorizontalAlignment.Center; corrected = true; }
-            if (stack.VerticalAlignment != VerticalAlignment.Top) { stack.VerticalAlignment = VerticalAlignment.Top; corrected = true; }
-            // Spacing target is 6 (allowed 6..10)
-            if (stack.Spacing < 6 || stack.Spacing > 10) { stack.Spacing = 6; corrected = true; }
-
-            // Buttons sizing/alignment/padding and icon size
-            foreach (var btn in stack.Children.OfType<Button>())
-            {
-                if (btn.Width != 64) { btn.Width = 64; corrected = true; }
-                if (btn.Height != 56) { btn.Height = 56; corrected = true; }
-                if (btn.HorizontalAlignment != HorizontalAlignment.Center) { btn.HorizontalAlignment = HorizontalAlignment.Center; corrected = true; }
-                if (btn.HorizontalContentAlignment != HorizontalAlignment.Center) { btn.HorizontalContentAlignment = HorizontalAlignment.Center; corrected = true; }
-                if (btn.VerticalContentAlignment != VerticalAlignment.Center) { btn.VerticalContentAlignment = VerticalAlignment.Center; corrected = true; }
-                if (btn.Padding.Left != 8 || btn.Padding.Right != 8 || btn.Padding.Top != 0 || btn.Padding.Bottom != 0)
-                { btn.Padding = new Thickness(8, 0, 8, 0); corrected = true; }
-                var icon = btn.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault();
-                if (icon != null && (icon.FontSize < 24 || icon.FontSize > 28)) { icon.FontSize = 26; corrected = true; }
-            }
-
-            if (corrected)
-            {
-                var msg = "[Guard] Nav rail layout corrected to 64x56 buttons, Padding 8,0, Spacing 6, centered, icons ~26px";
-                try { WriteLayoutLog(msg); } catch { }
-                try { Zer0Talk.Utilities.ErrorLogger.LogException(new InvalidOperationException(msg), source: "Layout.Guard"); } catch { }
-            }
-        }
-        catch { }
-    }
+    // Nav rail sizing is theme-driven via XAML styles; no runtime geometry overrides.
     // [SETTINGS-OVERLAY] Inline host and proxy interactions
 
 #if DEBUG
@@ -5064,7 +5468,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     }
 #endif
     
-
     private void ShowSettingsOverlay(string? section = null)
     {
         try
@@ -5072,6 +5475,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var overlay = this.FindControl<Grid>("SettingsOverlay");
             var host = this.FindControl<ContentControl>("InlineSettingsHost");
             if (overlay == null || host == null) return;
+
+            // Settings overlay should always render with normal-window geometry,
+            // even when compact mode is enabled.
+            EnsureSettingsOverlayWindowGeometry();
+
             overlay.IsVisible = true;
             // Reset transient UI states on open: hide lingering toasts and banners
             try { SettingsProxy.ResetTransientUi(); } catch { }
@@ -5110,12 +5518,53 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 
+    private void EnsureSettingsOverlayWindowGeometry()
+    {
+        try
+        {
+            if (WindowState != WindowState.Normal)
+                return;
+
+            // If compact was recently active but the setting is now off, force a normal-layout restore.
+            if (!IsCompactModeEnabled() && _compactWindowBoundsCaptured)
+            {
+                ApplyCompactModeLayout(false);
+                return;
+            }
+
+            // While compact mode is enabled, temporarily relax width constraints so settings is usable.
+            if (IsCompactModeEnabled())
+            {
+                const double fallbackMinWidth = 980d;
+                const double fallbackMinHeight = 620d;
+
+                var targetMinWidth = _preCompactMinWidth > 0 ? _preCompactMinWidth : fallbackMinWidth;
+                var targetMinHeight = _preCompactMinHeight > 0 ? _preCompactMinHeight : fallbackMinHeight;
+                var targetWidth = _preCompactWindowWidth is > 0 ? _preCompactWindowWidth.Value : targetMinWidth;
+
+                MinWidth = targetMinWidth;
+                MinHeight = targetMinHeight;
+                MaxWidth = double.PositiveInfinity;
+                Width = Math.Max(Width, targetWidth);
+            }
+        }
+        catch { }
+    }
+
     private void HideSettingsOverlayIfConfirmed()
     {
         try
         {
             var overlay = this.FindControl<Grid>("SettingsOverlay");
             if (overlay == null || overlay.IsVisible == false) return;
+
+            try
+            {
+                if (_settingsVm?.HasUnsavedChanges == true)
+                    _settingsVm.SaveCommand.Execute(null);
+            }
+            catch { }
+
             HideSettingsOverlayImmediate();
             try { SettingsProxy.ResetTransientUi(); } catch { }
         }
@@ -5185,6 +5634,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                 if (DataContext is MainWindowViewModel vm) vm.RefreshSettingsDependentProperties();
             }
             catch { }
+            try { ApplyCompactModeLayout(); } catch { }
         }
         catch { }
     }
@@ -5199,6 +5649,27 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         {
             HideSettingsOverlayIfConfirmed();
             e.Handled = true;
+        }
+    }
+
+    private TextBlock? GetVisibleNotificationBellIcon()
+    {
+        try
+        {
+            if (IsCompactModeEnabled())
+            {
+                var compactIcon = this.FindControl<TextBlock>("NotificationRailBellIcon");
+                if (compactIcon != null) return compactIcon;
+            }
+
+            var regularIcon = this.FindControl<TextBlock>("NotificationCenterBellIcon");
+            if (regularIcon != null) return regularIcon;
+
+            return this.FindControl<TextBlock>("NotificationRailBellIcon");
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -5356,6 +5827,94 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             if (popup != null) popup.IsOpen = visible;
         }
         catch { }
+    }
+
+    private void UpdateDebugToolbarWindow()
+    {
+        try
+        {
+            if (DataContext is not MainWindowViewModel vm || !vm.IsDebugUi)
+            {
+                try { _debugToolbarWindow?.Close(); } catch { }
+                _debugToolbarWindow = null;
+                return;
+            }
+
+            if (_debugToolbarWindow != null)
+            {
+                try { _debugToolbarWindow.Activate(); } catch { }
+                return;
+            }
+
+            var window = new Window
+            {
+                Title = "Debug Toolbar",
+                Width = 430,
+                Height = 96,
+                MinWidth = 380,
+                MinHeight = 86,
+                CanResize = false,
+                Topmost = true,
+                ShowInTaskbar = false,
+                WindowStartupLocation = WindowStartupLocation.Manual,
+                Background = this.Background,
+                SystemDecorations = SystemDecorations.BorderOnly,
+                Content = BuildDebugToolbarContent(vm)
+            };
+
+            try
+            {
+                var p = this.Position;
+                window.Position = new PixelPoint(p.X + 80, p.Y + 90);
+            }
+            catch { }
+
+            window.Closed += (_, __) =>
+            {
+                if (ReferenceEquals(_debugToolbarWindow, window))
+                    _debugToolbarWindow = null;
+            };
+
+            _debugToolbarWindow = window;
+            window.Show();
+        }
+        catch { }
+    }
+
+    private Control BuildDebugToolbarContent(MainWindowViewModel vm)
+    {
+        var root = new Border
+        {
+            Padding = new Thickness(10),
+            BorderThickness = new Thickness(1),
+            BorderBrush = Brushes.Gray,
+            CornerRadius = new CornerRadius(8)
+        };
+
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+
+        row.Children.Add(new Button { Content = "Sim Invite", MinWidth = 70, Command = vm.SimulateInviteCommand });
+        row.Children.Add(new Button { Content = "Info", MinWidth = 55, Command = vm.TestInfoToastCommand });
+        row.Children.Add(new Button { Content = "Warn", MinWidth = 55, Command = vm.TestWarningToastCommand });
+        row.Children.Add(new Button { Content = "Error", MinWidth = 55, Command = vm.TestErrorToastCommand });
+        row.Children.Add(new Button { Content = "Msg", MinWidth = 55, Command = vm.TestMessageToastCommand });
+
+        var upd = new Button { Content = "Update Test", MinWidth = 88 };
+        upd.Click += (_, __) => TestUpdateNotification_Click(_, __);
+        row.Children.Add(upd);
+
+        var badge = new Button { Content = "Toggle Badge", MinWidth = 95 };
+        badge.Click += (_, __) => ToggleUpdateBadge_Click(_, __);
+        row.Children.Add(badge);
+
+        root.Child = row;
+        return root;
     }
 
     private enum RightPanelView
@@ -7203,6 +7762,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
     {
         try
         {
+            foreach (var kvp in _compactConversationWindows.ToArray())
+            {
+                try { kvp.Value.Close(); } catch { }
+            }
+            _compactConversationWindows.Clear();
+        }
+        catch { }
+        try { _debugToolbarWindow?.Close(); } catch { }
+        _debugToolbarWindow = null;
+        try { _layoutAutosave?.Dispose(); } catch { }
+        _layoutAutosave = null;
+        try
+        {
             _chatScrollAnimator?.Dispose();
             _chatScrollAnimator = null;
         }
@@ -7278,6 +7850,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     if (e.PropertyName == nameof(MainWindowViewModel.NotificationCount))
                     {
                         try { OnNotificationCountChanged(vm.NotificationCount); } catch { }
+                    }
+                    else if (e.PropertyName == nameof(MainWindowViewModel.IsDebugUi))
+                    {
+                        try { Dispatcher.UIThread.Post(UpdateDebugToolbarWindow, DispatcherPriority.Background); } catch { }
                     }
                     else if (e.PropertyName == nameof(MainWindowViewModel.ActiveSearchMessageId))
                     {
@@ -7610,7 +8186,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             {
                 try
                 {
-                    var bellIcon = this.FindControl<Avalonia.Controls.Shapes.Path>("NotificationBellIcon");
+                    var bellIcon = GetVisibleNotificationBellIcon();
                     if (bellIcon == null) return;
 
                     _isBellFlashing = true;
@@ -7676,7 +8252,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
                     }
 
                     // Restore full opacity
-                    var bellIcon = this.FindControl<Avalonia.Controls.Shapes.Path>("NotificationBellIcon");
+                    var bellIcon = GetVisibleNotificationBellIcon();
                     if (bellIcon != null)
                     {
                         bellIcon.Opacity = 1.0;
@@ -7688,3 +8264,4 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
         catch { }
     }
 }
+

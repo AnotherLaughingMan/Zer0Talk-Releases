@@ -3439,6 +3439,24 @@ namespace Zer0Talk.ViewModels
             catch { }
         }
 
+        public void FlushSelectedConversationReadState()
+        {
+            try
+            {
+                var contact = SelectedContact;
+                if (contact == null || contact.IsSimulated) return;
+
+                var peerUid = TrimUidPrefix(contact.UID ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(peerUid)) return;
+
+                MarkMessagesAsRead();
+                try { AppServices.Notifications.MarkConversationMessageNoticesRead(peerUid); } catch { }
+                try { contact.UnreadCount = 0; } catch { }
+                try { AppServices.Contacts.Save(AppServices.Passphrase); } catch { }
+            }
+            catch { }
+        }
+
     private void HandleSimulatedSend(Contact contact, Message outbound, string content)
         {
             try

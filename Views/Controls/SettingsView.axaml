@@ -83,15 +83,13 @@
             </StackPanel>
           </Border>
 
-          <!-- Font Section -->
+          <!-- Compact Mode Section -->
           <Border Classes="general-card">
             <StackPanel Spacing="12">
-              <TextBlock Classes="general-section-title" Text="{Binding LocalizedFont}"/>
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="{Binding LocalizedFamily}" VerticalAlignment="Center"/>
-                <TextBox Text="{Binding UiFontFamily}" Width="200" Watermark="{Binding LocalizedEnterFontFamilyName}"
-                         ToolTip.Tip="{Binding LocalizedFontHelp}"/>
-              </StackPanel>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedCompactMode}"/>
+              <ToggleSwitch IsChecked="{Binding CompactModeEnabled}"
+                            Content="{Binding LocalizedCompactMode}"
+                            ToolTip.Tip="{Binding LocalizedCompactModeHelp}"/>
               <!-- UI Scaling removed: OS-level scaling should be used instead (Windows Display Settings, etc.) -->
               <!-- DO NOT re-add UI scaling - RenderTransform scaling causes severe layout issues, content clipping, -->
               <!-- and window sizing problems that cannot be reliably solved. Use OS accessibility features instead. -->

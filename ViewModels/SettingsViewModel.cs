@@ -137,6 +137,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private int _baseRamUsageLimitMb;
     private bool _baseEnforceRamLimit;
     private bool _baseEnforceVramLimit;
+    private bool _baseCompactModeEnabled;
     private double _baseMainVolume;
     private double _baseNotificationVolume;
     private double _baseChatVolume;
@@ -151,7 +152,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(ThemeIndex),
         nameof(SelectedThemeId),
         nameof(RememberPassphrase),
-        nameof(UiFontFamily),
+        nameof(CompactModeEnabled),
         nameof(Language),
         nameof(DefaultPresenceIndex),
         nameof(AllowAutoUpdates),
@@ -451,6 +452,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             RememberPassphrase = settings.RememberPassphrase;
 
             UiFontFamily = string.IsNullOrWhiteSpace(settings.UiFontFamily) ? null : settings.UiFontFamily;
+            CompactModeEnabled = settings.CompactModeEnabled;
             Language = string.IsNullOrWhiteSpace(settings.Language) ? "English (US)" : settings.Language;
             
             // Initialize LocalizationService with saved language
@@ -788,6 +790,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             SetSelectedThemeId(_baseThemeId, updateIndex: true, triggerChange: true);
             RememberPassphrase = _baseRememberPassphrase;
             UiFontFamily = string.IsNullOrWhiteSpace(s.UiFontFamily) ? null : s.UiFontFamily;
+            CompactModeEnabled = s.CompactModeEnabled;
             LockBlurRadius = ClampRange(s.LockBlurRadius, 0, 10);
             DefaultPresenceIndex = PresenceToIndex(s.Status);
             AllowAutoUpdates = s.AutoUpdateEnabled;
@@ -2165,6 +2168,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedThemeHelp => Services.AppServices.Localization.GetString("Settings.ThemeHelp", "Select the overall application theme");
     public string LocalizedFont => Services.AppServices.Localization.GetString("Settings.Font", "Font");
     public string LocalizedFontHelp => Services.AppServices.Localization.GetString("Settings.FontHelp", "Override the UI font family (leave blank for default)");
+    public string LocalizedCompactMode => Services.AppServices.Localization.GetString("Settings.CompactMode", "Compact mode");
+    public string LocalizedCompactModeHelp => Services.AppServices.Localization.GetString("Settings.CompactModeHelp", "Hide the main chat pane and open conversations in separate windows from the contacts list.");
     public string LocalizedPrivacy => Services.AppServices.Localization.GetString("Settings.Privacy", "Privacy");
     
     // General panel strings
@@ -2887,6 +2892,8 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedThemeHelp));
             OnPropertyChanged(nameof(LocalizedFont));
             OnPropertyChanged(nameof(LocalizedFontHelp));
+            OnPropertyChanged(nameof(LocalizedCompactMode));
+            OnPropertyChanged(nameof(LocalizedCompactModeHelp));
             OnPropertyChanged(nameof(LocalizedPrivacy));
             
             // General panel
@@ -4023,6 +4030,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.BlockScreenCapture = BlockScreenCapture;
             // Theme Engine persistence
             s.UiFontFamily = UiFontFamily;
+            s.CompactModeEnabled = CompactModeEnabled;
             // Language persistence
             s.Language = string.IsNullOrWhiteSpace(Language) ? "English (US)" : Language;
             // General additions
@@ -4347,7 +4355,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             if (!string.Equals(_baseBio, Bio ?? string.Empty, StringComparison.Ordinal)) return true;
             if (!string.Equals(_baseAvatarSig, GetAvatarSignature(_avatarBytes), StringComparison.Ordinal)) return true;
             if (_baseRememberPassphrase != _rememberPassphrase) return true;
-            if (!string.Equals(_baseUiFontFamily ?? string.Empty, UiFontFamily ?? string.Empty, StringComparison.Ordinal)) return true;
+            if (_baseCompactModeEnabled != _compactModeEnabled) return true;
             if (!string.Equals(_baseLanguage ?? "English (US)", Language ?? "English (US)", StringComparison.Ordinal)) return true;
             if (_baseDefaultPresenceIndex != _defaultPresenceIndex) return true;
             if (_baseAllowAutoUpdates != _allowAutoUpdates) return true;
@@ -4444,6 +4452,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseAvatarSig = GetAvatarSignature(_avatarBytes);
             _baseRememberPassphrase = _rememberPassphrase;
         _baseUiFontFamily = UiFontFamily;
+            _baseCompactModeEnabled = _compactModeEnabled;
             _baseLanguage = Language ?? "English (US)";
             _baseDefaultPresenceIndex = _defaultPresenceIndex;
             _baseAllowAutoUpdates = _allowAutoUpdates;
@@ -4515,6 +4524,13 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     // Theme Engine properties
     private string? _uiFontFamily;
     public string? UiFontFamily { get => _uiFontFamily; set { if (_uiFontFamily != value) { _uiFontFamily = value; OnPropertyChanged(); } } }
+
+    private bool _compactModeEnabled;
+    public bool CompactModeEnabled
+    {
+        get => _compactModeEnabled;
+        set { if (_compactModeEnabled != value) { _compactModeEnabled = value; OnPropertyChanged(); } }
+    }
     
     // UI Scaling removed - use OS-level display scaling instead
     // DO NOT re-add: RenderTransform scaling causes unsolvable layout/window sizing issues,
@@ -9263,3 +9279,4 @@ public class NetworkViewModel : INotifyPropertyChanged
         try { AppServices.Updates.UnregisterUi("NetworkViewModel.RefreshLists.throttle"); } catch { }
     }
 }
+
