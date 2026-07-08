@@ -360,9 +360,7 @@ namespace Zer0Talk.ViewModels
                         // Subscribe to presence changes on this contact
                         _selectedContactPresenceHandler = (s, e) =>
                         {
-                            if (e.PropertyName == nameof(Contact.Presence)
-                                || e.PropertyName == nameof(Contact.ConnectionMode)
-                                || e.PropertyName == nameof(Contact.IsSimulated))
+                            if (e.PropertyName == nameof(Contact.Presence))
                             {
                                 Avalonia.Threading.Dispatcher.UIThread.Post(() => UpdatePresenceBanner(_selectedContact));
                             }
@@ -841,6 +839,18 @@ namespace Zer0Talk.ViewModels
 
             // Load contacts from manager
             AppServices.Contacts.Load(AppServices.Passphrase);
+            if (AppServices.Contacts.Contacts.Count == 0 && !string.IsNullOrWhiteSpace(AppServices.Passphrase))
+            {
+                try
+                {
+                    var recovered = AppServices.Contacts.TryImportFromLocalSources(AppServices.Passphrase, out var imported, out var _);
+                    if (recovered && imported > 0)
+                    {
+                        try { AppServices.Notifications.PostNotice(Models.NotificationType.Information, $"Recovered {imported} contact(s) from local storage on startup.", isPersistent: false); } catch { }
+                    }
+                }
+                catch { }
+            }
             foreach (var c in AppServices.Contacts.Contacts) Contacts.Add(c);
             // Ensure unread badges and connection mode metadata are correct on first paint.
             RefreshContactMetadata();
@@ -2222,9 +2232,11 @@ namespace Zer0Talk.ViewModels
             {
                 var normalized = TrimUidPrefix(recipientUid);
                 var hasSession = AppServices.Network.HasEncryptedSession(normalized);
-                var isLivePath = hasSession;
+                var connectionMode = AppServices.Network.GetConnectionMode(normalized);
+                var isLivePath = hasSession || connectionMode != ConnectionMode.None;
+                var isOnlinePresence = contact?.Presence == PresenceStatus.Online;
 
-                if (isLivePath)
+                if (isLivePath || isOnlinePresence)
                 {
                     return "Message couldn't be sent immediately. Queued for retry.";
                 }
@@ -3439,6 +3451,24 @@ namespace Zer0Talk.ViewModels
             catch { }
         }
 
+        public void FlushSelectedConversationReadState()
+        {
+            try
+            {
+                var contact = SelectedContact;
+                if (contact == null || contact.IsSimulated) return;
+
+                var peerUid = TrimUidPrefix(contact.UID ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(peerUid)) return;
+
+                MarkMessagesAsRead();
+                try { AppServices.Notifications.MarkConversationMessageNoticesRead(peerUid); } catch { }
+                try { contact.UnreadCount = 0; } catch { }
+                try { AppServices.Contacts.Save(AppServices.Passphrase); } catch { }
+            }
+            catch { }
+        }
+
     private void HandleSimulatedSend(Contact contact, Message outbound, string content)
         {
             try
@@ -3660,7 +3690,7 @@ namespace Zer0Talk.ViewModels
         private void UpdatePresenceBanner(Contact? contact)
         {
             if (contact == null || contact.IsSimulated) { HideOfflineBanner(); return; }
-                switch (contact.EffectivePresence)
+            switch (contact.Presence)
             {
                 case PresenceStatus.Offline:
                 case PresenceStatus.Invisible: // Don't reveal invisible — treat as offline
@@ -4089,19 +4119,22 @@ namespace Zer0Talk.ViewModels
                     {
                         var uid = TrimUidPrefix(c.UID);
                         var hasSession = AppServices.Network.HasEncryptedSession(uid);
-                        var connectionMode = hasSession ? AppServices.Network.GetConnectionMode(uid) : ConnectionMode.None;
+                        var connectionMode = AppServices.Network.GetConnectionMode(uid);
                         var newUnreadCount = AppServices.Notifications.GetUnreadCountForPeer(uid);
-                        var hasLivePath = hasSession;
+                        var hasLivePath = hasSession || connectionMode != ConnectionMode.None;
 
                         // Keep presence synchronized with real encrypted transport state to avoid
                         // stale/false-positive online indicators after session teardown.
                         if (hasLivePath)
                         {
-                            if (c.PresenceSource == PresenceSource.Session)
+                            if (c.Presence == PresenceStatus.Offline || c.Presence == PresenceStatus.Invisible)
                             {
-                                c.LastPresenceUtc = now;
-                                c.PresenceExpiresUtc = now + TimeSpan.FromMinutes(2);
+                                c.Presence = PresenceStatus.Online;
                             }
+
+                            c.PresenceSource = PresenceSource.Session;
+                            c.LastPresenceUtc = now;
+                            c.PresenceExpiresUtc = now + TimeSpan.FromMinutes(2);
                         }
                         else if (c.PresenceSource == PresenceSource.Session
                             && (c.Presence == PresenceStatus.Online || c.Presence == PresenceStatus.Idle || c.Presence == PresenceStatus.DoNotDisturb))

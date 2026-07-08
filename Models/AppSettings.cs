@@ -44,6 +44,8 @@ public class AppSettings
     public string? UiFontFamily { get; set; }
     // Theme Engine: global UI scale (1.0 = 100%). Future: allow per-monitor / per-surface scaling.
     public double UiScale { get; set; } = 1.0;
+    // UI layout mode: when enabled, views can opt into tighter spacing/density.
+    public bool CompactModeEnabled { get; set; }
     // Persist local presence; default Online
     public PresenceStatus Status { get; set; } = PresenceStatus.Online;
     public int Port { get; set; } = 26264;
@@ -88,6 +90,8 @@ public class AppSettings
     // Left = navigation + peers; Right = diagnostics. Center remains star-sized.
     public double? MainLeftWidth { get; set; }
     public double? MainRightWidth { get; set; }
+    // Main window UX: restore the last opened conversation on app startup.
+    public string? LastSelectedContactUid { get; set; }
     // Notification center sub-view persistence: 0=Invites, 1=Messages, 2=Alerts
     public int LastNotificationCenterView { get; set; }
     // Composer markdown live preview visibility persistence
@@ -218,3 +222,4 @@ public class AppSettings
     public bool DoNotShowPrivacyAgain { get; set; }
 
 }
+

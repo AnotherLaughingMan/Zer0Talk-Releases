@@ -20,8 +20,8 @@
     Title="Zer0Talk"
     Width="1260"
     Height="760"
-    MinWidth="1160"
-    MinHeight="700"
+    MinWidth="980"
+    MinHeight="620"
     ExtendClientAreaToDecorationsHint="True"
     ExtendClientAreaChromeHints="NoChrome"
     ExtendClientAreaTitleBarHeightHint="32">
@@ -204,18 +204,18 @@
                   MinWidth="32"
                   MinHeight="32"
                   Stretch="Uniform"/>
-              <TextBlock Text="Zer0Talk" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                <TextBlock x:Name="TitleText" Text="Zer0Talk" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
                    Foreground="{DynamicResource App.TitleBarForeground}"/>
                 </StackPanel>
 
                 <!-- Center: Prototype tag, smack-dab in the middle -->
-                <Grid Grid.Column="1" IsHitTestVisible="False">
+                <Grid x:Name="PrototypeBadgeHost" Grid.Column="1" IsHitTestVisible="False">
                     <Border HorizontalAlignment="Center" VerticalAlignment="Center" Background="#FFA500" Padding="10,3" CornerRadius="8">
                         <TextBlock Text="{x:Static core:AppInfo.PrototypeBadgeText}" Foreground="Black" FontWeight="Bold"/>
                     </Border>
                 </Grid>
 
-                <!-- Right: panel toggles, lock/logout, and system buttons -->
+                <!-- Right: update + window controls -->
                 <StackPanel x:Name="TitleRightActions" Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <Border Background="#FFB300" CornerRadius="6" Padding="6,2" VerticalAlignment="Center" Margin="0,0,2,0">
                         <Border.IsVisible>
@@ -226,31 +226,6 @@
                         </Border.IsVisible>
                         <TextBlock Text="DEV UI" FontSize="10" FontWeight="SemiBold" Foreground="#141414"/>
                     </Border>
-                    <!-- Debug: simulate invite + clear (hidden in Release builds) -->
-                    <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding IsDebugUi}">
-                        <Button Classes="icon-button" ToolTip.Tip="Simulate Invite" Command="{Binding SimulateInviteCommand}">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE7C5;"/>
-                        </Button>
-                        <Separator IsVisible="{Binding IsDebugUi}"/>
-                        <Button Classes="icon-button" ToolTip.Tip="Test Info Toast" Command="{Binding TestInfoToastCommand}" IsVisible="{Binding IsDebugUi}">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE946;" Foreground="#4CAF50"/>
-                        </Button>
-                        <Button Classes="icon-button" ToolTip.Tip="Test Warning Toast" Command="{Binding TestWarningToastCommand}" IsVisible="{Binding IsDebugUi}">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE7BA;" Foreground="#FF9800"/>
-                        </Button>
-                        <Button Classes="icon-button" ToolTip.Tip="Test Error Toast" Command="{Binding TestErrorToastCommand}" IsVisible="{Binding IsDebugUi}">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE783;" Foreground="#F44336"/>
-                        </Button>
-                        <Button Classes="icon-button" ToolTip.Tip="Test Message Toast" Command="{Binding TestMessageToastCommand}" IsVisible="{Binding IsDebugUi}">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE8BD;" Foreground="#2196F3"/>
-                        </Button>
-                        <Button Classes="icon-button" ToolTip.Tip="Test Update Notification" Click="TestUpdateNotification_Click" IsVisible="{Binding IsDebugUi}">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE895;" Foreground="#2196F3"/>
-                        </Button>
-                        <Button Classes="icon-button" ToolTip.Tip="Toggle Update Badge Test" Click="ToggleUpdateBadge_Click" IsVisible="{Binding IsDebugUi}">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE895;" Foreground="#FFB300"/>
-                        </Button>
-                    </StackPanel>
                     <Button x:Name="UpdateTagButton"
                             IsVisible="False"
                             Background="Transparent"
@@ -274,27 +249,25 @@
                             </StackPanel>
                         </Border>
                     </Button>
-                    <Button x:Name="NotificationBellButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedOpenNotifications}" Click="ToggleNotifDrop_Click">
-                        <!-- Bell glyph with compact red-dot badge to mirror nav rail -->
+                    <Button x:Name="NotificationCenterButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedOpenNotifications}" Click="ToggleNotifDrop_Click">
                         <Grid Width="20" Height="20">
-                            <Path x:Name="NotificationBellIcon" Width="18" Height="18" Stretch="Uniform" Fill="{DynamicResource App.ForegroundPrimary}" IsHitTestVisible="False"
-                                  Data="M12,2 C8.7,2 6,4.7 6,8 L6,11.3 C6,11.76 5.8,12.2 5.45,12.5 L4,14 L20,14 L18.55,12.5 C18.2,12.2 18,11.76 18,11.3 L18,8 C18,4.7 15.3,2 12,2 Z M9,18 C9,19.66 10.34,21 12,21 C13.66,21 15,19.66 15,18 Z"/>
+                            <TextBlock x:Name="NotificationCenterBellIcon" Classes="icon-mdl2" Text="&#xF2A3;" FontSize="18" IsHitTestVisible="False"/>
                             <Ellipse Width="8" Height="8" Fill="#DD3333" Stroke="{DynamicResource App.Background}" StrokeThickness="1"
                                      HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0"
                                      IsHitTestVisible="False" IsVisible="{Binding NotificationBadgeVisible}" />
                         </Grid>
                     </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedLockLogout}" Click="Lock_Click">
+                    <Button x:Name="PowerDragButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedLockLogout}" Click="Lock_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE7E8;"/>
                     </Button>
                     <Border Width="1" Height="18" Background="{DynamicResource App.Border}" Opacity="0.5" VerticalAlignment="Center" Margin="2,0"/>
-                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedMinimize}" Click="Minimize_Click">
+                    <Button x:Name="MinimizeButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedMinimize}" Click="Minimize_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE921;"/>
                     </Button>
                     <Button x:Name="MaximizeRestoreButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedMaximize}" Click="Maximize_Click">
                         <TextBlock x:Name="MaximizeRestoreIcon" Classes="icon-mdl2" Text="&#xE922;"/>
                     </Button>
-                    <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedClose}" Click="Close_Click">
+                    <Button x:Name="CloseButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedClose}" Click="Close_Click">
                         <TextBlock Classes="icon-mdl2" Text="&#xE8BB;"/>
                     </Button>
                 </StackPanel>
@@ -304,8 +277,8 @@
         <!-- Body: four columns (Nav rail | Contacts | Chat | Notifications) -->
         <Grid x:Name="BodyGrid" Grid.Row="1" Background="{DynamicResource App.Background}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="64"/>
-                <ColumnDefinition Width="280" MinWidth="220"/>
+                <ColumnDefinition Width="48"/>
+                <ColumnDefinition Width="320" MinWidth="260"/>
                 <!-- Divider column (contacts/chat) -->
                 <ColumnDefinition Width="1"/>
                 <!-- Chat star occupies remaining space -->
@@ -318,33 +291,58 @@
                 <Border.Styles>
                     <!-- Scope: only nav rail icon buttons -->
                     <Style Selector="Button.icon-button">
-                        <Setter Property="Width" Value="64"/>
-                        <Setter Property="Height" Value="56"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
                         <Setter Property="HorizontalContentAlignment" Value="Center"/>
                         <Setter Property="VerticalContentAlignment" Value="Center"/>
-                        <!-- 8px horizontal padding to match Discord-style containment -->
-                        <Setter Property="Padding" Value="8,0"/>
                     </Style>
                 </Border.Styles>
-        <Grid Margin="0,12" RowDefinitions="Auto,*,Auto">
+        <Grid Margin="0,10" RowDefinitions="Auto,*,Auto">
                     <!-- Primary navigation icons stay anchored to the top -->
-                    <StackPanel Grid.Row="0" Spacing="6" HorizontalAlignment="Center">
-                        <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedToggleContacts}" Click="ToggleLeftPanel_Click">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE700;" FontSize="26"/>
+                    <StackPanel Grid.Row="0" Spacing="4" HorizontalAlignment="Center">
+                        <!-- Left rail button: Contacts panel toggle -->
+                        <Button x:Name="ToggleContactsButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedToggleContacts}" Click="ToggleLeftPanel_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE700;"/>
                         </Button>
-                        <Button Classes="icon-button" ToolTip.Tip="{Binding LocalizedAddContact}" Click="AddContact_Click">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE8FA;" FontSize="26"/>
+                        <!-- Left rail button: Notifications popup toggle -->
+                        <Button x:Name="NotificationBellButton"
+                            Classes="icon-button"
+                                HorizontalAlignment="Center"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                ToolTip.Tip="{Binding LocalizedOpenNotifications}"
+                                Click="ToggleNotifDrop_Click">
+                            <Grid Width="16" Height="16" ClipToBounds="False">
+                                <TextBlock x:Name="NotificationRailBellIcon"
+                                           Classes="icon-mdl2"
+                                           Text="&#xF2A3;"
+                                           LineHeight="16"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           TextAlignment="Center"
+                                           IsHitTestVisible="False"/>
+                                <Ellipse Width="7" Height="7" Fill="#DD3333" Stroke="{DynamicResource App.Background}" StrokeThickness="1"
+                                         HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0"
+                                         IsHitTestVisible="False" IsVisible="{Binding NotificationBadgeVisible}" />
+                            </Grid>
                         </Button>
+                        <!-- Left rail button: Add contact dialog -->
+                        <Button x:Name="AddContactRailButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedAddContact}" Click="AddContact_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE8FA;"/>
+                        </Button>
+                        <!-- Left rail button: Log viewer (debug/diagnostics visibility controlled in code) -->
                         <Button x:Name="LogsButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedLogs}" Click="Logs_Click" IsVisible="False">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE8A5;" FontSize="26"/>
+                            <TextBlock Classes="icon-mdl2" Text="&#xE8A5;"/>
                         </Button>
                     </StackPanel>
 
                     <!-- Settings lives at the bottom edge to match navigation expectations -->
-                    <StackPanel Grid.Row="2" Spacing="6" HorizontalAlignment="Center">
+                    <StackPanel Grid.Row="2" Spacing="4" HorizontalAlignment="Center">
+                        <!-- Left rail button: Lock/logout action -->
+                        <Button x:Name="PowerRailButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedLockLogout}" Click="Lock_Click">
+                            <TextBlock Classes="icon-mdl2" Text="&#xE7E8;"/>
+                        </Button>
+                        <!-- Left rail button: Settings menu and quick actions -->
                         <Button x:Name="SettingsMenuButton" Classes="icon-button" ToolTip.Tip="{Binding LocalizedSettings}" Click="SettingsMenu_Click">
-                            <TextBlock Classes="icon-mdl2" Text="&#xE713;" FontSize="26"/>
+                            <TextBlock Classes="icon-mdl2" Text="&#xE713;"/>
                             <Button.ContextMenu>
                                 <ContextMenu Placement="Right" HorizontalOffset="8" VerticalOffset="0" Opacity="0.95"
                                              Background="{DynamicResource App.Background}"
@@ -402,7 +400,7 @@
             <!-- Contacts -->
             <Grid x:Name="LeftPanelRoot" Grid.Column="1" RowDefinitions="Auto,*">
                 <!-- Header area: identity + controls -->
-                <Border Padding="8" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 1 0">
+                <Border x:Name="ContactsHeaderBorder" Padding="8" Background="{DynamicResource App.Background}" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 1 0">
                     <StackPanel Spacing="2">
                         <!-- Current user identity shown above the contacts list -->
                         <Border Padding="8" CornerRadius="6" Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
@@ -502,7 +500,7 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="models:Contact">
                                 <Grid ColumnDefinitions="Auto,*" Margin="0,2,0,2"
-                                            Opacity="{Binding EffectivePresence, Converter={StaticResource PresenceToOpacityConverter}}">
+                                            Opacity="{Binding Presence, Converter={StaticResource PresenceToOpacityConverter}}">
                   <Border Classes="contact-indicator" Width="3" CornerRadius="1.5"
                           VerticalAlignment="Stretch" Margin="0,4"
                           HorizontalAlignment="Left"/>
@@ -605,15 +603,15 @@
                                                 BorderThickness="1">
                                             <Grid>
                                                 <Ellipse Width="10" Height="10" Fill="#22CC66" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                         IsVisible="{Binding EffectivePresence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Online}"/>
-                                                      <Image Width="10" Height="10" Source="avares://Zer0Talk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                          IsVisible="{Binding EffectivePresence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Idle}"/>
-                                                      <Image Width="10" Height="10" Source="avares://Zer0Talk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                          IsVisible="{Binding EffectivePresence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=DoNotDisturb}"/>
+                                                         IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Online}"/>
+                                                <Image Width="10" Height="10" Source="avares://Zer0Talk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Idle}"/>
+                                                <Image Width="10" Height="10" Source="avares://Zer0Talk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=DoNotDisturb}"/>
                                                 <Ellipse Width="10" Height="10" Stroke="#888888" StrokeThickness="1.4" Fill="Transparent" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                         IsVisible="{Binding EffectivePresence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Invisible}"/>
+                                                         IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Invisible}"/>
                                                 <Ellipse Width="10" Height="10" Fill="Transparent" Stroke="#888888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                         IsVisible="{Binding EffectivePresence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Offline}"/>
+                                                         IsVisible="{Binding Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Offline}"/>
                                             </Grid>
                                         </Border>
                                     </Grid>
@@ -668,7 +666,7 @@
                                                 </TextBlock.Text>
                                             </TextBlock>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding EffectivePresence, Converter={StaticResource PresenceToDisplayStringConverter}}" FontSize="12" Opacity="0.6"/>
+                                                <TextBlock Text="{Binding Presence, Converter={StaticResource PresenceToDisplayStringConverter}}" FontSize="12" Opacity="0.6"/>
                                                 <TextBlock Classes="icon-mdl2" Text="&#xE72E;" FontSize="12" Opacity="0.7"
                                                            IsVisible="{Binding IsEncryptionIndicatorVisible}"
                                                            ToolTip.Tip="{Binding $parent[v:MainWindow].DataContext.LocalizedEncrypted}"/>
@@ -762,7 +760,7 @@
 
             <!-- Center: Chat (simplified) with a persistent left divider -->
             <!-- Chat column now at index 3 due to inserted divider columns -->
-            <Grid x:Name="ChatArea" Grid.Column="3" RowDefinitions="Auto,*,Auto" MinWidth="340" Background="{DynamicResource App.Background}">
+            <Grid x:Name="ChatArea" Grid.Column="3" RowDefinitions="Auto,*,Auto" MinWidth="260" Background="{DynamicResource App.Background}">
                 <Border Padding="12" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.Background}">
                     <StackPanel Orientation="Vertical" Spacing="6">
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" VerticalAlignment="Center">
@@ -882,7 +880,8 @@
                        PlacementGravity="BottomLeft"
                        IsLightDismissEnabled="True"
                        IsOpen="False">
-                    <Border MinWidth="420"
+                        <Border MinWidth="280"
+                            MaxWidth="560"
                             Background="{DynamicResource App.Surface}"
                             BorderBrush="{DynamicResource App.Border}"
                             BorderThickness="1"
@@ -1401,7 +1400,7 @@
                                      Watermark="{Binding LocalizedTypeMessage}"
                                      AcceptsReturn="True"
                                      TextWrapping="Wrap"
-                                     MinHeight="56"
+                                     MinHeight="44"
                                      MaxHeight="200"
                                      VerticalAlignment="Center"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
@@ -1425,9 +1424,9 @@
                     <Border Background="{DynamicResource App.Surface}" BorderBrush="{DynamicResource App.Border}" BorderThickness="1" CornerRadius="8" Padding="8">
                         <ScrollViewer x:Name="ComposerEmojiPickerPopupScroll"
                                       MaxHeight="{Binding #RootWindow.Bounds.Height, Converter={StaticResource ReactionPickerHeightConverter}}"
-                                      Width="420"
+                                      Width="{Binding #RootWindow.Bounds.Width, Converter={StaticResource ReactionPickerWidthConverter}}"
                                       MaxWidth="420"
-                                      MinWidth="280"
+                                      MinWidth="220"
                                       HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollBarVisibility="Auto">
                             <StackPanel Spacing="10">
@@ -1625,11 +1624,11 @@
                                         Background="{DynamicResource App.Background}"
                                         BorderBrush="{DynamicResource App.Border}" BorderThickness="1">
                                     <Grid>
-                                        <Ellipse Width="12" Height="12" Fill="#22CC66" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.EffectivePresence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Online}"/>
-                                        <Image Width="12" Height="12" Source="avares://Zer0Talk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.EffectivePresence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Idle}"/>
-                                        <Image Width="12" Height="12" Source="avares://Zer0Talk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.EffectivePresence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=DoNotDisturb}"/>
-                                        <Ellipse Width="12" Height="12" Stroke="#888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" Fill="Transparent" IsVisible="{Binding SelectedContact.EffectivePresence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Invisible}"/>
-                                        <Ellipse Width="12" Height="12" Fill="Transparent" Stroke="#888888" StrokeThickness="1.8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.EffectivePresence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Offline}"/>
+                                        <Ellipse Width="12" Height="12" Fill="#22CC66" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Online}"/>
+                                        <Image Width="12" Height="12" Source="avares://Zer0Talk/Assets/Icons/Status/Away.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Idle}"/>
+                                        <Image Width="12" Height="12" Source="avares://Zer0Talk/Assets/Icons/Status/DND.ico" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=DoNotDisturb}"/>
+                                        <Ellipse Width="12" Height="12" Stroke="#888" StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center" Fill="Transparent" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Invisible}"/>
+                                        <Ellipse Width="12" Height="12" Fill="Transparent" Stroke="#888888" StrokeThickness="1.8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding SelectedContact.Presence, Converter={StaticResource PresenceEqualsToBoolConverter}, ConverterParameter=Offline}"/>
                                     </Grid>
                                 </Border>
                             </Grid>
@@ -1697,7 +1696,7 @@
                                     </StackPanel>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding $parent[v:MainWindow].DataContext.LocalizedPresenceLabel}" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedContact.EffectivePresence, Converter={StaticResource PresenceToDisplayStringConverter}}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SelectedContact.Presence, Converter={StaticResource PresenceToDisplayStringConverter}}" VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding $parent[v:MainWindow].DataContext.LocalizedPrevName}" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8">
@@ -1846,3 +1845,4 @@
         </Border>
     </Grid>
 </Window>
+

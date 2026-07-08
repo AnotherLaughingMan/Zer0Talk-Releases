@@ -35,6 +35,16 @@ Run this checklist before creating a release tag.
 ### Fixed
 - _None yet._
 
+## [0.0.4.11-Alpha-Win10 Hotfix] - 2026-07-08
+
+### Fixed
+- **Windows 10 auto-update launch compatibility**: installer launch now passes quoted shell arguments through `ProcessStartInfo.Arguments`, avoiding Windows ShellExecute edge cases where silent update flags could be dropped.
+
+### Notes
+- **Hotfix for Windows 10 users**: use the `Win10-Hotfix` installer/artifacts if AutoUpdate launches the installer incorrectly or silently falls back to the installer UI.
+- **Compact Mode preserved**: this hotfix includes the `0.0.4.11` Compact Mode implementation from `indev`.
+- **Version number unchanged**: this hotfix remains on app version `0.0.4.11`; users already on `0.0.4.11` who do not receive an update prompt should install the hotfix installer manually.
+
 ## [0.0.4.11-Alpha] - 2026-06-30
 
 ### Added

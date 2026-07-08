@@ -183,6 +183,12 @@ namespace Zer0Talk.Services
             var path = GetPath();
             try
             {
+                if (string.IsNullOrWhiteSpace(passphrase))
+                {
+                    Logger.Log("Contacts load skipped: empty passphrase");
+                    return;
+                }
+
                 if (!File.Exists(path))
                 {
                     TryRecoverMissingContacts(path);
@@ -367,6 +373,12 @@ namespace Zer0Talk.Services
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(passphrase))
+                {
+                    Logger.Log("Contacts save skipped: empty passphrase");
+                    return;
+                }
+
                 lock (_saveLock)
                 {
                     var json = JsonSerializer.Serialize(_contacts, SerializationDefaults.Indented);
@@ -465,12 +477,14 @@ namespace Zer0Talk.Services
                 {
                     try
                     {
-                        var latestBackup = Directory.GetFiles(backupDir, "contacts-*.p2e")
+                        var backupCandidates = Directory.GetFiles(backupDir, "contacts-*.p2e")
                             .OrderByDescending(File.GetLastWriteTimeUtc)
-                            .FirstOrDefault();
-                        if (!string.IsNullOrWhiteSpace(latestBackup))
+                            .Take(20)
+                            .ToList();
+                        foreach (var backupPath in backupCandidates)
                         {
-                            candidates.Add(latestBackup);
+                            if (!string.IsNullOrWhiteSpace(backupPath))
+                                candidates.Add(backupPath);
                         }
                     }
                     catch { }

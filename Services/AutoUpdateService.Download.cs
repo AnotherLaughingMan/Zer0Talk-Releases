@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -143,28 +144,81 @@ public sealed partial class AutoUpdateService
                 FileName = installerPath,
                 UseShellExecute = true,
                 WorkingDirectory = Path.GetDirectoryName(installerPath) ?? Environment.CurrentDirectory,
+                Arguments = BuildProcessArguments(arguments),
             };
-
-            if (arguments != null)
-            {
-                foreach (var argument in arguments)
-                {
-                    if (string.IsNullOrWhiteSpace(argument))
-                    {
-                        continue;
-                    }
-
-                    psi.ArgumentList.Add(argument);
-                }
-            }
 
             Process.Start(psi);
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.Log($"AutoUpdate: installer launch failed - {ex.Message}");
             return false;
         }
+    }
+
+    private static string BuildProcessArguments(params string[] arguments)
+    {
+        if (arguments == null || arguments.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        return string.Join(" ", arguments
+            .Where(argument => !string.IsNullOrWhiteSpace(argument))
+            .Select(QuoteProcessArgument));
+    }
+
+    private static string QuoteProcessArgument(string argument)
+    {
+        var value = argument.Trim();
+        if (value.Length == 0)
+        {
+            return "\"\"";
+        }
+
+        var needsQuotes = value.Any(char.IsWhiteSpace) || value.Contains('"');
+        if (!needsQuotes)
+        {
+            return value;
+        }
+
+        var quoted = new StringBuilder(value.Length + 2);
+        quoted.Append('"');
+
+        var backslashes = 0;
+        foreach (var character in value)
+        {
+            if (character == '\\')
+            {
+                backslashes++;
+                continue;
+            }
+
+            if (character == '"')
+            {
+                quoted.Append('\\', backslashes * 2 + 1);
+                quoted.Append('"');
+                backslashes = 0;
+                continue;
+            }
+
+            if (backslashes > 0)
+            {
+                quoted.Append('\\', backslashes);
+                backslashes = 0;
+            }
+
+            quoted.Append(character);
+        }
+
+        if (backslashes > 0)
+        {
+            quoted.Append('\\', backslashes * 2);
+        }
+
+        quoted.Append('"');
+        return quoted.ToString();
     }
 
     private static string NormalizeVersionToken(string? raw)
