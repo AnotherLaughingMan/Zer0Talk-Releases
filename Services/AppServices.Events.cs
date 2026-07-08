@@ -118,7 +118,7 @@ public static partial class AppServices
                             "Offline" => Models.PresenceStatus.Offline,
                             _ => Models.PresenceStatus.Offline
                         };
-                        try { Contacts.SetPresence(uid, s, System.TimeSpan.FromSeconds(60), Models.PresenceSource.Verified); } catch { }
+                        try { Contacts.SetPresence(uid, s, System.TimeSpan.FromSeconds(60), Models.PresenceSource.Session); } catch { }
                         // If not connected and peer appears reachable (not Invisible/Offline), try to connect
                         if (!Network.HasEncryptedSession(normalizedUid)
                             && !string.Equals(status, "Invisible", System.StringComparison.OrdinalIgnoreCase)
@@ -165,7 +165,6 @@ public static partial class AppServices
     try { Network.HandshakeCompleted += (ok, who, __) => {
             if (ok && !string.IsNullOrWhiteSpace(who))
             {
-                try { Contacts.SetPresence(who, Models.PresenceStatus.Online, System.TimeSpan.FromMinutes(5), Models.PresenceSource.Session); } catch { }
                 QueuePeerOutboxDrain(who);
             }
         }; } catch { }

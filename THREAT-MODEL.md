@@ -68,7 +68,7 @@ Under normal operation, with uncompromised endpoints and current protocol assump
 - Message content is encrypted end to end between the two peer clients.
 - Relay infrastructure does not decrypt message content and is not part of the key schedule.
 - Fresh session establishment uses ephemeral ECDH-based transport setup.
-- Compatible clients can rotate transport key material during a live session to reduce the value of any single long-lived session epoch.
+- Transport key material is established per-session via ephemeral ECDH and refreshed on reconnect/new session establishment.
 - Local application data is stored in encrypted containers rather than plaintext files.
 - The application avoids a central service that stores message history for users.
 
@@ -165,18 +165,16 @@ Some of these are partially mitigated by good OS hygiene, but they are not solve
 
 ---
 
-## 11. Forward Secrecy and Ratcheting Statement
+## 11. Forward Secrecy Statement
 
-Zer0Talk currently establishes fresh session transport state with ephemeral ECDH and, between compatible peers, supports in-session transport key rotation.
+Zer0Talk establishes fresh transport state with ephemeral ECDH when a session is created.
 
-This means the project is claiming a practical forward-secrecy improvement over a single static session epoch.
-
-It is not claiming that the protocol currently provides every property normally associated with a full Double Ratchet design, such as robust skipped-message key handling or strong post-compromise recovery semantics under every reordering and recovery scenario.
+The current release line does not claim in-session ratcheting. Forward-secrecy properties are tied to session re-establishment and key freshness per new connection.
 
 Stated plainly:
 
-- Zer0Talk does provide session freshness and transport key rotation.
-- Zer0Talk does not yet claim a fully mature Signal-equivalent ratchet construction.
+- Zer0Talk does provide session freshness at handshake boundaries.
+- Zer0Talk does not currently claim live-session ratchet rotation semantics.
 
 ---
 

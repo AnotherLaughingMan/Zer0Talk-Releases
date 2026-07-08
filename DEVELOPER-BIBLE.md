@@ -46,7 +46,7 @@ Zer0Talk is a **private, end-to-end encrypted peer-to-peer messaging application
 - **Blind relay, zero knowledge.** Optional relay infrastructure can be self-hosted. Relays are not servers in the traditional sense - they retain no data and serve no content. A relay only facilitates the initial TCP connection request and forwards an opaque encrypted byte stream. The ECDH handshake and session keys are established end-to-end, through the relay-forwarded stream. The relay is provably blind to all plaintext.
 - **All data encrypted at rest.** Every persistent file is encrypted using XChaCha20-Poly1305 with Argon2id key derivation. Nothing is stored in plaintext.
 - **Self-sovereign.** Users control their data directory, their keys, their relay, and their contacts. Account deletion is performed via **Settings → Danger Zone → Delete Account**, which performs a secure multi-pass wipe of all identity and data files.
-- **Alpha stage.** The current version (`0.0.4.08-Alpha`) is pre-release. Breaking changes may occur between versions.
+- **Alpha stage.** The current version (`0.0.4.10-Alpha`) is pre-release. Breaking changes may occur between versions.
 
 ---
 
@@ -163,7 +163,7 @@ When two peers connect:
    - Body: `XChaCha20-Poly1305(plaintext, nonce=base||counter, key=txKey, aad=type||counter)`
    - Counter is monotonically increasing. Inbound counters must strictly exceed the last seen value - out-of-order or replayed frames are rejected with `InvalidDataException`.
 4. **Identity binding.** After handshake, the derived UID from the peer's ephemeral public key is checked against the expected contact UID. Mismatches trigger a security alert frame (`0xE0`, reason `0x01 = KeyMismatch`) and disconnect.
-5. **Optional DH ratchet.** New peers append a capability byte and a session-scoped ratchet public key to the encrypted `0xA1` identity-announce frame. Once both sides advertise support, `AeadTransport` injects an encrypted `0xA3` ratchet update frame before the next outbound payload and then rotates the sending direction onto fresh DH-derived key material. The receiver applies the new inbound keys after consuming `0xA3`. Old peers ignore the extra `0xA1` tail and never see `0xA3` unless they opted in.
+5. **No in-session ratchet in this release line.** Zer0Talk currently uses the ECDH-established session keys for the lifetime of each connection. Session key refresh occurs on reconnect/new handshake.
 
 The relay server never participates in key exchange. ECDH happens directly between client sockets, over the relay-forwarded TCP stream. The relay is provably blind to plaintext.
 
@@ -406,7 +406,6 @@ The nonce for each frame is `txBase (16 bytes) || counter (8 bytes)` = 24 bytes 
 | `0xB0` | Chat | Both | Chat message payload |
 | `0xB1` | Edit | Both | Edit existing message by GUID |
 | `0xB2` | Delete | Both | Delete message by GUID |
-| `0xA3` | DH Ratchet | Both | Optional encrypted transport ratchet update carrying the sender's next session-scoped P-256 public key |
 | `0xB3` | Presence | Both | Presence status token |
 | `0xB4` | Avatar | Both | Avatar image blob |
 | `0xB5` | Delivered ACK | Both | Delivery receipt for a message GUID |

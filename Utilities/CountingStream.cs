@@ -18,6 +18,7 @@ namespace Zer0Talk.Utilities
         {
             _inner = inner; _onRead = onRead; _onWrite = onWrite;
         }
+        public Stream InnerStream => _inner;
         public override bool CanRead => _inner.CanRead;
         public override bool CanSeek => _inner.CanSeek;
         public override bool CanWrite => _inner.CanWrite;
