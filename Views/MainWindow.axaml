@@ -1,4 +1,5 @@
 <!-- Main window (Avalonia 11 compatible, single root) -->
+<!-- UI CUSTOMIZATION: Change the Width/Height defaults and MinWidth/MinHeight limits below to resize the main window. -->
 <Window
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -192,6 +193,7 @@
 
     <Grid RowDefinitions="Auto,*,Auto" Background="{DynamicResource App.Surface}">
 
+        <!-- UI CUSTOMIZATION: This Border controls the title bar padding, border, and background. -->
         <!-- Drag bar with system buttons, lock/logout, and panel toggles -->
         <Border Grid.Row="0" Padding="6" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 1" Background="{DynamicResource App.TitleBarBackground}"
                         PointerPressed="DragBar_PointerPressed">
@@ -274,19 +276,22 @@
             </Grid>
         </Border>
 
-        <!-- Body: four columns (Nav rail | Contacts | Chat | Notifications) -->
+        <!-- Body: four columns (Nav rail | Contacts | divider | Chat) -->
         <Grid x:Name="BodyGrid" Grid.Row="1" Background="{DynamicResource App.Background}">
             <Grid.ColumnDefinitions>
+                <!-- UI CUSTOMIZATION: Left navigation rail width. Keep this wider than the 32px icon buttons in NeutralMetrics.axaml. -->
                 <ColumnDefinition Width="48"/>
+                <!-- UI CUSTOMIZATION: Contacts/left pane width and its narrowest allowed size. -->
                 <ColumnDefinition Width="320" MinWidth="260"/>
                 <!-- Divider column (contacts/chat) -->
                 <ColumnDefinition Width="1"/>
-                <!-- Chat star occupies remaining space -->
+                <!-- UI CUSTOMIZATION: Chat takes the remaining width; MinWidth prevents its controls from collapsing. -->
                 <ColumnDefinition Width="*" MinWidth="360"/>
             </Grid.ColumnDefinitions>
             <!-- Vertical dividers -->
             <Border Grid.Column="2" Background="{DynamicResource App.Border}" IsHitTestVisible="False"/>
             <!-- Nav rail: always visible -->
+    <!-- UI CUSTOMIZATION: Change this Border's background/border for the left rail, and the inner Grid margin for vertical spacing. -->
     <Border x:Name="NavRail" Grid.Column="0" BorderBrush="{DynamicResource App.Border}" BorderThickness="0 0 0 0" Background="{DynamicResource App.Surface}">
                 <Border.Styles>
                     <!-- Scope: only nav rail icon buttons -->
@@ -397,6 +402,7 @@
                 </Grid>
             </Border>
 
+            <!-- UI CUSTOMIZATION: The contacts pane gets its width from column 1 above; its internal header styling starts here. -->
             <!-- Contacts -->
             <Grid x:Name="LeftPanelRoot" Grid.Column="1" RowDefinitions="Auto,*">
                 <!-- Header area: identity + controls -->

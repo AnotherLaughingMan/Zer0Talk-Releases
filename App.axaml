@@ -4,12 +4,14 @@
              x:Class="Zer0Talk.App"
              RequestedThemeVariant="Dark">
     <Application.Styles>
+        <!-- UI CUSTOMIZATION: Global style precedence is top-to-bottom. Later includes can override matching earlier setters/resources. -->
         <FluentTheme />
         <!-- Sovereignty layers first: define app-owned tokens and templates -->
         <!-- (Temporarily removed ThemeSovereignty.axaml to isolate phantom build errors) -->
     <!-- <StyleInclude Source="avares://Zer0Talk/Styles/ThemeSovereignty.axaml" /> -->
     <StyleInclude Source="avares://Zer0Talk/Styles/ThemeSovereigntyCore.axaml" />
     <StyleInclude Source="avares://Zer0Talk/Styles/ThemeSovereigntyBase.axaml" />
+            <!-- UI CUSTOMIZATION: Swap this include to another built-in override to change the startup palette before ThemeService loads. -->
             <!-- Load a default theme override after sovereignty so early windows use our palette; ThemeService will swap later. -->
     <StyleInclude Source="avares://Zer0Talk/Styles/DarkThemeOverrides.axaml" />
         <!-- [TRUNC] Shared opt-in truncation styles for long inline text across windows/dialogs. -->

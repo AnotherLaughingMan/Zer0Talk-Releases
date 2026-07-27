@@ -1,12 +1,13 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-  <!-- Neutral, color-agnostic metrics and templates. Themes supply colors. -->
+  <!-- UI CUSTOMIZATION: Shared sizes, spacing, typography, and control shapes live here. Theme files supply colors. -->
 
   <!-- Global focus behavior -->
   <Style Selector="Control">
     <Setter Property="FocusAdorner" Value="{x:Null}"/>
   </Style>
 
+  <!-- UI CUSTOMIZATION: Default application text size and font family. More specific styles can override these values. -->
   <!-- Typography base (no colors) -->
   <Style Selector="TextBlock">
     <Setter Property="FontSize" Value="13"/>
@@ -35,6 +36,7 @@
     <Setter Property="BorderThickness" Value="1"/>
   </Style>
 
+  <!-- UI CUSTOMIZATION: Shared navigation/title-bar icon button size and corner radius. Keep the main nav rail wider than this Width. -->
   <!-- Icon-only button metrics (colors come from theme) -->
   <Style Selector="Button.icon-button">
     <Setter Property="Padding" Value="0"/>
@@ -88,6 +90,7 @@
     <Setter Property="Margin" Value="1"/>
   </Style>
 
+  <!-- UI CUSTOMIZATION: Reusable heading, caption, card, and divider geometry. -->
   <!-- Utility classes: sizes only -->
   <Style Selector="TextBlock.heading">
     <Setter Property="FontSize" Value="16"/>
@@ -161,6 +164,7 @@
     <Setter Property="BorderThickness" Value="0,0,0,2"/>
   </Style>
 
+  <!-- UI CUSTOMIZATION: Settings left-menu typography. Its pane width is in Views/Controls/SettingsView.axaml. -->
   <!-- Settings left menu: larger bold items (global) -->
   <Style Selector="ListBox#MenuList ListBoxItem">
     <Setter Property="FontSize" Value="18"/>

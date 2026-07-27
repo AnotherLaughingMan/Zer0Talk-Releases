@@ -2,8 +2,8 @@
 <!-- Reconstructed sovereignty style: neutralize platform accents, unify selection, keep minimal needed rules -->
 <Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Styles.Resources>
-    <!-- Core brush contract (can be overridden by theme override files) -->
-    <!-- Note: These are fallback defaults. Themes should override via ColorOverrides in JSON. -->
+    <!-- UI CUSTOMIZATION: These are fallback colors only. Change the active theme/override file for normal app colors. -->
+    <!-- Core brush contract (can be overridden by theme override files or a theme loaded by ThemeService) -->
   <SolidColorBrush x:Key="App.Background" Color="#181818"/>
   <!-- App.TitleBarBackground moved to gradient definition in theme JSON -->
   <SolidColorBrush x:Key="App.Surface" Color="#202020"/>

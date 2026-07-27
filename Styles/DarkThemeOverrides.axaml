@@ -1,6 +1,8 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Styles.Resources>
+    <!-- UI CUSTOMIZATION: This is the built-in startup dark palette. Change brush Color values here for its background, surfaces, text, borders, and states. -->
+    <!-- A custom theme loaded by ThemeService can replace these resources at runtime. Keep resource keys unchanged. -->
     <!-- App color palette: deep charcoal base, graphite surfaces -->
     <SolidColorBrush x:Key="App.Background" Color="#1E1E1E"/>
     <!-- Brightened surface for clearer column separation -->
@@ -62,7 +64,7 @@
   <SolidColorBrush x:Key="StatusBar.StreamerBadgeForeground" Color="#FFFFFF"/>
   </Styles.Resources>
 
-  <!-- Metrics handled by NeutralMetrics; themes focus on brushes/states -->
+  <!-- UI CUSTOMIZATION: Control sizes and fonts are intentionally handled by NeutralMetrics.axaml; this file focuses on brushes/states. -->
 
   <!-- Window base styling -->
   <Style Selector="Window">

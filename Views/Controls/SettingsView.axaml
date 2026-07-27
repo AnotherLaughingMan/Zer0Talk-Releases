@@ -4,6 +4,7 @@
              xmlns:vm="clr-namespace:Zer0Talk.ViewModels"
              x:Class="Zer0Talk.Views.Controls.SettingsView"
              x:DataType="vm:SettingsViewModel">
+  <!-- UI CUSTOMIZATION: These local styles control settings card width, padding, corners, and section spacing. -->
   <UserControl.Styles>
     <Style Selector="Border.general-card">
       <Setter Property="CornerRadius" Value="8"/>
@@ -27,6 +28,7 @@
       <Setter Property="Margin" Value="0,4,0,4"/>
     </Style>
   </UserControl.Styles>
+  <!-- UI CUSTOMIZATION: The first value is the settings left-menu width; the second is the divider; * fills the content area. -->
   <Grid ColumnDefinitions="200,1,*">
     <Border Grid.Column="0" Background="{DynamicResource App.Surface}" BorderThickness="0">
       <ListBox x:Name="MenuList" SelectedIndex="0" BorderThickness="0">
