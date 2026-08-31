@@ -78,6 +78,8 @@
     "Choose": "Choose...",
     "Clear": "Clear",
     "ShareAvatar": "Share Avatar with peers",
+    "HideInappropriateAvatarsGlobally": "Hide Inappropriate Avatars Globally",
+    "HideInappropriateAvatarsGloballyHelp": "Replace contact avatars on this device with randomly assigned generic avatars.",
     "Bio": "Bio",
     "CustomizeKeyboardShortcuts": "Customize keyboard shortcuts",
     "HotkeyInstructions": "Click a hotkey field and press your desired key combination. Conflicting assignments will be rejected.",

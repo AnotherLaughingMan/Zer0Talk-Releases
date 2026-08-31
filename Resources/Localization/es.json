@@ -78,6 +78,8 @@
     "Choose": "Elegir...",
     "Clear": "Limpiar",
     "ShareAvatar": "Compartir avatar con contactos",
+    "HideInappropriateAvatarsGlobally": "Ocultar avatares inapropiados globalmente",
+    "HideInappropriateAvatarsGloballyHelp": "Reemplazar los avatares de contactos en este dispositivo por avatares genéricos asignados al azar.",
     "Bio": "Biografía",
     "CustomizeKeyboardShortcuts": "Personalizar atajos de teclado",
     "HotkeyInstructions": "Haz clic en un campo de atajo y presiona la combinación de teclas deseada. Las asignaciones conflictivas serán rechazadas.",

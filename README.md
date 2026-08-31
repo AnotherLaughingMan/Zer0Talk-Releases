@@ -24,7 +24,11 @@ This is an **alpha release** – it's functional but expect bugs and changes. No
 - **Practical chat features**: Message edit/delete, burn conversation, and theme customization.
 - **Minimal data footprint**: No sign-up flow, no central profile registry, and no server-side message retention.
 
-If you prefer owning your chat data and running a client that does not depend on a central messaging service, Zer0Talk is built for that.
+If you prefer owning your chat data and running a client that does not depend on a central messaging service, Zer0Talk is built for that.  
+  
+  
+  
+Zer0Talk does not keep an inbox on a server. Offline delivery is a local queue on the sender’s device. It waits until both peers are online, then it is sent and spent. Closing the app does not clear it. Burning the thread before spend does.
 
 ---
 
@@ -43,11 +47,13 @@ If you prefer owning your chat data and running a client that does not depend on
 If you want to inspect the build process itself, see `REPRODUCIBLE-BUILD.md` for the current rebuild-and-verify path and the exact limits of what is and is not reproducible today.
 
 ### 💬 Messaging
-- **Real-Time P2P Chat**: Instant delivery with delivery confirmations (both users must be online simultaneously).
+- **Real-Time P2P Chat**: Messages deliver instantly when both peers are online, with delivery confirmations.
+- **Temporary offline queue (sender-side)**: If the contact is offline, your client can hold a short-lived local copy and send it when they come back. This is not a server mailbox. The recipient cannot read anything while they are offline.
+- **Spent after delivery**: Once the queued message is handed off, the temporary copy is deleted. It is not a second archive.
+- **Burn cancels unspent queue**: Burning the conversation before the offline copy is spent discards it. It will not be delivered later.
 - **Edit & Delete**: Modify or remove messages on both ends.
 - **Burn Conversation**: Permanently and unrecoverably wipe all your sent messages from a conversation with one click.
-- **Reliable message controls**: Delivery indicators, editing, deletion, and burn actions.
-- **Message Status Indicators**: Clock (pending), single checkmark (sent), filled checkmark (delivered).
+- **Message Status Indicators**: Clock (pending / queued), single checkmark (sent), filled checkmark (delivered).
 
 ### 👥 Contacts & Presence
 - **Simple Contact Adding**: Share your Zer0Talk ID; contacts request and connect directly.
@@ -229,7 +235,10 @@ Run as Administrator. If it persists, check Event Viewer (Win + R → `eventvwr`
 
 ### Connectivity Problems
 
-**Both users must be online simultaneously** - there is no offline message queuing.
+**Contact is offline**
+
+
+- You can still compose. The client holds a temporary local copy until both of you are online, then sends it. Going offline yourself does not delete that copy. The recipient cannot read it until their client is up and the handoff completes. Burn the conversation to cancel unspent offline copies. There is no central store-and-forward server.
 
 **Connection is relayed but you'd prefer direct**  
 - Check Settings → Network for NAT/UPnP status.

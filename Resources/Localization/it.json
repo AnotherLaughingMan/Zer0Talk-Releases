@@ -78,6 +78,8 @@
     "Choose": "Scegli...",
     "Clear": "Cancella",
     "ShareAvatar": "Condividi avatar con i peer",
+    "HideInappropriateAvatarsGlobally": "Nascondi globalmente gli avatar inappropriati",
+    "HideInappropriateAvatarsGloballyHelp": "Sostituisci gli avatar dei contatti su questo dispositivo con avatar generici assegnati casualmente.",
     "Bio": "Bio",
     "CustomizeKeyboardShortcuts": "Personalizza scorciatoie da tastiera",
     "HotkeyInstructions": "Fai clic su un campo scorciatoia e premi la combinazione di tasti desiderata. Le assegnazioni in conflitto verranno rifiutate.",

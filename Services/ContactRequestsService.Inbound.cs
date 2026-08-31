@@ -265,6 +265,13 @@ namespace Zer0Talk.Services
                 try { return await completion.Task.ConfigureAwait(false); } catch { return false; }
             }
 
+            if (ct.IsCancellationRequested)
+            {
+                CompleteVerification(uid, false);
+                ClearVerificationState(uid);
+                return false;
+            }
+
             CompleteVerification(uid, false);
             ClearVerificationState(uid);
 
@@ -427,6 +434,7 @@ namespace Zer0Talk.Services
             {
                 // Mark this contact as verified since the peer has confirmed they verified us
                 var peer = AppServices.Peers.Peers.Find(p => string.Equals(p.UID, uid, StringComparison.OrdinalIgnoreCase));
+                var accountName = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(Trim(c.UID), uid, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? uid;
                 if (peer?.PublicKey is { Length: > 0 })
                 {
                     AppServices.Peers.SetPeerVerification(uid, true);
@@ -458,14 +466,25 @@ namespace Zer0Talk.Services
                     {
                         AppServices.Notifications.PostSecurityEvent(
                             uid,
-                            AppServices.Identity.DisplayName,
+                            accountName,
                             "Verification Success",
-                            $"{uid} confirmed verification completion.",
+                            $"{accountName} confirmed verification completion.",
                             Models.NotificationType.Success);
                     }
                     catch { }
 
                     CompleteVerification(uid, true);
+                    ClearVerificationState(uid);
+                }
+                else
+                {
+                    AppServices.Notifications.PostSecurityEvent(
+                        uid,
+                        accountName,
+                        "Verification Completion Delayed",
+                        $"Verification completed with {accountName}, but their identity key is not available yet. Reconnect and verify again.",
+                        Models.NotificationType.Warning);
+                    CompleteVerification(uid, false);
                     ClearVerificationState(uid);
                 }
             }
@@ -537,11 +556,12 @@ namespace Zer0Talk.Services
 
                         try
                         {
+                            var accountName = AppServices.Contacts.Contacts.FirstOrDefault(c => string.Equals(c.UID, uid, StringComparison.OrdinalIgnoreCase))?.DisplayName ?? uid;
                             AppServices.Notifications.PostSecurityEvent(
                                 uid,
-                                AppServices.Identity.DisplayName,
+                                accountName,
                                 "Verification Success",
-                                $"Mutual trust ceremony completed with {uid}.",
+                                $"Mutual trust ceremony completed with {accountName}.",
                                 Models.NotificationType.Success);
                         }
                         catch { }

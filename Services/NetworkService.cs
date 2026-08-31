@@ -1276,6 +1276,16 @@ private double _relayPairWaitMsEwma = 20000;
                     if (ShouldAcceptAvatar(Trim(peerUid), (int)len, avatar)) SavePeerAvatarToCache(peerUid, avatar);
                 }
             }
+            else if (data[0] == 0xA3)
+            {
+                // Avatar refresh request: [0xA3]. Respond with the current shared avatar.
+                try
+                {
+                    if (_identity.ShareAvatar && _identity.AvatarBytes is { Length: > 0 } avatar)
+                        _ = transport.WriteAsync(BuildAvatarFrame(avatar), ct);
+                }
+                catch (Exception ex) { Logger.Log($"Avatar refresh response error: {ex.Message}"); }
+            }
             else if (data[0] == 0xD1)
             {
                 int idx = 1; if (data.Length < idx + 2) return Task.CompletedTask; ushort blen = BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(idx, 2)); idx += 2;
@@ -2374,6 +2384,16 @@ private double _relayPairWaitMsEwma = 20000;
                                         pendingPreBindAvatar = avatar;
                                     }
                                 }
+                            }
+                            else if (data[0] == 0xA3)
+                            {
+                                // Avatar refresh request: [0xA3]. Respond with the current shared avatar.
+                                try
+                                {
+                                    if (_identity.ShareAvatar && _identity.AvatarBytes is { Length: > 0 } avatar)
+                                        _ = transport.WriteAsync(BuildAvatarFrame(avatar), ct);
+                                }
+                                catch (Exception ex) { Logger.Log($"Avatar refresh response error: {ex.Message}"); }
                             }
                             else if (data[0] == 0xD1)
                             {
@@ -4521,6 +4541,32 @@ private double _relayPairWaitMsEwma = 20000;
             {
                 Logger.Log($"[RATE-LIMIT] Cleanup error: {ex.Message}");
             }
+        }
+
+        // Ask every active contact to resend its current shared avatar.
+        public async Task<int> RequestAvatarRefreshFromActiveSessionsAsync()
+        {
+            var requested = 0;
+            try
+            {
+                var peerUids = _sessions.Keys
+                    .Concat(AppServices.Contacts.Contacts.Select(contact => contact.UID))
+                    .Where(uid => !string.IsNullOrWhiteSpace(uid))
+                    .Select(Trim)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                var results = await Task.WhenAll(peerUids.Select(async uid =>
+                {
+                    _avatarLastAcceptedUtc.TryRemove(uid, out _);
+                    _avatarLastSignature.TryRemove(uid, out _);
+                    var request = new byte[] { 0xA3 };
+                    try { return await TrySendEncryptedAsync(uid, request, CancellationToken.None); }
+                    catch { return false; }
+                }));
+                requested = results.Count(result => result);
+            }
+            catch (Exception ex) { Logger.Log($"Avatar refresh request error: {ex.Message}"); }
+            return requested;
         }
 
         // Expose diagnostics snapshot for UI/monitoring.

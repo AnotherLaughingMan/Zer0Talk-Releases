@@ -78,6 +78,8 @@
     "Choose": "选择...",
     "Clear": "清除",
     "ShareAvatar": "与对等方共享头像",
+    "HideInappropriateAvatarsGlobally": "全局隐藏不适宜的头像",
+    "HideInappropriateAvatarsGloballyHelp": "在此设备上将联系人头像替换为随机分配的通用头像。",
     "Bio": "简介",
     "CustomizeKeyboardShortcuts": "自定义键盘快捷键",
     "HotkeyInstructions": "单击快捷键字段并按下所需的组合键。冲突的分配将被拒绝。",

@@ -24,6 +24,7 @@ public class BackupArchiveFormatTests
     [InlineData("settings.p2e", true)]
     [InlineData("messages/peer/file.p2e", true)]
     [InlineData("Themes/custom.zttheme", true)]
+    [InlineData(".cache/contact-avatar.bin", true)]
     [InlineData("backup.manifest.json", true)]
     [InlineData("../settings.p2e", false)]
     [InlineData("messages/../../settings.p2e", false)]
@@ -57,6 +58,7 @@ public class BackupArchiveFormatTests
         Assert.Equal(BackupArchiveFormat.FormatVersion, manifest.Version);
         Assert.True(BackupArchiveFormat.IsSupportedManifest(manifest));
         Assert.Contains("messages", manifest.Includes, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains(".cache", manifest.Includes, StringComparer.OrdinalIgnoreCase);
         Assert.Contains("settings.p2e", manifest.Includes, StringComparer.OrdinalIgnoreCase);
     }
 

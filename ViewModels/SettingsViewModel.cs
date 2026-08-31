@@ -25,7 +25,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly SettingsService _settings;
     private static readonly string[] ZtBackupFilePatterns = { "*.ztbackup" };
-    private static readonly string[] ZipFilePatterns = { "*.zip" };
     private static readonly string[] ZtMigrateFilePatterns = { "*.ztmigrate" };
     private static readonly string[] ZtThemeFilePatterns = { "*.zttheme" };
     private static readonly string[] AllFilePatterns = { "*" };
@@ -170,8 +169,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         nameof(LockOnMinimize),
         nameof(LockBlurRadius),
         nameof(BlockScreenCapture),
+        nameof(HideNotificationPreviews),
         nameof(ShowPublicKeys),
         nameof(StreamerMode),
+        nameof(HideInappropriateAvatarsGlobally),
         nameof(ShowKeyboardFocus),
         nameof(EnhancedKeyboardNavigation),
         nameof(ShowInSystemTray),
@@ -356,6 +357,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     private bool _baseBlockScreenCapture;
     private bool _baseShowPublicKeys;
     private bool _baseStreamerMode;
+    private bool _baseHideInappropriateAvatarsGlobally;
     private Avalonia.Input.Key _baseLockHotkeyKey;
     private Avalonia.Input.KeyModifiers _baseLockHotkeyModifiers;
     // Accessibility properties removed - these are OS-level settings that the app cannot control
@@ -489,7 +491,10 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             AutoLockMinutes = Math.Max(0, settings.AutoLockMinutes);
             LockOnMinimize = settings.LockOnMinimize;
             BlockScreenCapture = settings.BlockScreenCapture;
+            HideNotificationPreviews = settings.HideNotificationPreviews;
             ShowPublicKeys = settings.ShowPublicKeys;
+            HideInappropriateAvatarsGlobally = settings.HideInappropriateAvatarsGlobally;
+            AvatarCache.SetHideInappropriateAvatarsGlobally(HideInappropriateAvatarsGlobally);
             ShowInSystemTray = settings.ShowInSystemTray;
             MinimizeToTray = settings.MinimizeToTray;
             RunOnStartup = settings.RunOnStartup;
@@ -617,6 +622,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         ChooseAvatarCommand = new RelayCommand(async _ => await ChooseAvatarAsync(), _ => true);
         ClearAvatarCommand = new RelayCommand(_ => { _avatarBytes = null; RefreshAvatarPreview(); }, _ => _avatarBytes != null && _avatarBytes.Length > 0);
         AssignRandomBundledAvatarCommand = new RelayCommand(_ => AssignRandomBundledAvatar(), _ => true);
+        RefreshAvatarCacheCommand = new RelayCommand(async _ => await RefreshAvatarCacheAsync(), _ => true);
         DeleteAccountCommand = new RelayCommand(_ => DeleteAccount(), _ => !string.IsNullOrWhiteSpace(DeleteConfirmText) && string.Equals(DeleteConfirmText.Trim(), GeneratedDeleteCode, StringComparison.Ordinal));
         ResetLayoutCommand = new RelayCommand(_ => ResetLayout(), _ => true);
         RunLogMaintenanceCommand = new RelayCommand(async _ => await RunLogMaintenanceAsync(), _ => true);
@@ -1904,6 +1910,24 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
         (ClearAvatarCommand as RelayCommand)?.RaiseCanExecuteChanged();
     }
 
+    private async Task RefreshAvatarCacheAsync()
+    {
+        var requested = 0;
+        try { requested = await AppServices.Network.RequestAvatarRefreshFromActiveSessionsAsync(); } catch { }
+        var refreshed = AvatarCache.Refresh();
+        try
+        {
+            AppServices.Notifications.PostNotice(
+                Models.NotificationType.Information,
+                requested > 0
+                    ? $"Requested updated avatars from {requested} active contact(s). Refreshed {refreshed} cached avatar(s)."
+                    : refreshed > 0 ? $"Refreshed {refreshed} cached avatar(s). No active contacts required an update."
+                    : "Avatar refresh requested. No active contacts are currently connected.",
+                isPersistent: false);
+        }
+        catch { }
+    }
+
     private readonly System.Collections.Generic.List<string> _themeIdOrder = new();
     private string _selectedThemeId = "legacy-dark";
     private int _themeIndex;
@@ -2223,11 +2247,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedLockBlurHelp => Services.AppServices.Localization.GetString("Settings.LockBlurHelp", "Controls blur strength while locked. 0 = no blur, 10 = maximum.");
     public string LocalizedBlockScreenCapture => Services.AppServices.Localization.GetString("Settings.BlockScreenCapture", "Block screen capture");
     public string LocalizedScreenCaptureWarning => Services.AppServices.Localization.GetString("Settings.ScreenCaptureWarning", "Windows-only; older/legacy capture tools may not honor this.");
+    public string LocalizedHideNotificationPreviews => Services.AppServices.Localization.GetString("Settings.HideNotificationPreviews", "Hide message previews in notifications");
+    public string LocalizedHideNotificationPreviewsHelp => Services.AppServices.Localization.GetString("Settings.HideNotificationPreviewsHelp", "Show only the sender and a generic message notice outside the conversation.");
     public string LocalizedKeyVisibility => Services.AppServices.Localization.GetString("Settings.KeyVisibility", "Key Visibility");
     public string LocalizedShowPublicKeys => Services.AppServices.Localization.GetString("Settings.ShowPublicKeys", "Show public keys on profiles");
     public string LocalizedShowPublicKeysHelp => Services.AppServices.Localization.GetString("Settings.ShowPublicKeysHelp", "Display public keys in profile views");
     public string LocalizedStreamerModeLabel => Services.AppServices.Localization.GetString("Settings.StreamerMode", "Streamer Mode");
     public string LocalizedStreamerModeHelp => Services.AppServices.Localization.GetString("Settings.StreamerModeHelp", "Hides sensitive information (UIDs, IPs, peer names) in the UI for safe streaming");
+    public string LocalizedHideInappropriateAvatarsGlobally => Services.AppServices.Localization.GetString("Settings.HideInappropriateAvatarsGlobally", "Hide Inappropriate Avatars Globally");
+    public string LocalizedHideInappropriateAvatarsGloballyHelp => Services.AppServices.Localization.GetString("Settings.HideInappropriateAvatarsGloballyHelp", "Replace contact avatars on this device with randomly assigned generic avatars.");
     public string LocalizedAudio => Services.AppServices.Localization.GetString("Settings.Audio", "Audio");
     public string LocalizedAudioHelp => Services.AppServices.Localization.GetString("Settings.AudioHelp", "Configure volume levels for different types of sounds. Main Volume acts as a master control, while individual channels allow fine-tuning of specific sound categories.");
     public string LocalizedMainVolume => Services.AppServices.Localization.GetString("Settings.MainVolume", "Main Volume");
@@ -2257,6 +2285,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public string LocalizedClear => Services.AppServices.Localization.GetString("Settings.Clear", "Clear");
     public string LocalizedRandomAvatar => Services.AppServices.Localization.GetString("Settings.RandomAvatar", "Random Avatar");
     public string LocalizedRandomAvatarTooltip => Services.AppServices.Localization.GetString("Settings.RandomAvatarTooltip", "Assign a random bundled avatar");
+    public string LocalizedAvatarCache => Services.AppServices.Localization.GetString("Settings.AvatarCache", "Avatar Cache");
+    public string LocalizedRefreshAvatarCache => Services.AppServices.Localization.GetString("Settings.RefreshAvatarCache", "Refresh Avatar Cache");
+    public string LocalizedRefreshAvatarCacheHelp => Services.AppServices.Localization.GetString("Settings.RefreshAvatarCacheHelp", "Reload cached contact avatars without deleting them.");
     public string LocalizedShareAvatar => Services.AppServices.Localization.GetString("Settings.ShareAvatar", "Share Avatar with peers");
     public string LocalizedBio => Services.AppServices.Localization.GetString("Settings.Bio", "Bio");
     public string LocalizedBioHelp => Services.AppServices.Localization.GetString("Settings.BioHelp", "Add a short profile bio shown to your contacts");
@@ -2948,11 +2979,15 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedLockBlurHelp));
             OnPropertyChanged(nameof(LocalizedBlockScreenCapture));
             OnPropertyChanged(nameof(LocalizedScreenCaptureWarning));
+            OnPropertyChanged(nameof(LocalizedHideNotificationPreviews));
+            OnPropertyChanged(nameof(LocalizedHideNotificationPreviewsHelp));
             OnPropertyChanged(nameof(LocalizedKeyVisibility));
             OnPropertyChanged(nameof(LocalizedShowPublicKeys));
             OnPropertyChanged(nameof(LocalizedShowPublicKeysHelp));
             OnPropertyChanged(nameof(LocalizedStreamerModeLabel));
             OnPropertyChanged(nameof(LocalizedStreamerModeHelp));
+            OnPropertyChanged(nameof(LocalizedHideInappropriateAvatarsGlobally));
+            OnPropertyChanged(nameof(LocalizedHideInappropriateAvatarsGloballyHelp));
             OnPropertyChanged(nameof(LocalizedAudio));
             OnPropertyChanged(nameof(LocalizedAudioHelp));
             OnPropertyChanged(nameof(LocalizedMainVolume));
@@ -2982,6 +3017,9 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             OnPropertyChanged(nameof(LocalizedClear));
             OnPropertyChanged(nameof(LocalizedRandomAvatar));
             OnPropertyChanged(nameof(LocalizedRandomAvatarTooltip));
+            OnPropertyChanged(nameof(LocalizedAvatarCache));
+            OnPropertyChanged(nameof(LocalizedRefreshAvatarCache));
+            OnPropertyChanged(nameof(LocalizedRefreshAvatarCacheHelp));
             OnPropertyChanged(nameof(LocalizedShareAvatar));
             OnPropertyChanged(nameof(LocalizedBio));
             OnPropertyChanged(nameof(LocalizedBioHelp));
@@ -3415,6 +3453,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     public ICommand ChooseAvatarCommand { get; }
     public ICommand ClearAvatarCommand { get; }
     public ICommand AssignRandomBundledAvatarCommand { get; }
+    public ICommand RefreshAvatarCacheCommand { get; }
     public ICommand DeleteAccountCommand { get; }
     public ICommand PurgeAllMessagesCommand { get; }
     public ICommand ResetLayoutCommand { get; }
@@ -3589,10 +3628,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                     new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Encrypted Backup")
                     {
                         Patterns = ZtBackupFilePatterns
-                    },
-                    new Avalonia.Platform.Storage.FilePickerFileType("ZIP Archive (legacy)")
-                    {
-                        Patterns = ZipFilePatterns
                     }
                 }
             });
@@ -3617,12 +3652,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 if (File.Exists(outputPath)) File.Delete(outputPath);
 
                 zipBytes = CreateBackupZipBytes(root);
-                if (outputPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                {
-                    File.WriteAllBytes(outputPath, zipBytes);
-                    return;
-                }
-
                 var encryption = new EncryptionService();
                 encryptedBytes = encryption.Encrypt(zipBytes, AppServices.Passphrase);
                 File.WriteAllBytes(outputPath, encryptedBytes);
@@ -3765,7 +3794,6 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 FileTypeFilter = new System.Collections.Generic.List<Avalonia.Platform.Storage.FilePickerFileType>
                 {
                     new Avalonia.Platform.Storage.FilePickerFileType("Zer0Talk Encrypted Backup") { Patterns = ZtBackupFilePatterns },
-                    new Avalonia.Platform.Storage.FilePickerFileType("ZIP Archive (legacy)") { Patterns = ZipFilePatterns },
                     new Avalonia.Platform.Storage.FilePickerFileType("All Files") { Patterns = AllFilesWildcardPatterns }
                 }
             });
@@ -3781,35 +3809,28 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
             var confirmed = await AppServices.Dialogs.ConfirmWarningAsync(
                 "Restore backup",
-                "This will overwrite local data in backup-managed folders (messages, outbox, themes, logs, security) and key data files. Continue?",
+                "This will overwrite local data in backup-managed folders (messages, outbox, themes, security) and key data files. Continue?",
                 "Restore",
                 "Cancel");
 
             if (!confirmed) return;
 
             containerBytes = await Task.Run(() => File.ReadAllBytes(selectedPath));
-            if (selectedPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            var encryption = new EncryptionService();
+            try
             {
-                zipBytes = containerBytes.ToArray();
+                zipBytes = await Task.Run(() => encryption.Decrypt(containerBytes, AppServices.Passphrase));
             }
-            else
+            catch (CryptographicException)
             {
-                var encryption = new EncryptionService();
-                try
-                {
-                    zipBytes = await Task.Run(() => encryption.Decrypt(containerBytes, AppServices.Passphrase));
-                }
-                catch (CryptographicException)
-                {
-                    var transferCode = await AppServices.Dialogs.PromptAsync(
-                        "Transfer Code Required",
-                        "");
-                    if (string.IsNullOrWhiteSpace(transferCode)) throw;
-                    zipBytes = await Task.Run(() => encryption.Decrypt(containerBytes, transferCode.Trim()));
-                }
+                var transferCode = await AppServices.Dialogs.PromptAsync(
+                    "Transfer Code Required",
+                    "");
+                if (string.IsNullOrWhiteSpace(transferCode)) throw;
+                zipBytes = await Task.Run(() => encryption.Decrypt(containerBytes, transferCode.Trim()));
             }
 
-            await Task.Run(() => RestoreBackupZipBytes(AppDataPaths.Root, zipBytes));
+            await Task.Run(() => RestoreBackupZipBytes(AppDataPaths.Root, zipBytes!));
 
             await ShowSaveToastAsync("Backup restored. Restart Zer0Talk to fully reload data.", 4500);
         }
@@ -4049,8 +4070,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             s.AutoLockMinutes = Math.Max(0, AutoLockMinutes);
             s.LockOnMinimize = LockOnMinimize;
             s.LockBlurRadius = ClampRange(LockBlurRadius, 0, 10);
+            s.HideNotificationPreviews = HideNotificationPreviews;
             s.ShowPublicKeys = ShowPublicKeys;
             s.StreamerMode = StreamerMode;
+            var wasHideInappropriateAvatarsGlobally = s.HideInappropriateAvatarsGlobally;
+            s.HideInappropriateAvatarsGlobally = HideInappropriateAvatarsGlobally;
             // Persist system tray settings
             s.ShowInSystemTray = ShowInSystemTray;
             s.MinimizeToTray = MinimizeToTray;
@@ -4106,6 +4130,11 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
                 }
             }
             _settings.Save(AppServices.Passphrase);
+            AvatarCache.SetHideInappropriateAvatarsGlobally(HideInappropriateAvatarsGlobally);
+            if (wasHideInappropriateAvatarsGlobally && !HideInappropriateAvatarsGlobally)
+            {
+                try { await AppServices.Network.RequestAvatarRefreshFromActiveSessionsAsync(); } catch { }
+            }
             try { LogSettingsEvent($"Saved settings (ThemeId={s.ThemeId}, ThemeOption={s.Theme})"); } catch { }
             try { WritePerformanceLog($"Saved perf: CcdAffinityIndex={s.CcdAffinityIndex}, DisableGPU={s.DisableGpuAcceleration}, FPS={s.FpsThrottle}, Refresh={s.RefreshRateThrottle}, RAMmb={s.RamUsageLimitMb}, VRAMmb={s.VramUsageLimitMb}"); } catch { }
             try { ApplyGpuModeImmediate(s.DisableGpuAcceleration); } catch { }
@@ -4484,6 +4513,7 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
             _baseBlockScreenCapture = _blockScreenCapture;
             _baseShowPublicKeys = _showPublicKeys;
             _baseStreamerMode = _streamerMode;
+            _baseHideInappropriateAvatarsGlobally = _hideInappropriateAvatarsGlobally;
             _baseLockHotkeyKey = _lockHotkeyKey;
             _baseLockHotkeyModifiers = _lockHotkeyModifiers;
             _baseShowKeyboardFocus = _showKeyboardFocus;
@@ -4539,12 +4569,19 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
 
     // Privacy
     private bool _blockScreenCapture;
+    private bool _hideNotificationPreviews;
     private bool _showPublicKeys;
     private bool _streamerMode;
+    private bool _hideInappropriateAvatarsGlobally;
     public bool BlockScreenCapture
     {
         get => _blockScreenCapture;
         set { if (_blockScreenCapture != value) { _blockScreenCapture = value; OnPropertyChanged(); } }
+    }
+    public bool HideNotificationPreviews
+    {
+        get => _hideNotificationPreviews;
+        set { if (_hideNotificationPreviews != value) { _hideNotificationPreviews = value; OnPropertyChanged(); } }
     }
     public bool ShowPublicKeys
     {
@@ -4555,6 +4592,21 @@ public class SettingsViewModel : INotifyPropertyChanged, IDisposable
     {
         get => _streamerMode;
         set { if (_streamerMode != value) { _streamerMode = value; OnPropertyChanged(); } }
+    }
+
+    // TODO: Add a per-contact avatar privacy override when contact-level settings are implemented.
+    public bool HideInappropriateAvatarsGlobally
+    {
+        get => _hideInappropriateAvatarsGlobally;
+        set
+        {
+            if (_hideInappropriateAvatarsGlobally != value)
+            {
+                _hideInappropriateAvatarsGlobally = value;
+                AvatarCache.SetHideInappropriateAvatarsGlobally(value);
+                OnPropertyChanged();
+            }
+        }
     }
 
     // System Tray settings

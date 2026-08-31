@@ -1,5 +1,5 @@
 // Centralized logging path management and enable/disable policy.
-// Debug builds: logging enabled by default and all logs go to %APPDATA%/Zer0Talk/Logs.
+// Logging is disabled by default in all configurations; explicit opt-in is required.
 // Release builds: logging disabled unless explicitly enabled via env var ZER0TALK_ENABLE_LOGS=1
 // or presence of an enable-logs.flag file next to the executable.
 using System;
@@ -33,11 +33,7 @@ namespace Zer0Talk.Utilities
             "account_creation.txt"
         };
 
-#if DEBUG
-        private const bool DefaultEnabled = true;
-#else
         private const bool DefaultEnabled = false;
-#endif
         private static bool _init;
         private static bool _enabled;
         private static string? _logsDir;

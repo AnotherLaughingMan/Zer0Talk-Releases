@@ -5798,7 +5798,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged, IDisposable
             var dn = c.DisplayName ?? uid;
             using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(45));
             // Send a manual verification request (0xC4) so the peer sees a notification
-            try { await AppServices.ContactRequests.StartManualVerificationAsync(uid, cts.Token); } catch { }
+            var requestSent = false;
+            try { requestSent = await AppServices.ContactRequests.StartManualVerificationAsync(uid, cts.Token); } catch { }
+            if (!requestSent)
+            {
+                try
+                {
+                    AppServices.Notifications.PostSecurityEvent(
+                        uid,
+                        dn,
+                        "Verification Request Failed",
+                        $"Could not send a verification request to {dn}. Reconnect and try again.",
+                        Models.NotificationType.Warning);
+                }
+                catch { }
+                return;
+            }
             // Open local modal and run coordinated verify flow (both sides must press Verify)
             _ = await AppServices.Dialogs.ShowVerificationDialogAsync(dn, uid);
         }

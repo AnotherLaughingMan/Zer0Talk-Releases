@@ -11,9 +11,48 @@ namespace Zer0Talk.Services
         private static FileSystemWatcher? _watcher;
         private static readonly object _gate = new();
         private static int _version;
+        private static bool _hideInappropriateAvatarsGlobally;
 
         public static event Action<string>? AvatarChanged;
+        public static event Action? AvatarDisplayPolicyChanged;
         public static int CurrentVersion { get { lock (_gate) return _version; } }
+
+        public static void SetHideInappropriateAvatarsGlobally(bool enabled)
+        {
+            bool changed;
+            lock (_gate)
+            {
+                changed = _hideInappropriateAvatarsGlobally != enabled;
+                _hideInappropriateAvatarsGlobally = enabled;
+                if (changed) _version++;
+            }
+
+            if (!changed) return;
+            if (enabled)
+            {
+                ClearAllContactAvatars();
+            }
+            else
+            {
+                PrivacyAvatarCache.Clear();
+            }
+            try { AvatarDisplayPolicyChanged?.Invoke(); } catch { }
+            try
+            {
+                foreach (var file in Directory.Exists(GetCacheDir())
+                    ? Directory.GetFiles(GetCacheDir(), "*.bin", SearchOption.TopDirectoryOnly)
+                    : Array.Empty<string>())
+                {
+                    try { AvatarChanged?.Invoke(Path.GetFileNameWithoutExtension(file)); } catch { }
+                }
+            }
+            catch { }
+        }
+
+        public static bool HideInappropriateAvatarsGlobally
+        {
+            get { lock (_gate) return _hideInappropriateAvatarsGlobally; }
+        }
 
         public static void Start()
         {
@@ -75,6 +114,50 @@ namespace Zer0Talk.Services
             }
         }
 
+        public static int Refresh()
+        {
+            try
+            {
+                Stop();
+                Start();
+
+                var cacheDir = GetCacheDir();
+                if (!Directory.Exists(cacheDir)) return 0;
+
+                var files = Directory.GetFiles(cacheDir, "*.bin", SearchOption.TopDirectoryOnly);
+                foreach (var file in files)
+                {
+                    Bump(Path.GetFileNameWithoutExtension(file));
+                }
+
+                return files.Length;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static void ClearAllContactAvatars()
+        {
+            try
+            {
+                var cacheDir = GetCacheDir();
+                if (!Directory.Exists(cacheDir)) return;
+                foreach (var file in Directory.GetFiles(cacheDir, "*.bin", SearchOption.TopDirectoryOnly))
+                {
+                    try
+                    {
+                        if (IsCurrentUser(Path.GetFileNameWithoutExtension(file))) continue;
+                        File.Delete(file);
+                        Bump(Path.GetFileNameWithoutExtension(file));
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+
         public static string GetCacheDir()
         {
             return Path.Combine(Zer0Talk.Utilities.AppDataPaths.Root, ".cache");
@@ -99,12 +182,31 @@ namespace Zer0Talk.Services
             return trimmed;
         }
 
+        private static bool IsCurrentUser(string? uid)
+        {
+            try
+            {
+                var currentUid = AppServices.Identity?.UID;
+                return !string.IsNullOrWhiteSpace(currentUid)
+                    && string.Equals(NormalizeUid(uid), NormalizeUid(currentUid), StringComparison.OrdinalIgnoreCase);
+            }
+            catch { return false; }
+        }
+
         public static bool Save(string uid, byte[] bytes)
         {
             try
             {
                 var normalizedUid = NormalizeUid(uid);
                 if (string.IsNullOrWhiteSpace(normalizedUid)) return false;
+
+                // Privacy mode keeps shared avatars out of the real contact cache entirely.
+                if (HideInappropriateAvatarsGlobally && !IsCurrentUser(normalizedUid))
+                {
+                    var ensured = PrivacyAvatarCache.Ensure(normalizedUid);
+                    if (ensured) Bump(normalizedUid);
+                    return ensured;
+                }
 
                 if (bytes == null || bytes.Length == 0)
                 {
@@ -155,6 +257,11 @@ namespace Zer0Talk.Services
         {
             try
             {
+                if (HideInappropriateAvatarsGlobally && !IsCurrentUser(uid))
+                {
+                    return PrivacyAvatarCache.TryLoadOrCreate(uid);
+                }
+
                 var path = GetAvatarPath(NormalizeUid(uid));
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
                 using var fs = File.OpenRead(path);
@@ -162,6 +269,19 @@ namespace Zer0Talk.Services
             }
             catch { return null; }
         }
+
+        public static IImage? LoadForDisplay(string uid, byte[]? originalBytes)
+        {
+            if (HideInappropriateAvatarsGlobally && !IsCurrentUser(uid)) return TryLoad(uid);
+            if (originalBytes == null || originalBytes.Length == 0) return null;
+            try
+            {
+                using var stream = new MemoryStream(originalBytes);
+                return new Bitmap(stream);
+            }
+            catch { return null; }
+        }
+
     }
 }
 

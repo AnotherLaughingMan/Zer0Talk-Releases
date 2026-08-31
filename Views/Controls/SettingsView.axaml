@@ -353,6 +353,21 @@
               </Grid>
               <TextBlock Text="{Binding LocalizedScreenCaptureWarning}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}"/>
 
+              <!-- Notification previews -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding HideNotificationPreviews}" ToolTip.Tip="{Binding LocalizedHideNotificationPreviewsHelp}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding LocalizedHideNotificationPreviews}" FontWeight="Medium"/>
+                  <TextBlock Text="{Binding LocalizedHideNotificationPreviewsHelp}" FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
+
+              <!-- Public key visibility -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowPublicKeys}" ToolTip.Tip="{Binding LocalizedShowPublicKeysHelp}"/>
+                <TextBlock Grid.Column="1" Text="{Binding LocalizedShowPublicKeys}" VerticalAlignment="Center" FontWeight="Medium"/>
+              </Grid>
+
               <!-- Streamer Mode -->
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                 <ToggleSwitch Grid.Column="0" IsChecked="{Binding StreamerMode}" ToolTip.Tip="{Binding LocalizedStreamerModeHelp}"/>
@@ -362,20 +377,33 @@
                              FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
                 </StackPanel>
               </Grid>
+
+              <!-- Avatar sharing -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShareAvatar}" ToolTip.Tip="{Binding LocalizedShareAvatar}"/>
+                <TextBlock Grid.Column="1" Text="{Binding LocalizedShareAvatar}" VerticalAlignment="Center" FontWeight="Medium"/>
+              </Grid>
+
+              <!-- Global avatar privacy -->
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <ToggleSwitch Grid.Column="0" IsChecked="{Binding HideInappropriateAvatarsGlobally}" ToolTip.Tip="{Binding LocalizedHideInappropriateAvatarsGloballyHelp}"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding LocalizedHideInappropriateAvatarsGlobally}" FontWeight="Medium"/>
+                  <TextBlock Text="{Binding LocalizedHideInappropriateAvatarsGloballyHelp}" FontSize="11" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Grid>
             </StackPanel>
           </Border>
 
           <!-- ── Section Divider ── -->
           <Border Classes="general-divider"/>
 
-          <!-- Key Visibility -->
+          <!-- Avatar Cache -->
           <Border Classes="general-card">
             <StackPanel Spacing="8">
-              <TextBlock Classes="general-section-title" Text="{Binding LocalizedKeyVisibility}"/>
-              <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
-                <TextBlock Grid.Column="1" Text="{Binding LocalizedShowPublicKeys}" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Column="0" IsChecked="{Binding ShowPublicKeys}" ToolTip.Tip="{Binding LocalizedShowPublicKeysHelp}"/>
-              </Grid>
+              <TextBlock Classes="general-section-title" Text="{Binding LocalizedAvatarCache}"/>
+              <TextBlock Text="{Binding LocalizedRefreshAvatarCacheHelp}" FontSize="12" Foreground="{DynamicResource App.SecondaryText}" TextWrapping="Wrap"/>
+              <Button Content="{Binding LocalizedRefreshAvatarCache}" Command="{Binding RefreshAvatarCacheCommand}" HorizontalAlignment="Left" Padding="12,8"/>
             </StackPanel>
           </Border>
 
@@ -733,10 +761,6 @@
                     <Button Command="{Binding AssignRandomBundledAvatarCommand}" ToolTip.Tip="{Binding LocalizedRandomAvatarTooltip}" Width="32" Height="32" MinWidth="32" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
                       <PathIcon Width="14" Height="14" Data="M12,4V1L8,5L12,9V6C14.76,6 17,8.24 17,11C17,11.71 16.85,12.39 16.58,13L18.04,14.46C18.64,13.42 19,12.24 19,11C19,7.13 15.87,4 12,4M7.42,9L5.96,7.54C5.36,8.58 5,9.76 5,11C5,14.87 8.13,18 12,18V21L16,17L12,13V16C9.24,16 7,13.76 7,11C7,10.29 7.15,9.61 7.42,9Z"/>
                     </Button>
-                  </StackPanel>
-                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding LocalizedShareAvatar}" VerticalAlignment="Center"/>
-                    <ToggleSwitch IsChecked="{Binding ShareAvatar}" ToolTip.Tip="{Binding LocalizedShareAvatar}"/>
                   </StackPanel>
                 </Grid>
               </StackPanel>

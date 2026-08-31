@@ -18,7 +18,7 @@ namespace Zer0Talk.Utilities
             "messages",
             "outbox",
             "Themes",
-            "Logs",
+            ".cache",
             "security"
         };
 

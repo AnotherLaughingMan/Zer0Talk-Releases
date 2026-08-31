@@ -1269,6 +1269,38 @@
                     </Grid>
                 </ScrollViewer>
 
+                <Border Grid.Row="1"
+                        Background="{DynamicResource App.Background}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        IsHitTestVisible="False">
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="18">
+                        <Path Width="96"
+                              Height="72"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center"
+                              Fill="Transparent"
+                              Stroke="{DynamicResource App.ForegroundPrimary}"
+                              StrokeThickness="1.8"
+                              Opacity="0.45"
+                              Data="M20,4H4C2.89,4 2,4.89 2,6V18C2,19.1 2.9,20 4,20H20C21.1,20 22,19.1 22,18V6C22,4.89 21.1,4 20,4M20,18H4V8L12,13L20,8V18M12,11L4,6H20L12,11Z"/>
+                        <TextBlock Text="Start Chatting by Selecting a Contact on the left."
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   MaxWidth="360"
+                                   FontSize="16"
+                                   Opacity="0.75"/>
+                    </StackPanel>
+                    <Border.IsVisible>
+                        <MultiBinding Converter="{StaticResource NotOrConverter}">
+                            <Binding Path="SelectedContact" Converter="{StaticResource ObjectNotNullConverter}"/>
+                        </MultiBinding>
+                    </Border.IsVisible>
+                </Border>
+
                 <Popup x:Name="ReactionPickerPopup"
                        Grid.Row="1"
                        x:CompileBindings="False"

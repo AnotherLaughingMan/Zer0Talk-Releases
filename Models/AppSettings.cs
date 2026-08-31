@@ -134,10 +134,14 @@ public class AppSettings
 
     // Privacy: opt-out of screen/window capture (Windows 10 2004+ honored by Snipping Tool & WGC)
     public bool BlockScreenCapture { get; set; } = true;
+    // Privacy: do not expose incoming message text in desktop notifications by default
+    public bool HideNotificationPreviews { get; set; } = true;
     // Privacy: show/hide public keys on profiles (default hidden)
     public bool ShowPublicKeys { get; set; }
     // Privacy: streamer mode hides sensitive info (UIDs, IPs, peer names) in the UI
     public bool StreamerMode { get; set; }
+    // Privacy: replace all displayed avatars with bundled generic avatars on this client
+    public bool HideInappropriateAvatarsGlobally { get; set; }
 
     // Security: Geo-blocking settings (pre-emptive defense against known hostile regions)
     public bool EnableGeoBlocking { get; set; } = true; // Default enabled for safety

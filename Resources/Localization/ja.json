@@ -78,6 +78,8 @@
     "Choose": "選択...",
     "Clear": "クリア",
     "ShareAvatar": "ピアとアバターを共有",
+    "HideInappropriateAvatarsGlobally": "不適切なアバターをすべて非表示",
+    "HideInappropriateAvatarsGloballyHelp": "このデバイスで連絡先のアバターをランダムに割り当てた汎用アバターに置き換えます。",
     "Bio": "自己紹介",
     "CustomizeKeyboardShortcuts": "キーボードショートカットをカスタマイズ",
     "HotkeyInstructions": "ホットキーフィールドをクリックして、希望するキーの組み合わせを押してください。競合する割り当ては拒否されます。",

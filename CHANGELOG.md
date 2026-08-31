@@ -30,10 +30,18 @@ Run this checklist before creating a release tag.
 - _None yet._
 
 ### Updated
-- _None yet._
+- **Privacy defaults**: desktop message notifications now hide message previews by default, and logging requires explicit opt-in in all configurations.
+- **Verified contact key pinning**: completed trust ceremonies now persist the observed public key as the expected key for future session checks.
+- **Backup scope**: normal backups no longer include diagnostic logs.
+- **Avatar backup coverage**: encrypted full backups now include the peer avatar cache, so restored backups retain cached contact avatars.
+- **General Settings privacy organization**: grouped screen capture, notification previews, public-key visibility, streamer mode, and avatar sharing controls in one Privacy card.
+- **Avatar cache maintenance**: added a non-destructive Refresh Avatar Cache action that reloads cached avatar bindings.
 
 ### Fixed
-- _None yet._
+- **Plaintext backup export/import**: removed the legacy ZIP path so standard backup exchange is encrypted-only.
+- **Incoming message persistence and background notifications**: malformed wire metadata or a UI-side exception can no longer prevent message storage and notification processing; incoming messages now alert while the app is minimized or in the system tray, including when local presence is `Offline`.
+- **Local contact recovery**: recovery now merges every retained encrypted contacts backup, newest first, instead of relying only on the newest snapshot when it is partial or empty.
+- **Verification notices**: failed verification requests and completions received before peer identity binding now surface actionable security notices instead of opening a local ceremony or failing silently.
 
 ## [0.0.4.11-Alpha-Win10 Hotfix] - 2026-07-08
 

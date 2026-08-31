@@ -79,10 +79,10 @@ namespace Zer0Talk.Services
                             break;
 
                         case Models.PresenceStatus.Offline:
-                            shouldPlayAudio = false;
-                            shouldShowToast = false;
+                            shouldPlayAudio = true;
+                            shouldShowToast = true;
                             shouldAddToCenter = true;
-                            makePersistent = true;
+                            toastOnlyWhenAppInactive = true;
                             break;
 
                         default:
@@ -116,7 +116,7 @@ namespace Zer0Talk.Services
                 catch (Exception ex)
                 {
                     shouldPlayAudio = true;
-                    shouldShowToast = false;
+                    shouldShowToast = true;
                     // Hardening: unread state and notification center entries must still be tracked
                     // even when presence-mode evaluation fails.
                     shouldAddToCenter = true;
@@ -232,7 +232,11 @@ namespace Zer0Talk.Services
                     // Show toast only for Away/Idle when conversation is not focused
                     if (shouldShowToast && !conversationFocused && (!toastOnlyWhenAppInactive || !appIsActive))
                     {
-                        var toastBody = string.IsNullOrWhiteSpace(updated.FullBody) ? updated.Body : updated.FullBody;
+                        var hidePreview = true;
+                        try { hidePreview = AppServices.Settings.Settings.HideNotificationPreviews; } catch { }
+                        var toastBody = hidePreview
+                            ? AppServices.Localization.GetString("Notifications.NewMessage", "New message")
+                            : (string.IsNullOrWhiteSpace(updated.FullBody) ? updated.Body : updated.FullBody);
                         ShowTransientToast(updated.Title, toastBody ?? string.Empty, Models.NotificationType.Information, updated.OriginUid, updated.MessageId);
                         try { if (Utilities.LoggingPaths.Enabled) Zer0Talk.Utilities.LoggingPaths.TryWrite(Zer0Talk.Utilities.LoggingPaths.UI, $"{DateTime.Now:O} [Notices] Desktop toast shown: {updated.Title}\n"); } catch { }
                     }
@@ -769,10 +773,16 @@ namespace Zer0Talk.Services
                             catch { }
                         }, TimeSpan.FromSeconds(durationSeconds));
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        try { ErrorLogger.LogException(ex, source: "Notification.Toast"); } catch { }
+                    }
                 }, Avalonia.Threading.DispatcherPriority.Normal);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                try { ErrorLogger.LogException(ex, source: "Notification.ToastDispatch"); } catch { }
+            }
         }
     }
 }

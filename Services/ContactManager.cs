@@ -465,13 +465,8 @@ namespace Zer0Talk.Services
                 {
                     try
                     {
-                        var latestBackup = Directory.GetFiles(backupDir, "contacts-*.p2e")
-                            .OrderByDescending(File.GetLastWriteTimeUtc)
-                            .FirstOrDefault();
-                        if (!string.IsNullOrWhiteSpace(latestBackup))
-                        {
-                            candidates.Add(latestBackup);
-                        }
+                        candidates.AddRange(Directory.GetFiles(backupDir, "contacts-*.p2e")
+                            .OrderByDescending(File.GetLastWriteTimeUtc));
                     }
                     catch { }
                 }
@@ -723,6 +718,11 @@ namespace Zer0Talk.Services
                 c.IsVerified = true;
                 c.PublicKeyVerified = true;
                 c.LastVerifiedUtc = now;
+                if (string.IsNullOrWhiteSpace(c.ExpectedPublicKeyHex)
+                    && !string.IsNullOrWhiteSpace(c.LastKnownPublicKeyHex))
+                {
+                    c.ExpectedPublicKeyHex = c.LastKnownPublicKeyHex;
+                }
 
                 c.VerificationHistory ??= new List<VerificationHistoryEntry>();
                 var latest = c.VerificationHistory.Count > 0 ? c.VerificationHistory[0] : null;

@@ -86,6 +86,8 @@
     "Choose": "Wählen...",
     "Clear": "Löschen",
     "ShareAvatar": "Avatar mit Kontakten teilen",
+    "HideInappropriateAvatarsGlobally": "Unangemessene Avatare global ausblenden",
+    "HideInappropriateAvatarsGloballyHelp": "Kontaktavatare auf diesem Gerät durch zufällig zugewiesene generische Avatare ersetzen.",
     "Bio": "Biografie",
     "CustomizeKeyboardShortcuts": "Tastenkombinationen anpassen",
     "HotkeyInstructions": "Klicken Sie auf ein Tastenfeld und drücken Sie die gewünschte Tastenkombination. Konflikte werden abgelehnt.",

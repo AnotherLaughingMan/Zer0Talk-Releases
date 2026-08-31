@@ -1323,11 +1323,16 @@ namespace Zer0Talk.ViewModels
             // Watch avatar cache to update bindings
             try
             {
+                AvatarCache.SetHideInappropriateAvatarsGlobally(AppServices.Settings.Settings.HideInappropriateAvatarsGlobally);
                 AvatarCache.Start();
                 Action<string> avatarChangedHandler = _ =>
                     Avalonia.Threading.Dispatcher.UIThread.Post(() => { AvatarVersion++; OnPropertyChanged(nameof(AvatarVersion)); });
                 AvatarCache.AvatarChanged += avatarChangedHandler;
                 _teardownActions.Add(() => AvatarCache.AvatarChanged -= avatarChangedHandler);
+                Action avatarPolicyChangedHandler = () =>
+                    Avalonia.Threading.Dispatcher.UIThread.Post(RefreshIdentityBindings);
+                AvatarCache.AvatarDisplayPolicyChanged += avatarPolicyChangedHandler;
+                _teardownActions.Add(() => AvatarCache.AvatarDisplayPolicyChanged -= avatarPolicyChangedHandler);
             }
             catch { }
 
@@ -1341,7 +1346,17 @@ namespace Zer0Talk.ViewModels
                     var now = DateTime.UtcNow;
                     var senderUid = TrimUidPrefix(peerUid ?? string.Empty);
                     var recipientUid = TrimUidPrefix(AppServices.Identity.UID ?? string.Empty);
-                    ParseWireContent(content, out var parsedContent, out var replyToMessageId, out var replyToPreview);
+                    var parsedContent = content ?? string.Empty;
+                    Guid? replyToMessageId = null;
+                    string? replyToPreview = null;
+                    try
+                    {
+                        ParseWireContent(parsedContent, out parsedContent, out replyToMessageId, out replyToPreview);
+                    }
+                    catch (Exception ex)
+                    {
+                        try { Logger.Log($"Inbound message metadata parse failed: peer={senderUid}, id={id}, error={ex.Message}"); } catch { }
+                    }
                     var msg = new Message
                     {
                         Id = id,
@@ -1356,6 +1371,14 @@ namespace Zer0Talk.ViewModels
                         ReplyToPreview = replyToPreview,
                     };
                     msg.EnsureReactionStateLoaded();
+                    try
+                    {
+                        _messagesStore.StoreMessage(senderUid, msg, AppServices.Passphrase);
+                    }
+                    catch (Exception ex)
+                    {
+                        try { Logger.Log($"Inbound message storage failed: peer={senderUid}, id={id}, error={ex.Message}"); } catch { }
+                    }
                     var selectedUid = SelectedContact?.UID ?? string.Empty;
                     var isSelectedPeer = string.Equals(TrimUidPrefix(selectedUid), senderUid, StringComparison.OrdinalIgnoreCase);
                     var canAutoRead = isSelectedPeer && IsMainWindowReadable();
@@ -1398,7 +1421,6 @@ namespace Zer0Talk.ViewModels
                             try { RefreshContactMetadata(); } catch { }
                         });
                     }
-                    _messagesStore.StoreMessage(senderUid, msg, AppServices.Passphrase);
                     // Update contact card last message preview
                     try
                     {
@@ -1818,8 +1840,7 @@ namespace Zer0Talk.ViewModels
                 OnPropertyChanged(nameof(LoggedInUidFull));
                 // Avatar updates
                 var bytes = AppServices.Identity.AvatarBytes;
-                if (bytes == null || bytes.Length == 0) IdentityAvatarImage = null;
-                else { using var ms = new System.IO.MemoryStream(bytes); IdentityAvatarImage = new Avalonia.Media.Imaging.Bitmap(ms); }
+                IdentityAvatarImage = AvatarCache.LoadForDisplay(AppServices.Identity.UID, bytes);
             }
             catch { }
         }

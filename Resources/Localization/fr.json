@@ -78,6 +78,8 @@
     "Choose": "Choisir...",
     "Clear": "Effacer",
     "ShareAvatar": "Partager l'avatar avec les pairs",
+    "HideInappropriateAvatarsGlobally": "Masquer globalement les avatars inappropries",
+    "HideInappropriateAvatarsGloballyHelp": "Remplacer les avatars des contacts sur cet appareil par des avatars generiques attribues aleatoirement.",
     "Bio": "Bio",
     "CustomizeKeyboardShortcuts": "Personnaliser les raccourcis clavier",
     "HotkeyInstructions": "Cliquez sur un champ de raccourci et appuyez sur la combinaison de touches souhaitée. Les affectations conflictuelles seront rejetées.",

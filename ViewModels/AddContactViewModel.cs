@@ -17,8 +17,6 @@ namespace Zer0Talk.ViewModels
     private int _port;
         private bool _busy;
         private string _status = string.Empty;
-        // [VERIFY] Optional expected public key (hex) to validate identity after connect
-        private string _expectedPublicKeyHex = string.Empty;
         // [TEST] If true, add contact locally without peer verification/lookup.
         private bool _isSimulated;
     // Exposed for XAML to hide simulated contact checkbox unless explicitly enabled by launch flag.
@@ -29,7 +27,6 @@ namespace Zer0Talk.ViewModels
         public int Port { get => _port; set { _port = value; OnPropertyChanged(); } }
         public bool IsBusy { get => _busy; set { _busy = value; OnPropertyChanged(); } }
         public string Status { get => _status; set { _status = value; OnPropertyChanged(); } }
-        public string ExpectedPublicKeyHex { get => _expectedPublicKeyHex; set { _expectedPublicKeyHex = value; OnPropertyChanged(); } }
         public bool IsSimulated { get => _isSimulated; set { _isSimulated = value; OnPropertyChanged(); (SendCommand as RelayCommand)?.RaiseCanExecuteChanged(); } }
 
         public ICommand SendCommand { get; }
@@ -42,8 +39,6 @@ namespace Zer0Talk.ViewModels
         public string LocalizedEnterUID => Services.AppServices.Localization.GetString("AddContact.EnterUID", "Enter the contact's UID (no prefix). Discovery is automatic.");
         public string LocalizedUID => Services.AppServices.Localization.GetString("AddContact.UID", "UID");
         public string LocalizedUIDPlaceholder => Services.AppServices.Localization.GetString("AddContact.UIDPlaceholder", "e.g., 7XKQ9Z8P");
-        public string LocalizedExpectedPublicKey => Services.AppServices.Localization.GetString("AddContact.ExpectedPublicKey", "Expected Public Key (hex, optional)");
-        public string LocalizedPublicKeyPlaceholder => Services.AppServices.Localization.GetString("AddContact.PublicKeyPlaceholder", "abcdef...");
         public string LocalizedSimulatedContact => Services.AppServices.Localization.GetString("AddContact.SimulatedContact", "Simulated Contact");
         public string LocalizedCancel => Services.AppServices.Localization.GetString("AddContact.Cancel", "Cancel");
         public string LocalizedSendRequest => Services.AppServices.Localization.GetString("AddContact.SendRequest", "Send Request");
@@ -68,8 +63,6 @@ namespace Zer0Talk.ViewModels
             OnPropertyChanged(nameof(LocalizedEnterUID));
             OnPropertyChanged(nameof(LocalizedUID));
             OnPropertyChanged(nameof(LocalizedUIDPlaceholder));
-            OnPropertyChanged(nameof(LocalizedExpectedPublicKey));
-            OnPropertyChanged(nameof(LocalizedPublicKeyPlaceholder));
             OnPropertyChanged(nameof(LocalizedSimulatedContact));
             OnPropertyChanged(nameof(LocalizedCancel));
             OnPropertyChanged(nameof(LocalizedSendRequest));
@@ -154,29 +147,13 @@ namespace Zer0Talk.ViewModels
                     string.Equals(Trim(c.UID), normalizedUid, StringComparison.OrdinalIgnoreCase));
                 if (existing != null)
                 {
-                    var normalizedExpected = NormalizeHex(ExpectedPublicKeyHex);
-                    if (!string.IsNullOrWhiteSpace(normalizedExpected))
-                    {
-                        var outcome = AppServices.Contacts.AddOrMergeContact(new Models.Contact
-                        {
-                            UID = normalizedUid,
-                            DisplayName = existing.DisplayName,
-                            ExpectedPublicKeyHex = normalizedExpected,
-                            IsSimulated = existing.IsSimulated,
-                        }, AppServices.Passphrase);
-                        if (outcome == AddContactOutcome.MergedExisting)
-                        {
-                            AppServices.Peers.IncludeContacts();
-                        }
-                    }
-
                     Status = "A contact with this UID already exists. Existing entry was kept/merged.";
                     return;
                 }
 
                 string? host = string.IsNullOrWhiteSpace(Host) ? null : Host;
                 int? port = Port > 0 ? Port : null;
-                var result = await AppServices.ContactRequests.SendRequestAsync(UID, host, port, TimeSpan.FromSeconds(20), ExpectedPublicKeyHex);
+                var result = await AppServices.ContactRequests.SendRequestAsync(UID, host, port, TimeSpan.FromSeconds(20));
                 switch (result)
                 {
                     case Services.ContactRequestResult.Accepted:
@@ -225,13 +202,6 @@ namespace Zer0Talk.ViewModels
                 if (!char.IsLetterOrDigit(ch)) return false;
             }
             return true;
-        }
-
-        private static string? NormalizeHex(string? hex)
-        {
-            if (string.IsNullOrWhiteSpace(hex)) return null;
-            var s = hex.Trim().ToLowerInvariant();
-            return s.Replace("-", string.Empty).Replace(":", string.Empty).Replace(" ", string.Empty);
         }
 
         private static string BuildNotFoundStatus(string? detail)

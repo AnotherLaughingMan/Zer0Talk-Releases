@@ -78,6 +78,8 @@
     "Choose": "選擇...",
     "Clear": "清除",
     "ShareAvatar": "與節點分享頭像",
+    "HideInappropriateAvatarsGlobally": "全域隱藏不適當的頭像",
+    "HideInappropriateAvatarsGloballyHelp": "在此裝置上將聯絡人頭像替換為隨機指派的通用頭像。",
     "Bio": "簡介",
     "CustomizeKeyboardShortcuts": "自訂鍵盤快捷鍵",
     "HotkeyInstructions": "點選快捷鍵欄位並按下想要的按鍵組合。衝突的指派將被拒絕。",
